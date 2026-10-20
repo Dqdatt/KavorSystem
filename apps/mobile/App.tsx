@@ -30,7 +30,7 @@ import { SAMPLE_TENANT } from "@kavor/contracts";
 
 type IconName = ComponentProps<typeof MaterialCommunityIcons>["name"];
 type TabId = "home" | "attendance" | "requests" | "news";
-type FlowId = "leave" | "leaveNew" | "explain" | "ot" | "advance" | "advanceNew" | "payslips" | "profile" | "device" | "notifications" | "widget" | "newsDetail" | "requestDetail" | "done" | "login" | "activate" | "forgot" | "otp" | "resetPassword";
+type FlowId = "leave" | "leaveNew" | "explain" | "ot" | "advance" | "advanceNew" | "payslips" | "profile" | "device" | "clock" | "approvalDetail" | "notifications" | "widget" | "newsDetail" | "requestDetail" | "done" | "login" | "activate" | "forgot" | "otp" | "resetPassword";
 type RequestStatus = "pending" | "approved" | "rejected" | "cancelled";
 type RequestKind = "leave" | "ot" | "explain" | "advance";
 
@@ -49,6 +49,11 @@ const initialRequests: RequestItem[] = [
   { id: "OT-1810", kind: "ot", title: "Làm thêm giờ", detail: "18/10/2026 · 2 giờ", status: "approved", created: "14/10 · 15:40", reason: "Hoàn thành kế hoạch tháng" },
   { id: "GT-1510", kind: "explain", title: "Giải trình công", detail: "15/10/2026 · thiếu giờ vào", status: "pending", created: "16/10 · 08:30", reason: "Điện thoại hết pin khi đến công ty" },
   { id: "TU-0912", kind: "advance", title: "Tạm ứng lương", detail: "3.000.000 ₫ · kỳ 09/2026", status: "approved", created: "12/09 · 09:20", reason: "Chi phí y tế" },
+];
+
+const initialApprovals: RequestItem[] = [
+  { id: "NP-2410", kind: "leave", title: "Võ Thảo Linh", detail: "Nghỉ phép · 24/10 · 1 ngày", status: "pending", created: "16/10 · 07:42", reason: "Việc gia đình" },
+  { id: "GT-1610", kind: "explain", title: "Đặng Văn Khoa", detail: "Giải trình · thiếu giờ vào", status: "pending", created: "16/10 · 06:58", reason: "Đi công tác tại xưởng" },
 ];
 
 const requestIcon: Record<RequestKind, IconName> = { leave: "airplane", ot: "weather-night", explain: "clock-edit-outline", advance: "cash-multiple" };
@@ -92,17 +97,33 @@ function useReducedMotion() {
   return reduced;
 }
 
-function MotionScreen({ children }: { children: ReactNode }) {
+function MotionScreen({ children, variant = "push" }: { children: ReactNode; variant?: "push" | "fade" }) {
   const reduced = useReducedMotion();
+  const { width } = useWindowDimensions();
   const enter = useRef(new Animated.Value(reduced ? 1 : 0)).current;
   useEffect(() => {
     if (reduced) {
       enter.setValue(1);
       return;
     }
-    Animated.timing(enter, { toValue: 1, duration: 260, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
-  }, [enter, reduced]);
-  return <Animated.View style={[styles.scene, { opacity: enter, transform: [{ translateY: enter.interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) }] }]}>{children}</Animated.View>;
+    enter.setValue(0);
+    Animated.spring(enter, { toValue: 1, speed: 17, bounciness: 1, useNativeDriver: true }).start();
+  }, [enter, reduced, variant]);
+  const translate = variant === "push"
+    ? { translateX: enter.interpolate({ inputRange: [0, 1], outputRange: [Math.min(width * 0.22, 84), 0] }) }
+    : { scale: enter.interpolate({ inputRange: [0, 1], outputRange: [0.985, 1] }) };
+  return <Animated.View style={[styles.scene, { opacity: enter, transform: [translate] }]}>{children}</Animated.View>;
+}
+
+function Reveal({ children, delay = 0 }: { children: ReactNode; delay?: number }) {
+  const reduced = useReducedMotion();
+  const value = useRef(new Animated.Value(reduced ? 1 : 0)).current;
+  useEffect(() => {
+    if (reduced) { value.setValue(1); return; }
+    value.setValue(0);
+    Animated.spring(value, { toValue: 1, delay, speed: 15, bounciness: 2, useNativeDriver: true }).start();
+  }, [delay, reduced, value]);
+  return <Animated.View style={{ opacity: value, transform: [{ translateY: value.interpolate({ inputRange: [0, 1], outputRange: [16, 0] }) }] }}>{children}</Animated.View>;
 }
 
 function DecorativeBackground() {
@@ -140,6 +161,19 @@ function NewsCarousel({ onOpen, onAll }: { onOpen: () => void; onAll: () => void
   const { width } = useWindowDimensions();
   const cardWidth = Math.max(280, width - 40);
   const [active, setActive] = useState(0);
+  const carousel = useRef<ScrollView>(null);
+  const reduced = useReducedMotion();
+  useEffect(() => {
+    if (reduced) return;
+    const timer = setInterval(() => {
+      setActive((current) => {
+        const next = (current + 1) % homeNews.length;
+        carousel.current?.scrollTo({ x: next * cardWidth, animated: true });
+        return next;
+      });
+    }, 4200);
+    return () => clearInterval(timer);
+  }, [cardWidth, reduced]);
   return (
     <View style={styles.newsSection}>
       <View style={styles.sectionHeader}>
@@ -147,6 +181,7 @@ function NewsCarousel({ onOpen, onAll }: { onOpen: () => void; onAll: () => void
         <Pressable hitSlop={10} onPress={onAll}><Text style={styles.sectionLink}>Tất cả</Text></Pressable>
       </View>
       <ScrollView
+        ref={carousel}
         horizontal
         pagingEnabled
         bounces={false}
@@ -174,11 +209,22 @@ function NewsCarousel({ onOpen, onAll }: { onOpen: () => void; onAll: () => void
   );
 }
 
-function PunchHero({ checkedIn, onPunch, onTap }: { checkedIn: boolean; onPunch: () => void; onTap: () => void }) {
+function PunchHero({ checkedIn, onPunch, onTap, onDetails }: { checkedIn: boolean; onPunch: () => void; onTap: () => void; onDetails?: () => void }) {
   const reduced = useReducedMotion();
   const hold = useRef(new Animated.Value(0)).current;
   const success = useRef(new Animated.Value(1)).current;
+  const breathe = useRef(new Animated.Value(0)).current;
   const didLongPress = useRef(false);
+
+  useEffect(() => {
+    if (reduced) return;
+    const loop = Animated.loop(Animated.sequence([
+      Animated.timing(breathe, { toValue: 1, duration: 1800, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      Animated.timing(breathe, { toValue: 0, duration: 1800, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+    ]));
+    loop.start();
+    return () => loop.stop();
+  }, [breathe, reduced]);
 
   function beginHold() {
     didLongPress.current = false;
@@ -216,9 +262,9 @@ function PunchHero({ checkedIn, onPunch, onTap }: { checkedIn: boolean; onPunch:
         <View style={[styles.mapSquare, { right: 70, bottom: 18 }]} />
         <View style={styles.crossLineA} />
         <View style={styles.crossLineB} />
-        <Animated.View style={[styles.haloOuter, { opacity: hold.interpolate({ inputRange: [0, 1], outputRange: [0.45, 1] }), transform: [{ scale: hold.interpolate({ inputRange: [0, 1], outputRange: [1, 1.11] }) }] }]} />
-        <Animated.View style={[styles.haloInner, { transform: [{ scale: hold.interpolate({ inputRange: [0, 1], outputRange: [1, 1.04] }) }] }]} />
-        <Animated.View style={[styles.holdRing, { opacity: hold, transform: [{ scale: hold.interpolate({ inputRange: [0, 1], outputRange: [0.84, 1] }) }] }]} />
+        <Animated.View style={[styles.haloOuter, { opacity: breathe.interpolate({ inputRange: [0, 1], outputRange: [0.3, 0.62] }), transform: [{ scale: Animated.multiply(breathe.interpolate({ inputRange: [0, 1], outputRange: [0.97, 1.05] }), hold.interpolate({ inputRange: [0, 1], outputRange: [1, 1.08] })) }] }]} />
+        <Animated.View style={[styles.haloInner, { transform: [{ scale: breathe.interpolate({ inputRange: [0, 1], outputRange: [0.99, 1.025] }) }] }]} />
+        <Animated.View style={[styles.holdRing, { opacity: hold, transform: [{ rotate: hold.interpolate({ inputRange: [0, 1], outputRange: ["-90deg", "270deg"] }) }, { scale: hold.interpolate({ inputRange: [0, 1], outputRange: [0.88, 1] }) }] }]} />
         <Animated.View style={[styles.punchPressable, { transform: [{ scale: Animated.multiply(success, hold.interpolate({ inputRange: [0, 1], outputRange: [1, 0.94] })) }] }]}>
           <Pressable
             accessibilityRole="button"
@@ -239,7 +285,7 @@ function PunchHero({ checkedIn, onPunch, onTap }: { checkedIn: boolean; onPunch:
         </Animated.View>
       </View>
 
-      <View style={styles.locationRow}><AppIcon name="map-marker-outline" size={19} color="#1D3B32" /><Text style={styles.locationText}>Vị trí: Văn phòng Quận 1</Text></View>
+      <Pressable style={styles.locationRow} onPress={onDetails}><AppIcon name="map-marker-outline" size={19} color="#1D3B32" /><Text style={styles.locationText}>Vị trí: Văn phòng Quận 1</Text>{onDetails ? <AppIcon name="chevron-right" size={17} color="#7A8781" /> : null}</Pressable>
       <View style={styles.heroStats}>
         <View style={styles.heroStat}><AppIcon name="clock-in" size={29} color="#168563" /><Text style={styles.heroStatValue}>{checkedIn ? "07:58" : "--:--"}</Text><Text style={styles.heroStatLabel}>Vào ca</Text></View>
         <View style={styles.heroStat}><AppIcon name="clock-out" size={29} color="#168563" /><Text style={styles.heroStatValue}>--:--</Text><Text style={styles.heroStatLabel}>Ra ca</Text></View>
@@ -262,7 +308,7 @@ function PersonalSection({ notify, openFlow }: { notify: (message: string) => vo
   };
   return (
     <>
-      <Pressable style={styles.noticeCard} onPress={() => notify("Đã mở giải trình công mẫu") }>
+      <Pressable style={styles.noticeCard} onPress={() => openFlow("explain") }>
         <View style={styles.noticeIcon}><AppIcon name="clock-alert-outline" size={25} color="#B67212" /></View>
         <View style={styles.noticeCopy}><Text style={styles.noticeTitle}>Hạn giải trình công: 22/10</Text><Text style={styles.noticeDetail}>Ngày 15/10 thiếu giờ vào · còn 6 ngày</Text></View>
         <Text style={styles.noticeLimit}>2/3 lượt</Text>
@@ -270,9 +316,9 @@ function PersonalSection({ notify, openFlow }: { notify: (message: string) => vo
 
       <Text style={[styles.sectionTitle, styles.personalTitle]}>Của bạn</Text>
       <View style={styles.listCard}>
-        <PersonalRow icon="airplane" title="Phép năm còn lại" value="6,5 ngày" />
-        <PersonalRow icon="cash-multiple" title="Hạn mức tạm ứng" value="4.500.000 ₫" border />
-        <PersonalRow icon="receipt-text-outline" title="Phiếu lương 09/2026" value="Đã công bố" border />
+        <PersonalRow icon="airplane" title="Phép năm còn lại" value="6,5 ngày" onPress={() => openFlow("leave")} />
+        <PersonalRow icon="cash-multiple" title="Hạn mức tạm ứng" value="4.500.000 ₫" border onPress={() => openFlow("advance")} />
+        <PersonalRow icon="receipt-text-outline" title="Phiếu lương 09/2026" value="Đã công bố" border onPress={() => openFlow("payslips")} />
       </View>
 
       <View style={styles.shortcutsCard}>
@@ -287,14 +333,14 @@ function PersonalSection({ notify, openFlow }: { notify: (message: string) => vo
   );
 }
 
-function PersonalRow({ icon, title, value, border = false }: { icon: IconName; title: string; value: string; border?: boolean }) {
+function PersonalRow({ icon, title, value, border = false, onPress }: { icon: IconName; title: string; value: string; border?: boolean; onPress?: () => void }) {
   return (
-    <View style={[styles.personalRow, border && styles.personalRowBorder]}>
+    <Pressable disabled={!onPress} style={({ pressed }) => [styles.personalRow, border && styles.personalRowBorder, pressed && styles.rowPressed]} onPress={onPress}>
       <AppIcon name={icon} size={23} color="#087355" />
       <Text style={styles.personalLabel}>{title}</Text>
       <Text style={styles.personalValue}>{value}</Text>
       <AppIcon name="chevron-right" size={18} color="#9AA69F" />
-    </View>
+    </Pressable>
   );
 }
 
@@ -303,9 +349,9 @@ function HomeScreen({ checkedIn, notify, onPunch, openFlow, onNews }: { checkedI
     <>
       <HomeHeader onNotice={() => openFlow("notifications")} onProfile={() => openFlow("profile")} />
       <ScrollView contentContainerStyle={styles.homeContent} scrollIndicatorInsets={{ bottom: 112 }} showsVerticalScrollIndicator={false}>
-        <NewsCarousel onOpen={() => openFlow("newsDetail")} onAll={onNews} />
-        <PunchHero checkedIn={checkedIn} onPunch={onPunch} onTap={() => notify("Nhấn giữ nút tròn trong 1 giây để chấm công")} />
-        <PersonalSection notify={notify} openFlow={openFlow} />
+        <Reveal delay={30}><NewsCarousel onOpen={() => openFlow("newsDetail")} onAll={onNews} /></Reveal>
+        <Reveal delay={110}><PunchHero checkedIn={checkedIn} onPunch={onPunch} onTap={() => notify("Nhấn giữ nút tròn trong 1 giây để chấm công")} onDetails={() => openFlow("clock")} /></Reveal>
+        <Reveal delay={190}><PersonalSection notify={notify} openFlow={openFlow} /></Reveal>
       </ScrollView>
     </>
   );
@@ -324,6 +370,9 @@ function SecondaryScreen({
   onOpenRequest,
   onOpenExplain,
   onOpenNews,
+  approvals,
+  onOpenApproval,
+  onDecision,
 }: {
   tab: Exclude<TabId, "home">;
   notify: (message: string) => void;
@@ -331,15 +380,14 @@ function SecondaryScreen({
   onOpenRequest: (id: string) => void;
   onOpenExplain: () => void;
   onOpenNews: () => void;
+  approvals: RequestItem[];
+  onOpenApproval: (id: string) => void;
+  onDecision: (id: string, approved: boolean) => void;
 }) {
   const titles = { attendance: "Bảng công", requests: "Đơn từ", news: "Bản tin" };
   const [attendanceFilter, setAttendanceFilter] = useState<"all" | "late" | "missing">("all");
   const [requestFilter, setRequestFilter] = useState<"all" | RequestStatus>("all");
   const [requestScope, setRequestScope] = useState<"mine" | "approve">("mine");
-  const [approvals, setApprovals] = useState<RequestItem[]>([
-    { id: "NP-2410", kind: "leave", title: "Võ Thảo Linh", detail: "Nghỉ phép · 24/10 · 1 ngày", status: "pending", created: "16/10 · 07:42", reason: "Việc gia đình" },
-    { id: "GT-1610", kind: "explain", title: "Đặng Văn Khoa", detail: "Giải trình · thiếu giờ vào", status: "pending", created: "16/10 · 06:58", reason: "Đi công tác tại xưởng" },
-  ]);
   const visibleAttendance = attendanceRows.filter((row) => attendanceFilter === "all" || (attendanceFilter === "late" ? row[4].includes("Muộn") : row[4].includes("Thiếu")));
   const visibleRequests = requests.filter((item) => requestFilter === "all" || item.status === requestFilter);
   return (
@@ -361,7 +409,7 @@ function SecondaryScreen({
         ) : tab === "requests" ? (
           <>
             <View style={styles.segment}><Pressable style={requestScope === "mine" ? styles.segmentActive : styles.segmentInactive} onPress={() => setRequestScope("mine")}><Text style={requestScope === "mine" ? styles.segmentActiveText : styles.segmentText}>Đơn của tôi</Text></Pressable><Pressable style={requestScope === "approve" ? styles.segmentActive : styles.segmentInactive} onPress={() => setRequestScope("approve")}><Text style={requestScope === "approve" ? styles.segmentActiveText : styles.segmentText}>Cần tôi duyệt · {approvals.length}</Text></Pressable></View>
-            {requestScope === "mine" ? <><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>{([['all', 'Tất cả'], ['pending', 'Chờ duyệt'], ['approved', 'Đã duyệt'], ['cancelled', 'Đã hủy']] as const).map(([id, label]) => <Pressable key={id} style={[styles.filterChip, requestFilter === id && styles.filterChipActive]} onPress={() => setRequestFilter(id)}><Text style={[styles.filterChipText, requestFilter === id && styles.filterChipTextActive]}>{label}</Text></Pressable>)}</ScrollView>{visibleRequests.length ? <View style={styles.listCard}>{visibleRequests.map((item, index) => <RequestRow key={item.id} icon={requestIcon[item.kind]} title={item.title} detail={item.detail} status={requestStatusLabel[item.status]} border={index > 0} onPress={() => onOpenRequest(item.id)} />)}</View> : <View style={styles.emptyCard}><AppIcon name="file-document-check-outline" size={42} color="#8AA097" /><Text style={styles.emptyTitle}>Không có đơn nào</Text><Text style={styles.emptyText}>Đổi bộ lọc hoặc bấm nút + để tạo đơn mới.</Text></View>}</> : approvals.length ? <View style={styles.approvalList}>{approvals.map((item) => <View key={item.id} style={styles.approvalCard}><View style={styles.approvalHeader}><View style={styles.approvalAvatar}><Text style={styles.approvalAvatarText}>{item.title.split(" ").map((part) => part[0]).slice(-2).join("")}</Text></View><View style={styles.requestCopy}><Text style={styles.requestTitle}>{item.title}</Text><Text style={styles.requestDetail}>{item.detail}</Text></View><Text style={styles.rowStatusWarn}>Chờ bạn</Text></View><Text style={styles.approvalReason}>{item.reason}</Text><View style={styles.approvalActions}><Pressable style={styles.rejectSmall} onPress={() => { setApprovals((current) => current.filter((row) => row.id !== item.id)); notify(`Đã từ chối ${item.id}`); }}><Text style={styles.rejectSmallText}>Từ chối</Text></Pressable><Pressable style={styles.approveSmall} onPress={() => { setApprovals((current) => current.filter((row) => row.id !== item.id)); notify(`Đã duyệt ${item.id}`); }}><Text style={styles.approveSmallText}>Duyệt</Text></Pressable></View></View>)}</View> : <View style={styles.emptyCard}><AppIcon name="check-all" size={42} color="#168563" /><Text style={styles.emptyTitle}>Không còn đơn cần duyệt</Text><Text style={styles.emptyText}>Đơn mới từ nhóm sẽ xuất hiện tại đây.</Text></View>}
+            {requestScope === "mine" ? <><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>{([['all', 'Tất cả'], ['pending', 'Chờ duyệt'], ['approved', 'Đã duyệt'], ['cancelled', 'Đã hủy']] as const).map(([id, label]) => <Pressable key={id} style={[styles.filterChip, requestFilter === id && styles.filterChipActive]} onPress={() => setRequestFilter(id)}><Text style={[styles.filterChipText, requestFilter === id && styles.filterChipTextActive]}>{label}</Text></Pressable>)}</ScrollView>{visibleRequests.length ? <View style={styles.listCard}>{visibleRequests.map((item, index) => <RequestRow key={item.id} icon={requestIcon[item.kind]} title={item.title} detail={item.detail} status={requestStatusLabel[item.status]} border={index > 0} onPress={() => onOpenRequest(item.id)} />)}</View> : <View style={styles.emptyCard}><AppIcon name="file-document-check-outline" size={42} color="#8AA097" /><Text style={styles.emptyTitle}>Không có đơn nào</Text><Text style={styles.emptyText}>Đổi bộ lọc hoặc bấm nút + để tạo đơn mới.</Text></View>}</> : approvals.length ? <View style={styles.approvalList}>{approvals.map((item) => <View key={item.id} style={styles.approvalCard}><Pressable style={styles.approvalHeader} onPress={() => onOpenApproval(item.id)}><View style={styles.approvalAvatar}><Text style={styles.approvalAvatarText}>{item.title.split(" ").map((part) => part[0]).slice(-2).join("")}</Text></View><View style={styles.requestCopy}><Text style={styles.requestTitle}>{item.title}</Text><Text style={styles.requestDetail}>{item.detail}</Text></View><Text style={styles.rowStatusWarn}>Chờ bạn</Text><AppIcon name="chevron-right" size={17} color="#9AA69F" /></Pressable><Text style={styles.approvalReason}>{item.reason}</Text><View style={styles.approvalActions}><Pressable style={styles.rejectSmall} onPress={() => onDecision(item.id, false)}><Text style={styles.rejectSmallText}>Từ chối</Text></Pressable><Pressable style={styles.approveSmall} onPress={() => onDecision(item.id, true)}><Text style={styles.approveSmallText}>Duyệt</Text></Pressable></View></View>)}</View> : <View style={styles.emptyCard}><AppIcon name="check-all" size={42} color="#168563" /><Text style={styles.emptyTitle}>Không còn đơn cần duyệt</Text><Text style={styles.emptyText}>Đơn mới từ nhóm sẽ xuất hiện tại đây.</Text></View>}
           </>
         ) : (
           <View style={styles.newsList}><NewsListCard important title="Chấm công GPS trên app Kavor áp dụng từ 01/11/2026" meta="Thông báo · Hôm qua" onPress={onOpenNews} /><NewsListCard title="Lịch nghỉ và trực hỗ trợ cuối tháng 10" meta="Chính sách · 15/10/2026" onPress={onOpenNews} /><NewsListCard title="Chúc mừng sinh nhật nhân viên tháng 10" meta="Sự kiện · 10/10/2026" onPress={onOpenNews} /></View>
@@ -385,6 +433,30 @@ function NewsListCard({ title, meta, important = false, onPress }: { title: stri
 
 function DetailHeader({ title, onBack }: { title: string; onBack: () => void }) {
   return <View style={styles.detailHeader}><Pressable accessibilityLabel="Quay lại" style={styles.detailBack} onPress={onBack}><AppIcon name="arrow-left" size={22} color="#173B31" /></Pressable><Text style={styles.detailTitle}>{title}</Text><View style={styles.detailSpacer} /></View>;
+}
+
+function ClockScreen({ checkedIn, onBack, onPunch, notify }: { checkedIn: boolean; onBack: () => void; onPunch: () => void; notify: (message: string) => void }) {
+  return <>
+    <DetailHeader title="Chấm công" onBack={onBack} />
+    <ScrollView contentContainerStyle={styles.flowContent} showsVerticalScrollIndicator={false}>
+      <PunchHero checkedIn={checkedIn} onPunch={onPunch} onTap={() => notify("Nhấn giữ nút tròn trong 1 giây để chấm công")} />
+      <View style={styles.reviewCard}><InfoLine label="Địa điểm" value="Văn phòng Quận 1" /><InfoLine label="Khoảng cách" value="1,8 m · trong vùng" border /><InfoLine label="Độ chính xác GPS" value="±2 m" border /><InfoLine label="Thiết bị" value="iPhone 11 · đã đăng ký" border /></View>
+      <View style={styles.infoNote}><AppIcon name="map-marker-check-outline" size={21} color="#087355" /><Text style={styles.infoNoteText}>Vị trí chỉ được đọc khi bạn chủ động chấm công và không được theo dõi liên tục.</Text></View>
+    </ScrollView>
+  </>;
+}
+
+function ApprovalDetail({ item, onBack, onDecision }: { item: RequestItem; onBack: () => void; onDecision: (approved: boolean) => void }) {
+  const initials = item.title.split(" ").map((part) => part[0]).slice(-2).join("");
+  return <>
+    <DetailHeader title={item.id} onBack={onBack} />
+    <ScrollView contentContainerStyle={styles.flowContent} showsVerticalScrollIndicator={false}>
+      <View style={styles.profileHero}><View style={styles.approvalDetailAvatar}><Text style={styles.profileAvatarText}>{initials}</Text></View><Text style={styles.profileName}>{item.title}</Text><Text style={styles.profileRole}>Nhân viên · Marketing</Text><Text style={styles.detailStatusWarn}>Chờ bạn duyệt</Text></View>
+      <View style={styles.reviewCard}><InfoLine label="Loại đơn" value={item.kind === "leave" ? "Nghỉ phép" : "Giải trình công"} /><InfoLine label="Nội dung" value={item.detail} border /><InfoLine label="Lý do" value={item.reason} border /><InfoLine label="Gửi lúc" value={item.created} border /></View>
+      <View style={styles.timelineCard}><View style={styles.timelineRow}><View style={styles.timelineDotDone}><AppIcon name="check" size={13} color="#FFFFFF" /></View><View><Text style={styles.timelineTitle}>Nhân viên đã gửi</Text><Text style={styles.timelineSub}>{item.created}</Text></View></View><View style={styles.timelineStem} /><View style={styles.timelineRow}><View style={styles.timelineDotCurrent}><AppIcon name="clock-outline" size={13} color="#8A681A" /></View><View><Text style={styles.timelineTitle}>Quản lý duyệt</Text><Text style={styles.timelineSub}>Đang chờ quyết định của bạn</Text></View></View></View>
+    </ScrollView>
+    <View style={styles.flowFooter}><View style={styles.approvalActions}><Pressable style={styles.rejectSmall} onPress={() => onDecision(false)}><Text style={styles.rejectSmallText}>Từ chối</Text></Pressable><Pressable style={styles.approveSmall} onPress={() => onDecision(true)}><Text style={styles.approveSmallText}>Duyệt đơn</Text></Pressable></View></View>
+  </>;
 }
 
 function LeaveOverview({ requests, onBack, onCreate, onOpenRequest }: { requests: RequestItem[]; onBack: () => void; onCreate: () => void; onOpenRequest: (id: string) => void }) {
@@ -699,7 +771,9 @@ export default function App() {
   const [quickOpen, setQuickOpen] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [requests, setRequests] = useState<RequestItem[]>(initialRequests);
+  const [approvals, setApprovals] = useState<RequestItem[]>(initialApprovals);
   const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
+  const [selectedApprovalId, setSelectedApprovalId] = useState<string | null>(null);
   const [doneKind, setDoneKind] = useState<RequestKind>("leave");
   const [authIntent, setAuthIntent] = useState<"activate" | "reset">("reset");
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -722,6 +796,17 @@ export default function App() {
     openFlow("requestDetail");
   }
 
+  function openApproval(id: string) {
+    setSelectedApprovalId(id);
+    openFlow("approvalDetail");
+  }
+
+  function decideApproval(id: string, approved: boolean) {
+    setApprovals((current) => current.filter((item) => item.id !== id));
+    notify(`${approved ? "Đã duyệt" : "Đã từ chối"} ${id}`);
+    setFlow(null);
+  }
+
   function submitRequest(request: RequestItem) {
     setRequests((current) => [request, ...current.filter((item) => item.id !== request.id)]);
     setDoneKind(request.kind);
@@ -729,6 +814,7 @@ export default function App() {
   }
 
   const selectedRequest = requests.find((item) => item.id === selectedRequestId);
+  const selectedApproval = approvals.find((item) => item.id === selectedApprovalId);
 
   if (!fontsLoaded) return <View style={styles.loading} />;
 
@@ -748,26 +834,30 @@ export default function App() {
   else if (flow === "payslips") content = <PayslipsScreen onBack={() => setFlow(null)} notify={notify} />;
   else if (flow === "profile") content = <ProfileScreen onBack={() => setFlow(null)} notify={notify} onDevice={() => setFlow("device")} onLogout={() => { setSignedIn(false); setFlow("login"); }} />;
   else if (flow === "device") content = <DeviceScreen onBack={() => setFlow("profile")} notify={notify} />;
+  else if (flow === "clock") content = <ClockScreen checkedIn={checkedIn} onBack={() => setFlow(null)} onPunch={() => { setCheckedIn((value) => !value); notify(checkedIn ? "Đã ghi nhận ra ca" : "Đã ghi nhận vào ca lúc 07:58"); }} notify={notify} />;
+  else if (flow === "approvalDetail" && selectedApproval) content = <ApprovalDetail item={selectedApproval} onBack={() => setFlow(null)} onDecision={(approved) => decideApproval(selectedApproval.id, approved)} />;
   else if (flow === "notifications") content = <NotificationsScreen onBack={() => setFlow(null)} />;
   else if (flow === "newsDetail") content = <NewsDetailScreen onBack={() => setFlow(null)} />;
   else if (flow === "widget") content = <WidgetGuideScreen onBack={() => setFlow(null)} notify={notify} />;
   else if (flow === "requestDetail" && selectedRequest) content = <RequestDetail item={selectedRequest} onBack={() => setFlow(null)} onCancel={() => { setRequests((current) => current.map((item) => item.id === selectedRequest.id ? { ...item, status: "cancelled" } : item)); notify(`Đã hủy đơn ${selectedRequest.id}`); setFlow(null); }} />;
   else if (flow === "done") content = <DoneScreen kind={doneKind} onViewRequests={() => { setActiveTab("requests"); setFlow(null); }} onHome={() => { setActiveTab("home"); setFlow(null); }} />;
   else if (activeTab === "home") content = <HomeScreen checkedIn={checkedIn} notify={notify} openFlow={openFlow} onNews={() => setActiveTab("news")} onPunch={() => { setCheckedIn((value) => !value); notify(checkedIn ? "Đã ghi nhận ra ca" : "Đã ghi nhận vào ca lúc 07:58"); }} />;
-  else content = <SecondaryScreen tab={activeTab} notify={notify} requests={requests} onOpenRequest={openRequest} onOpenExplain={() => openFlow("explain")} onOpenNews={() => openFlow("newsDetail")} />;
+  else content = <SecondaryScreen tab={activeTab} notify={notify} requests={requests} approvals={approvals} onOpenRequest={openRequest} onOpenApproval={openApproval} onDecision={decideApproval} onOpenExplain={() => openFlow("explain")} onOpenNews={() => openFlow("newsDetail")} />;
 
   const sceneKey = signedIn ? (flow ?? activeTab) : (flow ?? "login");
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <View style={styles.root}>
       <StatusBar style="dark" />
-      <View style={styles.app}>
-        <DecorativeBackground />
-        <MotionScreen key={sceneKey}>{content}</MotionScreen>
+      <DecorativeBackground />
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.app}>
+        <MotionScreen key={sceneKey} variant={flow || !signedIn ? "push" : "fade"}>{content}</MotionScreen>
         {signedIn && !flow ? <Dock activeTab={activeTab} setActiveTab={(tab) => { setQuickOpen(false); setActiveTab(tab); }} quickOpen={quickOpen} setQuickOpen={setQuickOpen} openFlow={openFlow} notify={notify} /> : null}
         {message ? <AnimatedToast key={message} message={message} /> : null}
-      </View>
-    </SafeAreaView>
+        </View>
+      </SafeAreaView>
+    </View>
   );
 }
 
@@ -775,8 +865,9 @@ const fonts = { regular: "Montserrat_400Regular", medium: "Montserrat_500Medium"
 
 const styles = StyleSheet.create({
   loading: { flex: 1, backgroundColor: "#FFFFFF" },
-  safeArea: { flex: 1, backgroundColor: "#FFFFFF", paddingTop: Platform.OS === "android" ? NativeStatusBar.currentHeight : 0 },
-  app: { flex: 1, backgroundColor: "#FFFFFF", overflow: "hidden" },
+  root: { flex: 1, backgroundColor: "#F8FCFA" },
+  safeArea: { flex: 1, backgroundColor: "transparent", paddingTop: Platform.OS === "android" ? NativeStatusBar.currentHeight : 0 },
+  app: { flex: 1, backgroundColor: "transparent", overflow: "hidden" },
   scene: { flex: 1 },
   blob: { position: "absolute", borderRadius: 999 },
   blobTop: { width: 370, height: 370, top: -170, left: -165 },
@@ -788,12 +879,12 @@ const styles = StyleSheet.create({
   companyName: { flex: 1, textAlign: "center", color: "#20362F", fontSize: 14, letterSpacing: 2.2, fontFamily: fonts.regular },
   avatar: { width: 42, height: 42, borderRadius: 21, alignItems: "center", justifyContent: "center", backgroundColor: "#197E60", borderWidth: 2, borderColor: "#FFFFFF", shadowColor: "#064632", shadowOpacity: 0.2, shadowRadius: 9, elevation: 3 },
   avatarText: { color: "#FFFFFF", fontSize: 12, fontFamily: fonts.semibold },
-  homeContent: { paddingHorizontal: 20, paddingBottom: 178 },
-  newsSection: { marginTop: 4 },
-  sectionHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 11 },
+  homeContent: { paddingHorizontal: 20, paddingBottom: 118 },
+  newsSection: { marginTop: 1 },
+  sectionHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 },
   sectionTitle: { color: "#13241E", fontSize: 16, fontFamily: fonts.bold },
   sectionLink: { color: "#065F46", fontSize: 12.5, fontFamily: fonts.semibold },
-  newsCard: { minHeight: 91, borderRadius: 20, padding: 14, flexDirection: "row", gap: 12, backgroundColor: "rgba(255,243,244,0.82)", borderWidth: 1, borderColor: "rgba(255,214,216,0.95)", shadowColor: "#064632", shadowOpacity: 0.12, shadowRadius: 18, shadowOffset: { width: 0, height: 9 }, elevation: 3 },
+  newsCard: { minHeight: 84, borderRadius: 20, padding: 13, flexDirection: "row", gap: 12, backgroundColor: "rgba(255,243,244,0.82)", borderWidth: 1, borderColor: "rgba(255,214,216,0.95)", shadowColor: "#064632", shadowOpacity: 0.12, shadowRadius: 18, shadowOffset: { width: 0, height: 9 }, elevation: 3 },
   newsCardNormal: { backgroundColor: "rgba(255,255,255,0.82)", borderColor: "rgba(255,255,255,0.96)" },
   newsIcon: { width: 44, height: 44, borderRadius: 14, backgroundColor: "#FFECEE", alignItems: "center", justifyContent: "center" },
   newsIconNormal: { backgroundColor: "#EAF7F1" },
@@ -804,34 +895,34 @@ const styles = StyleSheet.create({
   importantText: { color: "#FFFFFF", fontSize: 10, fontFamily: fonts.bold },
   newsDate: { color: "#97A39D", fontSize: 11, fontFamily: fonts.medium },
   newsTitle: { color: "#13241E", fontSize: 14, lineHeight: 19, fontFamily: fonts.semibold },
-  carouselDots: { height: 24, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5 },
+  carouselDots: { height: 18, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5 },
   carouselDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: "#DCE2DF" },
   carouselDotActive: { width: 18, height: 6, borderRadius: 3, backgroundColor: "#065F46" },
   hero: { alignItems: "center", marginTop: -1 },
-  heroTime: { color: "#1D3B32", fontSize: 48, lineHeight: 53, letterSpacing: -1.4, fontFamily: fonts.light },
-  heroDate: { color: "#7A8781", fontSize: 16, marginTop: 1, fontFamily: fonts.regular },
-  shiftChip: { minHeight: 30, marginTop: 8, paddingHorizontal: 12, borderRadius: 15, flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "rgba(255,255,255,0.75)", borderWidth: 1, borderColor: "#FFFFFF", shadowColor: "#064632", shadowOpacity: 0.08, shadowRadius: 10 },
+  heroTime: { color: "#1D3B32", fontSize: 44, lineHeight: 48, letterSpacing: -1.4, fontFamily: fonts.light },
+  heroDate: { color: "#7A8781", fontSize: 15, marginTop: 0, fontFamily: fonts.regular },
+  shiftChip: { minHeight: 28, marginTop: 6, paddingHorizontal: 12, borderRadius: 15, flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "rgba(255,255,255,0.75)", borderWidth: 1, borderColor: "#FFFFFF", shadowColor: "#064632", shadowOpacity: 0.08, shadowRadius: 10 },
   shiftText: { color: "#5D6B65", fontSize: 12, fontFamily: fonts.medium },
-  punchStage: { width: "100%", height: 204, marginTop: 1, alignItems: "center", justifyContent: "center", overflow: "hidden" },
+  punchStage: { width: "100%", height: 174, marginTop: 0, alignItems: "center", justifyContent: "center", overflow: "hidden" },
   mapSquare: { position: "absolute", width: 22, height: 22, borderRadius: 5, backgroundColor: "rgba(222,247,235,0.78)" },
   crossLineA: { position: "absolute", width: 460, height: 44, backgroundColor: "rgba(255,255,255,0.65)", transform: [{ rotate: "31deg" }] },
   crossLineB: { position: "absolute", width: 430, height: 38, backgroundColor: "rgba(255,255,255,0.58)", transform: [{ rotate: "-56deg" }] },
-  haloOuter: { position: "absolute", width: 192, height: 192, borderRadius: 96, backgroundColor: "rgba(167,243,208,0.19)" },
-  haloInner: { position: "absolute", width: 168, height: 168, borderRadius: 84, backgroundColor: "rgba(255,255,255,0.45)", borderWidth: 1, borderColor: "rgba(255,255,255,0.9)", shadowColor: "#064632", shadowOpacity: 0.12, shadowRadius: 18, elevation: 2 },
-  holdRing: { position: "absolute", width: 158, height: 158, borderRadius: 79, borderWidth: 3, borderColor: "#63D7AD", zIndex: 3 },
-  punchPressable: { width: 148, height: 148, borderRadius: 74, zIndex: 4 },
+  haloOuter: { position: "absolute", width: 176, height: 176, borderRadius: 88, backgroundColor: "rgba(167,243,208,0.24)" },
+  haloInner: { position: "absolute", width: 158, height: 158, borderRadius: 79, backgroundColor: "rgba(255,255,255,0.45)", borderWidth: 1, borderColor: "rgba(255,255,255,0.9)", shadowColor: "#064632", shadowOpacity: 0.12, shadowRadius: 18, elevation: 2 },
+  holdRing: { position: "absolute", width: 151, height: 151, borderRadius: 76, borderWidth: 3, borderStyle: "dashed", borderColor: "#36BD8C", zIndex: 5 },
+  punchPressable: { width: 142, height: 142, borderRadius: 71, zIndex: 4 },
   punchPressed: { transform: [{ scale: 0.96 }], opacity: 0.92 },
-  punchOrb: { width: 148, height: 148, borderRadius: 74, alignItems: "center", justifyContent: "center", shadowColor: "#064632", shadowOpacity: 0.42, shadowRadius: 22, shadowOffset: { width: 0, height: 13 }, elevation: 9 },
+  punchOrb: { width: 142, height: 142, borderRadius: 71, alignItems: "center", justifyContent: "center", shadowColor: "#064632", shadowOpacity: 0.42, shadowRadius: 22, shadowOffset: { width: 0, height: 13 }, elevation: 9 },
   punchTitle: { color: "#FFFFFF", fontSize: 15, letterSpacing: 0.7, marginTop: 2, fontFamily: fonts.semibold },
   punchTitleOut: { color: "#065F46" },
   punchHint: { color: "rgba(255,255,255,0.82)", fontSize: 10, marginTop: 1, fontFamily: fonts.medium },
   locationRow: { flexDirection: "row", alignItems: "center", gap: 7, marginTop: -2 },
   locationText: { color: "#1D3B32", fontSize: 13.5, fontFamily: fonts.medium },
-  heroStats: { width: "100%", flexDirection: "row", marginTop: 13 },
+  heroStats: { width: "100%", flexDirection: "row", marginTop: 10 },
   heroStat: { flex: 1, alignItems: "center", gap: 3 },
   heroStatValue: { color: "#13241E", fontSize: 18, marginTop: 1, fontFamily: fonts.bold },
   heroStatLabel: { color: "#97A39D", fontSize: 11.5, fontFamily: fonts.medium },
-  noticeCard: { minHeight: 76, borderRadius: 20, padding: 13, marginTop: 16, flexDirection: "row", alignItems: "center", gap: 11, backgroundColor: "rgba(255,255,255,0.78)", borderWidth: 1, borderColor: "#FFFFFF", shadowColor: "#064632", shadowOpacity: 0.13, shadowRadius: 18, shadowOffset: { width: 0, height: 8 }, elevation: 3 },
+  noticeCard: { minHeight: 72, borderRadius: 20, padding: 12, marginTop: 12, flexDirection: "row", alignItems: "center", gap: 11, backgroundColor: "rgba(255,255,255,0.78)", borderWidth: 1, borderColor: "#FFFFFF", shadowColor: "#064632", shadowOpacity: 0.13, shadowRadius: 18, shadowOffset: { width: 0, height: 8 }, elevation: 3 },
   noticeIcon: { width: 42, height: 42, borderRadius: 14, backgroundColor: "#FFF4DC", alignItems: "center", justifyContent: "center" },
   noticeCopy: { flex: 1 },
   noticeTitle: { color: "#13241E", fontSize: 12.5, fontFamily: fonts.semibold },
@@ -840,13 +931,14 @@ const styles = StyleSheet.create({
   personalTitle: { marginTop: 22, marginBottom: 11 },
   listCard: { borderRadius: 22, overflow: "hidden", backgroundColor: "rgba(255,255,255,0.76)", borderWidth: 1, borderColor: "#FFFFFF", shadowColor: "#064632", shadowOpacity: 0.12, shadowRadius: 18, elevation: 3 },
   personalRow: { minHeight: 59, paddingHorizontal: 15, flexDirection: "row", alignItems: "center", gap: 11 },
+  rowPressed: { backgroundColor: "rgba(6,95,70,0.055)" },
   personalRowBorder: { borderTopWidth: 1, borderTopColor: "rgba(6,95,70,0.08)" },
   personalLabel: { flex: 1, color: "#263A33", fontSize: 12.5, fontFamily: fonts.semibold },
   personalValue: { color: "#263A33", fontSize: 11.5, fontFamily: fonts.semibold },
   shortcutsCard: { borderRadius: 22, paddingVertical: 18, paddingHorizontal: 8, marginTop: 18, flexDirection: "row", flexWrap: "wrap", backgroundColor: "rgba(255,255,255,0.76)", borderWidth: 1, borderColor: "#FFFFFF", shadowColor: "#064632", shadowOpacity: 0.1, shadowRadius: 16 },
   shortcut: { width: "25%", minHeight: 65, alignItems: "center", justifyContent: "center", gap: 8 },
   shortcutLabel: { color: "#5D6B65", fontSize: 10.5, textAlign: "center", fontFamily: fonts.medium },
-  secondaryContent: { paddingHorizontal: 20, paddingBottom: 178 },
+  secondaryContent: { paddingHorizontal: 20, paddingBottom: 118 },
   screenTitle: { color: "#13241E", fontSize: 22, marginTop: 6, marginBottom: 18, fontFamily: fonts.bold },
   monthCard: { height: 52, borderRadius: 18, paddingHorizontal: 7, flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: "rgba(255,255,255,0.8)", borderWidth: 1, borderColor: "#FFFFFF" },
   monthText: { color: "#065F46", fontSize: 15, fontFamily: fonts.semibold },
@@ -885,6 +977,7 @@ const styles = StyleSheet.create({
   approvalCard: { borderRadius: 20, padding: 14, backgroundColor: "rgba(255,255,255,0.8)", borderWidth: 1, borderColor: "#FFFFFF" },
   approvalHeader: { flexDirection: "row", alignItems: "center", gap: 10 },
   approvalAvatar: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center", backgroundColor: "#E6F5ED" },
+  approvalDetailAvatar: { width: 78, height: 78, borderRadius: 39, alignItems: "center", justifyContent: "center", backgroundColor: "#087355", borderWidth: 4, borderColor: "#FFFFFF", shadowColor: "#064632", shadowOpacity: 0.2, shadowRadius: 14, elevation: 4 },
   approvalAvatarText: { color: "#087355", fontSize: 10, fontFamily: fonts.bold },
   approvalReason: { color: "#65736D", fontSize: 10.5, lineHeight: 16, marginTop: 12, paddingTop: 11, borderTopWidth: 1, borderTopColor: "rgba(6,95,70,0.07)", fontFamily: fonts.regular },
   approvalActions: { flexDirection: "row", gap: 9, marginTop: 12 },
@@ -1056,7 +1149,7 @@ const styles = StyleSheet.create({
   quickLabelText: { color: "#13241E", fontSize: 12, fontFamily: fonts.semibold },
   quickLabelSub: { color: "#7A8781", fontSize: 9.5, marginTop: 2, fontFamily: fonts.regular },
   quickCircle: { width: 51, height: 51, borderRadius: 26, alignItems: "center", justifyContent: "center", backgroundColor: "#FFFFFF", shadowColor: "#064632", shadowOpacity: 0.16, shadowRadius: 13, elevation: 4 },
-  dock: { position: "absolute", left: 18, right: 18, bottom: Platform.OS === "ios" ? 18 : 14, zIndex: 30, height: 64, flexDirection: "row", alignItems: "center", gap: 11 },
+  dock: { position: "absolute", left: 18, right: 18, bottom: Platform.OS === "ios" ? 8 : 12, zIndex: 30, height: 64, flexDirection: "row", alignItems: "center", gap: 11 },
   dockPill: { flex: 1, height: 64, paddingHorizontal: 7, borderRadius: 32, flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: "rgba(255,255,255,0.9)", borderWidth: 1, borderColor: "#FFFFFF", shadowColor: "#064632", shadowOpacity: 0.22, shadowRadius: 18, shadowOffset: { width: 0, height: 9 }, elevation: 7 },
   dockItem: { height: 48, minWidth: 45, paddingHorizontal: 11, borderRadius: 24, flexDirection: "row", alignItems: "center", justifyContent: "center" },
   dockItemContent: { flexDirection: "row", alignItems: "center", justifyContent: "center" },
