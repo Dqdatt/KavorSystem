@@ -1,4 +1,4 @@
-import { useState, type ComponentProps } from "react";
+import { useEffect, useRef, useState, type ComponentProps, type ReactNode } from "react";
 import {
   Montserrat_300Light,
   Montserrat_400Regular,
@@ -11,6 +11,9 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { StatusBar } from "expo-status-bar";
 import {
+  AccessibilityInfo,
+  Animated,
+  Easing,
   Platform,
   Pressable,
   SafeAreaView,
@@ -19,13 +22,15 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  useWindowDimensions,
+  Vibration,
   View,
 } from "react-native";
 import { SAMPLE_TENANT } from "@kavor/contracts";
 
 type IconName = ComponentProps<typeof MaterialCommunityIcons>["name"];
 type TabId = "home" | "attendance" | "requests" | "news";
-type FlowId = "leave" | "leaveNew" | "explain" | "ot" | "advance" | "payslips" | "profile" | "notifications" | "widget" | "newsDetail" | "requestDetail" | "done" | "login";
+type FlowId = "leave" | "leaveNew" | "explain" | "ot" | "advance" | "advanceNew" | "payslips" | "profile" | "device" | "notifications" | "widget" | "newsDetail" | "requestDetail" | "done" | "login" | "activate" | "forgot" | "otp" | "resetPassword";
 type RequestStatus = "pending" | "approved" | "rejected" | "cancelled";
 type RequestKind = "leave" | "ot" | "explain" | "advance";
 
@@ -43,6 +48,7 @@ const initialRequests: RequestItem[] = [
   { id: "NP-2310", kind: "leave", title: "Nghỉ phép năm", detail: "23/10/2026 · 1 ngày", status: "pending", created: "16/10 · 09:12", reason: "Việc gia đình" },
   { id: "OT-1810", kind: "ot", title: "Làm thêm giờ", detail: "18/10/2026 · 2 giờ", status: "approved", created: "14/10 · 15:40", reason: "Hoàn thành kế hoạch tháng" },
   { id: "GT-1510", kind: "explain", title: "Giải trình công", detail: "15/10/2026 · thiếu giờ vào", status: "pending", created: "16/10 · 08:30", reason: "Điện thoại hết pin khi đến công ty" },
+  { id: "TU-0912", kind: "advance", title: "Tạm ứng lương", detail: "3.000.000 ₫ · kỳ 09/2026", status: "approved", created: "12/09 · 09:20", reason: "Chi phí y tế" },
 ];
 
 const requestIcon: Record<RequestKind, IconName> = { leave: "airplane", ot: "weather-night", explain: "clock-edit-outline", advance: "cash-multiple" };
@@ -76,6 +82,29 @@ function AppIcon({ name, size = 22, color = "#065F46" }: { name: IconName; size?
   return <MaterialCommunityIcons name={name} size={size} color={color} />;
 }
 
+function useReducedMotion() {
+  const [reduced, setReduced] = useState(false);
+  useEffect(() => {
+    AccessibilityInfo.isReduceMotionEnabled().then(setReduced);
+    const subscription = AccessibilityInfo.addEventListener("reduceMotionChanged", setReduced);
+    return () => subscription.remove();
+  }, []);
+  return reduced;
+}
+
+function MotionScreen({ children }: { children: ReactNode }) {
+  const reduced = useReducedMotion();
+  const enter = useRef(new Animated.Value(reduced ? 1 : 0)).current;
+  useEffect(() => {
+    if (reduced) {
+      enter.setValue(1);
+      return;
+    }
+    Animated.timing(enter, { toValue: 1, duration: 260, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
+  }, [enter, reduced]);
+  return <Animated.View style={[styles.scene, { opacity: enter, transform: [{ translateY: enter.interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) }] }]}>{children}</Animated.View>;
+}
+
 function DecorativeBackground() {
   return (
     <View pointerEvents="none" style={StyleSheet.absoluteFill}>
@@ -101,29 +130,79 @@ function HomeHeader({ onNotice, onProfile }: { onNotice: () => void; onProfile?:
   );
 }
 
-function NewsCarousel({ onOpen }: { onOpen: () => void }) {
+const homeNews = [
+  { tag: "Quan trọng", date: "Hôm qua", title: "Chấm công GPS trên app Kavor áp dụng từ 01/11/2026", icon: "message-text-outline" as IconName, tone: "alert" as const },
+  { tag: "Chính sách", date: "15/10", title: "Lịch nghỉ và trực hỗ trợ cuối tháng 10", icon: "calendar-star" as IconName, tone: "normal" as const },
+  { tag: "Sự kiện", date: "10/10", title: "Chúc mừng sinh nhật nhân viên tháng 10", icon: "cake-variant-outline" as IconName, tone: "normal" as const },
+];
+
+function NewsCarousel({ onOpen, onAll }: { onOpen: () => void; onAll: () => void }) {
+  const { width } = useWindowDimensions();
+  const cardWidth = Math.max(280, width - 40);
+  const [active, setActive] = useState(0);
   return (
     <View style={styles.newsSection}>
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Bản tin mới</Text>
-        <Text style={styles.sectionLink}>Tất cả</Text>
+        <Pressable hitSlop={10} onPress={onAll}><Text style={styles.sectionLink}>Tất cả</Text></Pressable>
       </View>
-      <Pressable style={styles.newsCard} onPress={onOpen}>
-        <View style={styles.newsIcon}><AppIcon name="message-text-outline" size={23} color="#C84750" /></View>
-        <View style={styles.newsCopy}>
-          <View style={styles.newsMeta}>
-            <View style={styles.importantTag}><AppIcon name="alert-outline" size={11} color="#FFFFFF" /><Text style={styles.importantText}>Quan trọng</Text></View>
-            <Text style={styles.newsDate}>Hôm qua</Text>
+      <ScrollView
+        horizontal
+        pagingEnabled
+        bounces={false}
+        decelerationRate="fast"
+        showsHorizontalScrollIndicator={false}
+        onMomentumScrollEnd={(event) => setActive(Math.round(event.nativeEvent.contentOffset.x / cardWidth))}
+      >
+        {homeNews.map((item) => (
+          <View key={item.title} style={{ width: cardWidth }}>
+            <Pressable style={[styles.newsCard, item.tone === "normal" && styles.newsCardNormal]} onPress={onOpen}>
+              <View style={[styles.newsIcon, item.tone === "normal" && styles.newsIconNormal]}><AppIcon name={item.icon} size={23} color={item.tone === "alert" ? "#C84750" : "#087355"} /></View>
+              <View style={styles.newsCopy}>
+                <View style={styles.newsMeta}>
+                  <View style={[styles.importantTag, item.tone === "normal" && styles.normalTag]}>{item.tone === "alert" ? <AppIcon name="alert-outline" size={11} color="#FFFFFF" /> : null}<Text style={styles.importantText}>{item.tag}</Text></View>
+                  <Text style={styles.newsDate}>{item.date}</Text>
+                </View>
+                <Text style={styles.newsTitle}>{item.title}</Text>
+              </View>
+            </Pressable>
           </View>
-          <Text style={styles.newsTitle}>Chấm công GPS trên app Kavor áp dụng từ 01/11/2026</Text>
-        </View>
-      </Pressable>
-      <View style={styles.carouselDots}><View style={styles.carouselDotActive} /><View style={styles.carouselDot} /><View style={styles.carouselDot} /><View style={styles.carouselDot} /></View>
+        ))}
+      </ScrollView>
+      <View style={styles.carouselDots}>{homeNews.map((item, index) => <View key={item.title} style={index === active ? styles.carouselDotActive : styles.carouselDot} />)}</View>
     </View>
   );
 }
 
 function PunchHero({ checkedIn, onPunch, onTap }: { checkedIn: boolean; onPunch: () => void; onTap: () => void }) {
+  const reduced = useReducedMotion();
+  const hold = useRef(new Animated.Value(0)).current;
+  const success = useRef(new Animated.Value(1)).current;
+  const didLongPress = useRef(false);
+
+  function beginHold() {
+    didLongPress.current = false;
+    if (reduced) return;
+    hold.setValue(0);
+    Animated.timing(hold, { toValue: 1, duration: 850, easing: Easing.inOut(Easing.quad), useNativeDriver: true }).start();
+  }
+
+  function endHold() {
+    Animated.spring(hold, { toValue: 0, speed: 22, bounciness: 5, useNativeDriver: true }).start();
+  }
+
+  function completePunch() {
+    didLongPress.current = true;
+    Vibration.vibrate(35);
+    onPunch();
+    if (!reduced) {
+      Animated.sequence([
+        Animated.spring(success, { toValue: 1.08, speed: 24, bounciness: 8, useNativeDriver: true }),
+        Animated.spring(success, { toValue: 1, speed: 18, bounciness: 6, useNativeDriver: true }),
+      ]).start();
+    }
+  }
+
   return (
     <View style={styles.hero}>
       <Text style={styles.heroTime}>07:58</Text>
@@ -137,22 +216,27 @@ function PunchHero({ checkedIn, onPunch, onTap }: { checkedIn: boolean; onPunch:
         <View style={[styles.mapSquare, { right: 70, bottom: 18 }]} />
         <View style={styles.crossLineA} />
         <View style={styles.crossLineB} />
-        <View style={styles.haloOuter} />
-        <View style={styles.haloInner} />
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={checkedIn ? "Ra ca" : "Vào ca"}
-          delayLongPress={850}
-          onPress={onTap}
-          onLongPress={onPunch}
-          style={({ pressed }) => [styles.punchPressable, pressed && styles.punchPressed]}
-        >
-          <LinearGradient colors={checkedIn ? ["#D6FBEA", "#A7F3D0", "#84E5BA"] : ["#199B74", "#065F46", "#044E39"]} style={styles.punchOrb}>
-            <AppIcon name={checkedIn ? "gesture-tap-hold" : "gesture-tap-hold"} size={53} color={checkedIn ? "#065F46" : "#FFFFFF"} />
-            <Text style={[styles.punchTitle, checkedIn && styles.punchTitleOut]}>{checkedIn ? "RA CA" : "VÀO CA"}</Text>
-            <Text style={[styles.punchHint, checkedIn && styles.punchTitleOut]}>Nhấn giữ 1 giây</Text>
-          </LinearGradient>
-        </Pressable>
+        <Animated.View style={[styles.haloOuter, { opacity: hold.interpolate({ inputRange: [0, 1], outputRange: [0.45, 1] }), transform: [{ scale: hold.interpolate({ inputRange: [0, 1], outputRange: [1, 1.11] }) }] }]} />
+        <Animated.View style={[styles.haloInner, { transform: [{ scale: hold.interpolate({ inputRange: [0, 1], outputRange: [1, 1.04] }) }] }]} />
+        <Animated.View style={[styles.holdRing, { opacity: hold, transform: [{ scale: hold.interpolate({ inputRange: [0, 1], outputRange: [0.84, 1] }) }] }]} />
+        <Animated.View style={[styles.punchPressable, { transform: [{ scale: Animated.multiply(success, hold.interpolate({ inputRange: [0, 1], outputRange: [1, 0.94] })) }] }]}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={checkedIn ? "Ra ca" : "Vào ca"}
+            delayLongPress={850}
+            onPressIn={beginHold}
+            onPressOut={endHold}
+            onPress={() => { if (!didLongPress.current) onTap(); didLongPress.current = false; }}
+            onLongPress={completePunch}
+            style={styles.punchPressable}
+          >
+            <LinearGradient colors={checkedIn ? ["#D6FBEA", "#A7F3D0", "#84E5BA"] : ["#199B74", "#065F46", "#044E39"]} style={styles.punchOrb}>
+              <AppIcon name={checkedIn ? "check-bold" : "gesture-tap-hold"} size={checkedIn ? 47 : 53} color={checkedIn ? "#065F46" : "#FFFFFF"} />
+              <Text style={[styles.punchTitle, checkedIn && styles.punchTitleOut]}>{checkedIn ? "ĐÃ VÀO CA" : "VÀO CA"}</Text>
+              <Text style={[styles.punchHint, checkedIn && styles.punchTitleOut]}>{checkedIn ? "Nhấn giữ để ra ca" : "Nhấn giữ 1 giây"}</Text>
+            </LinearGradient>
+          </Pressable>
+        </Animated.View>
       </View>
 
       <View style={styles.locationRow}><AppIcon name="map-marker-outline" size={19} color="#1D3B32" /><Text style={styles.locationText}>Vị trí: Văn phòng Quận 1</Text></View>
@@ -214,12 +298,12 @@ function PersonalRow({ icon, title, value, border = false }: { icon: IconName; t
   );
 }
 
-function HomeScreen({ checkedIn, notify, onPunch, openFlow }: { checkedIn: boolean; notify: (message: string) => void; onPunch: () => void; openFlow: (flow: FlowId) => void }) {
+function HomeScreen({ checkedIn, notify, onPunch, openFlow, onNews }: { checkedIn: boolean; notify: (message: string) => void; onPunch: () => void; openFlow: (flow: FlowId) => void; onNews: () => void }) {
   return (
     <>
       <HomeHeader onNotice={() => openFlow("notifications")} onProfile={() => openFlow("profile")} />
-      <ScrollView contentContainerStyle={styles.homeContent} showsVerticalScrollIndicator={false}>
-        <NewsCarousel onOpen={() => openFlow("newsDetail")} />
+      <ScrollView contentContainerStyle={styles.homeContent} scrollIndicatorInsets={{ bottom: 112 }} showsVerticalScrollIndicator={false}>
+        <NewsCarousel onOpen={() => openFlow("newsDetail")} onAll={onNews} />
         <PunchHero checkedIn={checkedIn} onPunch={onPunch} onTap={() => notify("Nhấn giữ nút tròn trong 1 giây để chấm công")} />
         <PersonalSection notify={notify} openFlow={openFlow} />
       </ScrollView>
@@ -419,7 +503,26 @@ function OtForm({ onBack, onSubmit }: { onBack: () => void; onSubmit: (request: 
   </>;
 }
 
-function AdvanceScreen({ onBack, onSubmit }: { onBack: () => void; onSubmit: (request: RequestItem) => void }) {
+function AdvanceOverview({ requests, onBack, onCreate, onOpenRequest }: { requests: RequestItem[]; onBack: () => void; onCreate: () => void; onOpenRequest: (id: string) => void }) {
+  const advances = requests.filter((item) => item.kind === "advance");
+  return <>
+    <DetailHeader title="Tạm ứng lương" onBack={onBack} />
+    <ScrollView contentContainerStyle={styles.flowContent} showsVerticalScrollIndicator={false}>
+      <LinearGradient colors={["#0C795A", "#064E3B"]} style={styles.advanceHero}>
+        <View style={styles.leaveBalanceHead}><Text style={styles.leaveBalanceCaption}>HẠN MỨC THÁNG 10</Text><AppIcon name="shield-check-outline" size={20} color="#A7F3D0" /></View>
+        <Text style={styles.advanceAmount}>4.500.000 ₫</Text>
+        <Text style={styles.advanceCaption}>Tối đa 30% lương cơ bản · đăng ký trước ngày 20</Text>
+        <View style={styles.advanceMeta}><Text style={styles.advanceMetaText}>Còn 1 lượt</Text><Text style={styles.advanceMetaText}>Trừ kỳ lương 10/2026</Text></View>
+      </LinearGradient>
+      <View style={styles.infoNote}><AppIcon name="information-outline" size={20} color="#087355" /><Text style={styles.infoNoteText}>Mỗi doanh nghiệp có thể cấu hình hạn mức, ngày chốt và chuỗi phê duyệt riêng.</Text></View>
+      <Text style={[styles.sectionTitle, styles.flowSectionTitle]}>Lịch sử tạm ứng</Text>
+      <View style={styles.listCard}>{advances.map((item, index) => <RequestRow key={item.id} icon="cash-multiple" title={item.title} detail={item.detail} status={requestStatusLabel[item.status]} border={index > 0} onPress={() => onOpenRequest(item.id)} />)}</View>
+    </ScrollView>
+    <View style={styles.flowFooter}><Pressable style={styles.primaryButton} onPress={onCreate}><Text style={styles.primaryButtonText}>Tạo đề nghị tạm ứng</Text></Pressable></View>
+  </>;
+}
+
+function AdvanceForm({ onBack, onSubmit }: { onBack: () => void; onSubmit: (request: RequestItem) => void }) {
   const [amount, setAmount] = useState(2000000);
   const [reason, setReason] = useState("");
   return <>
@@ -457,7 +560,7 @@ function PayslipsScreen({ onBack, notify }: { onBack: () => void; notify: (messa
   </>;
 }
 
-function ProfileScreen({ onBack, notify, onLogout }: { onBack: () => void; notify: (message: string) => void; onLogout: () => void }) {
+function ProfileScreen({ onBack, notify, onDevice, onLogout }: { onBack: () => void; notify: (message: string) => void; onDevice: () => void; onLogout: () => void }) {
   const [editing, setEditing] = useState(false);
   const [phone, setPhone] = useState("0901 234 567");
   return <>
@@ -467,16 +570,55 @@ function ProfileScreen({ onBack, notify, onLogout }: { onBack: () => void; notif
       <Text style={styles.fieldLabel}>Thông tin liên hệ</Text><View style={styles.reviewCard}><InfoLine label="Email công việc" value="ha@haidang.vn" />{editing ? <View style={[styles.infoLine, styles.personalRowBorder]}><Text style={styles.infoLineLabel}>Điện thoại</Text><TextInput accessibilityLabel="Điện thoại" value={phone} onChangeText={setPhone} style={styles.inlineInput} /></View> : <InfoLine label="Điện thoại" value={phone} border />}<InfoLine label="Địa chỉ" value="Quận Bình Thạnh, TP.HCM" border /></View>
       <Text style={styles.fieldLabel}>Công việc</Text><View style={styles.reviewCard}><InfoLine label="Phòng ban" value="Marketing" /><InfoLine label="Quản lý" value="Lê Quang Huy" border /><InfoLine label="Ngày vào làm" value="12/03/2023" border /></View>
       <Pressable style={styles.primaryButton} onPress={() => { if (editing) notify("Đã gửi yêu cầu cập nhật hồ sơ cho HR"); setEditing((value) => !value); }}><Text style={styles.primaryButtonText}>{editing ? "Gửi HR phê duyệt" : "Đề nghị sửa thông tin"}</Text></Pressable>
-      <Pressable style={styles.linkButton} onPress={() => notify("Thiết bị hiện tại: iPhone · hoạt động")}><Text style={styles.linkButtonText}>Quản lý thiết bị đăng nhập</Text></Pressable>
+      <Pressable style={styles.linkButton} onPress={onDevice}><Text style={styles.linkButtonText}>Quản lý thiết bị đăng nhập</Text></Pressable>
       <Pressable style={styles.dangerButton} onPress={onLogout}><Text style={styles.dangerButtonText}>Đăng xuất tài khoản demo</Text></Pressable>
     </ScrollView>
   </>;
 }
 
-function LoginScreen({ onLogin }: { onLogin: () => void }) {
+function DeviceScreen({ onBack, notify }: { onBack: () => void; notify: (message: string) => void }) {
+  const [requested, setRequested] = useState(false);
+  return <>
+    <DetailHeader title="Thiết bị đăng nhập" onBack={onBack} />
+    <ScrollView contentContainerStyle={styles.flowContent} showsVerticalScrollIndicator={false}>
+      <View style={styles.deviceHero}><View style={styles.devicePhone}><AppIcon name="cellphone" size={42} color="#087355" /></View><View style={styles.requestCopy}><Text style={styles.deviceName}>iPhone của Trần Thu Hà</Text><Text style={styles.requestDetail}>iPhone 11 · iOS 18.5</Text><View style={styles.deviceStatus}><View style={styles.deviceStatusDot} /><Text style={styles.deviceStatusText}>Thiết bị hiện tại</Text></View></View></View>
+      <View style={styles.reviewCard}><InfoLine label="Đăng ký" value="16/10/2026 · 07:42" /><InfoLine label="Hoạt động gần nhất" value="Hôm nay · 19:48" border /><InfoLine label="Chấm công" value="Được phép" border /></View>
+      <View style={styles.infoNote}><AppIcon name="shield-lock-outline" size={21} color="#087355" /><Text style={styles.infoNoteText}>Mỗi nhân viên chỉ dùng một thiết bị để chấm công. Yêu cầu đổi máy sẽ được HR xác nhận.</Text></View>
+      <Pressable style={requested ? styles.disabledButton : styles.dangerButton} disabled={requested} onPress={() => { setRequested(true); notify("Đã gửi yêu cầu đặt lại thiết bị cho HR"); }}><Text style={requested ? styles.disabledButtonText : styles.dangerButtonText}>{requested ? "Đã gửi yêu cầu đặt lại" : "Yêu cầu đổi thiết bị"}</Text></Pressable>
+    </ScrollView>
+  </>;
+}
+
+function AuthBrand() {
+  return <><View style={styles.loginMark}><Text style={styles.loginMarkText}>K</Text></View><Text style={styles.authBrand}>KAVOR</Text></>;
+}
+
+function LoginScreen({ onLogin, onForgot, onActivate }: { onLogin: () => void; onForgot: () => void; onActivate: () => void }) {
   const [email, setEmail] = useState("ha@haidang.vn");
   const [password, setPassword] = useState("12345678");
-  return <ScrollView contentContainerStyle={styles.loginScreen} keyboardShouldPersistTaps="handled"><View style={styles.loginMark}><Text style={styles.loginMarkText}>K</Text></View><Text style={styles.loginTitle}>Chào mừng trở lại</Text><Text style={styles.loginSubtitle}>Đăng nhập vào không gian Hải Đăng Group</Text><Pressable style={styles.googleButton} onPress={onLogin}><Text style={styles.googleLetter}>G</Text><Text style={styles.googleText}>Tiếp tục với Google</Text></Pressable><View style={styles.loginDivider}><View /><Text>hoặc</Text><View /></View><Text style={styles.fieldLabel}>Email công việc</Text><TextInput accessibilityLabel="Email công việc" autoCapitalize="none" value={email} onChangeText={setEmail} style={styles.loginInput} /><Text style={styles.fieldLabel}>Mật khẩu</Text><TextInput accessibilityLabel="Mật khẩu" secureTextEntry value={password} onChangeText={setPassword} style={styles.loginInput} /><Pressable style={[styles.primaryButton, { marginTop: 20 }]} onPress={onLogin}><Text style={styles.primaryButtonText}>Đăng nhập</Text></Pressable><Pressable style={styles.linkButton}><Text style={styles.linkButtonText}>Quên mật khẩu?</Text></Pressable><Text style={styles.loginFoot}>Đăng nhập demo · không gửi dữ liệu ra bên ngoài</Text></ScrollView>;
+  return <ScrollView contentContainerStyle={styles.loginScreen} keyboardShouldPersistTaps="handled"><AuthBrand /><Text style={styles.loginTitle}>Chào mừng trở lại</Text><Text style={styles.loginSubtitle}>Đăng nhập vào không gian Hải Đăng Group</Text><Pressable style={styles.googleButton} onPress={onLogin}><Text style={styles.googleLetter}>G</Text><Text style={styles.googleText}>Tiếp tục với Google</Text></Pressable><View style={styles.loginDivider}><View style={styles.dividerLine} /><Text style={styles.dividerText}>hoặc</Text><View style={styles.dividerLine} /></View><Text style={styles.fieldLabel}>Email công việc</Text><TextInput accessibilityLabel="Email công việc" autoCapitalize="none" keyboardType="email-address" value={email} onChangeText={setEmail} style={styles.loginInput} /><Text style={styles.fieldLabel}>Mật khẩu</Text><TextInput accessibilityLabel="Mật khẩu" secureTextEntry value={password} onChangeText={setPassword} style={styles.loginInput} /><Pressable style={[styles.primaryButton, { marginTop: 20 }]} onPress={onLogin}><Text style={styles.primaryButtonText}>Đăng nhập</Text></Pressable><Pressable style={styles.linkButton} onPress={onForgot}><Text style={styles.linkButtonText}>Quên mật khẩu?</Text></Pressable><View style={styles.authFootRow}><Text style={styles.authFootText}>Lần đầu sử dụng Kavor?</Text><Pressable onPress={onActivate}><Text style={styles.linkButtonText}> Kích hoạt tài khoản</Text></Pressable></View><Text style={styles.loginFoot}>Bản thử nghiệm · dữ liệu mẫu không gửi ra ngoài</Text></ScrollView>;
+}
+
+function ActivateScreen({ onBack, onContinue }: { onBack: () => void; onContinue: () => void }) {
+  const [code, setCode] = useState("HDG-2026-142");
+  return <><DetailHeader title="Kích hoạt tài khoản" onBack={onBack} /><ScrollView contentContainerStyle={styles.authContent} keyboardShouldPersistTaps="handled"><AuthBrand /><Text style={styles.authTitle}>Chào mừng đến với Kavor</Text><Text style={styles.authSubtitle}>Nhập mã nhân viên hoặc mã mời do Hải Đăng Group cung cấp.</Text><Text style={styles.fieldLabel}>Mã kích hoạt</Text><TextInput autoCapitalize="characters" value={code} onChangeText={setCode} style={styles.loginInput} /><View style={styles.infoNote}><AppIcon name="shield-account-outline" size={21} color="#087355" /><Text style={styles.infoNoteText}>Kavor chỉ dùng mã này để xác định đúng doanh nghiệp và hồ sơ nhân viên.</Text></View><Pressable style={[styles.primaryButton, { marginTop: 24 }]} onPress={onContinue}><Text style={styles.primaryButtonText}>Tiếp tục</Text></Pressable></ScrollView></>;
+}
+
+function ForgotScreen({ onBack, onContinue }: { onBack: () => void; onContinue: () => void }) {
+  const [email, setEmail] = useState("ha@haidang.vn");
+  return <><DetailHeader title="Khôi phục tài khoản" onBack={onBack} /><ScrollView contentContainerStyle={styles.authContent} keyboardShouldPersistTaps="handled"><View style={styles.authIcon}><AppIcon name="email-lock-outline" size={34} color="#087355" /></View><Text style={styles.authTitle}>Nhận mã xác minh</Text><Text style={styles.authSubtitle}>Mã OTP gồm 6 số sẽ được gửi đến email công việc đã đăng ký.</Text><Text style={styles.fieldLabel}>Email công việc</Text><TextInput autoCapitalize="none" keyboardType="email-address" value={email} onChangeText={setEmail} style={styles.loginInput} /><Pressable style={[styles.primaryButton, { marginTop: 24 }]} onPress={onContinue}><Text style={styles.primaryButtonText}>Gửi mã OTP</Text></Pressable></ScrollView></>;
+}
+
+function OtpScreen({ onBack, onContinue }: { onBack: () => void; onContinue: () => void }) {
+  const [code, setCode] = useState("123456");
+  return <><DetailHeader title="Xác minh OTP" onBack={onBack} /><ScrollView contentContainerStyle={styles.authContent} keyboardShouldPersistTaps="handled"><View style={styles.authIcon}><AppIcon name="message-lock-outline" size={34} color="#087355" /></View><Text style={styles.authTitle}>Nhập mã xác minh</Text><Text style={styles.authSubtitle}>Đã gửi mã đến ha@haidang.vn. Mã mẫu của prototype là 123456.</Text><View style={styles.otpBoxes}>{Array.from({ length: 6 }, (_, index) => <View key={index} style={[styles.otpBox, code[index] && styles.otpBoxFilled]}><Text style={styles.otpDigit}>{code[index] ?? ""}</Text></View>)}</View><TextInput accessibilityLabel="Mã OTP" keyboardType="number-pad" maxLength={6} value={code} onChangeText={setCode} style={styles.otpInput} /><Pressable style={[styles.primaryButton, code.length < 6 && styles.disabledButton]} disabled={code.length < 6} onPress={onContinue}><Text style={styles.primaryButtonText}>Xác minh</Text></Pressable><Pressable style={styles.linkButton}><Text style={styles.linkButtonText}>Gửi lại mã sau 00:28</Text></Pressable></ScrollView></>;
+}
+
+function ResetPasswordScreen({ onBack, onDone }: { onBack: () => void; onDone: () => void }) {
+  const [password, setPassword] = useState("Kavor@2026");
+  const [confirm, setConfirm] = useState("Kavor@2026");
+  const valid = password.length >= 8 && password === confirm;
+  return <><DetailHeader title="Đặt lại mật khẩu" onBack={onBack} /><ScrollView contentContainerStyle={styles.authContent} keyboardShouldPersistTaps="handled"><View style={styles.authIcon}><AppIcon name="lock-reset" size={36} color="#087355" /></View><Text style={styles.authTitle}>Tạo mật khẩu mới</Text><Text style={styles.authSubtitle}>Dùng ít nhất 8 ký tự và không sử dụng lại mật khẩu gần nhất.</Text><Text style={styles.fieldLabel}>Mật khẩu mới</Text><TextInput secureTextEntry value={password} onChangeText={setPassword} style={styles.loginInput} /><Text style={styles.fieldLabel}>Nhập lại mật khẩu</Text><TextInput secureTextEntry value={confirm} onChangeText={setConfirm} style={[styles.loginInput, confirm.length > 0 && !valid && styles.inputError]} />{confirm.length > 0 && !valid ? <Text style={styles.errorText}>Hai mật khẩu chưa khớp hoặc chưa đủ 8 ký tự.</Text> : null}<Pressable disabled={!valid} style={[styles.primaryButton, { marginTop: 24 }, !valid && styles.disabledButton]} onPress={onDone}><Text style={styles.primaryButtonText}>Lưu mật khẩu</Text></Pressable></ScrollView></>;
 }
 
 function NotificationsScreen({ onBack }: { onBack: () => void }) {
@@ -500,7 +642,23 @@ function DoneScreen({ kind, onViewRequests, onHome }: { kind: RequestKind; onVie
   return <View style={styles.doneScreen}><View style={styles.doneIcon}><AppIcon name="check" size={45} color="#FFFFFF" /></View><Text style={styles.doneTitle}>{title}</Text><Text style={styles.doneText}>{detail}</Text><Pressable style={styles.primaryButton} onPress={onViewRequests}><Text style={styles.primaryButtonText}>Xem đơn của tôi</Text></Pressable><Pressable style={styles.linkButton} onPress={onHome}><Text style={styles.linkButtonText}>Về trang chủ</Text></Pressable></View>;
 }
 
+function DockTab({ tab, active, onPress }: { tab: (typeof tabs)[number]; active: boolean; onPress: () => void }) {
+  const reduced = useReducedMotion();
+  const scale = useRef(new Animated.Value(active ? 1 : 0.92)).current;
+  useEffect(() => {
+    if (reduced) { scale.setValue(active ? 1 : 0.92); return; }
+    Animated.spring(scale, { toValue: active ? 1 : 0.92, speed: 22, bounciness: 7, useNativeDriver: true }).start();
+  }, [active, reduced, scale]);
+  return <Pressable accessibilityRole="button" accessibilityState={{ selected: active }} style={[styles.dockItem, active && styles.dockItemActive]} onPress={onPress}><Animated.View style={[styles.dockItemContent, { transform: [{ scale }] }]}><AppIcon name={active ? tab.activeIcon : tab.icon} size={23} color={active ? "#065F46" : "#6D7973"} />{active ? <Text style={styles.dockLabel}>{tab.label}</Text> : null}</Animated.View></Pressable>;
+}
+
 function Dock({ activeTab, setActiveTab, quickOpen, setQuickOpen, openFlow, notify }: { activeTab: TabId; setActiveTab: (tab: TabId) => void; quickOpen: boolean; setQuickOpen: (open: boolean) => void; openFlow: (flow: FlowId) => void; notify: (message: string) => void }) {
+  const reduced = useReducedMotion();
+  const quickAnim = useRef(new Animated.Value(quickOpen ? 1 : 0)).current;
+  useEffect(() => {
+    if (reduced) { quickAnim.setValue(quickOpen ? 1 : 0); return; }
+    Animated.spring(quickAnim, { toValue: quickOpen ? 1 : 0, speed: 22, bounciness: quickOpen ? 8 : 2, useNativeDriver: true }).start();
+  }, [quickAnim, quickOpen, reduced]);
   function runQuickAction(label: string) {
     setQuickOpen(false);
     if (label === "Tạo đơn nghỉ") openFlow("leaveNew");
@@ -510,23 +668,26 @@ function Dock({ activeTab, setActiveTab, quickOpen, setQuickOpen, openFlow, noti
   }
   return (
     <>
-      {quickOpen ? <Pressable style={styles.quickScrim} onPress={() => setQuickOpen(false)} /> : null}
-      {quickOpen ? <View style={styles.quickMenu}>{quickCreate.map((item) => <Pressable style={styles.quickItem} key={item.label} onPress={() => runQuickAction(item.label)}><View style={styles.quickLabel}><Text style={styles.quickLabelText}>{item.label}</Text><Text style={styles.quickLabelSub}>Tạo mới bằng dữ liệu mẫu</Text></View><View style={styles.quickCircle}><AppIcon name={item.icon} size={24} /></View></Pressable>)}</View> : null}
+      <Animated.View pointerEvents={quickOpen ? "auto" : "none"} style={[styles.quickScrim, { opacity: quickAnim }]}><Pressable style={StyleSheet.absoluteFill} onPress={() => setQuickOpen(false)} /></Animated.View>
+      <Animated.View pointerEvents={quickOpen ? "auto" : "none"} style={[styles.quickMenu, { opacity: quickAnim, transform: [{ translateY: quickAnim.interpolate({ inputRange: [0, 1], outputRange: [24, 0] }) }, { scale: quickAnim.interpolate({ inputRange: [0, 1], outputRange: [0.92, 1] }) }] }]}>{quickCreate.map((item) => <Pressable style={styles.quickItem} key={item.label} onPress={() => runQuickAction(item.label)}><View style={styles.quickLabel}><Text style={styles.quickLabelText}>{item.label}</Text><Text style={styles.quickLabelSub}>Tạo mới bằng dữ liệu mẫu</Text></View><View style={styles.quickCircle}><AppIcon name={item.icon} size={24} /></View></Pressable>)}</Animated.View>
       <View style={styles.dock}>
         <View style={styles.dockPill}>
-          {tabs.map((tab) => {
-            const active = activeTab === tab.id;
-            return <Pressable accessibilityRole="button" accessibilityState={{ selected: active }} key={tab.id} style={[styles.dockItem, active && styles.dockItemActive]} onPress={() => setActiveTab(tab.id)}><AppIcon name={active ? tab.activeIcon : tab.icon} size={23} color={active ? "#065F46" : "#6D7973"} />{active ? <Text style={styles.dockLabel}>{tab.label}</Text> : null}</Pressable>;
-          })}
+          {tabs.map((tab) => <DockTab key={tab.id} tab={tab} active={activeTab === tab.id} onPress={() => setActiveTab(tab.id)} />)}
         </View>
-        <Pressable accessibilityLabel="Tạo nhanh" style={({ pressed }) => [styles.fabWrap, pressed && styles.punchPressed]} onPress={() => setQuickOpen(!quickOpen)}>
-          <LinearGradient colors={["#15936D", "#065F46", "#044E39"]} style={styles.fab}>
-            <AppIcon name={quickOpen ? "close" : "plus"} size={30} color="#FFFFFF" />
-          </LinearGradient>
-        </Pressable>
+        <Animated.View style={[styles.fabWrap, { transform: [{ rotate: quickAnim.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "45deg"] }) }] }]}><Pressable accessibilityLabel="Tạo nhanh" style={({ pressed }) => [styles.fabWrap, pressed && styles.punchPressed]} onPress={() => setQuickOpen(!quickOpen)}><LinearGradient colors={["#15936D", "#065F46", "#044E39"]} style={styles.fab}><AppIcon name="plus" size={30} color="#FFFFFF" /></LinearGradient></Pressable></Animated.View>
       </View>
     </>
   );
+}
+
+function AnimatedToast({ message }: { message: string }) {
+  const reduced = useReducedMotion();
+  const value = useRef(new Animated.Value(reduced ? 1 : 0)).current;
+  useEffect(() => {
+    if (reduced) { value.setValue(1); return; }
+    Animated.spring(value, { toValue: 1, speed: 24, bounciness: 7, useNativeDriver: true }).start();
+  }, [reduced, value]);
+  return <Animated.View style={[styles.toast, { opacity: value, transform: [{ translateY: value.interpolate({ inputRange: [0, 1], outputRange: [14, 0] }) }, { scale: value.interpolate({ inputRange: [0, 1], outputRange: [0.96, 1] }) }] }]}><AppIcon name="check-circle-outline" size={18} color="#087355" /><Text style={styles.toastText}>{message}</Text></Animated.View>;
 }
 
 export default function App() {
@@ -540,10 +701,15 @@ export default function App() {
   const [requests, setRequests] = useState<RequestItem[]>(initialRequests);
   const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
   const [doneKind, setDoneKind] = useState<RequestKind>("leave");
+  const [authIntent, setAuthIntent] = useState<"activate" | "reset">("reset");
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => { if (toastTimer.current) clearTimeout(toastTimer.current); }, []);
 
   function notify(text: string) {
     setMessage(text);
-    setTimeout(() => setMessage(null), 2200);
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setMessage(null), 2400);
   }
 
   function openFlow(nextFlow: FlowId) {
@@ -566,28 +732,40 @@ export default function App() {
 
   if (!fontsLoaded) return <View style={styles.loading} />;
 
+  let content: ReactNode;
+  if (!signedIn) {
+    content = flow === "activate" ? <ActivateScreen onBack={() => setFlow("login")} onContinue={() => { setAuthIntent("activate"); setFlow("otp"); }} />
+      : flow === "forgot" ? <ForgotScreen onBack={() => setFlow("login")} onContinue={() => { setAuthIntent("reset"); setFlow("otp"); }} />
+      : flow === "otp" ? <OtpScreen onBack={() => setFlow(authIntent === "activate" ? "activate" : "forgot")} onContinue={() => { if (authIntent === "activate") { setSignedIn(true); setFlow(null); notify("Kích hoạt tài khoản thành công"); } else setFlow("resetPassword"); }} />
+      : flow === "resetPassword" ? <ResetPasswordScreen onBack={() => setFlow("otp")} onDone={() => { setFlow("login"); notify("Đã cập nhật mật khẩu, hãy đăng nhập lại"); }} />
+      : <LoginScreen onLogin={() => { setSignedIn(true); setFlow(null); notify("Đăng nhập thành công"); }} onForgot={() => setFlow("forgot")} onActivate={() => setFlow("activate")} />;
+  } else if (flow === "leave") content = <LeaveOverview requests={requests} onBack={() => setFlow(null)} onCreate={() => setFlow("leaveNew")} onOpenRequest={openRequest} />;
+  else if (flow === "leaveNew") content = <LeaveForm onBack={() => setFlow("leave")} onSubmit={submitRequest} />;
+  else if (flow === "explain") content = <ExplainForm onBack={() => setFlow(null)} onSubmit={submitRequest} />;
+  else if (flow === "ot") content = <OtForm onBack={() => setFlow(null)} onSubmit={submitRequest} />;
+  else if (flow === "advance") content = <AdvanceOverview requests={requests} onBack={() => setFlow(null)} onCreate={() => setFlow("advanceNew")} onOpenRequest={openRequest} />;
+  else if (flow === "advanceNew") content = <AdvanceForm onBack={() => setFlow("advance")} onSubmit={submitRequest} />;
+  else if (flow === "payslips") content = <PayslipsScreen onBack={() => setFlow(null)} notify={notify} />;
+  else if (flow === "profile") content = <ProfileScreen onBack={() => setFlow(null)} notify={notify} onDevice={() => setFlow("device")} onLogout={() => { setSignedIn(false); setFlow("login"); }} />;
+  else if (flow === "device") content = <DeviceScreen onBack={() => setFlow("profile")} notify={notify} />;
+  else if (flow === "notifications") content = <NotificationsScreen onBack={() => setFlow(null)} />;
+  else if (flow === "newsDetail") content = <NewsDetailScreen onBack={() => setFlow(null)} />;
+  else if (flow === "widget") content = <WidgetGuideScreen onBack={() => setFlow(null)} notify={notify} />;
+  else if (flow === "requestDetail" && selectedRequest) content = <RequestDetail item={selectedRequest} onBack={() => setFlow(null)} onCancel={() => { setRequests((current) => current.map((item) => item.id === selectedRequest.id ? { ...item, status: "cancelled" } : item)); notify(`Đã hủy đơn ${selectedRequest.id}`); setFlow(null); }} />;
+  else if (flow === "done") content = <DoneScreen kind={doneKind} onViewRequests={() => { setActiveTab("requests"); setFlow(null); }} onHome={() => { setActiveTab("home"); setFlow(null); }} />;
+  else if (activeTab === "home") content = <HomeScreen checkedIn={checkedIn} notify={notify} openFlow={openFlow} onNews={() => setActiveTab("news")} onPunch={() => { setCheckedIn((value) => !value); notify(checkedIn ? "Đã ghi nhận ra ca" : "Đã ghi nhận vào ca lúc 07:58"); }} />;
+  else content = <SecondaryScreen tab={activeTab} notify={notify} requests={requests} onOpenRequest={openRequest} onOpenExplain={() => openFlow("explain")} onOpenNews={() => openFlow("newsDetail")} />;
+
+  const sceneKey = signedIn ? (flow ?? activeTab) : (flow ?? "login");
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="dark" />
       <View style={styles.app}>
         <DecorativeBackground />
-        {!signedIn ? <LoginScreen onLogin={() => { setSignedIn(true); setFlow(null); notify("Đăng nhập thành công"); }} />
-          : flow === "leave" ? <LeaveOverview requests={requests} onBack={() => setFlow(null)} onCreate={() => setFlow("leaveNew")} onOpenRequest={openRequest} />
-          : flow === "leaveNew" ? <LeaveForm onBack={() => setFlow("leave")} onSubmit={submitRequest} />
-          : flow === "explain" ? <ExplainForm onBack={() => setFlow(null)} onSubmit={submitRequest} />
-          : flow === "ot" ? <OtForm onBack={() => setFlow(null)} onSubmit={submitRequest} />
-          : flow === "advance" ? <AdvanceScreen onBack={() => setFlow(null)} onSubmit={submitRequest} />
-          : flow === "payslips" ? <PayslipsScreen onBack={() => setFlow(null)} notify={notify} />
-          : flow === "profile" ? <ProfileScreen onBack={() => setFlow(null)} notify={notify} onLogout={() => { setSignedIn(false); setFlow(null); }} />
-          : flow === "notifications" ? <NotificationsScreen onBack={() => setFlow(null)} />
-          : flow === "newsDetail" ? <NewsDetailScreen onBack={() => setFlow(null)} />
-          : flow === "widget" ? <WidgetGuideScreen onBack={() => setFlow(null)} notify={notify} />
-          : flow === "requestDetail" && selectedRequest ? <RequestDetail item={selectedRequest} onBack={() => setFlow(null)} onCancel={() => { setRequests((current) => current.map((item) => item.id === selectedRequest.id ? { ...item, status: "cancelled" } : item)); notify(`Đã hủy đơn ${selectedRequest.id}`); setFlow(null); }} />
-          : flow === "done" ? <DoneScreen kind={doneKind} onViewRequests={() => { setActiveTab("requests"); setFlow(null); }} onHome={() => { setActiveTab("home"); setFlow(null); }} />
-          : activeTab === "home" ? <HomeScreen checkedIn={checkedIn} notify={notify} openFlow={openFlow} onPunch={() => { setCheckedIn((value) => !value); notify(checkedIn ? "Đã ghi nhận ra ca" : "Đã ghi nhận vào ca lúc 07:58"); }} />
-          : <SecondaryScreen tab={activeTab} notify={notify} requests={requests} onOpenRequest={openRequest} onOpenExplain={() => openFlow("explain")} onOpenNews={() => openFlow("newsDetail")} />}
+        <MotionScreen key={sceneKey}>{content}</MotionScreen>
         {signedIn && !flow ? <Dock activeTab={activeTab} setActiveTab={(tab) => { setQuickOpen(false); setActiveTab(tab); }} quickOpen={quickOpen} setQuickOpen={setQuickOpen} openFlow={openFlow} notify={notify} /> : null}
-        {message ? <View style={styles.toast}><Text style={styles.toastText}>{message}</Text></View> : null}
+        {message ? <AnimatedToast key={message} message={message} /> : null}
       </View>
     </SafeAreaView>
   );
@@ -599,6 +777,7 @@ const styles = StyleSheet.create({
   loading: { flex: 1, backgroundColor: "#FFFFFF" },
   safeArea: { flex: 1, backgroundColor: "#FFFFFF", paddingTop: Platform.OS === "android" ? NativeStatusBar.currentHeight : 0 },
   app: { flex: 1, backgroundColor: "#FFFFFF", overflow: "hidden" },
+  scene: { flex: 1 },
   blob: { position: "absolute", borderRadius: 999 },
   blobTop: { width: 370, height: 370, top: -170, left: -165 },
   blobRight: { width: 310, height: 310, top: 285, right: -185 },
@@ -609,16 +788,19 @@ const styles = StyleSheet.create({
   companyName: { flex: 1, textAlign: "center", color: "#20362F", fontSize: 14, letterSpacing: 2.2, fontFamily: fonts.regular },
   avatar: { width: 42, height: 42, borderRadius: 21, alignItems: "center", justifyContent: "center", backgroundColor: "#197E60", borderWidth: 2, borderColor: "#FFFFFF", shadowColor: "#064632", shadowOpacity: 0.2, shadowRadius: 9, elevation: 3 },
   avatarText: { color: "#FFFFFF", fontSize: 12, fontFamily: fonts.semibold },
-  homeContent: { paddingHorizontal: 20, paddingBottom: 150 },
+  homeContent: { paddingHorizontal: 20, paddingBottom: 178 },
   newsSection: { marginTop: 4 },
   sectionHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 11 },
   sectionTitle: { color: "#13241E", fontSize: 16, fontFamily: fonts.bold },
   sectionLink: { color: "#065F46", fontSize: 12.5, fontFamily: fonts.semibold },
   newsCard: { minHeight: 91, borderRadius: 20, padding: 14, flexDirection: "row", gap: 12, backgroundColor: "rgba(255,243,244,0.82)", borderWidth: 1, borderColor: "rgba(255,214,216,0.95)", shadowColor: "#064632", shadowOpacity: 0.12, shadowRadius: 18, shadowOffset: { width: 0, height: 9 }, elevation: 3 },
+  newsCardNormal: { backgroundColor: "rgba(255,255,255,0.82)", borderColor: "rgba(255,255,255,0.96)" },
   newsIcon: { width: 44, height: 44, borderRadius: 14, backgroundColor: "#FFECEE", alignItems: "center", justifyContent: "center" },
+  newsIconNormal: { backgroundColor: "#EAF7F1" },
   newsCopy: { flex: 1, gap: 5 },
   newsMeta: { flexDirection: "row", alignItems: "center", gap: 7 },
   importantTag: { height: 20, paddingHorizontal: 7, borderRadius: 8, backgroundColor: "#D24E57", flexDirection: "row", alignItems: "center", gap: 3 },
+  normalTag: { backgroundColor: "#168563" },
   importantText: { color: "#FFFFFF", fontSize: 10, fontFamily: fonts.bold },
   newsDate: { color: "#97A39D", fontSize: 11, fontFamily: fonts.medium },
   newsTitle: { color: "#13241E", fontSize: 14, lineHeight: 19, fontFamily: fonts.semibold },
@@ -626,29 +808,30 @@ const styles = StyleSheet.create({
   carouselDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: "#DCE2DF" },
   carouselDotActive: { width: 18, height: 6, borderRadius: 3, backgroundColor: "#065F46" },
   hero: { alignItems: "center", marginTop: -1 },
-  heroTime: { color: "#1D3B32", fontSize: 52, lineHeight: 58, letterSpacing: -1.4, fontFamily: fonts.light },
-  heroDate: { color: "#7A8781", fontSize: 17, marginTop: 2, fontFamily: fonts.regular },
+  heroTime: { color: "#1D3B32", fontSize: 48, lineHeight: 53, letterSpacing: -1.4, fontFamily: fonts.light },
+  heroDate: { color: "#7A8781", fontSize: 16, marginTop: 1, fontFamily: fonts.regular },
   shiftChip: { minHeight: 30, marginTop: 8, paddingHorizontal: 12, borderRadius: 15, flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "rgba(255,255,255,0.75)", borderWidth: 1, borderColor: "#FFFFFF", shadowColor: "#064632", shadowOpacity: 0.08, shadowRadius: 10 },
   shiftText: { color: "#5D6B65", fontSize: 12, fontFamily: fonts.medium },
-  punchStage: { width: "100%", height: 226, marginTop: 1, alignItems: "center", justifyContent: "center", overflow: "hidden" },
+  punchStage: { width: "100%", height: 204, marginTop: 1, alignItems: "center", justifyContent: "center", overflow: "hidden" },
   mapSquare: { position: "absolute", width: 22, height: 22, borderRadius: 5, backgroundColor: "rgba(222,247,235,0.78)" },
   crossLineA: { position: "absolute", width: 460, height: 44, backgroundColor: "rgba(255,255,255,0.65)", transform: [{ rotate: "31deg" }] },
   crossLineB: { position: "absolute", width: 430, height: 38, backgroundColor: "rgba(255,255,255,0.58)", transform: [{ rotate: "-56deg" }] },
-  haloOuter: { position: "absolute", width: 210, height: 210, borderRadius: 105, backgroundColor: "rgba(167,243,208,0.19)" },
-  haloInner: { position: "absolute", width: 184, height: 184, borderRadius: 92, backgroundColor: "rgba(255,255,255,0.45)", borderWidth: 1, borderColor: "rgba(255,255,255,0.9)", shadowColor: "#064632", shadowOpacity: 0.12, shadowRadius: 18, elevation: 2 },
-  punchPressable: { width: 160, height: 160, borderRadius: 80, zIndex: 2 },
+  haloOuter: { position: "absolute", width: 192, height: 192, borderRadius: 96, backgroundColor: "rgba(167,243,208,0.19)" },
+  haloInner: { position: "absolute", width: 168, height: 168, borderRadius: 84, backgroundColor: "rgba(255,255,255,0.45)", borderWidth: 1, borderColor: "rgba(255,255,255,0.9)", shadowColor: "#064632", shadowOpacity: 0.12, shadowRadius: 18, elevation: 2 },
+  holdRing: { position: "absolute", width: 158, height: 158, borderRadius: 79, borderWidth: 3, borderColor: "#63D7AD", zIndex: 3 },
+  punchPressable: { width: 148, height: 148, borderRadius: 74, zIndex: 4 },
   punchPressed: { transform: [{ scale: 0.96 }], opacity: 0.92 },
-  punchOrb: { width: 160, height: 160, borderRadius: 80, alignItems: "center", justifyContent: "center", shadowColor: "#064632", shadowOpacity: 0.42, shadowRadius: 22, shadowOffset: { width: 0, height: 13 }, elevation: 9 },
+  punchOrb: { width: 148, height: 148, borderRadius: 74, alignItems: "center", justifyContent: "center", shadowColor: "#064632", shadowOpacity: 0.42, shadowRadius: 22, shadowOffset: { width: 0, height: 13 }, elevation: 9 },
   punchTitle: { color: "#FFFFFF", fontSize: 15, letterSpacing: 0.7, marginTop: 2, fontFamily: fonts.semibold },
   punchTitleOut: { color: "#065F46" },
   punchHint: { color: "rgba(255,255,255,0.82)", fontSize: 10, marginTop: 1, fontFamily: fonts.medium },
   locationRow: { flexDirection: "row", alignItems: "center", gap: 7, marginTop: -2 },
   locationText: { color: "#1D3B32", fontSize: 13.5, fontFamily: fonts.medium },
-  heroStats: { width: "100%", flexDirection: "row", marginTop: 18 },
+  heroStats: { width: "100%", flexDirection: "row", marginTop: 13 },
   heroStat: { flex: 1, alignItems: "center", gap: 3 },
   heroStatValue: { color: "#13241E", fontSize: 18, marginTop: 1, fontFamily: fonts.bold },
   heroStatLabel: { color: "#97A39D", fontSize: 11.5, fontFamily: fonts.medium },
-  noticeCard: { minHeight: 76, borderRadius: 20, padding: 13, marginTop: 22, flexDirection: "row", alignItems: "center", gap: 11, backgroundColor: "rgba(255,255,255,0.78)", borderWidth: 1, borderColor: "#FFFFFF", shadowColor: "#064632", shadowOpacity: 0.13, shadowRadius: 18, shadowOffset: { width: 0, height: 8 }, elevation: 3 },
+  noticeCard: { minHeight: 76, borderRadius: 20, padding: 13, marginTop: 16, flexDirection: "row", alignItems: "center", gap: 11, backgroundColor: "rgba(255,255,255,0.78)", borderWidth: 1, borderColor: "#FFFFFF", shadowColor: "#064632", shadowOpacity: 0.13, shadowRadius: 18, shadowOffset: { width: 0, height: 8 }, elevation: 3 },
   noticeIcon: { width: 42, height: 42, borderRadius: 14, backgroundColor: "#FFF4DC", alignItems: "center", justifyContent: "center" },
   noticeCopy: { flex: 1 },
   noticeTitle: { color: "#13241E", fontSize: 12.5, fontFamily: fonts.semibold },
@@ -663,7 +846,7 @@ const styles = StyleSheet.create({
   shortcutsCard: { borderRadius: 22, paddingVertical: 18, paddingHorizontal: 8, marginTop: 18, flexDirection: "row", flexWrap: "wrap", backgroundColor: "rgba(255,255,255,0.76)", borderWidth: 1, borderColor: "#FFFFFF", shadowColor: "#064632", shadowOpacity: 0.1, shadowRadius: 16 },
   shortcut: { width: "25%", minHeight: 65, alignItems: "center", justifyContent: "center", gap: 8 },
   shortcutLabel: { color: "#5D6B65", fontSize: 10.5, textAlign: "center", fontFamily: fonts.medium },
-  secondaryContent: { paddingHorizontal: 20, paddingBottom: 150 },
+  secondaryContent: { paddingHorizontal: 20, paddingBottom: 178 },
   screenTitle: { color: "#13241E", fontSize: 22, marginTop: 6, marginBottom: 18, fontFamily: fonts.bold },
   monthCard: { height: 52, borderRadius: 18, paddingHorizontal: 7, flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: "rgba(255,255,255,0.8)", borderWidth: 1, borderColor: "#FFFFFF" },
   monthText: { color: "#065F46", fontSize: 15, fontFamily: fonts.semibold },
@@ -745,6 +928,11 @@ const styles = StyleSheet.create({
   leaveStats: { flexDirection: "row", justifyContent: "space-between", marginTop: 17 },
   leaveStatValue: { color: "#FFFFFF", fontSize: 16, textAlign: "center", fontFamily: fonts.semibold },
   leaveStatLabel: { color: "rgba(255,255,255,0.62)", fontSize: 8.5, marginTop: 2, fontFamily: fonts.medium },
+  advanceHero: { borderRadius: 24, padding: 19, minHeight: 174, justifyContent: "space-between", shadowColor: "#064632", shadowOpacity: 0.25, shadowRadius: 18, shadowOffset: { width: 0, height: 9 }, elevation: 5 },
+  advanceAmount: { color: "#FFFFFF", fontSize: 35, marginTop: 15, fontFamily: fonts.light },
+  advanceCaption: { color: "rgba(255,255,255,0.7)", fontSize: 10.5, marginTop: 4, fontFamily: fonts.medium },
+  advanceMeta: { flexDirection: "row", justifyContent: "space-between", marginTop: 20, paddingTop: 13, borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.16)" },
+  advanceMetaText: { color: "#DDF9EC", fontSize: 9.5, fontFamily: fonts.semibold },
   infoNote: { minHeight: 62, borderRadius: 17, padding: 13, marginTop: 14, flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: "#EDF8F3", borderWidth: 1, borderColor: "#D8EEE4" },
   infoNoteText: { flex: 1, color: "#51675E", fontSize: 10.5, lineHeight: 16, fontFamily: fonts.regular },
   flowSectionTitle: { marginTop: 21, marginBottom: 11 },
@@ -813,6 +1001,14 @@ const styles = StyleSheet.create({
   profileAvatarText: { color: "#FFFFFF", fontSize: 23, fontFamily: fonts.bold },
   profileName: { color: "#173B31", fontSize: 19, marginTop: 11, fontFamily: fonts.bold },
   profileRole: { color: "#7A8781", fontSize: 10.5, marginTop: 4, fontFamily: fonts.medium },
+  deviceHero: { minHeight: 92, borderRadius: 22, padding: 15, flexDirection: "row", alignItems: "center", gap: 13, backgroundColor: "rgba(255,255,255,0.82)", borderWidth: 1, borderColor: "#FFFFFF", shadowColor: "#064632", shadowOpacity: 0.12, shadowRadius: 16, elevation: 3 },
+  devicePhone: { width: 58, height: 66, borderRadius: 18, alignItems: "center", justifyContent: "center", backgroundColor: "#E8F7F0" },
+  deviceName: { color: "#173B31", fontSize: 13, fontFamily: fonts.semibold },
+  deviceStatus: { flexDirection: "row", alignItems: "center", gap: 5, marginTop: 8 },
+  deviceStatusDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: "#18A578" },
+  deviceStatusText: { color: "#168563", fontSize: 9.5, fontFamily: fonts.semibold },
+  disabledButton: { minHeight: 50, borderRadius: 17, marginTop: 18, alignItems: "center", justifyContent: "center", backgroundColor: "#E7EFEB", borderWidth: 1, borderColor: "#D7E2DC" },
+  disabledButtonText: { color: "#85918B", fontSize: 12, fontFamily: fonts.semibold },
   inlineInput: { minWidth: 145, height: 38, borderRadius: 12, paddingHorizontal: 10, color: "#20362F", textAlign: "right", backgroundColor: "#F1F8F5", borderWidth: 1, borderColor: "#B9D9CB", fontSize: 11, fontFamily: fonts.semibold },
   readAll: { alignSelf: "flex-end", minHeight: 37, justifyContent: "center", marginBottom: 10 },
   unreadDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#15936D" },
@@ -831,14 +1027,28 @@ const styles = StyleSheet.create({
   loginScreen: { flexGrow: 1, paddingHorizontal: 28, paddingTop: 75, paddingBottom: 35 },
   loginMark: { width: 58, height: 58, borderRadius: 18, alignSelf: "center", alignItems: "center", justifyContent: "center", backgroundColor: "#087355", transform: [{ rotate: "-6deg" }], shadowColor: "#064632", shadowOpacity: 0.25, shadowRadius: 14, elevation: 5 },
   loginMarkText: { color: "#FFFFFF", fontSize: 27, fontFamily: fonts.bold },
+  authBrand: { color: "#087355", fontSize: 10, letterSpacing: 3.5, marginTop: 13, textAlign: "center", fontFamily: fonts.bold },
   loginTitle: { color: "#173B31", fontSize: 24, marginTop: 27, textAlign: "center", fontFamily: fonts.bold },
   loginSubtitle: { color: "#7A8781", fontSize: 11.5, lineHeight: 18, marginTop: 7, marginBottom: 24, textAlign: "center", fontFamily: fonts.regular },
   googleButton: { height: 52, borderRadius: 17, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 11, backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: "#DDE5E1" },
   googleLetter: { color: "#4285F4", fontSize: 18, fontFamily: fonts.bold },
   googleText: { color: "#263A33", fontSize: 12, fontFamily: fonts.semibold },
   loginDivider: { flexDirection: "row", alignItems: "center", gap: 10, marginVertical: 19 },
+  dividerLine: { flex: 1, height: 1, backgroundColor: "#E3EAE6" },
+  dividerText: { color: "#98A49E", fontSize: 10, fontFamily: fonts.medium },
   loginInput: { height: 50, borderRadius: 16, paddingHorizontal: 14, color: "#20362F", backgroundColor: "rgba(255,255,255,0.84)", borderWidth: 1, borderColor: "rgba(6,95,70,0.12)", fontSize: 12, fontFamily: fonts.medium },
+  authFootRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", marginTop: 7 },
+  authFootText: { color: "#7A8781", fontSize: 11, fontFamily: fonts.regular },
   loginFoot: { color: "#98A49E", fontSize: 9.5, marginTop: 24, textAlign: "center", fontFamily: fonts.regular },
+  authContent: { flexGrow: 1, paddingHorizontal: 28, paddingTop: 40, paddingBottom: 45 },
+  authIcon: { width: 70, height: 70, borderRadius: 24, alignSelf: "center", alignItems: "center", justifyContent: "center", backgroundColor: "#E8F7F0", borderWidth: 1, borderColor: "#D5EEE3" },
+  authTitle: { color: "#173B31", fontSize: 22, marginTop: 24, textAlign: "center", fontFamily: fonts.bold },
+  authSubtitle: { color: "#7A8781", fontSize: 11.5, lineHeight: 18, marginTop: 8, marginBottom: 16, textAlign: "center", fontFamily: fonts.regular },
+  otpBoxes: { flexDirection: "row", justifyContent: "space-between", gap: 7, marginTop: 22, marginBottom: 14 },
+  otpBox: { flex: 1, maxWidth: 48, height: 54, borderRadius: 15, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.8)", borderWidth: 1, borderColor: "#D8E5DF" },
+  otpBoxFilled: { borderColor: "#46AF8B", backgroundColor: "#EFFAF5" },
+  otpDigit: { color: "#173B31", fontSize: 18, fontFamily: fonts.semibold },
+  otpInput: { width: 1, height: 1, opacity: 0, alignSelf: "center" },
   quickScrim: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, zIndex: 20, backgroundColor: "rgba(255,255,255,0.76)" },
   quickMenu: { position: "absolute", right: 23, bottom: 111, zIndex: 31, gap: 11, alignItems: "flex-end" },
   quickItem: { flexDirection: "row", alignItems: "center", gap: 10 },
@@ -849,10 +1059,11 @@ const styles = StyleSheet.create({
   dock: { position: "absolute", left: 18, right: 18, bottom: Platform.OS === "ios" ? 18 : 14, zIndex: 30, height: 64, flexDirection: "row", alignItems: "center", gap: 11 },
   dockPill: { flex: 1, height: 64, paddingHorizontal: 7, borderRadius: 32, flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: "rgba(255,255,255,0.9)", borderWidth: 1, borderColor: "#FFFFFF", shadowColor: "#064632", shadowOpacity: 0.22, shadowRadius: 18, shadowOffset: { width: 0, height: 9 }, elevation: 7 },
   dockItem: { height: 48, minWidth: 45, paddingHorizontal: 11, borderRadius: 24, flexDirection: "row", alignItems: "center", justifyContent: "center" },
+  dockItemContent: { flexDirection: "row", alignItems: "center", justifyContent: "center" },
   dockItemActive: { backgroundColor: "rgba(6,95,70,0.10)" },
   dockLabel: { color: "#13241E", fontSize: 10.5, marginLeft: 6, fontFamily: fonts.semibold },
   fabWrap: { width: 64, height: 64, borderRadius: 32 },
   fab: { width: 64, height: 64, borderRadius: 32, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "rgba(255,255,255,0.34)", shadowColor: "#065F46", shadowOpacity: 0.42, shadowRadius: 16, shadowOffset: { width: 0, height: 9 }, elevation: 8 },
-  toast: { position: "absolute", left: 32, right: 32, bottom: 102, zIndex: 50, minHeight: 45, borderRadius: 16, paddingHorizontal: 16, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.96)", borderWidth: 1, borderColor: "#FFFFFF", shadowColor: "#064632", shadowOpacity: 0.2, shadowRadius: 16, elevation: 8 },
-  toastText: { color: "#20362F", fontSize: 11, textAlign: "center", fontFamily: fonts.semibold },
+  toast: { position: "absolute", left: 32, right: 32, bottom: 102, zIndex: 50, minHeight: 45, borderRadius: 16, paddingHorizontal: 16, flexDirection: "row", gap: 8, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.96)", borderWidth: 1, borderColor: "#FFFFFF", shadowColor: "#064632", shadowOpacity: 0.2, shadowRadius: 16, elevation: 8 },
+  toastText: { flexShrink: 1, color: "#20362F", fontSize: 11, textAlign: "center", fontFamily: fonts.semibold },
 });
