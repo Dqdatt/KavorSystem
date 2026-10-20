@@ -1,0 +1,11 @@
+tenant_code,position_code,position_name,job_level,effective_from
+HDG-001,CEO,Tong Giam doc,L6,2026-01-01
+HDG-001,HRM,Truong phong Nhan su,L4,2026-01-01
+HDG-001,HRO,Chuyen vien Nhan su,L2,2026-01-01
+HDG-001,ACCT,Ke toan vien,L2,2026-01-01
+HDG-001,SM,Truong nhom Kinh doanh,L3,2026-01-01
+HDG-001,SE,Nhan vien Kinh doanh,L1,2026-01-01
+HDG-001,OM,Truong nhom Van hanh,L3,2026-01-01
+HDG-001,OE,Nhan vien Van hanh,L1,2026-01-01
+HDG-001,DEV,Ky su Phan mem,L2,2026-01-01
+HDG-001,CSE,Nhan vien Cham soc Khach hang,L1,2026-01-01

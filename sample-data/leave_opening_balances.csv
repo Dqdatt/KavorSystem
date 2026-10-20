@@ -1,0 +1,11 @@
+tenant_code,employee_code,leave_type_code,period_year,opening_amount,effective_on,note
+HDG-001,HDG0001,AL,2026,8.0,2026-01-01,Sample opening balance
+HDG-001,HDG0002,AL,2026,7.5,2026-01-01,Sample opening balance
+HDG-001,HDG0003,AL,2026,6.0,2026-01-01,Sample opening balance
+HDG-001,HDG0004,AL,2026,5.0,2026-01-01,Sample opening balance
+HDG-001,HDG0005,AL,2026,4.5,2026-01-01,Sample opening balance
+HDG-001,HDG0006,AL,2026,6.5,2026-01-01,Sample opening balance
+HDG-001,HDG0007,AL,2026,3.0,2026-01-01,Sample opening balance
+HDG-001,HDG0008,AL,2026,2.0,2026-01-01,Sample opening balance
+HDG-001,HDG0009,AL,2026,5.5,2026-01-01,Sample opening balance
+HDG-001,HDG0010,AL,2026,0.0,2026-09-01,Probation sample

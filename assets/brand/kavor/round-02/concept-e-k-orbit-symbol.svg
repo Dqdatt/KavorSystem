@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img" aria-labelledby="title">
+  <title id="title">Kavor K Orbit symbol</title>
+  <path d="M190 66A88 88 0 1 0 190 190" fill="none" stroke="#111827" stroke-width="28" stroke-linecap="round"/>
+  <path d="M112 128L190 66M112 128L190 190" fill="none" stroke="#111827" stroke-width="28" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

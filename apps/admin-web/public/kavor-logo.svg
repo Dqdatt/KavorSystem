@@ -1,0 +1,5 @@
+<svg width="470" height="425" viewBox="0 0 470 425" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs><linearGradient id="kavor" x1="35" y1="35" x2="436" y2="390" gradientUnits="userSpaceOnUse"><stop stop-color="#10A37F"/><stop offset="1" stop-color="#065F46"/></linearGradient></defs>
+  <path d="M35 189V389L141 190L245 390L436 35" stroke="url(#kavor)" stroke-width="58" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="364" cy="374" r="32" fill="#A7F3D0"/>
+</svg>

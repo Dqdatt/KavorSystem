@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 470 425" width="470" height="425" role="img" aria-labelledby="title desc">
+  <title id="title">Kavor logo</title>
+  <desc id="desc">Biểu tượng Kavor màu xanh lá với nét bo tròn và điểm nhấn màu bạc hà.</desc>
+  <defs>
+    <linearGradient id="kavorGreen" x1="35" y1="390" x2="436" y2="35" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#10A37F"/>
+      <stop offset="1" stop-color="#065F46"/>
+    </linearGradient>
+  </defs>
+  <path d="M35 189 L35 389 L141 190 L245 390 L436 35"
+        fill="none"
+        stroke="url(#kavorGreen)"
+        stroke-width="38"
+        stroke-linecap="round"
+        stroke-linejoin="round"/>
+  <circle cx="364" cy="374" r="32" fill="#A7F3D0"/>
+</svg>

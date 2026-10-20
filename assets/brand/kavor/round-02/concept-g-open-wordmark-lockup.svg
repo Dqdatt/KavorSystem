@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 256" width="760" height="256" role="img" aria-labelledby="title">
+  <title id="title">Kavor Open Wordmark logo concept</title>
+  <g id="wordmark" fill="#111827" transform="translate(14 0)">
+    <rect x="74" y="64" width="26" height="128" rx="13"/>
+    <path d="M98 130L140 88H176L126 138L180 192H144L98 146Z"/>
+    <path fill-rule="evenodd" d="M252 86A53 53 0 1 1 252 192A53 53 0 1 1 252 86ZM252 114A25 25 0 1 0 252 164A25 25 0 1 0 252 114Z"/>
+    <rect x="280" y="88" width="26" height="104" rx="13"/>
+    <path d="M324 88H349.4L391 160L432.6 88H458L398 192H384Z"/>
+    <path fill-rule="evenodd" d="M534 85A55 55 0 1 1 534 195A55 55 0 1 1 534 85ZM534 113A27 27 0 1 0 534 167A27 27 0 1 0 534 113Z"/>
+    <rect x="610" y="88" width="26" height="104" rx="13"/>
+    <path d="M634 88H662Q710 88 710 136H680Q680 116 658 116H634Z"/>
+  </g>
+</svg>

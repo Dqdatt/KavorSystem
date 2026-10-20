@@ -1,0 +1,11 @@
+tenant_code,client_event_id,employee_code,event_type,occurred_at,received_at,source,device_installation_id,latitude,longitude,accuracy_m,expected_result
+HDG-001,evt-0001,HDG0001,check_in,2026-10-19T01:27:00Z,2026-10-19T01:27:02Z,ios,ios-install-0001,10.776900,106.700900,14.2,accepted
+HDG-001,evt-0002,HDG0001,check_out,2026-10-19T10:31:00Z,2026-10-19T10:31:02Z,ios,ios-install-0001,10.776910,106.700920,18.0,accepted
+HDG-001,evt-0003,HDG0002,check_in,2026-10-19T01:34:00Z,2026-10-19T01:34:01Z,android,android-install-0002,10.776880,106.700870,21.5,accepted
+HDG-001,evt-0004,HDG0002,check_out,2026-10-19T10:28:00Z,2026-10-19T10:28:01Z,android,android-install-0002,10.776860,106.700850,19.1,accepted
+HDG-001,evt-0005,HDG0005,check_in,2026-10-19T15:58:00Z,2026-10-19T15:58:03Z,android,android-install-0005,10.789100,106.701100,25.0,accepted
+HDG-001,evt-0006,HDG0005,check_out,2026-10-19T23:04:00Z,2026-10-19T23:04:04Z,android,android-install-0005,10.789120,106.701120,22.4,accepted
+HDG-001,evt-0007,HDG0007,check_in,2026-10-19T01:29:00Z,2026-10-19T01:29:02Z,ios,ios-install-0007,21.030500,105.812000,34.0,needs_review
+HDG-001,evt-0008,HDG0007,check_out,2026-10-19T10:30:00Z,2026-10-19T10:30:02Z,ios,ios-install-0007,21.028500,105.834200,20.0,accepted
+HDG-001,evt-0009,HDG0008,check_in,2026-10-18T23:59:00Z,2026-10-19T01:12:00Z,android,android-install-0008,16.054400,108.202200,28.5,accepted_offline
+HDG-001,evt-0010,HDG0008,check_out,2026-10-19T07:03:00Z,2026-10-19T07:03:03Z,android,android-install-0008,16.054420,108.202180,31.0,accepted

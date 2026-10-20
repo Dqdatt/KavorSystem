@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 940 256" width="940" height="256" role="img" aria-labelledby="title">
+  <title id="title">Kavor Core K horizontal logo concept</title>
+  <g id="symbol" transform="translate(32 32) scale(.75)">
+    <path fill="#111827" fill-rule="evenodd" d="M40 32H96V104L168 32H232L136 128L232 224H168L96 152V224H40ZM112 110A18 18 0 1 0 112 146A18 18 0 1 0 112 110Z"/>
+  </g>
+  <g id="wordmark" fill="#111827">
+    <path d="M280 72H304V112L344 72H378L330 128L378 184H344L304 144V184H280Z"/>
+    <path fill-rule="evenodd" d="M396 184L438 72H470L512 184H484L475 158H433L424 184ZM441 134H467L454 96Z"/>
+    <path d="M520 72H548L580 154L612 72H640L595 184H565Z"/>
+    <path fill-rule="evenodd" d="M710 70A58 58 0 1 1 710 186A58 58 0 1 1 710 70ZM710 94A34 34 0 1 0 710 162A34 34 0 1 0 710 94Z"/>
+    <path fill-rule="evenodd" d="M792 72H842Q888 72 888 118Q888 148 862 160L903.6 184H871.6L830 160H816V184H792ZM816 96V140H840Q864 140 864 118Q864 96 840 96Z"/>
+  </g>
+</svg>

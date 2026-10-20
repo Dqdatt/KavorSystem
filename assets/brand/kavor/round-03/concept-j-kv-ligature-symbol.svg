@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img" aria-labelledby="title">
+  <title id="title">Kavor KV Ligature symbol</title>
+  <rect x="20" y="40" width="40" height="176" rx="12" fill="#111827"/>
+  <path fill="#111827" d="M60 116L136 40H184L96 128H60Z"/>
+  <path fill="#111827" d="M76 136H108L156 184L206.8 96H236L166.7 216H156Z"/>
+</svg>

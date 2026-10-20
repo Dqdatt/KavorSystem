@@ -1,0 +1,5 @@
+tenant_code,shift_code,shift_name,start_time,end_time,crosses_midnight,break_minutes,grace_minutes,timezone
+HDG-001,OFFICE,Ca van phong,08:30,17:30,false,60,5,Asia/Ho_Chi_Minh
+HDG-001,SHIFT-A,Ca sang,06:00,14:00,false,30,5,Asia/Ho_Chi_Minh
+HDG-001,SHIFT-B,Ca chieu,14:00,22:00,false,30,5,Asia/Ho_Chi_Minh
+HDG-001,SHIFT-C,Ca dem,22:00,06:00,true,45,5,Asia/Ho_Chi_Minh

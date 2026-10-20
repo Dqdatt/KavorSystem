@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img" aria-labelledby="title">
+  <title id="title">Kavor Gather symbol</title>
+  <g transform="translate(0 12)">
+    <rect x="108" y="36" width="40" height="92" rx="20" fill="#111827"/>
+    <rect x="108" y="36" width="40" height="92" rx="20" fill="#111827" transform="rotate(120 128 128)"/>
+    <rect x="108" y="36" width="40" height="92" rx="20" fill="#111827" transform="rotate(240 128 128)"/>
+  </g>
+</svg>

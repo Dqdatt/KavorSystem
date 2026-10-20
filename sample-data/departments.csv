@@ -1,0 +1,8 @@
+tenant_code,department_code,department_name,parent_department_code,branch_code,effective_from
+HDG-001,EXEC,Ban Dieu hanh,,HCM,2026-01-01
+HDG-001,HR,Nhan su,EXEC,HCM,2026-01-01
+HDG-001,FIN,Tai chinh - Ke toan,EXEC,HCM,2026-01-01
+HDG-001,SALES,Kinh doanh,EXEC,HCM,2026-01-01
+HDG-001,OPS,Van hanh,EXEC,HCM,2026-01-01
+HDG-001,TECH,Cong nghe,EXEC,HCM,2026-01-01
+HDG-001,CS,Cham soc khach hang,OPS,HCM,2026-01-01

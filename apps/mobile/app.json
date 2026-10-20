@@ -1,0 +1,25 @@
+{
+  "expo": {
+    "name": "Kavor",
+    "slug": "kavor-mobile",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "scheme": "kavor",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "vn.kavor.mobile",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Kavor dùng vị trí khi bạn chấm công để xác minh địa điểm làm việc."
+      }
+    },
+    "android": {
+      "package": "vn.kavor.mobile",
+      "permissions": ["ACCESS_COARSE_LOCATION", "ACCESS_FINE_LOCATION"],
+      "adaptiveIcon": {
+        "backgroundColor": "#F4F7F5"
+      }
+    },
+    "plugins": []
+  }
+}

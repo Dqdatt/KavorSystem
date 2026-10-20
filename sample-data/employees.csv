@@ -1,0 +1,11 @@
+tenant_code,employee_code,full_name,work_email,phone,branch_code,department_code,position_code,manager_employee_code,hire_date,employment_type,status
+HDG-001,HDG0001,Nguyen Minh An,an.nguyen@example.test,0900000001,HCM,EXEC,CEO,,2022-01-10,official,active
+HDG-001,HDG0002,Tran Thu Ha,ha.tran@example.test,0900000002,HCM,HR,HRM,HDG0001,2023-03-15,official,active
+HDG-001,HDG0003,Le Quang Huy,huy.le@example.test,0900000003,HCM,HR,HRO,HDG0002,2024-02-19,official,active
+HDG-001,HDG0004,Pham Ngoc Anh,anh.pham@example.test,0900000004,HCM,FIN,ACCT,HDG0001,2023-08-01,official,active
+HDG-001,HDG0005,Vo Thao Linh,linh.vo@example.test,0900000005,HCM,OPS,OM,HDG0001,2022-11-07,official,active
+HDG-001,HDG0006,Do Gia Bao,bao.do@example.test,0900000006,HCM,SALES,SM,HDG0001,2024-01-08,official,active
+HDG-001,HDG0007,Nguyen Mai Chi,chi.nguyen@example.test,0900000007,HN,SALES,SE,HDG0006,2025-04-14,official,active
+HDG-001,HDG0008,Hoang Duc Long,long.hoang@example.test,0900000008,DN,OPS,OE,HDG0005,2025-07-21,official,active
+HDG-001,HDG0009,Bui Khanh Vy,vy.bui@example.test,0900000009,HCM,TECH,DEV,HDG0001,2024-09-02,official,active
+HDG-001,HDG0010,Truong Bao Tram,tram.truong@example.test,0900000010,HCM,CS,CSE,HDG0005,2026-09-01,probation,active

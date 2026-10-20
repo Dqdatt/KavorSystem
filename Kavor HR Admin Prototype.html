@@ -1,0 +1,369 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Kavor HR/Admin Prototype</title>
+  <meta name="application-name" content="Kavor HR">
+  <link rel="icon" type="image/svg+xml" href="assets/kavor-logo.svg">
+  <link rel="stylesheet" href="assets/kavor-desktop.css">
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="m3 11 9-8 9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></symbol>
+    <symbol id="i-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
+    <symbol id="i-org" viewBox="0 0 24 24"><rect x="8" y="2" width="8" height="5" rx="1"/><rect x="2" y="17" width="7" height="5" rx="1"/><rect x="15" y="17" width="7" height="5" rx="1"/><path d="M12 7v5M5.5 17v-3h13v3"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+    <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></symbol>
+    <symbol id="i-plane" viewBox="0 0 24 24"><path d="M22 2 9.5 14.5M22 2l-7 20-4-8-8-4z"/></symbol>
+    <symbol id="i-checks" viewBox="0 0 24 24"><path d="m3 7 3 3 5-6M13 7h8M3 17l3 3 5-6M13 17h8"/></symbol>
+    <symbol id="i-pay" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M16 15h2"/></symbol>
+    <symbol id="i-file" viewBox="0 0 24 24"><path d="M6 2h8l4 4v16H6zM14 2v5h5M9 12h6M9 16h6"/></symbol>
+    <symbol id="i-news" viewBox="0 0 24 24"><path d="M4 5h16v14H4zM8 9h8M8 13h8M8 17h5"/></symbol>
+    <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.07.07l2-2a5 5 0 0 0-7.07-7.07l-1.15 1.15M14 11a5 5 0 0 0-7.07-.07l-2 2A5 5 0 0 0 12 20l1.15-1.15"/></symbol>
+    <symbol id="i-chart" viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20V7M2 20h21"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 22s8-4 8-11V5l-8-3-8 3v6c0 7 8 11 8 11z"/><path d="m9 12 2 2 4-5"/></symbol>
+    <symbol id="i-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.03 1.56V21h-4v-.08A1.7 1.7 0 0 0 9 19.37a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.63 15 1.7 1.7 0 0 0 3.08 14H3v-4h.08A1.7 1.7 0 0 0 4.63 9a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 9 4.63a1.7 1.7 0 0 0 1-1.55V3h4v.08A1.7 1.7 0 0 0 15 4.63a1.7 1.7 0 0 0 1.88-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.37 9c.24.6.83 1 1.55 1H21v4h-.08c-.72 0-1.31.4-1.55 1z"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></symbol>
+    <symbol id="i-bell" viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></symbol>
+    <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.8 9a2.3 2.3 0 1 1 3.4 2c-.8.5-1.2 1-1.2 2M12 17h.01"/></symbol>
+    <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+    <symbol id="i-panel" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5M4 20h16"/></symbol>
+    <symbol id="i-filter" viewBox="0 0 24 24"><path d="M3 5h18M6 12h12M10 19h4"/></symbol>
+    <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14M14 7l5 5-5 5"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></symbol>
+    <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M4 21h16"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 6v5h-5M4 18v-5h5M6 9a7 7 0 0 1 12-2l2 4M18 15a7 7 0 0 1-12 2l-2-4"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 3 2 21h20zM12 9v5M12 18h.01"/></symbol>
+    <symbol id="i-brief" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V4h6v3M3 12h18"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></symbol>
+  </defs>
+</svg>
+
+<div class="prototype-stage">
+  <div class="browser-bar" aria-hidden="true">
+    <span class="traffic"><i></i><i></i><i></i></span>
+    <span class="browser-domain">🔒 hr.kavor.vn</span>
+    <span class="browser-actions">＋　↗　▢</span>
+  </div>
+
+  <main class="app-shell" id="shell">
+    <aside class="sidebar" aria-label="Điều hướng HR">
+      <div class="brand">
+        <img src="assets/kavor-logo.svg" alt="Kavor">
+        <span class="brand-copy"><b>Kavor</b><small>HR Workspace</small></span>
+        <button class="collapse-btn" data-action="close-menu" aria-label="Đóng menu">‹</button>
+      </div>
+
+      <button class="nav-item active" data-page="dashboard"><span class="nav-icon"><svg><use href="#i-home"/></svg></span><span class="nav-text">Tổng quan</span></button>
+
+      <div class="nav-label">Nhân sự</div>
+      <button class="nav-item" data-page="employees"><span class="nav-icon"><svg><use href="#i-users"/></svg></span><span class="nav-text">Nhân viên</span></button>
+      <button class="nav-item" data-page="organization"><span class="nav-icon"><svg><use href="#i-org"/></svg></span><span class="nav-text">Cơ cấu tổ chức</span></button>
+
+      <div class="nav-label">Thời gian</div>
+      <button class="nav-item" data-page="attendance"><span class="nav-icon"><svg><use href="#i-clock"/></svg></span><span class="nav-text">Chấm công</span><span class="nav-badge">8</span></button>
+      <button class="nav-item" data-page="schedules"><span class="nav-icon"><svg><use href="#i-calendar"/></svg></span><span class="nav-text">Ca & lịch làm</span></button>
+      <button class="nav-item" data-page="leave"><span class="nav-icon"><svg><use href="#i-plane"/></svg></span><span class="nav-text">Nghỉ phép</span></button>
+
+      <div class="nav-label">Vận hành</div>
+      <button class="nav-item" data-page="requests"><span class="nav-icon"><svg><use href="#i-checks"/></svg></span><span class="nav-text">Đơn & phê duyệt</span><span class="nav-badge">12</span></button>
+      <button class="nav-item" data-page="payroll"><span class="nav-icon"><svg><use href="#i-pay"/></svg></span><span class="nav-text">Lương & tạm ứng</span></button>
+      <button class="nav-item" data-page="documents"><span class="nav-icon"><svg><use href="#i-file"/></svg></span><span class="nav-text">Tài liệu</span></button>
+      <button class="nav-item" data-page="announcements"><span class="nav-icon"><svg><use href="#i-news"/></svg></span><span class="nav-text">Bản tin</span></button>
+
+      <div class="nav-label">Hệ thống</div>
+      <button class="nav-item" data-page="integrations"><span class="nav-icon"><svg><use href="#i-link"/></svg></span><span class="nav-text">Tích hợp dữ liệu</span><span class="nav-badge green">2</span></button>
+      <button class="nav-item" data-page="reports"><span class="nav-icon"><svg><use href="#i-chart"/></svg></span><span class="nav-text">Báo cáo</span></button>
+      <button class="nav-item" data-page="roles"><span class="nav-icon"><svg><use href="#i-shield"/></svg></span><span class="nav-text">Vai trò & phân quyền</span></button>
+
+      <div class="sidebar-spacer"></div>
+      <div class="nav-sep"></div>
+      <button class="nav-item" data-page="settings"><span class="nav-icon"><svg><use href="#i-settings"/></svg></span><span class="nav-text">Cài đặt doanh nghiệp</span></button>
+      <button class="nav-item" data-action="toast" data-message="Trung tâm trợ giúp sẽ mở trong tab mới"><span class="nav-icon"><svg><use href="#i-help"/></svg></span><span class="nav-text">Trung tâm trợ giúp</span></button>
+
+      <div class="sidebar-user">
+        <span class="avatar">MT</span>
+        <span class="user-copy"><b>Mai Phương Thảo</b><span>HR Administrator</span></span>
+        <svg class="icon" style="width:16px;height:16px"><use href="#i-more"/></svg>
+      </div>
+    </aside>
+
+    <section class="app-main">
+      <header class="topbar">
+        <button class="icon-btn mobile-menu" data-action="open-menu" aria-label="Mở menu"><svg><use href="#i-menu"/></svg></button>
+        <div class="title-copy"><h1 id="pageTitle">Tổng quan</h1><span class="topbar-sub" id="pageSub">Thứ Hai, 19 tháng 10, 2026</span></div>
+        <label class="search"><svg><use href="#i-search"/></svg><input id="globalSearch" placeholder="Tìm nhân viên, đơn từ hoặc tài liệu…"></label>
+        <div class="top-actions">
+          <button class="icon-btn" data-action="toast" data-message="Không có tin nhắn mới" aria-label="Trợ giúp"><svg><use href="#i-help"/></svg></button>
+          <button class="icon-btn" data-action="notify" aria-label="Thông báo"><svg><use href="#i-bell"/></svg><i class="ping"></i></button>
+          <button class="account-chip" data-action="toast" data-message="Đang sử dụng tenant Hải Đăng Group"><span class="avatar">MT</span><span>Hải Đăng Group⌄</span></button>
+        </div>
+      </header>
+
+      <div class="workspace" id="workspace">
+        <!-- DASHBOARD -->
+        <section class="page active" id="page-dashboard" data-title="Tổng quan" data-sub="Thứ Hai, 19 tháng 10, 2026">
+          <div class="banner">
+            <span class="banner-icon"><svg><use href="#i-clock"/></svg></span>
+            <span class="banner-copy"><b>Kỳ công tháng 10 sẽ chốt sau 6 ngày</b><span>Còn 8 bất thường chưa xử lý và 12 đơn đang chờ phê duyệt.</span></span>
+            <button class="btn" data-page-link="attendance">Kiểm tra bảng công <svg><use href="#i-arrow"/></svg></button>
+          </div>
+
+          <div class="grid metrics">
+            <article class="card metric-card"><span class="metric-icon"><svg><use href="#i-users"/></svg></span><span class="metric-copy"><span>Nhân sự hoạt động</span><strong class="num">248</strong><small><b class="delta">+6</b> trong tháng 10</small></span><svg class="spark" viewBox="0 0 60 30"><path d="M2 24 10 19l8 3 8-10 8 3 8-7 8 2 8-7" fill="none" stroke="#23bd7c" stroke-width="1.6"/></svg></article>
+            <article class="card metric-card"><span class="metric-icon blue"><svg><use href="#i-clock"/></svg></span><span class="metric-copy"><span>Có mặt hôm nay</span><strong class="num">226</strong><small><b class="delta">91,1%</b> tổng nhân sự</small></span><svg class="spark" viewBox="0 0 60 30"><path d="M2 22 10 18l8 1 8-4 8 3 8-8 8 3 8-5" fill="none" stroke="#3e70c9" stroke-width="1.6"/></svg></article>
+            <article class="card metric-card"><span class="metric-icon amber"><svg><use href="#i-checks"/></svg></span><span class="metric-copy"><span>Đang chờ duyệt</span><strong class="num">12</strong><small><b class="delta down">4 quá 24 giờ</b></small></span><svg class="spark" viewBox="0 0 60 30"><path d="M2 8 10 12l8-2 8 8 8-3 8 5 8-1 8 5" fill="none" stroke="#c18420" stroke-width="1.6"/></svg></article>
+            <article class="card metric-card"><span class="metric-icon violet"><svg><use href="#i-pay"/></svg></span><span class="metric-copy"><span>Payroll 10/2026</span><strong class="num">72%</strong><small>Đang kiểm tra đầu vào</small></span><svg class="spark" viewBox="0 0 60 30"><path d="M2 25 10 24l8-5 8 1 8-8 8 2 8-7 8-3" fill="none" stroke="#7356c8" stroke-width="1.6"/></svg></article>
+          </div>
+
+          <div class="grid two-one">
+            <article class="card chart-card">
+              <div class="card-head no-line"><div><h3>Hiện diện & bất thường chấm công</h3><p>14–19/10/2026 · toàn công ty</p></div><div class="card-actions"><span class="chart-legend"><span><i class="green"></i>Có mặt</span><span><i class="dark"></i>Bất thường</span></span><select class="select"><option>7 ngày</option><option>30 ngày</option></select></div></div>
+              <div class="chart-wrap">
+                <svg class="chart-svg" viewBox="0 0 720 240" role="img" aria-label="Biểu đồ hiện diện">
+                  <defs><pattern id="dotsHR" width="16" height="16" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r="1" fill="#e8ede9"/></pattern></defs>
+                  <rect x="42" y="12" width="650" height="186" fill="url(#dotsHR)"/>
+                  <g stroke="#edf1ee"><path d="M42 30h650M42 75h650M42 120h650M42 165h650M42 198h650"/></g>
+                  <g fill="#35c88a" opacity=".95"><rect x="76" y="65" width="46" height="133" rx="5"/><rect x="166" y="50" width="46" height="148" rx="5"/><rect x="256" y="73" width="46" height="125" rx="5"/><rect x="346" y="42" width="46" height="156" rx="5"/><rect x="436" y="27" width="46" height="171" rx="5"/><rect x="526" y="48" width="46" height="150" rx="5"/><rect x="616" y="36" width="46" height="162" rx="5"/></g>
+                  <path d="M99 128 189 112 279 139 369 96 459 76 549 118 639 101" fill="none" stroke="#075e43" stroke-width="2.2"/>
+                  <g fill="#fff" stroke="#075e43" stroke-width="2"><circle cx="99" cy="128" r="4"/><circle cx="189" cy="112" r="4"/><circle cx="279" cy="139" r="4"/><circle cx="369" cy="96" r="4"/><circle cx="459" cy="76" r="4"/><circle cx="549" cy="118" r="4"/><circle cx="639" cy="101" r="4"/></g>
+                  <g><text x="10" y="34">250</text><text x="10" y="79">200</text><text x="10" y="124">150</text><text x="10" y="169">100</text><text x="10" y="202">50</text><text x="84" y="222">T3 13</text><text x="174" y="222">T4 14</text><text x="264" y="222">T5 15</text><text x="354" y="222">T6 16</text><text x="444" y="222">T7 17</text><text x="534" y="222">CN 18</text><text x="624" y="222">T2 19</text></g>
+                </svg>
+              </div>
+              <div class="chart-tooltip" style="left:58%;top:80px"><b>T7, 17/10</b><br><span class="muted">Có mặt 238 · Bất thường 9</span></div>
+            </article>
+
+            <div class="mini-stack">
+              <article class="card mini-stat"><span class="metric-icon red"><svg><use href="#i-alert"/></svg></span><span class="metric-copy"><span>Thiếu công</span><strong class="num">8</strong><small><b class="delta down">3 mới</b> hôm nay</small></span><svg class="spark" viewBox="0 0 60 30"><path d="M2 9 11 11l8 8 9-3 9 7 9-9 12 3" fill="none" stroke="#d94c57" stroke-width="1.5"/></svg></article>
+              <article class="card mini-stat"><span class="metric-icon amber"><svg><use href="#i-plane"/></svg></span><span class="metric-copy"><span>Nghỉ hôm nay</span><strong class="num">14</strong><small>10 phép · 4 công tác</small></span><svg class="spark" viewBox="0 0 60 30"><path d="M2 22 10 18l8 2 8-9 8 4 8-3 8 6 8-3" fill="none" stroke="#b77715" stroke-width="1.5"/></svg></article>
+              <article class="card mini-stat"><span class="metric-icon"><svg><use href="#i-upload"/></svg></span><span class="metric-copy"><span>Sheet sync</span><strong class="num">99,4%</strong><small>Đồng bộ lúc 08:15</small></span><svg class="spark" viewBox="0 0 60 30"><path d="M2 24 10 18l8 4 8-11 8 3 8-8 8 1 8-4" fill="none" stroke="#23bd7c" stroke-width="1.5"/></svg></article>
+            </div>
+          </div>
+
+          <div class="grid two-one">
+            <article class="card">
+              <div class="card-head"><div><h3>Nhân sự mới & thay đổi gần đây</h3><p>7 ngày gần nhất</p></div><button class="btn small" data-page-link="employees">Xem tất cả</button></div>
+              <div class="table-wrap"><table class="data-table"><thead><tr><th>Nhân viên</th><th>Phòng ban</th><th>Thay đổi</th><th>Hiệu lực</th><th>Trạng thái</th></tr></thead><tbody>
+                <tr data-employee="linh"><td><span class="person"><span class="avatar purple">VL</span><span class="person-copy"><b>Võ Thảo Linh</b><span>HD0256</span></span></span></td><td>Marketing</td><td>Nhân viên mới</td><td>19/10/2026</td><td><span class="status">Đã kích hoạt</span></td></tr>
+                <tr data-employee="ha"><td><span class="person"><span class="avatar">TH</span><span class="person-copy"><b>Trần Thu Hà</b><span>HD0142</span></span></span></td><td>Marketing</td><td>Đổi tài khoản ngân hàng</td><td>Chờ duyệt</td><td><span class="status warn">Cần xử lý</span></td></tr>
+                <tr data-employee="minh"><td><span class="person"><span class="avatar gold">NM</span><span class="person-copy"><b>Nguyễn Hoàng Minh</b><span>HD0098</span></span></span></td><td>Vận hành</td><td>Chuyển chi nhánh</td><td>01/11/2026</td><td><span class="status info">Đã lên lịch</span></td></tr>
+                <tr data-employee="khoa"><td><span class="person"><span class="avatar purple">ĐK</span><span class="person-copy"><b>Đặng Văn Khoa</b><span>HD0204</span></span></span></td><td>Marketing</td><td>Gia hạn hợp đồng</td><td>15/10/2026</td><td><span class="status">Hoàn tất</span></td></tr>
+              </tbody></table></div>
+            </article>
+
+            <article class="card">
+              <div class="card-head"><div><h3>Việc cần xử lý</h3><p>Ưu tiên theo hạn và mức ảnh hưởng</p></div><button class="icon-btn" data-action="toast" data-message="Đã làm mới danh sách"><svg><use href="#i-refresh"/></svg></button></div>
+              <div class="quick-list">
+                <button class="quick-item" data-page-link="requests"><span class="metric-icon amber"><svg><use href="#i-checks"/></svg></span><span class="quick-copy"><b>12 đơn chờ phê duyệt</b><span>4 đơn đã chờ quá 24 giờ</span></span><span class="quick-meta">Xử lý →</span></button>
+                <button class="quick-item" data-page-link="attendance"><span class="metric-icon red"><svg><use href="#i-clock"/></svg></span><span class="quick-copy"><b>8 bất thường công</b><span>Hạn giải trình 22/10</span></span><span class="quick-meta">6 ngày</span></button>
+                <button class="quick-item" data-page-link="payroll"><span class="metric-icon violet"><svg><use href="#i-pay"/></svg></span><span class="quick-copy"><b>Payroll còn 6 lỗi dữ liệu</b><span>Thiếu mã thành phần và tài khoản</span></span><span class="quick-meta">Kiểm tra →</span></button>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <!-- EMPLOYEES -->
+        <section class="page" id="page-employees" data-title="Nhân viên" data-sub="248 nhân sự hoạt động · 4 pháp nhân">
+          <div class="page-head"><div><h2>Danh sách nhân viên</h2><p>Quản lý hồ sơ, trạng thái và lịch sử công tác.</p></div><div class="head-actions"><button class="btn" data-modal="importEmployees"><svg><use href="#i-upload"/></svg> Import dữ liệu</button><button class="btn primary" data-modal="addEmployee"><svg><use href="#i-plus"/></svg> Thêm nhân viên</button></div></div>
+          <article class="card">
+            <div class="toolbar"><label class="search"><svg><use href="#i-search"/></svg><input class="table-search" data-target="employeeRows" placeholder="Tên, mã hoặc email…"></label><select class="select"><option>Tất cả phòng ban</option><option>Marketing</option><option>Vận hành</option><option>Kinh doanh</option></select><select class="select"><option>Đang làm việc</option><option>Thử việc</option><option>Sắp nghỉ</option></select><span class="toolbar-spacer"></span><button class="btn small"><svg><use href="#i-filter"/></svg> Bộ lọc</button><button class="btn small" data-action="toast" data-message="Đã xuất danh sách nhân viên"><svg><use href="#i-download"/></svg> Xuất</button></div>
+            <div class="table-wrap"><table class="data-table"><thead><tr><th><input type="checkbox"></th><th>Nhân viên</th><th>Phòng ban</th><th>Chức danh</th><th>Ngày vào làm</th><th>Loại HĐ</th><th>Trạng thái</th><th></th></tr></thead><tbody id="employeeRows">
+              <tr data-employee="ha"><td><input type="checkbox"></td><td><span class="person"><span class="avatar">TH</span><span class="person-copy"><b>Trần Thu Hà</b><span>ha.tran@haidang.vn · HD0142</span></span></span></td><td>Marketing</td><td>Senior Designer</td><td>03/03/2021</td><td>Chính thức</td><td><span class="status">Hoạt động</span></td><td><svg class="icon" style="width:17px"><use href="#i-more"/></svg></td></tr>
+              <tr data-employee="linh"><td><input type="checkbox"></td><td><span class="person"><span class="avatar purple">VL</span><span class="person-copy"><b>Võ Thảo Linh</b><span>linh.vo@haidang.vn · HD0256</span></span></span></td><td>Marketing</td><td>Content Writer</td><td>19/10/2026</td><td>Thử việc</td><td><span class="status info">Mới kích hoạt</span></td><td><svg class="icon" style="width:17px"><use href="#i-more"/></svg></td></tr>
+              <tr data-employee="minh"><td><input type="checkbox"></td><td><span class="person"><span class="avatar gold">NM</span><span class="person-copy"><b>Nguyễn Hoàng Minh</b><span>minh.nguyen@haidang.vn · HD0098</span></span></span></td><td>Vận hành</td><td>Ops Supervisor</td><td>11/08/2019</td><td>Chính thức</td><td><span class="status">Hoạt động</span></td><td><svg class="icon" style="width:17px"><use href="#i-more"/></svg></td></tr>
+              <tr data-employee="khoa"><td><input type="checkbox"></td><td><span class="person"><span class="avatar purple">ĐK</span><span class="person-copy"><b>Đặng Văn Khoa</b><span>khoa.dang@haidang.vn · HD0204</span></span></span></td><td>Marketing</td><td>Video Editor</td><td>08/06/2024</td><td>Chính thức</td><td><span class="status">Hoạt động</span></td><td><svg class="icon" style="width:17px"><use href="#i-more"/></svg></td></tr>
+              <tr data-employee="anh"><td><input type="checkbox"></td><td><span class="person"><span class="avatar gold">PA</span><span class="person-copy"><b>Phạm Ngọc Anh</b><span>anh.pham@haidang.vn · HD0181</span></span></span></td><td>Kinh doanh</td><td>Account Executive</td><td>14/02/2023</td><td>Chính thức</td><td><span class="status warn">Sắp nghỉ</span></td><td><svg class="icon" style="width:17px"><use href="#i-more"/></svg></td></tr>
+              <tr data-employee="duc"><td><input type="checkbox"></td><td><span class="person"><span class="avatar">PĐ</span><span class="person-copy"><b>Phạm Minh Đức</b><span>duc.pham@haidang.vn · HD0198</span></span></span></td><td>Marketing</td><td>Designer</td><td>04/04/2024</td><td>Chính thức</td><td><span class="status">Hoạt động</span></td><td><svg class="icon" style="width:17px"><use href="#i-more"/></svg></td></tr>
+            </tbody></table></div>
+          </article>
+        </section>
+
+        <!-- ORGANIZATION -->
+        <section class="page" id="page-organization" data-title="Cơ cấu tổ chức" data-sub="4 pháp nhân · 6 chi nhánh · 18 phòng ban">
+          <div class="page-head"><div><h2>Sơ đồ tổ chức</h2><p>Cấu trúc có ngày hiệu lực và lưu đầy đủ lịch sử thay đổi.</p></div><div class="head-actions"><button class="btn"><svg><use href="#i-upload"/></svg> Import</button><button class="btn primary" data-action="toast" data-message="Đã tạo bản nháp thay đổi cơ cấu"><svg><use href="#i-plus"/></svg> Thêm đơn vị</button></div></div>
+          <div class="grid three">
+            <article class="card metric-card"><span class="metric-icon"><svg><use href="#i-brief"/></svg></span><span class="metric-copy"><span>Pháp nhân</span><strong>4</strong><small>1 pháp nhân chính</small></span></article>
+            <article class="card metric-card"><span class="metric-icon blue"><svg><use href="#i-org"/></svg></span><span class="metric-copy"><span>Phòng ban</span><strong>18</strong><small>6 chi nhánh</small></span></article>
+            <article class="card metric-card"><span class="metric-icon violet"><svg><use href="#i-users"/></svg></span><span class="metric-copy"><span>Quản lý</span><strong>24</strong><small>2 vị trí đang trống</small></span></article>
+          </div>
+          <article class="card"><div class="card-head"><div><h3>Hải Đăng Group</h3><p>Hiệu lực từ 01/10/2026</p></div><button class="btn small">Danh sách</button></div><div class="card-body" style="overflow:auto"><div style="min-width:760px;text-align:center;padding:8px 0 22px">
+            <div style="display:inline-block;padding:12px 28px;border:1px solid #bddfce;border-radius:10px;background:#edf9f3;font-weight:800">Hải Đăng Group <small style="display:block;color:var(--muted);font-weight:500">248 nhân sự</small></div>
+            <div style="width:1px;height:28px;background:var(--line-strong);margin:auto"></div><div style="height:1px;background:var(--line-strong);width:70%;margin:auto"></div>
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;width:88%;margin:auto"><div style="padding-top:20px"><div class="card card-body"><b>Khối Kinh doanh</b><p class="muted">64 nhân sự</p><span class="status">4 phòng ban</span></div></div><div style="padding-top:20px"><div class="card card-body"><b>Khối Marketing</b><p class="muted">58 nhân sự</p><span class="status">5 phòng ban</span></div></div><div style="padding-top:20px"><div class="card card-body"><b>Khối Vận hành</b><p class="muted">92 nhân sự</p><span class="status">6 phòng ban</span></div></div><div style="padding-top:20px"><div class="card card-body"><b>Khối Hỗ trợ</b><p class="muted">34 nhân sự</p><span class="status">3 phòng ban</span></div></div></div>
+          </div></div></article>
+        </section>
+
+        <!-- ATTENDANCE -->
+        <section class="page" id="page-attendance" data-title="Chấm công" data-sub="Kỳ 01–31/10/2026 · chưa khóa">
+          <div class="page-head"><div><h2>Bảng công tháng 10</h2><p>Tổng hợp bản ghi, bất thường và điều chỉnh trước khi khóa kỳ.</p></div><div class="head-actions"><button class="btn" data-action="toast" data-message="Đã xuất bảng công tháng 10"><svg><use href="#i-download"/></svg> Xuất Excel</button><button class="btn primary" data-modal="lockTimesheet"><svg><use href="#i-lock"/></svg> Khóa kỳ công</button></div></div>
+          <div class="grid metrics">
+            <article class="card metric-card"><span class="metric-icon"><svg><use href="#i-users"/></svg></span><span class="metric-copy"><span>Đủ công</span><strong>219</strong><small>88,3% nhân sự</small></span></article>
+            <article class="card metric-card"><span class="metric-icon red"><svg><use href="#i-alert"/></svg></span><span class="metric-copy"><span>Thiếu công</span><strong>8</strong><small>6 chưa giải trình</small></span></article>
+            <article class="card metric-card"><span class="metric-icon amber"><svg><use href="#i-clock"/></svg></span><span class="metric-copy"><span>Đi muộn</span><strong>17</strong><small>42 lượt trong kỳ</small></span></article>
+            <article class="card metric-card"><span class="metric-icon violet"><svg><use href="#i-checks"/></svg></span><span class="metric-copy"><span>Chờ điều chỉnh</span><strong>6</strong><small>Hạn 22/10</small></span></article>
+          </div>
+          <article class="card">
+            <div class="toolbar"><label class="search"><svg><use href="#i-search"/></svg><input placeholder="Tìm nhân viên…"></label><button class="filter-chip active">Tất cả 248</button><button class="filter-chip">Thiếu công 8</button><button class="filter-chip">Đi muộn 17</button><span class="toolbar-spacer"></span><select class="select"><option>Tháng 10/2026</option></select></div>
+            <div class="table-wrap"><table class="data-table" style="min-width:980px"><thead><tr><th>Nhân viên</th><th>Phòng ban</th><th>Ngày công</th><th>Đi muộn</th><th>Thiếu bản ghi</th><th>OT đã duyệt</th><th>Trạng thái kỳ</th><th></th></tr></thead><tbody>
+              <tr><td><span class="person"><span class="avatar">TH</span><span class="person-copy"><b>Trần Thu Hà</b><span>HD0142</span></span></span></td><td>Marketing</td><td>10/22</td><td>1</td><td class="text-red">1</td><td>2 giờ</td><td><span class="status warn">Cần xử lý</span></td><td><button class="btn small" data-action="toast" data-message="Đã mở chi tiết ngày 15/10">Chi tiết</button></td></tr>
+              <tr><td><span class="person"><span class="avatar purple">ĐK</span><span class="person-copy"><b>Đặng Văn Khoa</b><span>HD0204</span></span></span></td><td>Marketing</td><td>11/22</td><td>0</td><td>0</td><td>4 giờ</td><td><span class="status">Đủ dữ liệu</span></td><td><button class="btn small">Chi tiết</button></td></tr>
+              <tr><td><span class="person"><span class="avatar gold">NM</span><span class="person-copy"><b>Nguyễn Hoàng Minh</b><span>HD0098</span></span></span></td><td>Vận hành</td><td>12/22</td><td>2</td><td>0</td><td>0 giờ</td><td><span class="status">Đủ dữ liệu</span></td><td><button class="btn small">Chi tiết</button></td></tr>
+              <tr><td><span class="person"><span class="avatar">PĐ</span><span class="person-copy"><b>Phạm Minh Đức</b><span>HD0198</span></span></span></td><td>Marketing</td><td>9/22</td><td>3</td><td class="text-red">2</td><td>0 giờ</td><td><span class="status bad">Thiếu công</span></td><td><button class="btn small">Chi tiết</button></td></tr>
+            </tbody></table></div>
+          </article>
+        </section>
+
+        <!-- SCHEDULES -->
+        <section class="page" id="page-schedules" data-title="Ca & lịch làm" data-sub="Tuần 19–25/10/2026">
+          <div class="page-head"><div><h2>Lịch làm việc</h2><p>Xếp lịch theo nhóm, cá nhân hoặc import từ Google Sheets.</p></div><div class="head-actions"><button class="btn"><svg><use href="#i-upload"/></svg> Import lịch</button><button class="btn primary" data-action="toast" data-message="Đã mở trình tạo ca"><svg><use href="#i-plus"/></svg> Tạo ca</button></div></div>
+          <article class="card"><div class="card-head"><div><h3>Khối Marketing · Ca hành chính</h3><p>08:00–17:00 · nghỉ 12:00–13:00</p></div><div class="segmented"><button class="active">Tuần</button><button>Tháng</button></div></div><div class="calendar-strip"><div class="calendar-day"><small>Thứ Hai</small><b>19/10</b><div class="dot-line"></div></div><div class="calendar-day"><small>Thứ Ba</small><b>20/10</b><div class="dot-line"></div></div><div class="calendar-day issue"><small>Thứ Tư</small><b>21/10</b><div class="dot-line"></div></div><div class="calendar-day"><small>Thứ Năm</small><b>22/10</b><div class="dot-line"></div></div><div class="calendar-day"><small>Thứ Sáu</small><b>23/10</b><div class="dot-line"></div></div><div class="calendar-day off"><small>Thứ Bảy</small><b>24/10</b></div><div class="calendar-day off"><small>Chủ Nhật</small><b>25/10</b></div></div></article>
+          <div class="grid two" style="margin-top:14px"><article class="card"><div class="card-head"><h3>Mẫu ca</h3><button class="btn small">Quản lý mẫu</button></div><div class="detail-list"><div class="detail-row"><span>HC · Hành chính</span><b>08:00–17:00 · 184 người</b></div><div class="detail-row"><span>LH · Linh hoạt</span><b>8 giờ trong 07:00–19:00 · 42 người</b></div><div class="detail-row"><span>VĐ · Vận hành đêm</span><b>21:00–06:00 · 22 người</b></div></div></article><article class="card"><div class="card-head"><h3>Cảnh báo lịch</h3></div><div class="notification-list"><div class="notification"><span class="metric-icon red"><svg><use href="#i-alert"/></svg></span><span class="notification-copy"><b>3 nhân viên trùng ca</b><span>Khối Vận hành · ngày 21/10</span></span><time>Xử lý →</time></div><div class="notification"><span class="metric-icon amber"><svg><use href="#i-calendar"/></svg></span><span class="notification-copy"><b>12 nhân viên chưa có lịch</b><span>Tuần 26/10–01/11</span></span><time>Gán lịch →</time></div></div></article></div>
+        </section>
+
+        <!-- LEAVE -->
+        <section class="page" id="page-leave" data-title="Nghỉ phép" data-sub="Chính sách và số dư năm 2026">
+          <div class="page-head"><div><h2>Quản lý nghỉ phép</h2><p>Theo dõi chính sách, số dư và biến động phép.</p></div><button class="btn primary" data-action="toast" data-message="Đã mở trình tạo chính sách phép"><svg><use href="#i-plus"/></svg> Tạo chính sách</button></div>
+          <div class="grid metrics"><article class="card metric-card"><span class="metric-icon"><svg><use href="#i-plane"/></svg></span><span class="metric-copy"><span>Phép khả dụng</span><strong>2.918</strong><small>ngày toàn công ty</small></span></article><article class="card metric-card"><span class="metric-icon blue"><svg><use href="#i-calendar"/></svg></span><span class="metric-copy"><span>Đã sử dụng</span><strong>1.204</strong><small>29,2% đã cấp</small></span></article><article class="card metric-card"><span class="metric-icon amber"><svg><use href="#i-checks"/></svg></span><span class="metric-copy"><span>Đang giữ chỗ</span><strong>36,5</strong><small>14 đơn chờ duyệt</small></span></article><article class="card metric-card"><span class="metric-icon red"><svg><use href="#i-alert"/></svg></span><span class="metric-copy"><span>Sắp hết hạn</span><strong>186</strong><small>phép tồn đến 31/03</small></span></article></div>
+          <article class="card"><div class="card-head"><div><h3>Chính sách đang áp dụng</h3><p>Cấu hình riêng theo nhóm nhân viên</p></div><button class="btn small">Lịch sử version</button></div><div class="table-wrap"><table class="data-table"><thead><tr><th>Chính sách</th><th>Đối tượng</th><th>Định mức</th><th>Tích lũy</th><th>Chuyển năm</th><th>Nhân viên</th><th>Trạng thái</th></tr></thead><tbody><tr><td><b>Phép năm tiêu chuẩn</b></td><td>Nhân viên chính thức</td><td>12 ngày/năm</td><td>1 ngày/tháng</td><td>Tối đa 5 ngày</td><td>201</td><td><span class="status">Đang áp dụng</span></td></tr><tr><td><b>Phép thâm niên</b></td><td>Từ đủ 5 năm</td><td>+1 ngày</td><td>Đầu năm</td><td>Cùng phép năm</td><td>42</td><td><span class="status">Đang áp dụng</span></td></tr><tr><td><b>Thử việc</b></td><td>Nhân viên thử việc</td><td>0,5 ngày/tháng</td><td>Theo tháng</td><td>Không</td><td>5</td><td><span class="status info">Giới hạn</span></td></tr></tbody></table></div></article>
+        </section>
+
+        <!-- REQUESTS -->
+        <section class="page" id="page-requests" data-title="Đơn & phê duyệt" data-sub="12 đơn đang chờ · 4 đơn quá 24 giờ">
+          <div class="page-head"><div><h2>Hàng đợi phê duyệt</h2><p>Ưu tiên theo SLA và mức ảnh hưởng tới kỳ công/lương.</p></div><div class="head-actions"><button class="btn"><svg><use href="#i-settings"/></svg> Cấu hình workflow</button><button class="btn primary" data-action="toast" data-message="Đã chọn chế độ xử lý hàng loạt">Chọn nhiều</button></div></div>
+          <article class="card"><div class="toolbar"><label class="search"><svg><use href="#i-search"/></svg><input class="table-search" data-target="requestRows" placeholder="Mã đơn hoặc người gửi…"></label><button class="filter-chip active">Tất cả 12</button><button class="filter-chip">Nghỉ phép 5</button><button class="filter-chip">Giải trình 4</button><button class="filter-chip">Tạm ứng 3</button><span class="toolbar-spacer"></span><select class="select"><option>Ưu tiên SLA</option><option>Mới nhất</option></select></div><div class="table-wrap"><table class="data-table"><thead><tr><th>Mã đơn</th><th>Người gửi</th><th>Loại</th><th>Nội dung</th><th>Gửi lúc</th><th>SLA</th><th></th></tr></thead><tbody id="requestRows">
+            <tr data-request="NP-1035"><td><b>NP-1035</b></td><td><span class="person"><span class="avatar">PĐ</span><span class="person-copy"><b>Phạm Minh Đức</b><span>Marketing</span></span></span></td><td>Nghỉ phép</td><td>26–27/10 · 2 ngày</td><td>15/10 17:42</td><td><span class="status bad">Quá 38 giờ</span></td><td><button class="btn small primary" data-approve="NP-1035">Xem & duyệt</button></td></tr>
+            <tr data-request="TU-1007"><td><b>TU-1007</b></td><td><span class="person"><span class="avatar purple">VL</span><span class="person-copy"><b>Võ Thảo Linh</b><span>Marketing</span></span></span></td><td>Tạm ứng</td><td>2.000.000 ₫</td><td>16/10 07:30</td><td><span class="status warn">Còn 2 giờ</span></td><td><button class="btn small primary" data-approve="TU-1007">Xem & duyệt</button></td></tr>
+            <tr data-request="GT-1015"><td><b>GT-1015</b></td><td><span class="person"><span class="avatar gold">ĐK</span><span class="person-copy"><b>Đặng Văn Khoa</b><span>Marketing</span></span></span></td><td>Giải trình</td><td>15/10 · đi công tác</td><td>16/10 06:58</td><td><span class="status">Còn 5 giờ</span></td><td><button class="btn small primary" data-approve="GT-1015">Xem & duyệt</button></td></tr>
+            <tr data-request="HS-0221"><td><b>HS-0221</b></td><td><span class="person"><span class="avatar">TH</span><span class="person-copy"><b>Trần Thu Hà</b><span>Marketing</span></span></span></td><td>Đổi thông tin</td><td>Tài khoản ngân hàng</td><td>13/10 16:40</td><td><span class="status bad">Quá 3 ngày</span></td><td><button class="btn small primary" data-approve="HS-0221">Xem & duyệt</button></td></tr>
+          </tbody></table></div></article>
+        </section>
+
+        <!-- PAYROLL -->
+        <section class="page" id="page-payroll" data-title="Lương & tạm ứng" data-sub="Kỳ lương tháng 10/2026 · 72% hoàn tất">
+          <div class="banner"><span class="banner-icon"><svg><use href="#i-pay"/></svg></span><span class="banner-copy"><b>Payroll được cấu hình riêng cho Hải Đăng Group</b><span>Kỳ này lấy công từ Kavor và kết quả lương từ Google Sheet “Payroll 10-2026”.</span></span><button class="btn" data-page-link="integrations">Kiểm tra nguồn dữ liệu</button></div>
+          <div class="page-head"><div><h2>Kỳ lương 10/2026</h2><p>Chốt công 25/10 · dự kiến công bố 05/11.</p></div><div class="head-actions"><button class="btn" data-modal="payrollImport"><svg><use href="#i-upload"/></svg> Import kết quả</button><button class="btn primary" data-action="toast" data-message="Đã chuyển payroll sang bước kiểm tra">Tiếp tục kiểm tra</button></div></div>
+          <div class="grid metrics"><article class="card metric-card"><span class="metric-icon"><svg><use href="#i-users"/></svg></span><span class="metric-copy"><span>Nhân viên</span><strong>248</strong><small>242 hợp lệ</small></span></article><article class="card metric-card"><span class="metric-icon red"><svg><use href="#i-alert"/></svg></span><span class="metric-copy"><span>Lỗi dữ liệu</span><strong>6</strong><small>3 ngân hàng · 3 thành phần</small></span></article><article class="card metric-card"><span class="metric-icon violet"><svg><use href="#i-pay"/></svg></span><span class="metric-copy"><span>Tổng thực lĩnh</span><strong style="font-size:19px">3,42 tỷ</strong><small>Dữ liệu tạm tính</small></span></article><article class="card metric-card"><span class="metric-icon blue"><svg><use href="#i-clock"/></svg></span><span class="metric-copy"><span>Tiến độ</span><strong>72%</strong><small>Đang kiểm tra</small></span></article></div>
+          <div class="grid two-one"><article class="card"><div class="card-head"><div><h3>Danh sách lỗi cần xử lý</h3><p>Phải về 0 trước khi duyệt payroll</p></div><button class="btn small">Tải file lỗi</button></div><div class="table-wrap"><table class="data-table"><thead><tr><th>Nhân viên</th><th>Nhóm lỗi</th><th>Chi tiết</th><th>Nguồn</th><th></th></tr></thead><tbody><tr><td>Trần Thu Hà</td><td><span class="status bad">Ngân hàng</span></td><td>Đề nghị đổi tài khoản đang chờ</td><td>Kavor</td><td><button class="btn small">Xử lý</button></td></tr><tr><td>Võ Thảo Linh</td><td><span class="status warn">Thành phần</span></td><td>Thiếu mã phụ cấp thử việc</td><td>Google Sheet</td><td><button class="btn small">Mapping</button></td></tr><tr><td>Phạm Ngọc Anh</td><td><span class="status bad">Trạng thái</span></td><td>Ngày nghỉ việc trước ngày trả lương</td><td>Kavor</td><td><button class="btn small">Kiểm tra</button></td></tr></tbody></table></div></article><article class="card"><div class="card-head"><h3>Quy trình kỳ lương</h3></div><div class="detail-list"><div class="detail-row"><span>1. Thu thập đầu vào</span><b class="text-green">Hoàn tất</b></div><div class="detail-row"><span>2. Import kết quả</span><b class="text-green">Hoàn tất</b></div><div class="detail-row"><span>3. Kiểm tra dữ liệu</span><b style="color:var(--amber)">Đang thực hiện</b></div><div class="detail-row"><span>4. HR & Kế toán duyệt</span><b class="muted">Chưa bắt đầu</b></div><div class="detail-row"><span>5. Công bố phiếu lương</span><b class="muted">05/11/2026</b></div></div></article></div>
+        </section>
+
+        <!-- DOCUMENTS -->
+        <section class="page" id="page-documents" data-title="Tài liệu" data-sub="2.486 tài liệu · không có chữ ký số">
+          <div class="page-head"><div><h2>Kho tài liệu nhân sự</h2><p>Lưu hồ sơ, version và ngày hết hạn; chữ ký số không thuộc phạm vi.</p></div><div class="head-actions"><button class="btn"><svg><use href="#i-plus"/></svg> Tạo từ mẫu</button><button class="btn primary" data-action="toast" data-message="Đã chọn tệp để tải lên"><svg><use href="#i-upload"/></svg> Tải tài liệu</button></div></div>
+          <div class="grid metrics"><article class="card metric-card"><span class="metric-icon"><svg><use href="#i-file"/></svg></span><span class="metric-copy"><span>Tổng tài liệu</span><strong>2.486</strong><small>8 danh mục</small></span></article><article class="card metric-card"><span class="metric-icon amber"><svg><use href="#i-alert"/></svg></span><span class="metric-copy"><span>Sắp hết hạn</span><strong>18</strong><small>Trong 30 ngày</small></span></article><article class="card metric-card"><span class="metric-icon red"><svg><use href="#i-alert"/></svg></span><span class="metric-copy"><span>Thiếu hồ sơ</span><strong>11</strong><small>7 nhân viên</small></span></article><article class="card metric-card"><span class="metric-icon blue"><svg><use href="#i-lock"/></svg></span><span class="metric-copy"><span>Truy cập tuần này</span><strong>346</strong><small>Đã ghi audit</small></span></article></div>
+          <article class="card"><div class="toolbar"><label class="search"><svg><use href="#i-search"/></svg><input placeholder="Tên tài liệu hoặc nhân viên…"></label><select class="select"><option>Tất cả danh mục</option><option>Hợp đồng</option><option>Quyết định</option><option>Hồ sơ cá nhân</option></select><span class="toolbar-spacer"></span><button class="btn small"><svg><use href="#i-filter"/></svg> Bộ lọc</button></div><div class="table-wrap"><table class="data-table"><thead><tr><th>Tài liệu</th><th>Nhân viên</th><th>Danh mục</th><th>Version</th><th>Hết hạn</th><th>Quyền</th></tr></thead><tbody><tr><td><b>HDLD-HD0142-v3.pdf</b></td><td>Trần Thu Hà</td><td>Hợp đồng</td><td>v3</td><td>Không thời hạn</td><td><span class="status">HR + Nhân viên</span></td></tr><tr><td><b>CCCD-HD0256.pdf</b></td><td>Võ Thảo Linh</td><td>Hồ sơ cá nhân</td><td>v1</td><td>12/08/2032</td><td><span class="status info">HR Only</span></td></tr><tr><td><b>QD-BONHIEM-HD0098.pdf</b></td><td>Nguyễn Hoàng Minh</td><td>Quyết định</td><td>v1</td><td>—</td><td><span class="status">HR + Nhân viên</span></td></tr></tbody></table></div></article>
+        </section>
+
+        <!-- ANNOUNCEMENTS -->
+        <section class="page" id="page-announcements" data-title="Bản tin" data-sub="Truyền thông nội bộ và thông báo bắt buộc">
+          <div class="page-head"><div><h2>Bản tin nội bộ</h2><p>Lên lịch, chọn nhóm người nhận và theo dõi xác nhận đã đọc.</p></div><button class="btn primary" data-action="toast" data-message="Đã tạo bản nháp bài viết mới"><svg><use href="#i-plus"/></svg> Tạo bài viết</button></div>
+          <div class="grid two-one"><article class="card"><div class="card-head"><h3>Bài đang xuất bản</h3><button class="btn small">Tất cả bài</button></div><div class="quick-list"><div class="quick-item"><span class="metric-icon red"><svg><use href="#i-alert"/></svg></span><span class="quick-copy"><b>Bảo trì Kavor tối nay 22:00–23:30</b><span>Toàn công ty · quan trọng</span></span><span class="status">92% đã đọc</span></div><div class="quick-item"><span class="metric-icon"><svg><use href="#i-clock"/></svg></span><span class="quick-copy"><b>Quy định chấm công GPS từ 01/11</b><span>Khối văn phòng · yêu cầu xác nhận</span></span><span class="status warn">178/204</span></div><div class="quick-item"><span class="metric-icon violet"><svg><use href="#i-calendar"/></svg></span><span class="quick-copy"><b>Team building quý 4 tại Đà Lạt</b><span>Toàn công ty · sự kiện</span></span><span class="status info">642 lượt xem</span></div></div></article><article class="card"><div class="card-head"><h3>Lịch xuất bản</h3></div><div class="detail-list"><div class="detail-row"><span>20/10 · Khu vực gửi xe mới</span><b>09:00</b></div><div class="detail-row"><span>25/10 · Nhắc hạn chốt công</span><b>08:00</b></div><div class="detail-row"><span>30/10 · Sinh nhật tháng 11</span><b>10:00</b></div></div></article></div>
+        </section>
+
+        <!-- INTEGRATIONS -->
+        <section class="page" id="page-integrations" data-title="Tích hợp dữ liệu" data-sub="2 kết nối hoạt động · 1 cần chú ý">
+          <div class="page-head"><div><h2>Nguồn dữ liệu & kết nối</h2><p>Google Sheets là nguồn chuyển tiếp; PostgreSQL của Kavor vẫn là database vận hành.</p></div><button class="btn primary" data-modal="connectSheet"><svg><use href="#i-plus"/></svg> Thêm kết nối</button></div>
+          <div class="grid three">
+            <article class="card integration-card"><div class="integration-top"><span class="app-logo" style="color:#0f9d58">G</span><div><h3>Google Sheets · Nhân sự</h3><p>Danh_sach_nhan_su_2026</p></div></div><div class="integration-foot"><span><span class="status">Đã đồng bộ</span><small class="muted" style="display:block;margin-top:5px">08:15 · 248 dòng</small></span><button class="btn small" data-sync="Nhân sự">Đồng bộ</button></div></article>
+            <article class="card integration-card"><div class="integration-top"><span class="app-logo" style="color:#0f9d58">G</span><div><h3>Google Sheets · Payroll</h3><p>Payroll_10_2026</p></div></div><div class="integration-foot"><span><span class="status warn">6 lỗi mapping</span><small class="muted" style="display:block;margin-top:5px">07:42 · 248 dòng</small></span><button class="btn small" data-action="toast" data-message="Đã mở màn hình mapping 6 lỗi">Xử lý</button></div></article>
+            <article class="card integration-card"><div class="integration-top"><span class="app-logo">API</span><div><h3>Máy chấm công</h3><p>Webhook · Văn phòng Quận 1</p></div></div><div class="integration-foot"><span><span class="status">Hoạt động</span><small class="muted" style="display:block;margin-top:5px">1.824 event hôm nay</small></span><button class="btn small">Cấu hình</button></div></article>
+          </div>
+          <article class="card"><div class="card-head"><div><h3>Lịch sử đồng bộ</h3><p>Job gần đây của tenant</p></div><button class="btn small"><svg><use href="#i-refresh"/></svg> Làm mới</button></div><div class="table-wrap"><table class="data-table"><thead><tr><th>Job</th><th>Nguồn</th><th>Bắt đầu</th><th>Dòng</th><th>Kết quả</th><th>Người chạy</th></tr></thead><tbody><tr><td><b>SYNC-8412</b></td><td>Nhân sự · Google Sheets</td><td>19/10 08:15</td><td>248</td><td><span class="status">248 thành công</span></td><td>Tự động</td></tr><tr><td><b>SYNC-8408</b></td><td>Payroll · Google Sheets</td><td>19/10 07:42</td><td>248</td><td><span class="status warn">242 OK · 6 lỗi</span></td><td>Mai P. Thảo</td></tr><tr><td><b>SYNC-8391</b></td><td>Lịch làm · CSV</td><td>18/10 16:22</td><td>1.240</td><td><span class="status">1.240 thành công</span></td><td>Lê Q. Huy</td></tr></tbody></table></div></article>
+        </section>
+
+        <!-- REPORTS -->
+        <section class="page" id="page-reports" data-title="Báo cáo" data-sub="Headcount, công, phép và payroll">
+          <div class="page-head"><div><h2>Trung tâm báo cáo</h2><p>Báo cáo có thể lọc theo pháp nhân, chi nhánh và phòng ban.</p></div><button class="btn primary" data-action="toast" data-message="Đã tạo lịch gửi báo cáo hàng tuần"><svg><use href="#i-plus"/></svg> Tạo báo cáo</button></div>
+          <div class="grid three"><article class="card integration-card"><div class="integration-top"><span class="metric-icon"><svg><use href="#i-users"/></svg></span><div><h3>Headcount & biến động</h3><p>Nhân sự mới, nghỉ việc, chuyển phòng ban</p></div></div><div class="integration-foot"><span class="muted">Cập nhật hôm nay</span><button class="btn small">Mở báo cáo</button></div></article><article class="card integration-card"><div class="integration-top"><span class="metric-icon blue"><svg><use href="#i-clock"/></svg></span><div><h3>Công, phép & OT</h3><p>Hiện diện, bất thường và chi phí OT</p></div></div><div class="integration-foot"><span class="muted">Cập nhật 5 phút trước</span><button class="btn small">Mở báo cáo</button></div></article><article class="card integration-card"><div class="integration-top"><span class="metric-icon violet"><svg><use href="#i-pay"/></svg></span><div><h3>Payroll summary</h3><p>Thu nhập, khấu trừ và thực lĩnh</p></div></div><div class="integration-foot"><span class="muted">Kỳ 09/2026</span><button class="btn small">Mở báo cáo</button></div></article></div>
+        </section>
+
+        <!-- ROLES -->
+        <section class="page" id="page-roles" data-title="Vai trò & phân quyền" data-sub="RBAC kết hợp phạm vi dữ liệu">
+          <div class="page-head"><div><h2>Phân quyền doanh nghiệp</h2><p>Quyền được áp dụng theo vai trò và phạm vi pháp nhân/chi nhánh/phòng ban.</p></div><button class="btn primary" data-action="toast" data-message="Đã tạo bản nháp vai trò mới"><svg><use href="#i-plus"/></svg> Tạo vai trò</button></div>
+          <article class="card"><div class="table-wrap"><table class="data-table"><thead><tr><th>Vai trò</th><th>Người dùng</th><th>Phạm vi mặc định</th><th>Dữ liệu lương</th><th>Lần cập nhật</th><th>Trạng thái</th></tr></thead><tbody><tr><td><b>Tenant Admin</b></td><td>3</td><td>Toàn doanh nghiệp</td><td>Không mặc định</td><td>12/10/2026</td><td><span class="status">Hệ thống</span></td></tr><tr><td><b>HR Operations</b></td><td>8</td><td>Pháp nhân được gán</td><td>Không</td><td>15/10/2026</td><td><span class="status">Hoạt động</span></td></tr><tr><td><b>Payroll</b></td><td>4</td><td>Toàn doanh nghiệp</td><td>Có</td><td>10/10/2026</td><td><span class="status">Hoạt động</span></td></tr><tr><td><b>Manager</b></td><td>24</td><td>Đội ngũ trực tiếp</td><td>Không</td><td>01/10/2026</td><td><span class="status">Hệ thống</span></td></tr><tr><td><b>Auditor</b></td><td>2</td><td>Chỉ đọc</td><td>Theo cấp quyền</td><td>18/10/2026</td><td><span class="status info">Giới hạn</span></td></tr></tbody></table></div></article>
+        </section>
+
+        <!-- SETTINGS -->
+        <section class="page" id="page-settings" data-title="Cài đặt doanh nghiệp" data-sub="Hải Đăng Group · Tenant HDG-001">
+          <div class="page-head"><div><h2>Thiết lập doanh nghiệp</h2><p>Đây là cấu hình tenant trên Kavor, không phải đăng ký kinh doanh.</p></div><button class="btn primary" data-action="toast" data-message="Đã lưu cấu hình doanh nghiệp">Lưu thay đổi</button></div>
+          <div class="split-panel"><article class="card"><div class="card-head"><h3>Thông tin tenant</h3></div><div class="card-body"><div class="form-grid"><div class="field"><label>Tên hiển thị</label><input value="Hải Đăng Group"></div><div class="field"><label>Mã tenant</label><input value="HDG-001" disabled></div><div class="field"><label>Tên pháp lý</label><input value="Công ty Cổ phần Hải Đăng"></div><div class="field"><label>Mã số thuế</label><input value="0312345678"></div><div class="field"><label>Múi giờ</label><select><option>Asia/Ho_Chi_Minh</option></select></div><div class="field"><label>Tiền tệ</label><select><option>VND — Việt Nam đồng</option></select></div></div></div></article><article class="card"><div class="card-head"><h3>Chính sách nền tảng</h3></div><div class="detail-list"><div class="detail-row"><span>Cho phép Employee Web</span><label class="switch"><input type="checkbox" checked><i></i></label></div><div class="detail-row"><span>Yêu cầu MFA cho admin</span><label class="switch"><input type="checkbox" checked><i></i></label></div><div class="detail-row"><span>Google Sheets auto sync</span><label class="switch"><input type="checkbox"><i></i></label></div><div class="detail-row"><span>Xác nhận đã đọc bản tin quan trọng</span><label class="switch"><input type="checkbox" checked><i></i></label></div></div></article></div>
+        </section>
+      </div>
+    </section>
+
+    <div class="modal-layer" id="modalLayer"><div class="scrim" data-action="close-modal"></div><section class="modal" id="modal"></section></div>
+    <div class="drawer-layer" id="drawerLayer"><div class="scrim" data-action="close-drawer"></div><aside class="drawer" id="drawer"></aside></div>
+    <div class="toast" id="toast"><svg><use href="#i-checks"/></svg><span></span></div>
+  </main>
+</div>
+
+<script>
+const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
+const shell=$('#shell'), modalLayer=$('#modalLayer'), modal=$('#modal'), drawerLayer=$('#drawerLayer'), drawer=$('#drawer'), toastEl=$('#toast');
+const icon=n=>`<svg class="icon" style="width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round"><use href="#i-${n}"/></svg>`;
+document.querySelectorAll('svg:not(.spark):not(.chart-svg)').forEach(s=>{if(!s.closest('symbol')){s.style.fill='none';s.style.stroke='currentColor';s.style.strokeWidth='1.8';s.style.strokeLinecap='round';s.style.strokeLinejoin='round';}});
+let toastTimer;
+function toast(message){toastEl.querySelector('span').textContent=message;toastEl.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>toastEl.classList.remove('show'),2700)}
+function showPage(name){
+  const page=$('#page-'+name); if(!page)return;
+  $$('.page').forEach(p=>p.classList.toggle('active',p===page));
+  $$('.nav-item[data-page]').forEach(n=>n.classList.toggle('active',n.dataset.page===name));
+  $('#pageTitle').textContent=page.dataset.title||name;
+  $('#pageSub').textContent=page.dataset.sub||'';
+  $('#workspace').scrollTop=0; shell.classList.remove('menu-open');
+}
+function openModal(kind,arg=''){
+  const templates={
+    addEmployee:`<div class="modal-head"><div><h3>Thêm nhân viên</h3><p>Tạo hồ sơ và gửi lời mời kích hoạt Kavor.</p></div><button class="modal-close" data-action="close-modal">×</button></div><div class="modal-body"><div class="form-grid"><div class="field"><label>Họ và tên</label><input id="newName" placeholder="Nguyễn Văn A"></div><div class="field"><label>Mã nhân viên</label><input value="HD0257"></div><div class="field full"><label>Email công việc</label><input placeholder="ten@haidang.vn"></div><div class="field"><label>Phòng ban</label><select><option>Marketing</option><option>Kinh doanh</option><option>Vận hành</option></select></div><div class="field"><label>Chức danh</label><input placeholder="Chọn chức danh"></div><div class="field"><label>Ngày vào làm</label><input type="date" value="2026-10-26"></div><div class="field"><label>Trạng thái</label><select><option>Thử việc</option><option>Chính thức</option></select></div></div></div><div class="modal-foot"><button class="btn" data-action="close-modal">Hủy</button><button class="btn primary" data-action="save-employee">Tạo hồ sơ & gửi lời mời</button></div>`,
+    importEmployees:`<div class="modal-head"><div><h3>Import nhân viên</h3><p>Excel, CSV hoặc Google Sheets.</p></div><button class="modal-close" data-action="close-modal">×</button></div><div class="modal-body"><div class="integration-card card"><div class="integration-top"><span class="app-logo">XLS</span><div><h3>Tải file lên</h3><p>Dùng template của Kavor để kiểm tra dữ liệu theo dòng.</p></div></div><div class="integration-foot"><button class="btn">Tải template</button><button class="btn primary" data-action="simulate-import">Chọn file</button></div></div><div class="integration-card card" style="margin-top:12px"><div class="integration-top"><span class="app-logo" style="color:#0f9d58">G</span><div><h3>Google Sheets</h3><p>Kết nối nguồn đang có và lưu mapping cho lần sau.</p></div></div><div class="integration-foot"><span class="muted">Khuyến nghị cho dữ liệu chuyển tiếp</span><button class="btn" data-modal="connectSheet">Kết nối</button></div></div></div>`,
+    connectSheet:`<div class="modal-head"><div><h3>Kết nối Google Sheets</h3><p>Quyền chỉ đọc được khuyến nghị cho luồng import.</p></div><button class="modal-close" data-action="close-modal">×</button></div><div class="modal-body"><div class="form-grid"><div class="field full"><label>Loại dữ liệu</label><select><option>Danh sách nhân viên</option><option>Payroll input/result</option><option>Lịch làm việc</option></select></div><div class="field full"><label>Google Sheet URL</label><input placeholder="https://docs.google.com/spreadsheets/d/…"></div><div class="field"><label>Tab</label><input value="Employees"></div><div class="field"><label>Khóa định danh</label><select><option>employee_code</option><option>external_id</option></select></div><div class="field full"><label>Chế độ</label><select><option>Đồng bộ thủ công có preview</option><option>Import một lần</option><option>Đồng bộ định kỳ một chiều</option></select></div></div><div style="margin-top:14px;padding:11px;border-radius:10px;background:var(--surface-2);color:var(--muted);font-size:11px">Kavor sẽ đưa dữ liệu vào staging, kiểm tra và hiển thị diff trước khi ghi vào database vận hành.</div></div><div class="modal-foot"><button class="btn" data-action="close-modal">Hủy</button><button class="btn primary" data-action="save-sheet">Kết nối & kiểm tra</button></div>`,
+    payrollImport:`<div class="modal-head"><div><h3>Import kết quả payroll</h3><p>Kỳ 10/2026 · cấu hình Hải Đăng Group v3.</p></div><button class="modal-close" data-action="close-modal">×</button></div><div class="modal-body"><div class="detail-list card"><div class="detail-row"><span>Nguồn mặc định</span><b>Payroll_10_2026</b></div><div class="detail-row"><span>Mapping</span><b>Payroll v3 · 26 cột</b></div><div class="detail-row"><span>Khóa nhân viên</span><b>employee_code</b></div></div><div style="margin-top:12px;padding:14px;border:1px dashed var(--line-strong);border-radius:11px;text-align:center;color:var(--muted)">${icon('upload')}<b style="display:block;color:var(--ink);margin:7px 0 3px">Chọn Excel/CSV hoặc lấy dữ liệu mới từ Sheet</b><span>Hệ thống sẽ validate trước khi cập nhật kỳ lương.</span></div></div><div class="modal-foot"><button class="btn" data-action="close-modal">Hủy</button><button class="btn primary" data-action="simulate-payroll">Bắt đầu kiểm tra</button></div>`,
+    lockTimesheet:`<div class="modal-head"><div><h3>Khóa kỳ công tháng 10?</h3><p>Nhân viên và quản lý sẽ không thể gửi thêm điều chỉnh.</p></div><button class="modal-close" data-action="close-modal">×</button></div><div class="modal-body"><div class="notification"><span class="metric-icon red">${icon('alert')}</span><span class="notification-copy"><b>Còn 8 bất thường và 6 giải trình chờ duyệt</b><span>Bạn nên xử lý trước khi khóa kỳ.</span></span></div><div class="field" style="margin-top:14px"><label>Ghi chú khóa kỳ</label><textarea placeholder="Ví dụ: Đã đối soát với quản lý các phòng ban"></textarea></div></div><div class="modal-foot"><button class="btn" data-action="close-modal">Để sau</button><button class="btn danger" data-action="confirm-lock">Vẫn khóa kỳ</button></div>`,
+    approve:`<div class="modal-head"><div><h3>Chi tiết đơn ${arg}</h3><p>Kiểm tra thông tin trước khi phê duyệt.</p></div><button class="modal-close" data-action="close-modal">×</button></div><div class="modal-body"><div class="profile-hero"><span class="avatar">PĐ</span><div><h3>${arg==='TU-1007'?'Võ Thảo Linh':arg==='GT-1015'?'Đặng Văn Khoa':arg==='HS-0221'?'Trần Thu Hà':'Phạm Minh Đức'}</h3><p>Marketing · gửi từ Mobile App</p></div></div><div class="detail-list card"><div class="detail-row"><span>Loại đơn</span><b>${arg.startsWith('NP')?'Nghỉ phép':arg.startsWith('TU')?'Tạm ứng lương':arg.startsWith('GT')?'Giải trình công':'Đổi thông tin'}</b></div><div class="detail-row"><span>Nội dung</span><b>${arg==='TU-1007'?'2.000.000 ₫':arg==='GT-1015'?'Đi công tác 15/10':arg==='HS-0221'?'Đổi tài khoản ngân hàng':'Nghỉ 26–27/10'}</b></div><div class="detail-row"><span>Người duyệt hiện tại</span><b>Mai Phương Thảo</b></div></div><div class="field" style="margin-top:14px"><label>Ghi chú nội bộ</label><textarea placeholder="Không bắt buộc"></textarea></div></div><div class="modal-foot"><button class="btn danger" data-reject="${arg}">Từ chối</button><button class="btn primary" data-confirm-approve="${arg}">Duyệt đơn</button></div>`
+  };
+  modal.innerHTML=templates[kind]||templates.addEmployee;modalLayer.classList.add('show');
+}
+function closeModal(){modalLayer.classList.remove('show')}
+const employeeData={
+  ha:{name:'Trần Thu Hà',ini:'TH',role:'Senior Designer',dept:'Marketing',code:'HD0142',email:'ha.tran@haidang.vn',joined:'03/03/2021',contract:'Chính thức',manager:'Lê Quang Huy'},
+  linh:{name:'Võ Thảo Linh',ini:'VL',role:'Content Writer',dept:'Marketing',code:'HD0256',email:'linh.vo@haidang.vn',joined:'19/10/2026',contract:'Thử việc',manager:'Lê Quang Huy'},
+  minh:{name:'Nguyễn Hoàng Minh',ini:'NM',role:'Ops Supervisor',dept:'Vận hành',code:'HD0098',email:'minh.nguyen@haidang.vn',joined:'11/08/2019',contract:'Chính thức',manager:'Trần Quốc Bảo'},
+  khoa:{name:'Đặng Văn Khoa',ini:'ĐK',role:'Video Editor',dept:'Marketing',code:'HD0204',email:'khoa.dang@haidang.vn',joined:'08/06/2024',contract:'Chính thức',manager:'Lê Quang Huy'},
+  anh:{name:'Phạm Ngọc Anh',ini:'PA',role:'Account Executive',dept:'Kinh doanh',code:'HD0181',email:'anh.pham@haidang.vn',joined:'14/02/2023',contract:'Sắp nghỉ',manager:'Đỗ Minh Trí'},
+  duc:{name:'Phạm Minh Đức',ini:'PĐ',role:'Designer',dept:'Marketing',code:'HD0198',email:'duc.pham@haidang.vn',joined:'04/04/2024',contract:'Chính thức',manager:'Lê Quang Huy'}
+};
+function openEmployee(id){const e=employeeData[id]||employeeData.ha;drawer.innerHTML=`<div class="drawer-head"><button class="icon-btn" data-action="close-drawer">${icon('x')}</button><div><b>Hồ sơ nhân viên</b><div class="muted" style="font-size:10px">Cập nhật 18/10/2026</div></div><button class="btn small" style="margin-left:auto" data-action="toast" data-message="Đã mở yêu cầu sửa thông tin">Đề nghị sửa</button></div><div class="drawer-body"><div class="profile-hero"><span class="avatar">${e.ini}</span><div><h3>${e.name}</h3><p>${e.role} · ${e.dept} · ${e.code}</p></div></div><div class="grid three" style="grid-template-columns:repeat(3,1fr)"><div class="card card-body"><b>5 năm</b><div class="muted" style="font-size:10px">Thâm niên</div></div><div class="card card-body"><b>9,5 ngày</b><div class="muted" style="font-size:10px">Phép còn</div></div><div class="card card-body"><b>10/22</b><div class="muted" style="font-size:10px">Ngày công</div></div></div><div class="card" style="margin-top:14px"><div class="card-head"><h3>Thông tin công việc</h3></div><div class="detail-list"><div class="detail-row"><span>Email</span><b>${e.email}</b></div><div class="detail-row"><span>Ngày vào làm</span><b>${e.joined}</b></div><div class="detail-row"><span>Hợp đồng</span><b>${e.contract}</b></div><div class="detail-row"><span>Quản lý trực tiếp</span><b>${e.manager}</b></div></div></div><div class="card" style="margin-top:14px"><div class="card-head"><h3>Hoạt động gần đây</h3></div><div class="quick-list"><div class="quick-item"><span class="metric-icon">${icon('clock')}</span><span class="quick-copy"><b>Chấm công vào 07:58</b><span>Văn phòng Quận 1 · GPS 1,8 m</span></span></div><div class="quick-item"><span class="metric-icon violet">${icon('file')}</span><span class="quick-copy"><b>Hợp đồng được cập nhật</b><span>Version mới có hiệu lực 01/10</span></span></div></div></div></div>`;drawerLayer.classList.add('show')}
+function closeDrawer(){drawerLayer.classList.remove('show')}
+document.addEventListener('click',e=>{
+  const t=e.target.closest('button,[data-employee],tr[data-employee]'); if(!t)return;
+  if(t.dataset.page)showPage(t.dataset.page);
+  if(t.dataset.pageLink)showPage(t.dataset.pageLink);
+  if(t.dataset.modal)openModal(t.dataset.modal);
+  if(t.dataset.employee)openEmployee(t.dataset.employee);
+  if(t.dataset.approve)openModal('approve',t.dataset.approve);
+  if(t.dataset.action==='open-menu')shell.classList.add('menu-open');
+  if(t.dataset.action==='close-menu')shell.classList.remove('menu-open');
+  if(t.dataset.action==='close-modal')closeModal();
+  if(t.dataset.action==='close-drawer')closeDrawer();
+  if(t.dataset.action==='toast')toast(t.dataset.message||'Đã thực hiện');
+  if(t.dataset.action==='notify')toast('Bạn có 4 thông báo mới cần xem');
+  if(t.dataset.action==='save-employee'){closeModal();toast('Đã tạo hồ sơ và gửi lời mời kích hoạt')}
+  if(t.dataset.action==='simulate-import'){closeModal();toast('Đã đọc 248 dòng · không có lỗi nghiêm trọng')}
+  if(t.dataset.action==='save-sheet'){closeModal();toast('Kết nối thành công · đã đọc thử 248 dòng')}
+  if(t.dataset.action==='simulate-payroll'){closeModal();toast('Đã bắt đầu job kiểm tra payroll · 248 dòng')}
+  if(t.dataset.action==='confirm-lock'){closeModal();toast('Kỳ công đã khóa với 8 ngoại lệ được ghi nhận')}
+  if(t.dataset.confirmApprove){const row=document.querySelector(`[data-request="${t.dataset.confirmApprove}"]`);row?.remove();closeModal();toast('Đã duyệt đơn '+t.dataset.confirmApprove)}
+  if(t.dataset.reject){const row=document.querySelector(`[data-request="${t.dataset.reject}"]`);row?.remove();closeModal();toast('Đã từ chối đơn '+t.dataset.reject)}
+  if(t.dataset.sync){t.disabled=true;t.textContent='Đang đồng bộ…';setTimeout(()=>{t.disabled=false;t.textContent='Đồng bộ';toast('Đã đồng bộ nguồn '+t.dataset.sync+' · 248 dòng')},900)}
+});
+document.addEventListener('input',e=>{if(e.target.matches('.table-search')){const q=e.target.value.trim().toLowerCase();$$(`#${e.target.dataset.target} tr`).forEach(r=>r.classList.toggle('hidden',!r.textContent.toLowerCase().includes(q)))}});
+$('#globalSearch').addEventListener('keydown',e=>{if(e.key==='Enter'){showPage('employees');const box=$('#page-employees .table-search');box.value=e.target.value;box.dispatchEvent(new Event('input',{bubbles:true}));toast('Đang lọc nhân viên theo “'+e.target.value+'”')}});
+$$('.segmented').forEach(s=>s.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;$$('button',s).forEach(x=>x.classList.toggle('active',x===b));toast('Đã chuyển sang chế độ '+b.textContent)}));
+$$('.filter-chip').forEach(c=>c.addEventListener('click',()=>{const bar=c.closest('.toolbar');if(bar)$$('.filter-chip',bar).forEach(x=>x.classList.toggle('active',x===c))}));
+</script>
+</body>
+</html>
