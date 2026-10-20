@@ -14,6 +14,8 @@ import {
   AccessibilityInfo,
   Animated,
   Easing,
+  Linking,
+  Modal,
   Platform,
   Pressable,
   SafeAreaView,
@@ -30,7 +32,7 @@ import { SAMPLE_TENANT } from "@kavor/contracts";
 
 type IconName = ComponentProps<typeof MaterialCommunityIcons>["name"];
 type TabId = "home" | "attendance" | "requests" | "news";
-type FlowId = "leave" | "leaveNew" | "explain" | "ot" | "advance" | "advanceNew" | "payslips" | "profile" | "device" | "clock" | "approvalDetail" | "notifications" | "widget" | "newsDetail" | "requestDetail" | "done" | "login" | "activate" | "forgot" | "otp" | "resetPassword";
+type FlowId = "leave" | "leaveNew" | "explain" | "ot" | "advance" | "advanceNew" | "payslips" | "profile" | "profileEdit" | "device" | "clock" | "approvalDetail" | "notifications" | "widget" | "newsDetail" | "requestDetail" | "done" | "login" | "activate" | "forgot" | "otp" | "resetPassword";
 type RequestStatus = "pending" | "approved" | "rejected" | "cancelled";
 type RequestKind = "leave" | "ot" | "explain" | "advance";
 
@@ -77,10 +79,14 @@ const shortcuts: Array<{ label: string; icon: IconName }> = [
   { label: "Thông báo", icon: "bell-outline" },
 ];
 
-const quickCreate: Array<{ label: string; icon: IconName }> = [
-  { label: "Tạo đơn nghỉ", icon: "airplane" },
-  { label: "Giải trình công", icon: "clock-edit-outline" },
-  { label: "Đăng ký làm thêm", icon: "weather-night" },
+const quickCreate: Array<{ label: string; detail: string; icon: IconName; flow: FlowId }> = [
+  { label: "Chấm công", detail: "Giữ để vào hoặc ra ca", icon: "gesture-tap-hold", flow: "clock" },
+  { label: "Xin nghỉ phép", detail: "Còn 6,5 ngày phép", icon: "airplane", flow: "leaveNew" },
+  { label: "Giải trình công", detail: "Còn 2/3 lượt · hạn 22/10", icon: "clock-edit-outline", flow: "explain" },
+  { label: "Làm thêm giờ", detail: "Đăng ký OT", icon: "weather-night", flow: "ot" },
+  { label: "Tạm ứng lương", detail: "Hạn mức 4,5 triệu", icon: "cash-multiple", flow: "advance" },
+  { label: "Phiếu lương", detail: "Tháng 09/2026", icon: "receipt-text-outline", flow: "payslips" },
+  { label: "Sửa hồ sơ", detail: "Gửi HR phê duyệt", icon: "account-edit-outline", flow: "profileEdit" },
 ];
 
 function AppIcon({ name, size = 22, color = "#065F46" }: { name: IconName; size?: number; color?: string }) {
@@ -127,11 +133,23 @@ function Reveal({ children, delay = 0 }: { children: ReactNode; delay?: number }
 }
 
 function DecorativeBackground() {
+  const reduced = useReducedMotion();
+  const drift = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (reduced) return;
+    const loop = Animated.loop(Animated.sequence([
+      Animated.timing(drift, { toValue: 1, duration: 9000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      Animated.timing(drift, { toValue: 0, duration: 9000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+    ]));
+    loop.start();
+    return () => loop.stop();
+  }, [drift, reduced]);
+  const move = { transform: [{ translateX: drift.interpolate({ inputRange: [0, 1], outputRange: [0, 18] }) }, { translateY: drift.interpolate({ inputRange: [0, 1], outputRange: [0, 14] }) }, { scale: drift.interpolate({ inputRange: [0, 1], outputRange: [1, 1.06] }) }] };
   return (
     <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-      <LinearGradient colors={["rgba(167,243,208,0.72)", "rgba(167,243,208,0)"]} style={[styles.blob, styles.blobTop]} />
-      <LinearGradient colors={["rgba(16,185,129,0.22)", "rgba(16,185,129,0)"]} style={[styles.blob, styles.blobRight]} />
-      <LinearGradient colors={["rgba(110,231,183,0.38)", "rgba(110,231,183,0)"]} style={[styles.blob, styles.blobBottom]} />
+      <Animated.View style={[styles.blob, styles.blobTop, move]}><LinearGradient colors={["rgba(167,243,208,0.72)", "rgba(167,243,208,0)"]} style={StyleSheet.absoluteFill} /></Animated.View>
+      <Animated.View style={[styles.blob, styles.blobRight, { transform: [{ translateX: drift.interpolate({ inputRange: [0, 1], outputRange: [0, -14] }) }, { translateY: drift.interpolate({ inputRange: [0, 1], outputRange: [0, 18] }) }, { scale: drift.interpolate({ inputRange: [0, 1], outputRange: [1, 1.05] }) }] }]}><LinearGradient colors={["rgba(16,185,129,0.22)", "rgba(16,185,129,0)"]} style={StyleSheet.absoluteFill} /></Animated.View>
+      <Animated.View style={[styles.blob, styles.blobBottom, move]}><LinearGradient colors={["rgba(110,231,183,0.38)", "rgba(110,231,183,0)"]} style={StyleSheet.absoluteFill} /></Animated.View>
     </View>
   );
 }
@@ -159,7 +177,10 @@ const homeNews = [
 
 function NewsCarousel({ onOpen, onAll }: { onOpen: () => void; onAll: () => void }) {
   const { width } = useWindowDimensions();
-  const cardWidth = Math.max(280, width - 40);
+  const cardWidth = 300;
+  const cardGap = 10;
+  const snapWidth = cardWidth + cardGap;
+  const sidePadding = Math.max(20, (width - cardWidth) / 2);
   const [active, setActive] = useState(0);
   const carousel = useRef<ScrollView>(null);
   const reduced = useReducedMotion();
@@ -168,12 +189,12 @@ function NewsCarousel({ onOpen, onAll }: { onOpen: () => void; onAll: () => void
     const timer = setInterval(() => {
       setActive((current) => {
         const next = (current + 1) % homeNews.length;
-        carousel.current?.scrollTo({ x: next * cardWidth, animated: true });
+        carousel.current?.scrollTo({ x: next * snapWidth, animated: true });
         return next;
       });
     }, 4200);
     return () => clearInterval(timer);
-  }, [cardWidth, reduced]);
+  }, [reduced, snapWidth]);
   return (
     <View style={styles.newsSection}>
       <View style={styles.sectionHeader}>
@@ -183,15 +204,18 @@ function NewsCarousel({ onOpen, onAll }: { onOpen: () => void; onAll: () => void
       <ScrollView
         ref={carousel}
         horizontal
-        pagingEnabled
+        snapToInterval={snapWidth}
+        snapToAlignment="start"
         bounces={false}
         decelerationRate="fast"
         showsHorizontalScrollIndicator={false}
-        onMomentumScrollEnd={(event) => setActive(Math.round(event.nativeEvent.contentOffset.x / cardWidth))}
+        style={styles.carouselTrack}
+        contentContainerStyle={{ paddingHorizontal: sidePadding, gap: cardGap }}
+        onMomentumScrollEnd={(event) => setActive(Math.round(event.nativeEvent.contentOffset.x / snapWidth))}
       >
-        {homeNews.map((item) => (
+        {homeNews.map((item, index) => (
           <View key={item.title} style={{ width: cardWidth }}>
-            <Pressable style={[styles.newsCard, item.tone === "normal" && styles.newsCardNormal]} onPress={onOpen}>
+            <Pressable style={[styles.newsCard, index !== active && styles.newsCardInactive, item.tone === "normal" && styles.newsCardNormal]} onPress={onOpen}>
               <View style={[styles.newsIcon, item.tone === "normal" && styles.newsIconNormal]}><AppIcon name={item.icon} size={23} color={item.tone === "alert" ? "#C84750" : "#087355"} /></View>
               <View style={styles.newsCopy}>
                 <View style={styles.newsMeta}>
@@ -361,7 +385,29 @@ const attendanceRows: Array<[string, string, string, string, string]> = [
   ["16", "Thứ Sáu", "--:--", "17:06", "Thiếu giờ vào"],
   ["15", "Thứ Năm", "08:07", "17:12", "Muộn 7 phút"],
   ["14", "Thứ Tư", "07:56", "17:04", "Đủ công"],
+  ["13", "Thứ Ba", "07:59", "17:11", "Đủ công"],
+  ["12", "Thứ Hai", "07:51", "17:08", "Đủ công"],
+  ["09", "Thứ Sáu", "07:58", "17:06", "Đủ công"],
+  ["08", "Thứ Năm", "08:00", "--:--", "Thiếu giờ ra"],
+  ["07", "Thứ Tư", "07:53", "17:02", "Đủ công"],
+  ["06", "Thứ Ba", "08:04", "17:10", "Muộn 4 phút"],
+  ["05", "Thứ Hai", "07:55", "17:00", "Đủ công"],
 ];
+
+function RequestScopeSegment({ value, count, onChange }: { value: "mine" | "approve"; count: number; onChange: (value: "mine" | "approve") => void }) {
+  const reduced = useReducedMotion();
+  const position = useRef(new Animated.Value(value === "mine" ? 0 : 1)).current;
+  const [trackWidth, setTrackWidth] = useState(0);
+  useEffect(() => {
+    if (reduced) { position.setValue(value === "mine" ? 0 : 1); return; }
+    Animated.spring(position, { toValue: value === "mine" ? 0 : 1, speed: 18, bounciness: 3, useNativeDriver: true }).start();
+  }, [position, reduced, value]);
+  return <View style={styles.segment} onLayout={(event) => setTrackWidth(event.nativeEvent.layout.width)}>
+    <Animated.View style={[styles.segmentKnob, { transform: [{ translateX: position.interpolate({ inputRange: [0, 1], outputRange: [0, Math.max(0, (trackWidth - 8) / 2)] }) }] }]} />
+    <Pressable style={styles.segmentButton} onPress={() => onChange("mine")}><Text style={value === "mine" ? styles.segmentActiveText : styles.segmentText}>Đơn của tôi</Text></Pressable>
+    <Pressable style={styles.segmentButton} onPress={() => onChange("approve")}><Text style={value === "approve" ? styles.segmentActiveText : styles.segmentText}>Cần tôi duyệt · {count}</Text></Pressable>
+  </View>;
+}
 
 function SecondaryScreen({
   tab,
@@ -384,17 +430,16 @@ function SecondaryScreen({
   onOpenApproval: (id: string) => void;
   onDecision: (id: string, approved: boolean) => void;
 }) {
-  const titles = { attendance: "Bảng công", requests: "Đơn từ", news: "Bản tin" };
   const [attendanceFilter, setAttendanceFilter] = useState<"all" | "late" | "missing">("all");
   const [requestFilter, setRequestFilter] = useState<"all" | RequestStatus>("all");
   const [requestScope, setRequestScope] = useState<"mine" | "approve">("mine");
+  const [newsFilter, setNewsFilter] = useState<"all" | "notice" | "policy" | "event">("all");
   const visibleAttendance = attendanceRows.filter((row) => attendanceFilter === "all" || (attendanceFilter === "late" ? row[4].includes("Muộn") : row[4].includes("Thiếu")));
   const visibleRequests = requests.filter((item) => requestFilter === "all" || item.status === requestFilter);
   return (
     <>
       <HomeHeader onNotice={() => notify("Mở Thông báo từ Trang chủ")} />
       <ScrollView contentContainerStyle={styles.secondaryContent} showsVerticalScrollIndicator={false}>
-        <Text style={styles.screenTitle}>{titles[tab]}</Text>
         {tab === "attendance" ? (
           <>
             <View style={styles.monthCard}><Pressable><AppIcon name="chevron-left" color="#97A39D" /></Pressable><Text style={styles.monthText}>Tháng 10, 2026</Text><Pressable><AppIcon name="chevron-right" color="#97A39D" /></Pressable></View>
@@ -408,11 +453,18 @@ function SecondaryScreen({
           </>
         ) : tab === "requests" ? (
           <>
-            <View style={styles.segment}><Pressable style={requestScope === "mine" ? styles.segmentActive : styles.segmentInactive} onPress={() => setRequestScope("mine")}><Text style={requestScope === "mine" ? styles.segmentActiveText : styles.segmentText}>Đơn của tôi</Text></Pressable><Pressable style={requestScope === "approve" ? styles.segmentActive : styles.segmentInactive} onPress={() => setRequestScope("approve")}><Text style={requestScope === "approve" ? styles.segmentActiveText : styles.segmentText}>Cần tôi duyệt · {approvals.length}</Text></Pressable></View>
+            <RequestScopeSegment value={requestScope} count={approvals.length} onChange={setRequestScope} />
             {requestScope === "mine" ? <><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>{([['all', 'Tất cả'], ['pending', 'Chờ duyệt'], ['approved', 'Đã duyệt'], ['cancelled', 'Đã hủy']] as const).map(([id, label]) => <Pressable key={id} style={[styles.filterChip, requestFilter === id && styles.filterChipActive]} onPress={() => setRequestFilter(id)}><Text style={[styles.filterChipText, requestFilter === id && styles.filterChipTextActive]}>{label}</Text></Pressable>)}</ScrollView>{visibleRequests.length ? <View style={styles.listCard}>{visibleRequests.map((item, index) => <RequestRow key={item.id} icon={requestIcon[item.kind]} title={item.title} detail={item.detail} status={requestStatusLabel[item.status]} border={index > 0} onPress={() => onOpenRequest(item.id)} />)}</View> : <View style={styles.emptyCard}><AppIcon name="file-document-check-outline" size={42} color="#8AA097" /><Text style={styles.emptyTitle}>Không có đơn nào</Text><Text style={styles.emptyText}>Đổi bộ lọc hoặc bấm nút + để tạo đơn mới.</Text></View>}</> : approvals.length ? <View style={styles.approvalList}>{approvals.map((item) => <View key={item.id} style={styles.approvalCard}><Pressable style={styles.approvalHeader} onPress={() => onOpenApproval(item.id)}><View style={styles.approvalAvatar}><Text style={styles.approvalAvatarText}>{item.title.split(" ").map((part) => part[0]).slice(-2).join("")}</Text></View><View style={styles.requestCopy}><Text style={styles.requestTitle}>{item.title}</Text><Text style={styles.requestDetail}>{item.detail}</Text></View><Text style={styles.rowStatusWarn}>Chờ bạn</Text><AppIcon name="chevron-right" size={17} color="#9AA69F" /></Pressable><Text style={styles.approvalReason}>{item.reason}</Text><View style={styles.approvalActions}><Pressable style={styles.rejectSmall} onPress={() => onDecision(item.id, false)}><Text style={styles.rejectSmallText}>Từ chối</Text></Pressable><Pressable style={styles.approveSmall} onPress={() => onDecision(item.id, true)}><Text style={styles.approveSmallText}>Duyệt</Text></Pressable></View></View>)}</View> : <View style={styles.emptyCard}><AppIcon name="check-all" size={42} color="#168563" /><Text style={styles.emptyTitle}>Không còn đơn cần duyệt</Text><Text style={styles.emptyText}>Đơn mới từ nhóm sẽ xuất hiện tại đây.</Text></View>}
           </>
         ) : (
-          <View style={styles.newsList}><NewsListCard important title="Chấm công GPS trên app Kavor áp dụng từ 01/11/2026" meta="Thông báo · Hôm qua" onPress={onOpenNews} /><NewsListCard title="Lịch nghỉ và trực hỗ trợ cuối tháng 10" meta="Chính sách · 15/10/2026" onPress={onOpenNews} /><NewsListCard title="Chúc mừng sinh nhật nhân viên tháng 10" meta="Sự kiện · 10/10/2026" onPress={onOpenNews} /></View>
+          <><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>{([['all', 'Tất cả'], ['notice', 'Thông báo'], ['policy', 'Chính sách'], ['event', 'Sự kiện']] as const).map(([id, label]) => <Pressable key={id} style={[styles.filterChip, newsFilter === id && styles.filterChipActive]} onPress={() => setNewsFilter(id)}><Text style={[styles.filterChipText, newsFilter === id && styles.filterChipTextActive]}>{label}</Text></Pressable>)}</ScrollView><View style={styles.newsList}>{[
+            { cat: "notice", important: true, title: "Bảo trì hệ thống Kavor tối nay 22:00 – 23:30", meta: "Thông báo · Hôm nay" },
+            { cat: "event", title: "Sinh nhật tháng 10: 16:00 hôm nay tại pantry tầng 5", meta: "Sự kiện · Hôm nay" },
+            { cat: "policy", important: true, title: "Chấm công GPS trên app Kavor áp dụng từ 01/11/2026", meta: "Chính sách · 15/10/2026" },
+            { cat: "notice", title: "Đổi khu vực gửi xe máy từ ngày 20/10", meta: "Thông báo · 15/10/2026" },
+            { cat: "notice", title: "Lịch nghỉ Tết Dương lịch 2027", meta: "Thông báo · 14/10/2026" },
+            { cat: "event", title: "Team building quý 4 tại Đà Lạt, 13–15/11", meta: "Sự kiện · 12/10/2026" },
+          ].filter((item) => newsFilter === "all" || item.cat === newsFilter).map((item) => <NewsListCard key={item.title} important={item.important} title={item.title} meta={item.meta} onPress={onOpenNews} />)}</View></>
         )}
       </ScrollView>
     </>
@@ -632,32 +684,73 @@ function PayslipsScreen({ onBack, notify }: { onBack: () => void; notify: (messa
   </>;
 }
 
-function ProfileScreen({ onBack, notify, onDevice, onLogout }: { onBack: () => void; notify: (message: string) => void; onDevice: () => void; onLogout: () => void }) {
-  const [editing, setEditing] = useState(false);
-  const [phone, setPhone] = useState("0901 234 567");
+function ProfileCover() {
+  return <LinearGradient colors={["#CEF5E3", "#F4FCF8"]} style={styles.profileCover}>
+    <View style={styles.profileSun} />
+    <View style={[styles.profileHill, styles.profileHillLeft]} />
+    <View style={[styles.profileHill, styles.profileHillRight]} />
+    <View style={[styles.profileWave, styles.profileWaveBack]} />
+    <View style={[styles.profileWave, styles.profileWaveFront]} />
+  </LinearGradient>;
+}
+
+function ProfileStat({ icon, value, label, border = false }: { icon: IconName; value: string; label: string; border?: boolean }) {
+  return <View style={[styles.profileStat, border && styles.profileStatBorder]}><View style={styles.profileStatValue}><AppIcon name={icon} size={16} color="#087355" /><Text style={styles.profileStatNumber}>{value}</Text></View><Text style={styles.profileStatLabel}>{label}</Text></View>;
+}
+
+function ProfileAction({ icon, title, danger = false, onPress }: { icon: IconName; title: string; danger?: boolean; onPress: () => void }) {
+  return <Pressable style={({ pressed }) => [styles.profileAction, pressed && styles.rowPressed]} onPress={onPress}><AppIcon name={icon} size={23} color={danger ? "#C53E48" : "#087355"} /><Text style={[styles.profileActionText, danger && styles.profileActionDanger]}>{title}</Text>{danger ? null : <AppIcon name="chevron-right" size={18} color="#9AA69F" />}</Pressable>;
+}
+
+function ProfileScreen({ onBack, notify, onDevice, onWidget, onNotifications, onLogout, initialEditing = false }: { onBack: () => void; notify: (message: string) => void; onDevice: () => void; onWidget: () => void; onNotifications: () => void; onLogout: () => void; initialEditing?: boolean }) {
+  const [editing, setEditing] = useState(initialEditing);
+  const [phone, setPhone] = useState("0912 345 468");
+  const [address, setAddress] = useState("Tân Định, TP.HCM");
   return <>
-    <DetailHeader title="Hồ sơ của tôi" onBack={onBack} />
-    <ScrollView contentContainerStyle={styles.flowContent} showsVerticalScrollIndicator={false}>
-      <View style={styles.profileHero}><View style={styles.profileAvatar}><Text style={styles.profileAvatarText}>TH</Text></View><Text style={styles.profileName}>Trần Thu Hà</Text><Text style={styles.profileRole}>Marketing Executive · HD0142</Text></View>
-      <Text style={styles.fieldLabel}>Thông tin liên hệ</Text><View style={styles.reviewCard}><InfoLine label="Email công việc" value="ha@haidang.vn" />{editing ? <View style={[styles.infoLine, styles.personalRowBorder]}><Text style={styles.infoLineLabel}>Điện thoại</Text><TextInput accessibilityLabel="Điện thoại" value={phone} onChangeText={setPhone} style={styles.inlineInput} /></View> : <InfoLine label="Điện thoại" value={phone} border />}<InfoLine label="Địa chỉ" value="Quận Bình Thạnh, TP.HCM" border /></View>
-      <Text style={styles.fieldLabel}>Công việc</Text><View style={styles.reviewCard}><InfoLine label="Phòng ban" value="Marketing" /><InfoLine label="Quản lý" value="Lê Quang Huy" border /><InfoLine label="Ngày vào làm" value="12/03/2023" border /></View>
-      <Pressable style={styles.primaryButton} onPress={() => { if (editing) notify("Đã gửi yêu cầu cập nhật hồ sơ cho HR"); setEditing((value) => !value); }}><Text style={styles.primaryButtonText}>{editing ? "Gửi HR phê duyệt" : "Đề nghị sửa thông tin"}</Text></Pressable>
-      <Pressable style={styles.linkButton} onPress={onDevice}><Text style={styles.linkButtonText}>Quản lý thiết bị đăng nhập</Text></Pressable>
-      <Pressable style={styles.dangerButton} onPress={onLogout}><Text style={styles.dangerButtonText}>Đăng xuất tài khoản demo</Text></Pressable>
+    <DetailHeader title="Hồ sơ" onBack={onBack} />
+    <ScrollView contentContainerStyle={styles.profileContent} showsVerticalScrollIndicator={false}>
+      <View style={styles.profileCard}>
+        <ProfileCover />
+        <View style={styles.profileAvatarOverlap}><View style={styles.profileAvatarLarge}><Text style={styles.profileAvatarLargeText}>TH</Text></View></View>
+        <View style={styles.profileVerifiedName}><Text style={styles.profileCardName}>Trần Thu Hà</Text><AppIcon name="check-decagram" size={21} color="#065F46" /></View>
+        <Text style={styles.profileCardRole}>Senior Designer · Marketing · HD0142</Text>
+        <View style={styles.profileStats}><ProfileStat icon="star-outline" value="5 năm" label="Thâm niên" /><ProfileStat icon="airplane" value="6,5" label="Ngày phép" border /><ProfileStat icon="calendar-check-outline" value="10/22" label="Ngày công" border /></View>
+        <Pressable style={[styles.primaryButton, styles.profileEditButton]} onPress={() => setEditing(true)}><Text style={styles.primaryButtonText}>Đề nghị sửa thông tin</Text></Pressable>
+      </View>
+
+      <Pressable style={styles.noticeCard} onPress={() => notify("Yêu cầu HS-0221 đang chờ HR duyệt")}><View style={styles.noticeIcon}><AppIcon name="clock-alert-outline" size={25} color="#B67212" /></View><View style={styles.noticeCopy}><Text style={styles.noticeTitle}>Đổi tài khoản ngân hàng đang chờ HR</Text><Text style={styles.noticeDetail}>Lương kỳ này vẫn vào Vietcombank •6789</Text></View><AppIcon name="chevron-right" size={18} color="#9AA69F" /></Pressable>
+
+      <Text style={[styles.sectionTitle, styles.profileSectionTitle]}>Công việc</Text>
+      <View style={styles.reviewCard}><InfoLine label="Phòng ban" value="Marketing" /><InfoLine label="Quản lý trực tiếp" value="Lê Quang Huy" border /><InfoLine label="Ngày vào làm" value="03/03/2021" border /><InfoLine label="Hợp đồng" value="Chính thức" border /></View>
+
+      <View style={styles.profileSectionHeader}><Text style={styles.sectionTitle}>Cá nhân</Text><Pressable onPress={() => setEditing(true)}><Text style={styles.sectionLink}>Đề nghị sửa</Text></Pressable></View>
+      <View style={styles.reviewCard}><InfoLine label="Điện thoại" value="0912 ••• 468" /><InfoLine label="Email" value="ha.tran@haidang.vn" border /><InfoLine label="Địa chỉ" value="Tân Định, TP.HCM" border /><InfoLine label="Liên hệ khẩn cấp" value="Trần Văn Bình" border /><InfoLine label="Ngân hàng" value="Vietcombank •6789" border /></View>
+
+      <View style={styles.profileActionsCard}>
+        <ProfileAction icon="file-document-outline" title="Hợp đồng và quyết định" onPress={() => notify("Mở trình xem hợp đồng và quyết định mẫu")} />
+        <ProfileAction icon="view-grid-outline" title="Widget chấm công" onPress={onWidget} />
+        <ProfileAction icon="shield-lock-outline" title="Bảo mật và thiết bị" onPress={onDevice} />
+        <ProfileAction icon="bell-outline" title="Thông báo" onPress={onNotifications} />
+        <ProfileAction icon="logout" title="Đăng xuất" danger onPress={onLogout} />
+      </View>
     </ScrollView>
+
+    <Modal visible={editing} transparent animationType="slide" onRequestClose={() => setEditing(false)}>
+      <View style={styles.sheetLayer}><Pressable style={styles.sheetScrim} onPress={() => setEditing(false)} /><View style={styles.profileSheet}><View style={styles.sheetHandle} /><Text style={styles.sheetTitle}>Đề nghị sửa thông tin</Text><Text style={styles.sheetSubtitle}>HR sẽ kiểm tra và phê duyệt thay đổi trước khi cập nhật hồ sơ.</Text><Text style={styles.fieldLabel}>Điện thoại</Text><TextInput accessibilityLabel="Điện thoại" value={phone} onChangeText={setPhone} style={styles.loginInput} /><Text style={styles.fieldLabel}>Địa chỉ</Text><TextInput accessibilityLabel="Địa chỉ" value={address} onChangeText={setAddress} style={styles.loginInput} /><Pressable style={[styles.primaryButton, { marginTop: 22 }]} onPress={() => { setEditing(false); notify("Đã gửi yêu cầu cập nhật hồ sơ cho HR"); }}><Text style={styles.primaryButtonText}>Gửi HR phê duyệt</Text></Pressable></View></View>
+    </Modal>
   </>;
 }
 
 function DeviceScreen({ onBack, notify }: { onBack: () => void; notify: (message: string) => void }) {
-  const [requested, setRequested] = useState(false);
+  const [registered, setRegistered] = useState(false);
   return <>
-    <DetailHeader title="Thiết bị đăng nhập" onBack={onBack} />
+    <DetailHeader title="Thiết bị chấm công" onBack={onBack} />
     <ScrollView contentContainerStyle={styles.flowContent} showsVerticalScrollIndicator={false}>
-      <View style={styles.deviceHero}><View style={styles.devicePhone}><AppIcon name="cellphone" size={42} color="#087355" /></View><View style={styles.requestCopy}><Text style={styles.deviceName}>iPhone của Trần Thu Hà</Text><Text style={styles.requestDetail}>iPhone 11 · iOS 18.5</Text><View style={styles.deviceStatus}><View style={styles.deviceStatusDot} /><Text style={styles.deviceStatusText}>Thiết bị hiện tại</Text></View></View></View>
-      <View style={styles.reviewCard}><InfoLine label="Đăng ký" value="16/10/2026 · 07:42" /><InfoLine label="Hoạt động gần nhất" value="Hôm nay · 19:48" border /><InfoLine label="Chấm công" value="Được phép" border /></View>
-      <View style={styles.infoNote}><AppIcon name="shield-lock-outline" size={21} color="#087355" /><Text style={styles.infoNoteText}>Mỗi nhân viên chỉ dùng một thiết bị để chấm công. Yêu cầu đổi máy sẽ được HR xác nhận.</Text></View>
-      <Pressable style={requested ? styles.disabledButton : styles.dangerButton} disabled={requested} onPress={() => { setRequested(true); notify("Đã gửi yêu cầu đặt lại thiết bị cho HR"); }}><Text style={requested ? styles.disabledButtonText : styles.dangerButtonText}>{requested ? "Đã gửi yêu cầu đặt lại" : "Yêu cầu đổi thiết bị"}</Text></Pressable>
+      <View style={styles.deviceIntro}><View style={styles.deviceIllustration}><AppIcon name={registered ? "cellphone-check" : "cellphone-lock"} size={58} color="#087355" /></View><Text style={styles.deviceIntroTitle}>{registered ? "Thiết bị đã được đăng ký" : "Đăng ký điện thoại này để chấm công"}</Text><Text style={styles.deviceIntroText}>Mỗi nhân viên chấm công trên một điện thoại. Khi đổi máy, bạn gửi yêu cầu để HR reset.</Text></View>
+      <View style={styles.reviewCard}><InfoLine label="Thiết bị" value="iPhone 15 · iOS 26" /><InfoLine label="Tên máy" value="iPhone của Hà" border /><InfoLine label="Mã thiết bị" value="8F2A…C41" border /></View>
+      <View style={styles.infoNote}><AppIcon name="shield-lock-outline" size={21} color="#087355" /><Text style={styles.infoNoteText}>Kavor chỉ dùng định danh thiết bị để bảo vệ bản ghi chấm công.</Text></View>
     </ScrollView>
+    <View style={styles.flowFooter}><Pressable disabled={registered} style={registered ? styles.disabledButton : styles.primaryButton} onPress={() => { setRegistered(true); notify("Đã đăng ký thiết bị chấm công"); }}><Text style={registered ? styles.disabledButtonText : styles.primaryButtonText}>{registered ? "Đã đăng ký thiết bị này" : "Đăng ký thiết bị này"}</Text></Pressable></View>
   </>;
 }
 
@@ -695,16 +788,22 @@ function ResetPasswordScreen({ onBack, onDone }: { onBack: () => void; onDone: (
 
 function NotificationsScreen({ onBack }: { onBack: () => void }) {
   const [readAll, setReadAll] = useState(false);
-  const items = [["Đơn nghỉ NP-2310 đang chờ duyệt", "5 phút trước", "file-clock-outline"], ["Kỳ công tháng 10 chốt sau 6 ngày", "1 giờ trước", "clock-alert-outline"], ["Phiếu lương 09/2026 đã công bố", "05/10", "receipt-text-outline"]] as const;
+  const items = [["Còn 6 ngày để giải trình công tháng 10", "Ngày 15/10 thiếu giờ vào · 08:00", "clock-alert-outline"], ["Đơn OT-0418 đã được duyệt", "Lê Quang Huy duyệt · Hôm qua", "check-all"], ["Bản tin mới: chấm công GPS", "Phòng Nhân sự · 15/10", "newspaper-variant-outline"], ["Phiếu lương 09/2026 đã công bố", "Xác thực để xem chi tiết · 05/10", "receipt-text-outline"], ["Tạm ứng TU-0912 đã chi", "3.000.000 ₫ vào Vietcombank •6789 · 12/09", "cash-check"]] as const;
   return <><DetailHeader title="Thông báo" onBack={onBack} /><ScrollView contentContainerStyle={styles.flowContent} showsVerticalScrollIndicator={false}><Pressable style={styles.readAll} onPress={() => setReadAll(true)}><Text style={styles.linkButtonText}>{readAll ? "Đã đọc tất cả" : "Đánh dấu tất cả đã đọc"}</Text></Pressable><View style={styles.listCard}>{items.map((item, index) => <View key={item[0]} style={[styles.requestRow, index > 0 && styles.personalRowBorder]}><View style={styles.requestIcon}><AppIcon name={item[2]} size={23} /></View><View style={styles.requestCopy}><Text style={styles.requestTitle}>{item[0]}</Text><Text style={styles.requestDetail}>{item[1]}</Text></View>{!readAll && index < 2 ? <View style={styles.unreadDot} /> : null}</View>)}</View></ScrollView></>;
 }
 
-function NewsDetailScreen({ onBack }: { onBack: () => void }) {
-  return <><DetailHeader title="Bản tin" onBack={onBack} /><ScrollView contentContainerStyle={styles.articleContent} showsVerticalScrollIndicator={false}><View style={styles.articleCover}><AppIcon name="map-marker-radius-outline" size={55} color="#087355" /></View><Text style={styles.articleMeta}>QUAN TRỌNG · PHÒNG NHÂN SỰ · 19/10/2026</Text><Text style={styles.articleTitle}>Chấm công GPS trên app Kavor áp dụng từ 01/11/2026</Text><Text style={styles.articleLead}>Từ ngày 01/11, toàn bộ nhân viên sẽ thực hiện chấm công vào và ra ca trực tiếp trên ứng dụng Kavor.</Text><Text style={styles.articleBody}>Ứng dụng chỉ ghi nhận vị trí tại thời điểm bạn chủ động chấm công. Kavor không theo dõi vị trí liên tục trong ngày.{"\n\n"}Khi ở trong bán kính văn phòng, nhấn giữ nút chấm công trong một giây. Nếu mạng yếu, bản ghi được lưu an toàn và tự động gửi lại khi có kết nối.{"\n\n"}Nếu thiếu bản ghi, hãy tạo giải trình trước ngày 22 hằng tháng để quản lý và HR xử lý trước khi chốt công.</Text><View style={styles.infoNote}><AppIcon name="shield-check-outline" size={20} color="#087355" /><Text style={styles.infoNoteText}>Vị trí chấm công được bảo vệ theo chính sách dữ liệu của Hải Đăng Group.</Text></View></ScrollView></>;
+function NewsDetailScreen({ onBack, notify }: { onBack: () => void; notify: (message: string) => void }) {
+  return <><DetailHeader title="Bản tin" onBack={onBack} /><ScrollView contentContainerStyle={styles.articleContent} showsVerticalScrollIndicator={false}>
+    <LinearGradient colors={["#FFF0EA", "#FFF9F5", "#E6F8F0"]} style={styles.newsDetailHero}><View style={styles.newsHeroTop}><View style={styles.newsCategory}><AppIcon name="book-open-page-variant-outline" size={16} color="#087355" /><Text style={styles.newsCategoryText}>Chính sách</Text></View><View style={styles.importantTag}><AppIcon name="alert-outline" size={11} color="#FFFFFF" /><Text style={styles.importantText}>Quan trọng</Text></View></View><View style={styles.newsHeroIcon}><AppIcon name="map-marker-radius-outline" size={31} color="#C84750" /></View><Text style={styles.newsHeroTitle}>Chấm công GPS trên app Kavor áp dụng từ 01/11/2026</Text><View style={styles.newsByline}><View style={styles.newsByAvatar}><Text style={styles.newsByAvatarText}>NS</Text></View><View><Text style={styles.newsByName}>Phòng Nhân sự</Text><Text style={styles.newsByMeta}>15/10/2026 · 3 phút đọc</Text></View></View></LinearGradient>
+    <View style={styles.newsCallout}><View style={styles.newsCalloutIcon}><AppIcon name="alert-outline" size={21} color="#C84750" /></View><View style={styles.requestCopy}><Text style={styles.newsCalloutTitle}>Bạn cần biết</Text><Text style={styles.newsCalloutText}>Quy định chấm công mới bắt đầu áp dụng từ ngày 01/11/2026.</Text></View></View>
+    <View style={styles.newsBodyCard}><View style={styles.newsBodyHeading}><AppIcon name="book-open-page-variant-outline" size={17} color="#087355" /><Text style={styles.newsBodyHeadingText}>NỘI DUNG</Text></View><Text style={styles.articleBody}>Từ ngày 01/11/2026, nhân viên khối văn phòng chấm công vào/ra ca trên app Kavor thay cho máy vân tay ở sảnh.{"\n\n"}Mỗi người đăng ký một điện thoại để chấm công. Khi đổi máy, gửi yêu cầu reset trong Hồ sơ → Bảo mật và thiết bị.{"\n\n"}✓ Bán kính chấm công: 3 m quanh điểm đặt tại văn phòng.{"\n"}✓ Quên chấm hoặc lỗi định vị: gửi giải trình, tối đa 3 lần/tháng.{"\n"}✓ Hạn giải trình: trước ngày chốt công 3 ngày.</Text><Pressable style={styles.newsFile} onPress={() => notify("Mở Quy-dinh-cham-cong-GPS.pdf trong trình xem PDF")}><View style={styles.requestIcon}><AppIcon name="file-pdf-box" size={23} /></View><View style={styles.requestCopy}><Text style={styles.requestTitle}>Quy-dinh-cham-cong-GPS.pdf</Text><Text style={styles.requestDetail}>412 KB</Text></View><AppIcon name="download-outline" size={19} color="#7A8781" /></Pressable></View>
+    <View style={styles.newsActions}><Pressable style={styles.newsActionButton} onPress={() => notify("Đã lưu bài viết")}><AppIcon name="pin-outline" size={18} /><Text style={styles.newsActionText}>Lưu tin</Text></Pressable><Pressable style={styles.newsActionButton} onPress={() => notify("Đã sao chép liên kết bài viết")}><AppIcon name="share-variant-outline" size={18} /><Text style={styles.newsActionText}>Chia sẻ</Text></Pressable></View>
+  </ScrollView></>;
 }
 
 function WidgetGuideScreen({ onBack, notify }: { onBack: () => void; notify: (message: string) => void }) {
-  return <><DetailHeader title="Widget chấm công" onBack={onBack} /><ScrollView contentContainerStyle={styles.flowContent} showsVerticalScrollIndicator={false}><View style={styles.widgetPreview}><Text style={styles.widgetBrand}>KAVOR</Text><Text style={styles.widgetTime}>07:58</Text><Text style={styles.widgetShift}>Ca hành chính · 08:00–17:00</Text><View style={styles.widgetAction}><Text style={styles.widgetActionText}>VÀO CA</Text></View></View><Text style={styles.articleTitle}>Chấm công nhanh từ màn hình chính</Text><Text style={styles.articleBody}>Thêm widget Kavor để xem ca làm, trạng thái hôm nay và mở nhanh màn chấm công. Bạn vẫn cần xác nhận trong ứng dụng để tránh thao tác nhầm.</Text><View style={styles.reviewCard}><InfoLine label="iOS" value="Nhấn giữ màn hình → + → Kavor" /><InfoLine label="Android" value="Widgets → Kavor" border /></View><Pressable style={[styles.primaryButton, { marginTop: 18 }]} onPress={() => notify("Đã đánh dấu hướng dẫn hoàn tất")}><Text style={styles.primaryButtonText}>Đã hiểu</Text></Pressable></ScrollView></>;
+  const steps = [["Nhấn giữ vùng trống trên màn hình chính", "Chọn Sửa → Thêm tiện ích"], ["Tìm “Kavor”, chọn cỡ vừa", "Cỡ vừa có nút chấm công, cỡ nhỏ chỉ xem trạng thái"], ["Đến văn phòng và chạm Vào ca", "Widget kiểm tra vị trí rồi báo kết quả tại chỗ"]];
+  return <><DetailHeader title="Widget chấm công" onBack={onBack} /><ScrollView contentContainerStyle={styles.flowContent} showsVerticalScrollIndicator={false}><LinearGradient colors={["#315C50", "#173B31"]} style={styles.widgetWall}><View style={styles.widgetPreview}><Text style={styles.widgetBrand}>KAVOR</Text><Text style={styles.widgetTime}>07:58</Text><Text style={styles.widgetShift}>Thứ Sáu, 16/10 · Trong vùng 1,8 m</Text><View style={styles.widgetAction}><Text style={styles.widgetActionText}>VÀO CA</Text></View></View></LinearGradient><Text style={[styles.sectionTitle, styles.flowSectionTitle]}>Thêm widget trên iPhone</Text><View style={styles.timelineCard}>{steps.map((step, index) => <View key={step[0]}><View style={styles.timelineRow}><View style={styles.timelineDotDone}><AppIcon name="check" size={13} color="#FFFFFF" /></View><View style={styles.requestCopy}><Text style={styles.timelineTitle}>{step[0]}</Text><Text style={styles.timelineSub}>{step[1]}</Text></View></View>{index < steps.length - 1 ? <View style={styles.timelineStem} /> : null}</View>)}</View><View style={styles.infoNote}><AppIcon name="shield-lock-outline" size={20} color="#087355" /><Text style={styles.infoNoteText}>Widget chỉ chạy trên thiết bị đã đăng ký và khi bạn còn đăng nhập. Mỗi lần chạm đều xác thực vị trí.</Text></View><View style={[styles.approvalActions, { marginTop: 14 }]}><Pressable style={styles.rejectSmall} onPress={() => notify("Đã mở mô phỏng màn hình khóa")}><Text style={[styles.rejectSmallText, { color: "#087355" }]}>Màn hình khóa</Text></Pressable><Pressable style={styles.approveSmall} onPress={() => notify("Đã mở mô phỏng màn hình chính")}><Text style={styles.approveSmallText}>Xem mô phỏng</Text></Pressable></View></ScrollView></>;
 }
 
 function DoneScreen({ kind, onViewRequests, onHome }: { kind: RequestKind; onViewRequests: () => void; onHome: () => void }) {
@@ -724,26 +823,23 @@ function DockTab({ tab, active, onPress }: { tab: (typeof tabs)[number]; active:
   return <Pressable accessibilityRole="button" accessibilityState={{ selected: active }} style={[styles.dockItem, active && styles.dockItemActive]} onPress={onPress}><Animated.View style={[styles.dockItemContent, { transform: [{ scale }] }]}><AppIcon name={active ? tab.activeIcon : tab.icon} size={23} color={active ? "#065F46" : "#6D7973"} />{active ? <Text style={styles.dockLabel}>{tab.label}</Text> : null}</Animated.View></Pressable>;
 }
 
-function Dock({ activeTab, setActiveTab, quickOpen, setQuickOpen, openFlow, notify }: { activeTab: TabId; setActiveTab: (tab: TabId) => void; quickOpen: boolean; setQuickOpen: (open: boolean) => void; openFlow: (flow: FlowId) => void; notify: (message: string) => void }) {
+function Dock({ activeTab, setActiveTab, quickOpen, setQuickOpen, openFlow }: { activeTab: TabId; setActiveTab: (tab: TabId) => void; quickOpen: boolean; setQuickOpen: (open: boolean) => void; openFlow: (flow: FlowId) => void }) {
   const reduced = useReducedMotion();
   const quickAnim = useRef(new Animated.Value(quickOpen ? 1 : 0)).current;
   useEffect(() => {
     if (reduced) { quickAnim.setValue(quickOpen ? 1 : 0); return; }
     Animated.spring(quickAnim, { toValue: quickOpen ? 1 : 0, speed: 22, bounciness: quickOpen ? 8 : 2, useNativeDriver: true }).start();
   }, [quickAnim, quickOpen, reduced]);
-  function runQuickAction(label: string) {
+  function runQuickAction(nextFlow: FlowId) {
     setQuickOpen(false);
-    if (label === "Tạo đơn nghỉ") openFlow("leaveNew");
-    else if (label === "Giải trình công") openFlow("explain");
-    else if (label === "Đăng ký làm thêm") openFlow("ot");
-    else notify("Tác vụ đang được cập nhật");
+    setTimeout(() => openFlow(nextFlow), 110);
   }
   return (
     <>
       <Animated.View pointerEvents={quickOpen ? "auto" : "none"} style={[styles.quickScrim, { opacity: quickAnim }]}><Pressable style={StyleSheet.absoluteFill} onPress={() => setQuickOpen(false)} /></Animated.View>
-      <Animated.View pointerEvents={quickOpen ? "auto" : "none"} style={[styles.quickMenu, { opacity: quickAnim, transform: [{ translateY: quickAnim.interpolate({ inputRange: [0, 1], outputRange: [24, 0] }) }, { scale: quickAnim.interpolate({ inputRange: [0, 1], outputRange: [0.92, 1] }) }] }]}>{quickCreate.map((item) => <Pressable style={styles.quickItem} key={item.label} onPress={() => runQuickAction(item.label)}><View style={styles.quickLabel}><Text style={styles.quickLabelText}>{item.label}</Text><Text style={styles.quickLabelSub}>Tạo mới bằng dữ liệu mẫu</Text></View><View style={styles.quickCircle}><AppIcon name={item.icon} size={24} /></View></Pressable>)}</Animated.View>
+      <Animated.View pointerEvents={quickOpen ? "auto" : "none"} style={[styles.quickMenu, { transform: [{ translateY: quickAnim.interpolate({ inputRange: [0, 1], outputRange: [18, 0] }) }] }]}>{quickCreate.map((item, index) => { const start = (quickCreate.length - 1 - index) * 0.055; return <Animated.View key={item.label} style={{ opacity: quickAnim.interpolate({ inputRange: [start, Math.min(1, start + 0.42)], outputRange: [0, 1], extrapolate: "clamp" }), transform: [{ translateY: quickAnim.interpolate({ inputRange: [start, Math.min(1, start + 0.5)], outputRange: [22, 0], extrapolate: "clamp" }) }, { scale: quickAnim.interpolate({ inputRange: [start, Math.min(1, start + 0.5)], outputRange: [0.86, 1], extrapolate: "clamp" }) }] }}><Pressable style={styles.quickItem} onPress={() => runQuickAction(item.flow)}><View style={styles.quickLabel}><Text style={styles.quickLabelText}>{item.label}</Text><Text style={styles.quickLabelSub}>{item.detail}</Text></View><View style={styles.quickCircle}><AppIcon name={item.icon} size={24} /></View></Pressable></Animated.View>; })}</Animated.View>
       <View style={styles.dock}>
-        <View style={styles.dockPill}>
+        <View style={[styles.dockPill, quickOpen && styles.dockPillDim]}>
           {tabs.map((tab) => <DockTab key={tab.id} tab={tab} active={activeTab === tab.id} onPress={() => setActiveTab(tab.id)} />)}
         </View>
         <Animated.View style={[styles.fabWrap, { transform: [{ rotate: quickAnim.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "45deg"] }) }] }]}><Pressable accessibilityLabel="Tạo nhanh" style={({ pressed }) => [styles.fabWrap, pressed && styles.punchPressed]} onPress={() => setQuickOpen(!quickOpen)}><LinearGradient colors={["#15936D", "#065F46", "#044E39"]} style={styles.fab}><AppIcon name="plus" size={30} color="#FFFFFF" /></LinearGradient></Pressable></Animated.View>
@@ -762,6 +858,20 @@ function AnimatedToast({ message }: { message: string }) {
   return <Animated.View style={[styles.toast, { opacity: value, transform: [{ translateY: value.interpolate({ inputRange: [0, 1], outputRange: [14, 0] }) }, { scale: value.interpolate({ inputRange: [0, 1], outputRange: [0.96, 1] }) }] }]}><AppIcon name="check-circle-outline" size={18} color="#087355" /><Text style={styles.toastText}>{message}</Text></Animated.View>;
 }
 
+function PinGate({ visible, onClose, onSuccess }: { visible: boolean; onClose: () => void; onSuccess: () => void }) {
+  const [code, setCode] = useState("");
+  useEffect(() => {
+    if (!visible) setCode("");
+  }, [visible]);
+  useEffect(() => {
+    if (code.length !== 6) return;
+    const timer = setTimeout(onSuccess, 240);
+    return () => clearTimeout(timer);
+  }, [code, onSuccess]);
+  const key = (value: number | "delete") => setCode((current) => value === "delete" ? current.slice(0, -1) : current.length < 6 ? `${current}${value}` : current);
+  return <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}><View style={styles.sheetLayer}><Pressable style={styles.sheetScrim} onPress={onClose} /><View style={styles.pinSheet}><View style={styles.sheetHandle} /><Text style={styles.sheetTitle}>Xác thực để tiếp tục</Text><Text style={styles.sheetSubtitle}>Nhập PIN 6 số để xem dữ liệu lương và tạm ứng.</Text><View style={styles.pinDots}>{Array.from({ length: 6 }, (_, index) => <View key={index} style={[styles.pinDot, index < code.length && styles.pinDotActive]} />)}</View><View style={styles.keypad}>{[1,2,3,4,5,6,7,8,9].map((number) => <Pressable key={number} style={({ pressed }) => [styles.keypadKey, pressed && styles.keypadPressed]} onPress={() => key(number)}><Text style={styles.keypadText}>{number}</Text></Pressable>)}<Pressable style={styles.keypadPlain} onPress={onSuccess}><AppIcon name="face-recognition" size={29} color="#087355" /></Pressable><Pressable style={({ pressed }) => [styles.keypadKey, pressed && styles.keypadPressed]} onPress={() => key(0)}><Text style={styles.keypadText}>0</Text></Pressable><Pressable style={styles.keypadPlain} onPress={() => key("delete")}><AppIcon name="backspace-outline" size={25} color="#65736D" /></Pressable></View></View></View></Modal>;
+}
+
 export default function App() {
   const [fontsLoaded] = useFonts({ Montserrat_300Light, Montserrat_400Regular, Montserrat_500Medium, Montserrat_600SemiBold, Montserrat_700Bold });
   const [activeTab, setActiveTab] = useState<TabId>("home");
@@ -776,9 +886,29 @@ export default function App() {
   const [selectedApprovalId, setSelectedApprovalId] = useState<string | null>(null);
   const [doneKind, setDoneKind] = useState<RequestKind>("leave");
   const [authIntent, setAuthIntent] = useState<"activate" | "reset">("reset");
+  const [pinUnlocked, setPinUnlocked] = useState(false);
+  const [pinVisible, setPinVisible] = useState(false);
+  const [pendingFlow, setPendingFlow] = useState<FlowId | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => () => { if (toastTimer.current) clearTimeout(toastTimer.current); }, []);
+
+  useEffect(() => {
+    const routeUrl = (url: string | null) => {
+      if (!url) return;
+      const route = url.replace(/^kavor:\/\//, "").split(/[/?#]/)[0];
+      if (route === "home" || route === "attendance" || route === "requests" || route === "news") {
+        setFlow(null);
+        setActiveTab(route);
+        setQuickOpen(route === "home" && url.includes("quick=1"));
+      } else if (route === "profile" || route === "profileEdit" || route === "clock" || route === "notifications" || route === "widget" || route === "device" || route === "newsDetail") {
+        setFlow(route);
+      }
+    };
+    Linking.getInitialURL().then(routeUrl);
+    const subscription = Linking.addEventListener("url", (event) => routeUrl(event.url));
+    return () => subscription.remove();
+  }, []);
 
   function notify(text: string) {
     setMessage(text);
@@ -788,7 +918,20 @@ export default function App() {
 
   function openFlow(nextFlow: FlowId) {
     setQuickOpen(false);
+    if (!pinUnlocked && (nextFlow === "payslips" || nextFlow === "advance" || nextFlow === "advanceNew")) {
+      setPendingFlow(nextFlow);
+      setPinVisible(true);
+      return;
+    }
     setFlow(nextFlow);
+  }
+
+  function completePin() {
+    setPinUnlocked(true);
+    setPinVisible(false);
+    if (pendingFlow) setFlow(pendingFlow);
+    setPendingFlow(null);
+    notify("Xác thực thành công");
   }
 
   function openRequest(id: string) {
@@ -832,12 +975,12 @@ export default function App() {
   else if (flow === "advance") content = <AdvanceOverview requests={requests} onBack={() => setFlow(null)} onCreate={() => setFlow("advanceNew")} onOpenRequest={openRequest} />;
   else if (flow === "advanceNew") content = <AdvanceForm onBack={() => setFlow("advance")} onSubmit={submitRequest} />;
   else if (flow === "payslips") content = <PayslipsScreen onBack={() => setFlow(null)} notify={notify} />;
-  else if (flow === "profile") content = <ProfileScreen onBack={() => setFlow(null)} notify={notify} onDevice={() => setFlow("device")} onLogout={() => { setSignedIn(false); setFlow("login"); }} />;
+  else if (flow === "profile" || flow === "profileEdit") content = <ProfileScreen initialEditing={flow === "profileEdit"} onBack={() => setFlow(null)} notify={notify} onDevice={() => setFlow("device")} onWidget={() => setFlow("widget")} onNotifications={() => setFlow("notifications")} onLogout={() => { setSignedIn(false); setFlow("login"); }} />;
   else if (flow === "device") content = <DeviceScreen onBack={() => setFlow("profile")} notify={notify} />;
   else if (flow === "clock") content = <ClockScreen checkedIn={checkedIn} onBack={() => setFlow(null)} onPunch={() => { setCheckedIn((value) => !value); notify(checkedIn ? "Đã ghi nhận ra ca" : "Đã ghi nhận vào ca lúc 07:58"); }} notify={notify} />;
   else if (flow === "approvalDetail" && selectedApproval) content = <ApprovalDetail item={selectedApproval} onBack={() => setFlow(null)} onDecision={(approved) => decideApproval(selectedApproval.id, approved)} />;
   else if (flow === "notifications") content = <NotificationsScreen onBack={() => setFlow(null)} />;
-  else if (flow === "newsDetail") content = <NewsDetailScreen onBack={() => setFlow(null)} />;
+  else if (flow === "newsDetail") content = <NewsDetailScreen onBack={() => setFlow(null)} notify={notify} />;
   else if (flow === "widget") content = <WidgetGuideScreen onBack={() => setFlow(null)} notify={notify} />;
   else if (flow === "requestDetail" && selectedRequest) content = <RequestDetail item={selectedRequest} onBack={() => setFlow(null)} onCancel={() => { setRequests((current) => current.map((item) => item.id === selectedRequest.id ? { ...item, status: "cancelled" } : item)); notify(`Đã hủy đơn ${selectedRequest.id}`); setFlow(null); }} />;
   else if (flow === "done") content = <DoneScreen kind={doneKind} onViewRequests={() => { setActiveTab("requests"); setFlow(null); }} onHome={() => { setActiveTab("home"); setFlow(null); }} />;
@@ -853,10 +996,11 @@ export default function App() {
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.app}>
         <MotionScreen key={sceneKey} variant={flow || !signedIn ? "push" : "fade"}>{content}</MotionScreen>
-        {signedIn && !flow ? <Dock activeTab={activeTab} setActiveTab={(tab) => { setQuickOpen(false); setActiveTab(tab); }} quickOpen={quickOpen} setQuickOpen={setQuickOpen} openFlow={openFlow} notify={notify} /> : null}
+        {signedIn && !flow ? <Dock activeTab={activeTab} setActiveTab={(tab) => { setQuickOpen(false); setActiveTab(tab); }} quickOpen={quickOpen} setQuickOpen={setQuickOpen} openFlow={openFlow} /> : null}
         {message ? <AnimatedToast key={message} message={message} /> : null}
         </View>
       </SafeAreaView>
+      <PinGate visible={pinVisible} onClose={() => { setPinVisible(false); setPendingFlow(null); }} onSuccess={completePin} />
     </View>
   );
 }
@@ -869,7 +1013,7 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: "transparent", paddingTop: Platform.OS === "android" ? NativeStatusBar.currentHeight : 0 },
   app: { flex: 1, backgroundColor: "transparent", overflow: "hidden" },
   scene: { flex: 1 },
-  blob: { position: "absolute", borderRadius: 999 },
+  blob: { position: "absolute", borderRadius: 999, overflow: "hidden" },
   blobTop: { width: 370, height: 370, top: -170, left: -165 },
   blobRight: { width: 310, height: 310, top: 285, right: -185 },
   blobBottom: { width: 340, height: 340, bottom: -185, left: -90 },
@@ -885,7 +1029,9 @@ const styles = StyleSheet.create({
   sectionTitle: { color: "#13241E", fontSize: 16, fontFamily: fonts.bold },
   sectionLink: { color: "#065F46", fontSize: 12.5, fontFamily: fonts.semibold },
   newsCard: { minHeight: 84, borderRadius: 20, padding: 13, flexDirection: "row", gap: 12, backgroundColor: "rgba(255,243,244,0.82)", borderWidth: 1, borderColor: "rgba(255,214,216,0.95)", shadowColor: "#064632", shadowOpacity: 0.12, shadowRadius: 18, shadowOffset: { width: 0, height: 9 }, elevation: 3 },
+  newsCardInactive: { opacity: 0.72, transform: [{ scale: 0.94 }] },
   newsCardNormal: { backgroundColor: "rgba(255,255,255,0.82)", borderColor: "rgba(255,255,255,0.96)" },
+  carouselTrack: { marginHorizontal: -20, overflow: "visible" },
   newsIcon: { width: 44, height: 44, borderRadius: 14, backgroundColor: "#FFECEE", alignItems: "center", justifyContent: "center" },
   newsIconNormal: { backgroundColor: "#EAF7F1" },
   newsCopy: { flex: 1, gap: 5 },
@@ -899,20 +1045,20 @@ const styles = StyleSheet.create({
   carouselDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: "#DCE2DF" },
   carouselDotActive: { width: 18, height: 6, borderRadius: 3, backgroundColor: "#065F46" },
   hero: { alignItems: "center", marginTop: -1 },
-  heroTime: { color: "#1D3B32", fontSize: 44, lineHeight: 48, letterSpacing: -1.4, fontFamily: fonts.light },
-  heroDate: { color: "#7A8781", fontSize: 15, marginTop: 0, fontFamily: fonts.regular },
-  shiftChip: { minHeight: 28, marginTop: 6, paddingHorizontal: 12, borderRadius: 15, flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "rgba(255,255,255,0.75)", borderWidth: 1, borderColor: "#FFFFFF", shadowColor: "#064632", shadowOpacity: 0.08, shadowRadius: 10 },
+  heroTime: { color: "#1D3B32", fontSize: 52, lineHeight: 56, letterSpacing: -1.4, fontFamily: fonts.light },
+  heroDate: { color: "#7A8781", fontSize: 17, marginTop: 1, fontFamily: fonts.regular },
+  shiftChip: { minHeight: 30, marginTop: 8, paddingHorizontal: 12, borderRadius: 15, flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "rgba(255,255,255,0.75)", borderWidth: 1, borderColor: "#FFFFFF", shadowColor: "#064632", shadowOpacity: 0.08, shadowRadius: 10 },
   shiftText: { color: "#5D6B65", fontSize: 12, fontFamily: fonts.medium },
-  punchStage: { width: "100%", height: 174, marginTop: 0, alignItems: "center", justifyContent: "center", overflow: "hidden" },
+  punchStage: { width: "100%", height: 216, marginTop: 0, alignItems: "center", justifyContent: "center", overflow: "hidden" },
   mapSquare: { position: "absolute", width: 22, height: 22, borderRadius: 5, backgroundColor: "rgba(222,247,235,0.78)" },
   crossLineA: { position: "absolute", width: 460, height: 44, backgroundColor: "rgba(255,255,255,0.65)", transform: [{ rotate: "31deg" }] },
   crossLineB: { position: "absolute", width: 430, height: 38, backgroundColor: "rgba(255,255,255,0.58)", transform: [{ rotate: "-56deg" }] },
-  haloOuter: { position: "absolute", width: 176, height: 176, borderRadius: 88, backgroundColor: "rgba(167,243,208,0.24)" },
-  haloInner: { position: "absolute", width: 158, height: 158, borderRadius: 79, backgroundColor: "rgba(255,255,255,0.45)", borderWidth: 1, borderColor: "rgba(255,255,255,0.9)", shadowColor: "#064632", shadowOpacity: 0.12, shadowRadius: 18, elevation: 2 },
-  holdRing: { position: "absolute", width: 151, height: 151, borderRadius: 76, borderWidth: 3, borderStyle: "dashed", borderColor: "#36BD8C", zIndex: 5 },
-  punchPressable: { width: 142, height: 142, borderRadius: 71, zIndex: 4 },
+  haloOuter: { position: "absolute", width: 212, height: 212, borderRadius: 106, backgroundColor: "rgba(167,243,208,0.24)" },
+  haloInner: { position: "absolute", width: 186, height: 186, borderRadius: 93, backgroundColor: "rgba(255,255,255,0.45)", borderWidth: 1, borderColor: "rgba(255,255,255,0.9)", shadowColor: "#064632", shadowOpacity: 0.12, shadowRadius: 18, elevation: 2 },
+  holdRing: { position: "absolute", width: 174, height: 174, borderRadius: 87, borderWidth: 3, borderStyle: "dashed", borderColor: "#36BD8C", zIndex: 5 },
+  punchPressable: { width: 160, height: 160, borderRadius: 80, zIndex: 4 },
   punchPressed: { transform: [{ scale: 0.96 }], opacity: 0.92 },
-  punchOrb: { width: 142, height: 142, borderRadius: 71, alignItems: "center", justifyContent: "center", shadowColor: "#064632", shadowOpacity: 0.42, shadowRadius: 22, shadowOffset: { width: 0, height: 13 }, elevation: 9 },
+  punchOrb: { width: 160, height: 160, borderRadius: 80, alignItems: "center", justifyContent: "center", shadowColor: "#064632", shadowOpacity: 0.42, shadowRadius: 22, shadowOffset: { width: 0, height: 13 }, elevation: 9 },
   punchTitle: { color: "#FFFFFF", fontSize: 15, letterSpacing: 0.7, marginTop: 2, fontFamily: fonts.semibold },
   punchTitleOut: { color: "#065F46" },
   punchHint: { color: "rgba(255,255,255,0.82)", fontSize: 10, marginTop: 1, fontFamily: fonts.medium },
@@ -963,11 +1109,13 @@ const styles = StyleSheet.create({
   explainSub: { color: "#8B7B52", fontSize: 10, marginTop: 3, fontFamily: fonts.regular },
   smallPrimary: { minHeight: 36, borderRadius: 13, paddingHorizontal: 12, alignItems: "center", justifyContent: "center", backgroundColor: "#087355" },
   smallPrimaryText: { color: "#FFFFFF", fontSize: 10.5, fontFamily: fonts.semibold },
-  segment: { height: 46, borderRadius: 22, padding: 4, marginBottom: 18, flexDirection: "row", alignItems: "center", backgroundColor: "rgba(236,248,242,0.88)" },
+  segment: { height: 46, borderRadius: 22, padding: 4, marginBottom: 18, flexDirection: "row", alignItems: "center", backgroundColor: "rgba(236,248,242,0.88)", overflow: "hidden" },
+  segmentKnob: { position: "absolute", top: 4, bottom: 4, left: 4, width: "49%", borderRadius: 18, backgroundColor: "rgba(255,255,255,0.95)", shadowColor: "#064632", shadowOpacity: 0.12, shadowRadius: 8, elevation: 2 },
+  segmentButton: { flex: 1, height: 38, alignItems: "center", justifyContent: "center", zIndex: 2 },
   segmentActive: { flex: 1, height: 38, borderRadius: 18, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.95)" },
   segmentInactive: { flex: 1, height: 38, borderRadius: 18, alignItems: "center", justifyContent: "center" },
   segmentActiveText: { color: "#13241E", fontSize: 12.5, fontFamily: fonts.semibold },
-  segmentText: { flex: 1, color: "#65736D", textAlign: "center", fontSize: 12.5, fontFamily: fonts.medium },
+  segmentText: { color: "#65736D", textAlign: "center", fontSize: 12.5, fontFamily: fonts.medium },
   requestRow: { minHeight: 78, padding: 13, flexDirection: "row", alignItems: "center", gap: 11 },
   requestIcon: { width: 42, height: 42, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: "#ECF8F2" },
   requestCopy: { flex: 1 },
@@ -1090,11 +1238,59 @@ const styles = StyleSheet.create({
   eyeToggle: { alignSelf: "flex-end", minHeight: 34, paddingHorizontal: 10, borderRadius: 15, flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: "#EDF8F3" },
   eyeToggleText: { color: "#087355", fontSize: 9.5, fontFamily: fonts.semibold },
   profileHero: { alignItems: "center", paddingVertical: 12 },
+  profileContent: { paddingHorizontal: 20, paddingTop: 7, paddingBottom: 52 },
+  profileCard: { alignItems: "center", padding: 10, paddingBottom: 18, borderRadius: 28, backgroundColor: "rgba(255,255,255,0.62)", borderWidth: 1, borderColor: "#FFFFFF", shadowColor: "#064632", shadowOpacity: 0.16, shadowRadius: 20, shadowOffset: { width: 0, height: 10 }, elevation: 4 },
+  profileCover: { width: "100%", height: 124, borderRadius: 20, overflow: "hidden" },
+  profileSun: { position: "absolute", width: 30, height: 30, borderRadius: 15, right: 52, top: 20, backgroundColor: "#FFF4D6" },
+  profileHill: { position: "absolute", width: 120, height: 180, borderRadius: 60, top: 18, backgroundColor: "rgba(46,156,119,0.5)" },
+  profileHillLeft: { left: -78, transform: [{ rotate: "-12deg" }] },
+  profileHillRight: { right: -80, transform: [{ rotate: "12deg" }] },
+  profileWave: { position: "absolute", width: 430, height: 130, borderRadius: 215, left: -48 },
+  profileWaveBack: { top: 67, backgroundColor: "#A7F3D0", transform: [{ rotate: "-3deg" }] },
+  profileWaveFront: { top: 93, backgroundColor: "#21B886", transform: [{ rotate: "2deg" }] },
+  profileAvatarOverlap: { marginTop: -54 },
+  profileAvatarLarge: { width: 104, height: 104, borderRadius: 52, alignItems: "center", justifyContent: "center", backgroundColor: "#087355", borderWidth: 5, borderColor: "#FFFFFF", shadowColor: "#064632", shadowOpacity: 0.28, shadowRadius: 16, elevation: 5 },
+  profileAvatarLargeText: { color: "#FFFFFF", fontSize: 28, fontFamily: fonts.bold },
+  profileVerifiedName: { flexDirection: "row", alignItems: "center", gap: 7, marginTop: 11 },
+  profileCardName: { color: "#173B31", fontSize: 21, fontFamily: fonts.bold },
+  profileCardRole: { color: "#7A8781", fontSize: 11.5, marginTop: 3, fontFamily: fonts.medium },
+  profileStats: { width: "100%", flexDirection: "row", marginTop: 17, marginBottom: 15 },
+  profileStat: { flex: 1, alignItems: "center", gap: 3 },
+  profileStatBorder: { borderLeftWidth: 1, borderLeftColor: "rgba(6,95,70,0.11)" },
+  profileStatValue: { flexDirection: "row", alignItems: "center", gap: 5 },
+  profileStatNumber: { color: "#173B31", fontSize: 15, fontFamily: fonts.bold },
+  profileStatLabel: { color: "#8B9892", fontSize: 10, fontFamily: fonts.medium },
+  profileEditButton: { width: "96%" },
+  profileSectionTitle: { marginTop: 22, marginBottom: 11 },
+  profileSectionHeader: { marginTop: 22, marginBottom: 11, paddingHorizontal: 2, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  profileActionsCard: { marginTop: 18, borderRadius: 22, overflow: "hidden", backgroundColor: "rgba(255,255,255,0.76)", borderWidth: 1, borderColor: "#FFFFFF", shadowColor: "#064632", shadowOpacity: 0.12, shadowRadius: 18, elevation: 3 },
+  profileAction: { minHeight: 57, paddingHorizontal: 16, flexDirection: "row", alignItems: "center", gap: 12, borderBottomWidth: 1, borderBottomColor: "rgba(6,95,70,0.07)" },
+  profileActionText: { flex: 1, color: "#263A33", fontSize: 12.5, fontFamily: fonts.semibold },
+  profileActionDanger: { color: "#C53E48" },
+  sheetLayer: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(10,40,30,0.16)" },
+  sheetScrim: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0 },
+  profileSheet: { paddingHorizontal: 22, paddingTop: 10, paddingBottom: 34, borderTopLeftRadius: 30, borderTopRightRadius: 30, backgroundColor: "rgba(250,253,251,0.98)", borderWidth: 1, borderColor: "#FFFFFF", shadowColor: "#064632", shadowOpacity: 0.22, shadowRadius: 24, elevation: 12 },
+  sheetHandle: { width: 42, height: 5, borderRadius: 3, alignSelf: "center", backgroundColor: "#D4DED9" },
+  sheetTitle: { color: "#173B31", fontSize: 19, marginTop: 17, textAlign: "center", fontFamily: fonts.bold },
+  sheetSubtitle: { color: "#7A8781", fontSize: 11, lineHeight: 17, marginTop: 6, marginBottom: 4, textAlign: "center", fontFamily: fonts.regular },
+  pinSheet: { paddingHorizontal: 28, paddingTop: 10, paddingBottom: 28, borderTopLeftRadius: 30, borderTopRightRadius: 30, backgroundColor: "rgba(250,253,251,0.98)", borderWidth: 1, borderColor: "#FFFFFF", shadowColor: "#064632", shadowOpacity: 0.22, shadowRadius: 24, elevation: 12 },
+  pinDots: { flexDirection: "row", justifyContent: "center", gap: 16, paddingVertical: 24 },
+  pinDot: { width: 14, height: 14, borderRadius: 7, borderWidth: 2, borderColor: "#D8E2DD" },
+  pinDotActive: { backgroundColor: "#087355", borderColor: "#087355", transform: [{ scale: 1.12 }] },
+  keypad: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", rowGap: 10 },
+  keypadKey: { width: "30%", height: 52, borderRadius: 18, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.86)", borderWidth: 1, borderColor: "#FFFFFF", shadowColor: "#064632", shadowOpacity: 0.1, shadowRadius: 8, elevation: 2 },
+  keypadPlain: { width: "30%", height: 52, alignItems: "center", justifyContent: "center" },
+  keypadPressed: { transform: [{ scale: 0.95 }], backgroundColor: "#E7F7EF" },
+  keypadText: { color: "#173B31", fontSize: 20, fontFamily: fonts.medium },
   profileAvatar: { width: 84, height: 84, borderRadius: 42, alignItems: "center", justifyContent: "center", backgroundColor: "#087355", borderWidth: 4, borderColor: "#FFFFFF", shadowColor: "#064632", shadowOpacity: 0.2, shadowRadius: 14, elevation: 4 },
   profileAvatarText: { color: "#FFFFFF", fontSize: 23, fontFamily: fonts.bold },
   profileName: { color: "#173B31", fontSize: 19, marginTop: 11, fontFamily: fonts.bold },
   profileRole: { color: "#7A8781", fontSize: 10.5, marginTop: 4, fontFamily: fonts.medium },
   deviceHero: { minHeight: 92, borderRadius: 22, padding: 15, flexDirection: "row", alignItems: "center", gap: 13, backgroundColor: "rgba(255,255,255,0.82)", borderWidth: 1, borderColor: "#FFFFFF", shadowColor: "#064632", shadowOpacity: 0.12, shadowRadius: 16, elevation: 3 },
+  deviceIntro: { alignItems: "center", paddingHorizontal: 24, paddingTop: 8, paddingBottom: 14 },
+  deviceIllustration: { width: 104, height: 104, borderRadius: 34, alignItems: "center", justifyContent: "center", backgroundColor: "#E7F7EF", borderWidth: 1, borderColor: "#D4EEE2" },
+  deviceIntroTitle: { color: "#173B31", fontSize: 18, lineHeight: 24, marginTop: 17, textAlign: "center", fontFamily: fonts.bold },
+  deviceIntroText: { color: "#7A8781", fontSize: 11.5, lineHeight: 18, marginTop: 7, textAlign: "center", fontFamily: fonts.regular },
   devicePhone: { width: 58, height: 66, borderRadius: 18, alignItems: "center", justifyContent: "center", backgroundColor: "#E8F7F0" },
   deviceName: { color: "#173B31", fontSize: 13, fontFamily: fonts.semibold },
   deviceStatus: { flexDirection: "row", alignItems: "center", gap: 5, marginTop: 8 },
@@ -1106,12 +1302,35 @@ const styles = StyleSheet.create({
   readAll: { alignSelf: "flex-end", minHeight: 37, justifyContent: "center", marginBottom: 10 },
   unreadDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#15936D" },
   articleContent: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 54 },
+  newsDetailHero: { minHeight: 224, borderRadius: 24, padding: 16, overflow: "hidden", borderWidth: 1, borderColor: "rgba(217,71,79,0.13)", shadowColor: "#064632", shadowOpacity: 0.12, shadowRadius: 18, elevation: 3 },
+  newsHeroTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  newsCategory: { minHeight: 29, borderRadius: 15, paddingHorizontal: 10, flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "rgba(255,255,255,0.74)", borderWidth: 1, borderColor: "rgba(6,95,70,0.08)" },
+  newsCategoryText: { color: "#087355", fontSize: 10.5, fontFamily: fonts.bold },
+  newsHeroIcon: { width: 48, height: 48, borderRadius: 16, alignSelf: "flex-end", marginTop: 7, marginBottom: -13, marginRight: 2, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.76)", transform: [{ rotate: "4deg" }] },
+  newsHeroTitle: { color: "#173B31", fontSize: 20.5, lineHeight: 25, marginTop: 12, fontFamily: fonts.bold },
+  newsByline: { marginTop: "auto", flexDirection: "row", alignItems: "center", gap: 10 },
+  newsByAvatar: { width: 34, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center", backgroundColor: "#087355" },
+  newsByAvatarText: { color: "#FFFFFF", fontSize: 9.5, fontFamily: fonts.bold },
+  newsByName: { color: "#173B31", fontSize: 11.5, fontFamily: fonts.bold },
+  newsByMeta: { color: "#7A8781", fontSize: 10.5, marginTop: 1, fontFamily: fonts.regular },
+  newsCallout: { minHeight: 82, borderRadius: 22, padding: 14, marginTop: 14, flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: "#FFF2F1", borderWidth: 1, borderColor: "rgba(217,71,79,0.14)" },
+  newsCalloutIcon: { width: 42, height: 42, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: "#FFFFFF" },
+  newsCalloutTitle: { color: "#3B2A2B", fontSize: 12.5, fontFamily: fonts.bold },
+  newsCalloutText: { color: "#765D5F", fontSize: 10.5, lineHeight: 16, marginTop: 3, fontFamily: fonts.regular },
+  newsBodyCard: { padding: 18, borderRadius: 24, marginTop: 14, backgroundColor: "rgba(255,255,255,0.82)", borderWidth: 1, borderColor: "#FFFFFF", shadowColor: "#064632", shadowOpacity: 0.1, shadowRadius: 16, elevation: 2 },
+  newsBodyHeading: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 2 },
+  newsBodyHeadingText: { color: "#087355", fontSize: 10.5, letterSpacing: 1, fontFamily: fonts.bold },
+  newsFile: { minHeight: 66, borderRadius: 19, padding: 11, marginTop: 15, flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: "#F8FAF9", borderWidth: 1, borderColor: "#E5ECE8" },
+  newsActions: { flexDirection: "row", gap: 10, marginTop: 12 },
+  newsActionButton: { flex: 1, minHeight: 46, borderRadius: 23, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7, backgroundColor: "rgba(255,255,255,0.8)", borderWidth: 1, borderColor: "#FFFFFF" },
+  newsActionText: { color: "#173B31", fontSize: 11.5, fontFamily: fonts.semibold },
   articleCover: { height: 188, borderRadius: 26, alignItems: "center", justifyContent: "center", backgroundColor: "#DDF5E9", borderWidth: 1, borderColor: "#CBE9DB" },
   articleMeta: { color: "#B44B53", fontSize: 9.5, letterSpacing: 0.8, marginTop: 20, fontFamily: fonts.semibold },
   articleTitle: { color: "#173B31", fontSize: 20, lineHeight: 27, marginTop: 8, fontFamily: fonts.bold },
   articleLead: { color: "#3E564D", fontSize: 12.5, lineHeight: 20, marginTop: 13, fontFamily: fonts.semibold },
   articleBody: { color: "#66766F", fontSize: 12, lineHeight: 20, marginTop: 13, fontFamily: fonts.regular },
-  widgetPreview: { height: 188, borderRadius: 28, padding: 20, alignItems: "center", justifyContent: "center", backgroundColor: "#173B31", shadowColor: "#064632", shadowOpacity: 0.25, shadowRadius: 18, elevation: 5 },
+  widgetWall: { borderRadius: 28, padding: 18, overflow: "hidden", shadowColor: "#064632", shadowOpacity: 0.2, shadowRadius: 18, elevation: 4 },
+  widgetPreview: { height: 188, borderRadius: 28, padding: 20, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.12)", borderWidth: 1, borderColor: "rgba(255,255,255,0.16)" },
   widgetBrand: { color: "#A7F3D0", fontSize: 9, letterSpacing: 2, fontFamily: fonts.bold },
   widgetTime: { color: "#FFFFFF", fontSize: 38, marginTop: 7, fontFamily: fonts.light },
   widgetShift: { color: "rgba(255,255,255,0.66)", fontSize: 9.5, marginTop: 1, fontFamily: fonts.medium },
@@ -1151,6 +1370,7 @@ const styles = StyleSheet.create({
   quickCircle: { width: 51, height: 51, borderRadius: 26, alignItems: "center", justifyContent: "center", backgroundColor: "#FFFFFF", shadowColor: "#064632", shadowOpacity: 0.16, shadowRadius: 13, elevation: 4 },
   dock: { position: "absolute", left: 18, right: 18, bottom: Platform.OS === "ios" ? 8 : 12, zIndex: 30, height: 64, flexDirection: "row", alignItems: "center", gap: 11 },
   dockPill: { flex: 1, height: 64, paddingHorizontal: 7, borderRadius: 32, flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: "rgba(255,255,255,0.9)", borderWidth: 1, borderColor: "#FFFFFF", shadowColor: "#064632", shadowOpacity: 0.22, shadowRadius: 18, shadowOffset: { width: 0, height: 9 }, elevation: 7 },
+  dockPillDim: { opacity: 0.25 },
   dockItem: { height: 48, minWidth: 45, paddingHorizontal: 11, borderRadius: 24, flexDirection: "row", alignItems: "center", justifyContent: "center" },
   dockItemContent: { flexDirection: "row", alignItems: "center", justifyContent: "center" },
   dockItemActive: { backgroundColor: "rgba(6,95,70,0.10)" },
