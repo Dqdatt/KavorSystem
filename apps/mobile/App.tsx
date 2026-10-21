@@ -8,8 +8,10 @@ import {
   useFonts,
 } from "@expo-google-fonts/montserrat";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import { StatusBar } from "expo-status-bar";
+import Svg, { Circle, Defs, LinearGradient as SvgLinearGradient, Path, Stop } from "react-native-svg";
 import {
   AccessibilityInfo,
   Animated,
@@ -93,6 +95,18 @@ function AppIcon({ name, size = 22, color = "#065F46" }: { name: IconName; size?
   return <MaterialCommunityIcons name={name} size={size} color={color} />;
 }
 
+function KavorMark({ size = 58 }: { size?: number }) {
+  return <Svg width={size} height={size} viewBox="0 0 470 425" accessibilityLabel="Kavor">
+    <Defs><SvgLinearGradient id="kavorGreen" x1="35" y1="390" x2="436" y2="35" gradientUnits="userSpaceOnUse"><Stop offset="0" stopColor="#10A37F" /><Stop offset="1" stopColor="#065F46" /></SvgLinearGradient></Defs>
+    <Path d="M35 189 L35 389 L141 190 L245 390 L436 35" fill="none" stroke="url(#kavorGreen)" strokeWidth="38" strokeLinecap="round" strokeLinejoin="round" />
+    <Circle cx="364" cy="374" r="32" fill="#A7F3D0" />
+  </Svg>;
+}
+
+function GlassLayer({ intensity = 68 }: { intensity?: number }) {
+  return <BlurView pointerEvents="none" intensity={intensity} tint="light" style={StyleSheet.absoluteFill} />;
+}
+
 function useReducedMotion() {
   const [reduced, setReduced] = useState(false);
   useEffect(() => {
@@ -154,10 +168,12 @@ function DecorativeBackground() {
   );
 }
 
-function HomeHeader({ onNotice, onProfile }: { onNotice: () => void; onProfile?: () => void }) {
+function HomeHeader({ onNotice, onProfile, glass = false }: { onNotice: () => void; onProfile?: () => void; glass?: boolean }) {
   return (
-    <View style={styles.header}>
+    <View style={[styles.header, glass && styles.headerGlass]}>
+      {glass ? <GlassLayer intensity={72} /> : null}
       <Pressable accessibilityLabel="Thông báo" style={styles.circleButton} onPress={onNotice}>
+        <GlassLayer intensity={55} />
         <AppIcon name="bell-outline" size={20} color="#173B31" />
         <View style={styles.notificationDot} />
       </Pressable>
@@ -368,11 +384,11 @@ function PersonalRow({ icon, title, value, border = false, onPress }: { icon: Ic
   );
 }
 
-function HomeScreen({ checkedIn, notify, onPunch, openFlow, onNews }: { checkedIn: boolean; notify: (message: string) => void; onPunch: () => void; openFlow: (flow: FlowId) => void; onNews: () => void }) {
+function HomeScreen({ checkedIn, notify, onPunch, openFlow, onNews, onPrimaryScroll, headerGlass }: { checkedIn: boolean; notify: (message: string) => void; onPunch: () => void; openFlow: (flow: FlowId) => void; onNews: () => void; onPrimaryScroll: (y: number, nearEnd: boolean) => void; headerGlass: boolean }) {
   return (
     <>
-      <HomeHeader onNotice={() => openFlow("notifications")} onProfile={() => openFlow("profile")} />
-      <ScrollView contentContainerStyle={styles.homeContent} scrollIndicatorInsets={{ bottom: 112 }} showsVerticalScrollIndicator={false}>
+      <HomeHeader glass={headerGlass} onNotice={() => openFlow("notifications")} onProfile={() => openFlow("profile")} />
+      <ScrollView contentContainerStyle={styles.homeContent} scrollIndicatorInsets={{ bottom: 112 }} showsVerticalScrollIndicator={false} scrollEventThrottle={16} onScroll={({ nativeEvent }) => onPrimaryScroll(nativeEvent.contentOffset.y, nativeEvent.contentSize.height - nativeEvent.layoutMeasurement.height - nativeEvent.contentOffset.y < 8)}>
         <Reveal delay={30}><NewsCarousel onOpen={() => openFlow("newsDetail")} onAll={onNews} /></Reveal>
         <Reveal delay={110}><PunchHero checkedIn={checkedIn} onPunch={onPunch} onTap={() => notify("Nhấn giữ nút tròn trong 1 giây để chấm công")} onDetails={() => openFlow("clock")} /></Reveal>
         <Reveal delay={190}><PersonalSection notify={notify} openFlow={openFlow} /></Reveal>
@@ -381,17 +397,17 @@ function HomeScreen({ checkedIn, notify, onPunch, openFlow, onNews }: { checkedI
   );
 }
 
-const attendanceRows: Array<[string, string, string, string, string]> = [
-  ["16", "Thứ Sáu", "--:--", "17:06", "Thiếu giờ vào"],
-  ["15", "Thứ Năm", "08:07", "17:12", "Muộn 7 phút"],
-  ["14", "Thứ Tư", "07:56", "17:04", "Đủ công"],
-  ["13", "Thứ Ba", "07:59", "17:11", "Đủ công"],
-  ["12", "Thứ Hai", "07:51", "17:08", "Đủ công"],
-  ["09", "Thứ Sáu", "07:58", "17:06", "Đủ công"],
-  ["08", "Thứ Năm", "08:00", "--:--", "Thiếu giờ ra"],
-  ["07", "Thứ Tư", "07:53", "17:02", "Đủ công"],
-  ["06", "Thứ Ba", "08:04", "17:10", "Muộn 4 phút"],
-  ["05", "Thứ Hai", "07:55", "17:00", "Đủ công"],
+const attendanceRows: Array<[string, string, string, string, string, string]> = [
+  ["16", "Thứ Sáu", "--:--", "17:06", "--:--", "Thiếu giờ vào"],
+  ["15", "Thứ Năm", "08:07", "17:12", "08:05", "Muộn 7 phút"],
+  ["14", "Thứ Tư", "07:56", "17:04", "08:08", "Đủ công"],
+  ["13", "Thứ Ba", "07:59", "17:11", "08:12", "Đủ công"],
+  ["12", "Thứ Hai", "07:51", "17:08", "08:17", "Đủ công"],
+  ["09", "Thứ Sáu", "07:58", "17:06", "08:08", "Đủ công"],
+  ["08", "Thứ Năm", "08:00", "--:--", "--:--", "Thiếu giờ ra"],
+  ["07", "Thứ Tư", "07:53", "17:02", "08:09", "Đủ công"],
+  ["06", "Thứ Ba", "08:04", "17:10", "08:06", "Muộn 4 phút"],
+  ["05", "Thứ Hai", "07:55", "17:00", "08:05", "Đủ công"],
 ];
 
 function RequestScopeSegment({ value, count, onChange }: { value: "mine" | "approve"; count: number; onChange: (value: "mine" | "approve") => void }) {
@@ -403,6 +419,7 @@ function RequestScopeSegment({ value, count, onChange }: { value: "mine" | "appr
     Animated.spring(position, { toValue: value === "mine" ? 0 : 1, speed: 18, bounciness: 3, useNativeDriver: true }).start();
   }, [position, reduced, value]);
   return <View style={styles.segment} onLayout={(event) => setTrackWidth(event.nativeEvent.layout.width)}>
+    <GlassLayer intensity={58} />
     <Animated.View style={[styles.segmentKnob, { transform: [{ translateX: position.interpolate({ inputRange: [0, 1], outputRange: [0, Math.max(0, (trackWidth - 8) / 2)] }) }] }]} />
     <Pressable style={styles.segmentButton} onPress={() => onChange("mine")}><Text style={value === "mine" ? styles.segmentActiveText : styles.segmentText}>Đơn của tôi</Text></Pressable>
     <Pressable style={styles.segmentButton} onPress={() => onChange("approve")}><Text style={value === "approve" ? styles.segmentActiveText : styles.segmentText}>Cần tôi duyệt · {count}</Text></Pressable>
@@ -419,6 +436,8 @@ function SecondaryScreen({
   approvals,
   onOpenApproval,
   onDecision,
+  onPrimaryScroll,
+  headerGlass,
 }: {
   tab: Exclude<TabId, "home">;
   notify: (message: string) => void;
@@ -429,17 +448,19 @@ function SecondaryScreen({
   approvals: RequestItem[];
   onOpenApproval: (id: string) => void;
   onDecision: (id: string, approved: boolean) => void;
+  onPrimaryScroll: (y: number, nearEnd: boolean) => void;
+  headerGlass: boolean;
 }) {
   const [attendanceFilter, setAttendanceFilter] = useState<"all" | "late" | "missing">("all");
   const [requestFilter, setRequestFilter] = useState<"all" | RequestStatus>("all");
   const [requestScope, setRequestScope] = useState<"mine" | "approve">("mine");
   const [newsFilter, setNewsFilter] = useState<"all" | "notice" | "policy" | "event">("all");
-  const visibleAttendance = attendanceRows.filter((row) => attendanceFilter === "all" || (attendanceFilter === "late" ? row[4].includes("Muộn") : row[4].includes("Thiếu")));
+  const visibleAttendance = attendanceRows.filter((row) => attendanceFilter === "all" || (attendanceFilter === "late" ? row[5].includes("Muộn") : row[5].includes("Thiếu")));
   const visibleRequests = requests.filter((item) => requestFilter === "all" || item.status === requestFilter);
   return (
     <>
-      <HomeHeader onNotice={() => notify("Mở Thông báo từ Trang chủ")} />
-      <ScrollView contentContainerStyle={styles.secondaryContent} showsVerticalScrollIndicator={false}>
+      <HomeHeader glass={headerGlass} onNotice={() => notify("Mở Thông báo từ Trang chủ")} />
+      <ScrollView contentContainerStyle={styles.secondaryContent} showsVerticalScrollIndicator={false} scrollEventThrottle={16} onScroll={({ nativeEvent }) => onPrimaryScroll(nativeEvent.contentOffset.y, nativeEvent.contentSize.height - nativeEvent.layoutMeasurement.height - nativeEvent.contentOffset.y < 8)}>
         {tab === "attendance" ? (
           <>
             <View style={styles.monthCard}><Pressable><AppIcon name="chevron-left" color="#97A39D" /></Pressable><Text style={styles.monthText}>Tháng 10, 2026</Text><Pressable><AppIcon name="chevron-right" color="#97A39D" /></Pressable></View>
@@ -449,7 +470,7 @@ function SecondaryScreen({
               <Pressable style={[styles.summaryItem, attendanceFilter === "missing" && styles.summarySelected]} onPress={() => setAttendanceFilter("missing")}><Summary value="1" label="Thiếu công" /></Pressable>
             </View>
             {attendanceFilter !== "all" ? <View style={styles.explainCard}><View style={styles.explainCopy}><Text style={styles.explainTitle}>Còn 2/3 lượt giải trình</Text><Text style={styles.explainSub}>Hạn 22/10, trước ngày chốt công</Text></View><Pressable style={styles.smallPrimary} onPress={onOpenExplain}><Text style={styles.smallPrimaryText}>Tạo giải trình</Text></Pressable></View> : null}
-            <View style={styles.attendanceCard}>{visibleAttendance.map((row) => <Pressable style={styles.attendanceRow} key={row[0]} onPress={row[4] === "Đủ công" ? () => notify("Ngày công này không có bất thường") : onOpenExplain}><View style={styles.dayBox}><Text style={styles.dayNumber}>{row[0]}</Text><Text style={styles.dayName}>{row[1]}</Text></View><View style={styles.timeColumn}><Text style={styles.timeLabel}>Vào</Text><Text style={styles.rowTime}>{row[2]}</Text></View><View style={styles.timeColumn}><Text style={styles.timeLabel}>Ra</Text><Text style={styles.rowTime}>{row[3]}</Text></View><Text style={row[4] === "Đủ công" ? styles.rowStatusOk : styles.rowStatusWarn}>{row[4]}</Text></Pressable>)}</View>
+            <View style={styles.attendanceCard}><View style={styles.attendanceHeader}><Text style={styles.attendanceHeaderDay}>Ngày</Text><Text style={styles.attendanceHeaderCell}>Giờ vào</Text><Text style={styles.attendanceHeaderCell}>Giờ ra</Text><Text style={[styles.attendanceHeaderCell, styles.attendanceHeaderHours]}>Giờ làm</Text></View>{visibleAttendance.map((row) => <Pressable style={styles.attendanceRow} key={row[0]} onPress={row[5] === "Đủ công" ? () => notify("Ngày công này không có bất thường") : onOpenExplain}><View style={styles.attendanceMain}><View style={styles.dayBox}><Text style={styles.dayNumber}>{row[0]}</Text><Text style={styles.dayName}>{row[1]}</Text></View><View style={styles.attendanceTimes}><Text style={[styles.rowTime, row[2] === "--:--" && styles.rowTimeMissing]}>{row[2]}</Text><Text style={[styles.rowTime, row[3] === "--:--" && styles.rowTimeMissing]}>{row[3]}</Text><View style={styles.attendanceHoursWrap}><Text style={[styles.rowTime, row[4] === "--:--" ? styles.rowTimeMissing : styles.rowTimeOk]}>{row[4]}</Text><AppIcon name="chevron-right" size={15} color="#9AA69F" /></View></View></View><Text style={row[5] === "Đủ công" ? styles.attendanceNoteOk : styles.attendanceNoteWarn}>{row[5]}</Text></Pressable>)}</View>
           </>
         ) : tab === "requests" ? (
           <>
@@ -484,7 +505,7 @@ function NewsListCard({ title, meta, important = false, onPress }: { title: stri
 }
 
 function DetailHeader({ title, onBack }: { title: string; onBack: () => void }) {
-  return <View style={styles.detailHeader}><Pressable accessibilityLabel="Quay lại" style={styles.detailBack} onPress={onBack}><AppIcon name="arrow-left" size={22} color="#173B31" /></Pressable><Text style={styles.detailTitle}>{title}</Text><View style={styles.detailSpacer} /></View>;
+  return <View style={styles.detailHeader}><GlassLayer intensity={28} /><Pressable accessibilityLabel="Quay lại" style={styles.detailBack} onPress={onBack}><GlassLayer intensity={56} /><AppIcon name="arrow-left" size={22} color="#173B31" /></Pressable><Text style={styles.detailTitle}>{title}</Text><View style={styles.detailSpacer} /></View>;
 }
 
 function ClockScreen({ checkedIn, onBack, onPunch, notify }: { checkedIn: boolean; onBack: () => void; onPunch: () => void; notify: (message: string) => void }) {
@@ -755,35 +776,59 @@ function DeviceScreen({ onBack, notify }: { onBack: () => void; notify: (message
 }
 
 function AuthBrand() {
-  return <><View style={styles.loginMark}><Text style={styles.loginMarkText}>K</Text></View><Text style={styles.authBrand}>KAVOR</Text></>;
+  return <View style={styles.authBrandCard}><View style={styles.authWordmark}><KavorMark size={58} /><Text style={styles.authWordmarkText}>Kavor</Text></View></View>;
+}
+
+function AuthPrimaryButton({ label, onPress, disabled = false }: { label: string; onPress: () => void; disabled?: boolean }) {
+  return <Pressable disabled={disabled} style={[styles.authPrimary, styles.authPrimaryBlock, disabled && styles.authPrimaryDisabled]} onPress={onPress}><LinearGradient colors={["#129670", "#065F46", "#044E39"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.authPrimaryGradient}><Text style={styles.primaryButtonText}>{label}</Text></LinearGradient></Pressable>;
+}
+
+function AuthFlowFrame({ onBack, step, title, subtitle, children, footer, otp = false }: { onBack: () => void; step?: number; title: string; subtitle: ReactNode; children: ReactNode; footer?: ReactNode; otp?: boolean }) {
+  return <View style={styles.authScene}><View pointerEvents="none" style={[styles.authOrb, styles.authOrbTop]} /><View pointerEvents="none" style={[styles.authOrb, styles.authOrbBottom]} /><Pressable accessibilityLabel="Quay lại" style={styles.authBack} onPress={onBack}><GlassLayer intensity={52} /><AppIcon name="chevron-left" size={22} color="#5D6B65" /></Pressable>{step ? <View style={styles.authProgress}>{[1, 2, 3].map((item) => <View key={item} style={[styles.authProgressBar, item === step && styles.authProgressBarActive]} />)}</View> : null}<ScrollView contentContainerStyle={[styles.authFlowScreen, otp && styles.authFlowOtp]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}><AuthBrand /><View style={styles.authHeading}><Text style={styles.loginTitle}>{title}</Text><Text style={styles.loginSubtitle}>{subtitle}</Text></View>{children}{footer ? <View style={styles.authFootRow}>{footer}</View> : null}</ScrollView></View>;
 }
 
 function LoginScreen({ onLogin, onForgot, onActivate }: { onLogin: () => void; onForgot: () => void; onActivate: () => void }) {
-  const [email, setEmail] = useState("ha@haidang.vn");
-  const [password, setPassword] = useState("12345678");
-  return <ScrollView contentContainerStyle={styles.loginScreen} keyboardShouldPersistTaps="handled"><AuthBrand /><Text style={styles.loginTitle}>Chào mừng trở lại</Text><Text style={styles.loginSubtitle}>Đăng nhập vào không gian Hải Đăng Group</Text><Pressable style={styles.googleButton} onPress={onLogin}><Text style={styles.googleLetter}>G</Text><Text style={styles.googleText}>Tiếp tục với Google</Text></Pressable><View style={styles.loginDivider}><View style={styles.dividerLine} /><Text style={styles.dividerText}>hoặc</Text><View style={styles.dividerLine} /></View><Text style={styles.fieldLabel}>Email công việc</Text><TextInput accessibilityLabel="Email công việc" autoCapitalize="none" keyboardType="email-address" value={email} onChangeText={setEmail} style={styles.loginInput} /><Text style={styles.fieldLabel}>Mật khẩu</Text><TextInput accessibilityLabel="Mật khẩu" secureTextEntry value={password} onChangeText={setPassword} style={styles.loginInput} /><Pressable style={[styles.primaryButton, { marginTop: 20 }]} onPress={onLogin}><Text style={styles.primaryButtonText}>Đăng nhập</Text></Pressable><Pressable style={styles.linkButton} onPress={onForgot}><Text style={styles.linkButtonText}>Quên mật khẩu?</Text></Pressable><View style={styles.authFootRow}><Text style={styles.authFootText}>Lần đầu sử dụng Kavor?</Text><Pressable onPress={onActivate}><Text style={styles.linkButtonText}> Kích hoạt tài khoản</Text></Pressable></View><Text style={styles.loginFoot}>Bản thử nghiệm · dữ liệu mẫu không gửi ra ngoài</Text></ScrollView>;
+  const [employeeId, setEmployeeId] = useState("HD0142");
+  const [password, setPassword] = useState("demo-pass");
+  const [showPassword, setShowPassword] = useState(false);
+  return <View style={styles.authScene}>
+    <View pointerEvents="none" style={[styles.authOrb, styles.authOrbTop]} /><View pointerEvents="none" style={[styles.authOrb, styles.authOrbBottom]} />
+    <ScrollView contentContainerStyle={styles.loginScreen} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+      <AuthBrand />
+      <View style={styles.authHeading}><Text style={styles.loginTitle}>Đăng nhập</Text><Text style={styles.loginSubtitle}>Chào mừng bạn trở lại Kavor. Đăng nhập để bắt đầu ngày làm việc.</Text></View>
+      <View style={styles.authForm}>
+        <View style={styles.authField}><GlassLayer intensity={48} /><AppIcon name="account-outline" size={19} color="#96A19C" /><TextInput accessibilityLabel="Mã nhân viên hoặc email" autoCapitalize="none" value={employeeId} onChangeText={setEmployeeId} placeholder="Mã nhân viên hoặc email" placeholderTextColor="#88938E" style={styles.authFieldInput} /></View>
+        <View style={styles.authField}><GlassLayer intensity={48} /><AppIcon name="lock-outline" size={19} color="#96A19C" /><View style={styles.authPasswordWrap}><TextInput accessibilityLabel="Mật khẩu" secureTextEntry={!showPassword} value={password} onChangeText={setPassword} placeholder="Mật khẩu" placeholderTextColor="#88938E" style={[styles.authFieldInput, !showPassword && password.length > 0 && styles.authPasswordHiddenInput]} />{!showPassword && password.length > 0 ? <Text pointerEvents="none" style={styles.authPasswordDots}>{"•".repeat(Math.min(password.length, 10))}</Text> : null}</View><Pressable accessibilityLabel={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"} style={styles.authEye} onPress={() => setShowPassword((value) => !value)}><AppIcon name={showPassword ? "eye-off-outline" : "eye-outline"} size={20} color="#7C8983" /></Pressable></View>
+        <Pressable style={styles.authForgot} onPress={onForgot}><Text style={styles.authForgotText}>Quên mật khẩu?</Text></Pressable>
+        <View style={styles.authSubmitRow}><Pressable style={[styles.authPrimary, styles.authPrimaryGrow]} onPress={onLogin}><LinearGradient colors={["#129670", "#065F46", "#044E39"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.authPrimaryGradient}><Text style={styles.primaryButtonText}>Đăng nhập</Text></LinearGradient></Pressable><Pressable accessibilityLabel="Đăng nhập bằng Face ID" style={styles.faceLogin} onPress={onLogin}><GlassLayer intensity={64} /><AppIcon name="face-recognition" size={28} color="#065F46" /></Pressable></View>
+        <View style={styles.loginDivider}><View style={styles.dividerLine} /><Text style={styles.dividerText}>Hoặc</Text><View style={styles.dividerLine} /></View>
+        <Pressable style={styles.ssoButton} onPress={onLogin}><GlassLayer intensity={54} /><View style={styles.ssoIcon}><AppIcon name="office-building-outline" size={19} color="#065F46" /></View><Text style={styles.ssoText}>Đăng nhập SSO công ty</Text></Pressable>
+      </View>
+      <View style={styles.authFootRow}><Text style={styles.authFootText}>Lần đầu sử dụng?</Text><Pressable onPress={onActivate}><Text style={styles.authActivate}> Kích hoạt tài khoản</Text></Pressable></View>
+    </ScrollView>
+  </View>;
 }
 
 function ActivateScreen({ onBack, onContinue }: { onBack: () => void; onContinue: () => void }) {
-  const [code, setCode] = useState("HDG-2026-142");
-  return <><DetailHeader title="Kích hoạt tài khoản" onBack={onBack} /><ScrollView contentContainerStyle={styles.authContent} keyboardShouldPersistTaps="handled"><AuthBrand /><Text style={styles.authTitle}>Chào mừng đến với Kavor</Text><Text style={styles.authSubtitle}>Nhập mã nhân viên hoặc mã mời do Hải Đăng Group cung cấp.</Text><Text style={styles.fieldLabel}>Mã kích hoạt</Text><TextInput autoCapitalize="characters" value={code} onChangeText={setCode} style={styles.loginInput} /><View style={styles.infoNote}><AppIcon name="shield-account-outline" size={21} color="#087355" /><Text style={styles.infoNoteText}>Kavor chỉ dùng mã này để xác định đúng doanh nghiệp và hồ sơ nhân viên.</Text></View><Pressable style={[styles.primaryButton, { marginTop: 24 }]} onPress={onContinue}><Text style={styles.primaryButtonText}>Tiếp tục</Text></Pressable></ScrollView></>;
+  const [employeeId, setEmployeeId] = useState("HD0142"); const [email, setEmail] = useState("thao.ha@haidang.vn"); const [password, setPassword] = useState(""); const [agreed, setAgreed] = useState(false);
+  return <AuthFlowFrame onBack={onBack} title="Kích hoạt tài khoản" subtitle="Dùng thông tin nhân sự đã đăng ký với công ty để tạo tài khoản Kavor." footer={<><Text style={styles.authFootText}>Đã có tài khoản?</Text><Pressable onPress={onBack}><Text style={styles.authActivate}> Đăng nhập</Text></Pressable></>}><View style={styles.authForm}><View style={styles.authField}><GlassLayer intensity={48} /><AppIcon name="account-outline" size={19} color="#96A19C" /><TextInput value={employeeId} onChangeText={setEmployeeId} placeholder="Mã nhân viên" style={styles.authFieldInput} /></View><View style={styles.authField}><GlassLayer intensity={48} /><AppIcon name="email-outline" size={19} color="#96A19C" /><TextInput value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" placeholder="Email công ty" style={styles.authFieldInput} /></View><View style={styles.authField}><GlassLayer intensity={48} /><AppIcon name="lock-outline" size={19} color="#96A19C" /><TextInput value={password} onChangeText={setPassword} secureTextEntry placeholder="Tạo mật khẩu" style={styles.authFieldInput} /><AppIcon name="information-outline" size={20} color="#7C8983" /></View><Pressable style={styles.authAgree} onPress={() => setAgreed((value) => !value)}><View style={[styles.authCheckbox, agreed && styles.authCheckboxOn]}>{agreed ? <AppIcon name="check" size={13} color="#FFFFFF" /> : null}</View><Text style={styles.authAgreeText}>Tôi đồng ý để công ty xử lý <Text style={styles.authAgreeLink}>dữ liệu cá nhân</Text> cho mục đích nhân sự.</Text></Pressable><AuthPrimaryButton label="Tiếp tục" disabled={!agreed} onPress={onContinue} /></View></AuthFlowFrame>;
 }
 
 function ForgotScreen({ onBack, onContinue }: { onBack: () => void; onContinue: () => void }) {
-  const [email, setEmail] = useState("ha@haidang.vn");
-  return <><DetailHeader title="Khôi phục tài khoản" onBack={onBack} /><ScrollView contentContainerStyle={styles.authContent} keyboardShouldPersistTaps="handled"><View style={styles.authIcon}><AppIcon name="email-lock-outline" size={34} color="#087355" /></View><Text style={styles.authTitle}>Nhận mã xác minh</Text><Text style={styles.authSubtitle}>Mã OTP gồm 6 số sẽ được gửi đến email công việc đã đăng ký.</Text><Text style={styles.fieldLabel}>Email công việc</Text><TextInput autoCapitalize="none" keyboardType="email-address" value={email} onChangeText={setEmail} style={styles.loginInput} /><Pressable style={[styles.primaryButton, { marginTop: 24 }]} onPress={onContinue}><Text style={styles.primaryButtonText}>Gửi mã OTP</Text></Pressable></ScrollView></>;
+  const [email, setEmail] = useState("thao.ha@haidang.vn");
+  return <AuthFlowFrame onBack={onBack} step={1} title="Quên mật khẩu?" subtitle="Nhập mã nhân viên hoặc email công ty. Kavor sẽ gửi mã xác thực để bạn tạo mật khẩu mới." footer={<><Text style={styles.authFootText}>Đã nhớ mật khẩu?</Text><Pressable onPress={onBack}><Text style={styles.authActivate}> Đăng nhập</Text></Pressable></>}><View style={styles.authForm}><View style={styles.authField}><GlassLayer intensity={48} /><AppIcon name="email-outline" size={19} color="#96A19C" /><TextInput value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" placeholder="Mã nhân viên hoặc email" style={styles.authFieldInput} /></View><View style={styles.resetNote}><AppIcon name="shield-lock-outline" size={18} color="#065F46" /><Text style={styles.resetNoteText}>Mã OTP có hiệu lực trong 5 phút và chỉ dùng được một lần.</Text></View><AuthPrimaryButton label="Gửi mã xác thực" onPress={onContinue} /></View></AuthFlowFrame>;
 }
 
 function OtpScreen({ onBack, onContinue }: { onBack: () => void; onContinue: () => void }) {
-  const [code, setCode] = useState("123456");
-  return <><DetailHeader title="Xác minh OTP" onBack={onBack} /><ScrollView contentContainerStyle={styles.authContent} keyboardShouldPersistTaps="handled"><View style={styles.authIcon}><AppIcon name="message-lock-outline" size={34} color="#087355" /></View><Text style={styles.authTitle}>Nhập mã xác minh</Text><Text style={styles.authSubtitle}>Đã gửi mã đến ha@haidang.vn. Mã mẫu của prototype là 123456.</Text><View style={styles.otpBoxes}>{Array.from({ length: 6 }, (_, index) => <View key={index} style={[styles.otpBox, code[index] && styles.otpBoxFilled]}><Text style={styles.otpDigit}>{code[index] ?? ""}</Text></View>)}</View><TextInput accessibilityLabel="Mã OTP" keyboardType="number-pad" maxLength={6} value={code} onChangeText={setCode} style={styles.otpInput} /><Pressable style={[styles.primaryButton, code.length < 6 && styles.disabledButton]} disabled={code.length < 6} onPress={onContinue}><Text style={styles.primaryButtonText}>Xác minh</Text></Pressable><Pressable style={styles.linkButton}><Text style={styles.linkButtonText}>Gửi lại mã sau 00:28</Text></Pressable></ScrollView></>;
+  const [code, setCode] = useState("48");
+  return <AuthFlowFrame onBack={onBack} step={2} otp title="Nhập mã OTP" subtitle={<Text>Mã xác thực 6 số đã được gửi đến{"\n"}<Text style={styles.authSubtitleStrong}>thao.ha@haidang.vn</Text></Text>}><View><View style={styles.otpBoxes}>{Array.from({ length: 6 }, (_, index) => <TextInput key={index} accessibilityLabel={`Số OTP ${index + 1}`} keyboardType="number-pad" maxLength={1} value={code[index] ?? ""} onChangeText={(digit) => setCode((current) => `${current.slice(0, index)}${digit.replace(/\D/g, "").slice(-1)}${current.slice(index + 1)}`.slice(0, 6))} style={[styles.otpBox, code[index] && styles.otpBoxFilled, styles.otpDigit]} />)}</View><AuthPrimaryButton label="Xác nhận" disabled={code.length < 6} onPress={onContinue} /><View style={styles.otpResend}><Text style={styles.authFootText}>Chưa nhận được mã?</Text><Pressable onPress={() => setCode("")}><Text style={styles.authAgreeLink}> Gửi lại OTP</Text></Pressable></View></View></AuthFlowFrame>;
 }
 
 function ResetPasswordScreen({ onBack, onDone }: { onBack: () => void; onDone: () => void }) {
   const [password, setPassword] = useState("Kavor@2026");
   const [confirm, setConfirm] = useState("Kavor@2026");
   const valid = password.length >= 8 && password === confirm;
-  return <><DetailHeader title="Đặt lại mật khẩu" onBack={onBack} /><ScrollView contentContainerStyle={styles.authContent} keyboardShouldPersistTaps="handled"><View style={styles.authIcon}><AppIcon name="lock-reset" size={36} color="#087355" /></View><Text style={styles.authTitle}>Tạo mật khẩu mới</Text><Text style={styles.authSubtitle}>Dùng ít nhất 8 ký tự và không sử dụng lại mật khẩu gần nhất.</Text><Text style={styles.fieldLabel}>Mật khẩu mới</Text><TextInput secureTextEntry value={password} onChangeText={setPassword} style={styles.loginInput} /><Text style={styles.fieldLabel}>Nhập lại mật khẩu</Text><TextInput secureTextEntry value={confirm} onChangeText={setConfirm} style={[styles.loginInput, confirm.length > 0 && !valid && styles.inputError]} />{confirm.length > 0 && !valid ? <Text style={styles.errorText}>Hai mật khẩu chưa khớp hoặc chưa đủ 8 ký tự.</Text> : null}<Pressable disabled={!valid} style={[styles.primaryButton, { marginTop: 24 }, !valid && styles.disabledButton]} onPress={onDone}><Text style={styles.primaryButtonText}>Lưu mật khẩu</Text></Pressable></ScrollView></>;
+  return <AuthFlowFrame onBack={onBack} step={3} title="Tạo mật khẩu mới" subtitle="Chọn mật khẩu khác với mật khẩu gần nhất để bảo vệ tài khoản của bạn."><View style={styles.authForm}><View style={styles.authField}><GlassLayer intensity={48} /><AppIcon name="lock-outline" size={19} color="#96A19C" /><TextInput secureTextEntry value={password} onChangeText={setPassword} placeholder="Mật khẩu mới" style={styles.authFieldInput} /></View><View style={[styles.authField, confirm.length > 0 && !valid && styles.authFieldError]}><GlassLayer intensity={48} /><AppIcon name="lock-outline" size={19} color="#96A19C" /><TextInput secureTextEntry value={confirm} onChangeText={setConfirm} placeholder="Nhập lại mật khẩu" style={styles.authFieldInput} /></View><View style={styles.passwordRules}><Text style={styles.passwordRule}>Ít nhất 8 ký tự</Text><Text style={styles.passwordRule}>Có chữ và số</Text><Text style={styles.passwordRule}>Có chữ hoa</Text><Text style={styles.passwordRule}>Không chứa mã NV</Text></View>{confirm.length > 0 && !valid ? <Text style={styles.errorText}>Hai mật khẩu chưa khớp.</Text> : null}<AuthPrimaryButton label="Đặt lại mật khẩu" disabled={!valid} onPress={onDone} /></View></AuthFlowFrame>;
 }
 
 function NotificationsScreen({ onBack }: { onBack: () => void }) {
@@ -823,27 +868,34 @@ function DockTab({ tab, active, onPress }: { tab: (typeof tabs)[number]; active:
   return <Pressable accessibilityRole="button" accessibilityState={{ selected: active }} style={[styles.dockItem, active && styles.dockItemActive]} onPress={onPress}><Animated.View style={[styles.dockItemContent, { transform: [{ scale }] }]}><AppIcon name={active ? tab.activeIcon : tab.icon} size={23} color={active ? "#065F46" : "#6D7973"} />{active ? <Text style={styles.dockLabel}>{tab.label}</Text> : null}</Animated.View></Pressable>;
 }
 
-function Dock({ activeTab, setActiveTab, quickOpen, setQuickOpen, openFlow }: { activeTab: TabId; setActiveTab: (tab: TabId) => void; quickOpen: boolean; setQuickOpen: (open: boolean) => void; openFlow: (flow: FlowId) => void }) {
+function Dock({ activeTab, setActiveTab, quickOpen, setQuickOpen, openFlow, tucked }: { activeTab: TabId; setActiveTab: (tab: TabId) => void; quickOpen: boolean; setQuickOpen: (open: boolean) => void; openFlow: (flow: FlowId) => void; tucked: boolean }) {
   const reduced = useReducedMotion();
   const quickAnim = useRef(new Animated.Value(quickOpen ? 1 : 0)).current;
+  const dockAnim = useRef(new Animated.Value(tucked ? 0 : 1)).current;
   useEffect(() => {
     if (reduced) { quickAnim.setValue(quickOpen ? 1 : 0); return; }
     Animated.spring(quickAnim, { toValue: quickOpen ? 1 : 0, speed: 22, bounciness: quickOpen ? 8 : 2, useNativeDriver: true }).start();
   }, [quickAnim, quickOpen, reduced]);
+  useEffect(() => {
+    if (reduced) { dockAnim.setValue(tucked ? 0 : 1); return; }
+    Animated.timing(dockAnim, { toValue: tucked ? 0 : 1, duration: tucked ? 360 : 420, easing: Easing.bezier(0.22, 0.8, 0.24, 1), useNativeDriver: true }).start();
+  }, [dockAnim, reduced, tucked]);
   function runQuickAction(nextFlow: FlowId) {
     setQuickOpen(false);
     setTimeout(() => openFlow(nextFlow), 110);
   }
   return (
     <>
-      <Animated.View pointerEvents={quickOpen ? "auto" : "none"} style={[styles.quickScrim, { opacity: quickAnim }]}><Pressable style={StyleSheet.absoluteFill} onPress={() => setQuickOpen(false)} /></Animated.View>
-      <Animated.View pointerEvents={quickOpen ? "auto" : "none"} style={[styles.quickMenu, { transform: [{ translateY: quickAnim.interpolate({ inputRange: [0, 1], outputRange: [18, 0] }) }] }]}>{quickCreate.map((item, index) => { const start = (quickCreate.length - 1 - index) * 0.055; return <Animated.View key={item.label} style={{ opacity: quickAnim.interpolate({ inputRange: [start, Math.min(1, start + 0.42)], outputRange: [0, 1], extrapolate: "clamp" }), transform: [{ translateY: quickAnim.interpolate({ inputRange: [start, Math.min(1, start + 0.5)], outputRange: [22, 0], extrapolate: "clamp" }) }, { scale: quickAnim.interpolate({ inputRange: [start, Math.min(1, start + 0.5)], outputRange: [0.86, 1], extrapolate: "clamp" }) }] }}><Pressable style={styles.quickItem} onPress={() => runQuickAction(item.flow)}><View style={styles.quickLabel}><Text style={styles.quickLabelText}>{item.label}</Text><Text style={styles.quickLabelSub}>{item.detail}</Text></View><View style={styles.quickCircle}><AppIcon name={item.icon} size={24} /></View></Pressable></Animated.View>; })}</Animated.View>
-      <View style={styles.dock}>
+      <Animated.View pointerEvents={quickOpen ? "auto" : "none"} style={[styles.quickScrim, { opacity: quickAnim }]}><GlassLayer intensity={28} /><Pressable style={StyleSheet.absoluteFill} onPress={() => setQuickOpen(false)} /></Animated.View>
+      <Animated.View pointerEvents={quickOpen ? "auto" : "none"} style={[styles.quickMenu, { transform: [{ translateY: quickAnim.interpolate({ inputRange: [0, 1], outputRange: [18, 0] }) }] }]}>{quickCreate.map((item, index) => { const start = (quickCreate.length - 1 - index) * 0.055; return <Animated.View key={item.label} style={{ opacity: quickAnim.interpolate({ inputRange: [start, Math.min(1, start + 0.42)], outputRange: [0, 1], extrapolate: "clamp" }), transform: [{ translateY: quickAnim.interpolate({ inputRange: [start, Math.min(1, start + 0.5)], outputRange: [22, 0], extrapolate: "clamp" }) }, { scale: quickAnim.interpolate({ inputRange: [start, Math.min(1, start + 0.5)], outputRange: [0.86, 1], extrapolate: "clamp" }) }] }}><Pressable style={styles.quickItem} onPress={() => runQuickAction(item.flow)}><View style={styles.quickLabel}><GlassLayer intensity={74} /><Text style={styles.quickLabelText}>{item.label}</Text><Text style={styles.quickLabelSub}>{item.detail}</Text></View><View style={styles.quickCircle}><GlassLayer intensity={74} /><AppIcon name={item.icon} size={24} /></View></Pressable></Animated.View>; })}</Animated.View>
+      <Animated.View pointerEvents={tucked ? "none" : "auto"} style={[styles.dock, { opacity: dockAnim, transform: [{ translateY: dockAnim.interpolate({ inputRange: [0, 1], outputRange: [98, 0] }) }] }]}>
         <View style={[styles.dockPill, quickOpen && styles.dockPillDim]}>
+          <GlassLayer intensity={82} />
+          <LinearGradient pointerEvents="none" colors={["rgba(255,255,255,0.54)", "rgba(255,255,255,0.18)", "rgba(255,255,255,0.36)"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
           {tabs.map((tab) => <DockTab key={tab.id} tab={tab} active={activeTab === tab.id} onPress={() => setActiveTab(tab.id)} />)}
         </View>
         <Animated.View style={[styles.fabWrap, { transform: [{ rotate: quickAnim.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "45deg"] }) }] }]}><Pressable accessibilityLabel="Tạo nhanh" style={({ pressed }) => [styles.fabWrap, pressed && styles.punchPressed]} onPress={() => setQuickOpen(!quickOpen)}><LinearGradient colors={["#15936D", "#065F46", "#044E39"]} style={styles.fab}><AppIcon name="plus" size={30} color="#FFFFFF" /></LinearGradient></Pressable></Animated.View>
-      </View>
+      </Animated.View>
     </>
   );
 }
@@ -875,7 +927,7 @@ function PinGate({ visible, onClose, onSuccess }: { visible: boolean; onClose: (
 export default function App() {
   const [fontsLoaded] = useFonts({ Montserrat_300Light, Montserrat_400Regular, Montserrat_500Medium, Montserrat_600SemiBold, Montserrat_700Bold });
   const [activeTab, setActiveTab] = useState<TabId>("home");
-  const [signedIn, setSignedIn] = useState(true);
+  const [signedIn, setSignedIn] = useState(false);
   const [flow, setFlow] = useState<FlowId | null>(null);
   const [checkedIn, setCheckedIn] = useState(false);
   const [quickOpen, setQuickOpen] = useState(false);
@@ -889,6 +941,9 @@ export default function App() {
   const [pinUnlocked, setPinUnlocked] = useState(false);
   const [pinVisible, setPinVisible] = useState(false);
   const [pendingFlow, setPendingFlow] = useState<FlowId | null>(null);
+  const [dockTucked, setDockTucked] = useState(false);
+  const [headerGlass, setHeaderGlass] = useState(false);
+  const lastScrollY = useRef(0);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => () => { if (toastTimer.current) clearTimeout(toastTimer.current); }, []);
@@ -897,11 +952,19 @@ export default function App() {
     const routeUrl = (url: string | null) => {
       if (!url) return;
       const route = url.replace(/^kavor:\/\//, "").split(/[/?#]/)[0];
-      if (route === "home" || route === "attendance" || route === "requests" || route === "news") {
+      if (route === "login") {
+        setSignedIn(false);
+        setFlow("login");
+      } else if (route === "activate" || route === "forgot" || route === "otp" || route === "resetPassword") {
+        setSignedIn(false);
+        setFlow(route);
+      } else if (route === "home" || route === "attendance" || route === "requests" || route === "news") {
+        setSignedIn(true);
         setFlow(null);
         setActiveTab(route);
         setQuickOpen(route === "home" && url.includes("quick=1"));
-      } else if (route === "profile" || route === "profileEdit" || route === "clock" || route === "notifications" || route === "widget" || route === "device" || route === "newsDetail") {
+      } else if (route === "profile" || route === "profileEdit" || route === "clock" || route === "notifications" || route === "widget" || route === "device" || route === "newsDetail" || route === "leave" || route === "leaveNew" || route === "explain" || route === "ot" || route === "advance" || route === "advanceNew" || route === "payslips") {
+        setSignedIn(true);
         setFlow(route);
       }
     };
@@ -909,6 +972,20 @@ export default function App() {
     const subscription = Linking.addEventListener("url", (event) => routeUrl(event.url));
     return () => subscription.remove();
   }, []);
+
+  useEffect(() => {
+    setDockTucked(false);
+    setHeaderGlass(false);
+    lastScrollY.current = 0;
+  }, [activeTab, flow]);
+
+  function handlePrimaryScroll(y: number, _nearEnd: boolean) {
+    const delta = y - lastScrollY.current;
+    setHeaderGlass(y > 24);
+    if (y < 24 || delta < -4) setDockTucked(false);
+    else if (delta > 4) setDockTucked(true);
+    lastScrollY.current = y;
+  }
 
   function notify(text: string) {
     setMessage(text);
@@ -984,8 +1061,8 @@ export default function App() {
   else if (flow === "widget") content = <WidgetGuideScreen onBack={() => setFlow(null)} notify={notify} />;
   else if (flow === "requestDetail" && selectedRequest) content = <RequestDetail item={selectedRequest} onBack={() => setFlow(null)} onCancel={() => { setRequests((current) => current.map((item) => item.id === selectedRequest.id ? { ...item, status: "cancelled" } : item)); notify(`Đã hủy đơn ${selectedRequest.id}`); setFlow(null); }} />;
   else if (flow === "done") content = <DoneScreen kind={doneKind} onViewRequests={() => { setActiveTab("requests"); setFlow(null); }} onHome={() => { setActiveTab("home"); setFlow(null); }} />;
-  else if (activeTab === "home") content = <HomeScreen checkedIn={checkedIn} notify={notify} openFlow={openFlow} onNews={() => setActiveTab("news")} onPunch={() => { setCheckedIn((value) => !value); notify(checkedIn ? "Đã ghi nhận ra ca" : "Đã ghi nhận vào ca lúc 07:58"); }} />;
-  else content = <SecondaryScreen tab={activeTab} notify={notify} requests={requests} approvals={approvals} onOpenRequest={openRequest} onOpenApproval={openApproval} onDecision={decideApproval} onOpenExplain={() => openFlow("explain")} onOpenNews={() => openFlow("newsDetail")} />;
+  else if (activeTab === "home") content = <HomeScreen checkedIn={checkedIn} notify={notify} openFlow={openFlow} onNews={() => setActiveTab("news")} onPunch={() => { setCheckedIn((value) => !value); notify(checkedIn ? "Đã ghi nhận ra ca" : "Đã ghi nhận vào ca lúc 07:58"); }} onPrimaryScroll={handlePrimaryScroll} headerGlass={headerGlass} />;
+  else content = <SecondaryScreen tab={activeTab} notify={notify} requests={requests} approvals={approvals} onOpenRequest={openRequest} onOpenApproval={openApproval} onDecision={decideApproval} onOpenExplain={() => openFlow("explain")} onOpenNews={() => openFlow("newsDetail")} onPrimaryScroll={handlePrimaryScroll} headerGlass={headerGlass} />;
 
   const sceneKey = signedIn ? (flow ?? activeTab) : (flow ?? "login");
 
@@ -996,7 +1073,7 @@ export default function App() {
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.app}>
         <MotionScreen key={sceneKey} variant={flow || !signedIn ? "push" : "fade"}>{content}</MotionScreen>
-        {signedIn && !flow ? <Dock activeTab={activeTab} setActiveTab={(tab) => { setQuickOpen(false); setActiveTab(tab); }} quickOpen={quickOpen} setQuickOpen={setQuickOpen} openFlow={openFlow} /> : null}
+        {signedIn && !flow ? <Dock activeTab={activeTab} setActiveTab={(tab) => { setQuickOpen(false); setDockTucked(false); setActiveTab(tab); }} quickOpen={quickOpen} setQuickOpen={setQuickOpen} openFlow={openFlow} tucked={dockTucked} /> : null}
         {message ? <AnimatedToast key={message} message={message} /> : null}
         </View>
       </SafeAreaView>
@@ -1017,8 +1094,9 @@ const styles = StyleSheet.create({
   blobTop: { width: 370, height: 370, top: -170, left: -165 },
   blobRight: { width: 310, height: 310, top: 285, right: -185 },
   blobBottom: { width: 340, height: 340, bottom: -185, left: -90 },
-  header: { height: 61, paddingHorizontal: 20, flexDirection: "row", alignItems: "center", justifyContent: "space-between", zIndex: 3 },
-  circleButton: { width: 42, height: 42, borderRadius: 21, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.78)", borderWidth: 1, borderColor: "rgba(255,255,255,0.95)", shadowColor: "#064632", shadowOpacity: 0.14, shadowRadius: 10, shadowOffset: { width: 0, height: 5 }, elevation: 3 },
+  header: { height: 61, paddingHorizontal: 20, flexDirection: "row", alignItems: "center", justifyContent: "space-between", zIndex: 3, overflow: "hidden" },
+  headerGlass: { borderBottomWidth: 1, borderBottomColor: "rgba(255,255,255,0.78)", backgroundColor: "rgba(255,255,255,0.32)", shadowColor: "#064632", shadowOpacity: 0.12, shadowRadius: 16, shadowOffset: { width: 0, height: 7 } },
+  circleButton: { width: 42, height: 42, borderRadius: 21, overflow: "hidden", alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.42)", borderWidth: 1, borderColor: "rgba(255,255,255,0.95)", shadowColor: "#064632", shadowOpacity: 0.14, shadowRadius: 10, shadowOffset: { width: 0, height: 5 }, elevation: 3 },
   notificationDot: { position: "absolute", top: 9, right: 10, width: 8, height: 8, borderRadius: 4, backgroundColor: "#D9474F", borderWidth: 2, borderColor: "#FFFFFF" },
   companyName: { flex: 1, textAlign: "center", color: "#20362F", fontSize: 14, letterSpacing: 2.2, fontFamily: fonts.regular },
   avatar: { width: 42, height: 42, borderRadius: 21, alignItems: "center", justifyContent: "center", backgroundColor: "#197E60", borderWidth: 2, borderColor: "#FFFFFF", shadowColor: "#064632", shadowOpacity: 0.2, shadowRadius: 9, elevation: 3 },
@@ -1075,7 +1153,7 @@ const styles = StyleSheet.create({
   noticeDetail: { color: "#68766F", fontSize: 10.5, marginTop: 3, fontFamily: fonts.regular },
   noticeLimit: { color: "#B67212", fontSize: 11.5, fontFamily: fonts.semibold },
   personalTitle: { marginTop: 22, marginBottom: 11 },
-  listCard: { borderRadius: 22, overflow: "hidden", backgroundColor: "rgba(255,255,255,0.76)", borderWidth: 1, borderColor: "#FFFFFF", shadowColor: "#064632", shadowOpacity: 0.12, shadowRadius: 18, elevation: 3 },
+  listCard: { borderRadius: 22, overflow: "hidden", backgroundColor: "rgba(255,255,255,0.58)", borderWidth: 1, borderColor: "rgba(255,255,255,0.9)", shadowColor: "#064632", shadowOpacity: 0.12, shadowRadius: 18, elevation: 3 },
   personalRow: { minHeight: 59, paddingHorizontal: 15, flexDirection: "row", alignItems: "center", gap: 11 },
   rowPressed: { backgroundColor: "rgba(6,95,70,0.055)" },
   personalRowBorder: { borderTopWidth: 1, borderTopColor: "rgba(6,95,70,0.08)" },
@@ -1086,21 +1164,32 @@ const styles = StyleSheet.create({
   shortcutLabel: { color: "#5D6B65", fontSize: 10.5, textAlign: "center", fontFamily: fonts.medium },
   secondaryContent: { paddingHorizontal: 20, paddingBottom: 118 },
   screenTitle: { color: "#13241E", fontSize: 22, marginTop: 6, marginBottom: 18, fontFamily: fonts.bold },
-  monthCard: { height: 52, borderRadius: 18, paddingHorizontal: 7, flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: "rgba(255,255,255,0.8)", borderWidth: 1, borderColor: "#FFFFFF" },
+  monthCard: { height: 52, borderRadius: 18, paddingHorizontal: 7, flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: "rgba(255,255,255,0.56)", borderWidth: 1, borderColor: "rgba(255,255,255,0.9)", shadowColor: "#064632", shadowOpacity: 0.1, shadowRadius: 14 },
   monthText: { color: "#065F46", fontSize: 15, fontFamily: fonts.semibold },
   summaryLine: { flexDirection: "row", marginVertical: 18 },
   summaryItem: { flex: 1, minHeight: 61, borderRadius: 16, alignItems: "center", justifyContent: "center" },
   summarySelected: { backgroundColor: "rgba(6,95,70,0.08)" },
   summaryValue: { color: "#13241E", fontSize: 21, fontFamily: fonts.semibold },
   summaryLabel: { color: "#97A39D", fontSize: 10.5, marginTop: 2, fontFamily: fonts.medium },
-  attendanceCard: { borderRadius: 22, overflow: "hidden", backgroundColor: "rgba(255,255,255,0.78)", borderWidth: 1, borderColor: "#FFFFFF" },
-  attendanceRow: { minHeight: 76, padding: 12, flexDirection: "row", alignItems: "center", gap: 10, borderBottomWidth: 1, borderBottomColor: "rgba(6,95,70,0.07)" },
+  attendanceCard: { borderRadius: 22, overflow: "hidden", backgroundColor: "rgba(255,255,255,0.58)", borderWidth: 1, borderColor: "rgba(255,255,255,0.9)", shadowColor: "#064632", shadowOpacity: 0.11, shadowRadius: 18 },
+  attendanceHeader: { height: 42, paddingHorizontal: 12, flexDirection: "row", alignItems: "center", backgroundColor: "rgba(236,248,242,0.76)" },
+  attendanceHeaderDay: { width: 61, color: "#173B31", fontSize: 10.5, fontFamily: fonts.semibold },
+  attendanceHeaderCell: { flex: 1, color: "#173B31", fontSize: 10.5, textAlign: "left", fontFamily: fonts.semibold },
+  attendanceHeaderHours: { textAlign: "right", paddingRight: 17 },
+  attendanceRow: { minHeight: 80, paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: "rgba(6,95,70,0.07)" },
+  attendanceMain: { flexDirection: "row", alignItems: "center" },
+  attendanceTimes: { flex: 1, flexDirection: "row", alignItems: "center" },
+  attendanceHoursWrap: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: 1 },
   dayBox: { width: 51, height: 54, borderRadius: 11, backgroundColor: "rgba(255,255,255,0.9)", alignItems: "center", justifyContent: "center" },
   dayNumber: { color: "#13241E", fontSize: 18, fontFamily: fonts.semibold },
   dayName: { color: "#97A39D", fontSize: 8.5, fontFamily: fonts.medium },
   timeColumn: { width: 48 },
   timeLabel: { color: "#97A39D", fontSize: 9.5, fontFamily: fonts.medium },
-  rowTime: { color: "#263A33", fontSize: 11.5, marginTop: 3, fontFamily: fonts.semibold },
+  rowTime: { flex: 1, color: "#263A33", fontSize: 11.5, fontFamily: fonts.semibold },
+  rowTimeMissing: { color: "#A0AAA5" },
+  rowTimeOk: { color: "#168563", textAlign: "right" },
+  attendanceNoteOk: { marginLeft: 61, marginTop: -4, color: "#168563", fontSize: 9.5, fontFamily: fonts.semibold },
+  attendanceNoteWarn: { marginLeft: 61, marginTop: -4, color: "#C07815", fontSize: 9.5, fontFamily: fonts.semibold },
   rowStatusWarn: { marginLeft: "auto", color: "#B67212", fontSize: 10.5, fontFamily: fonts.semibold },
   rowStatusOk: { marginLeft: "auto", color: "#15803D", fontSize: 10.5, fontFamily: fonts.semibold },
   explainCard: { minHeight: 73, borderRadius: 18, padding: 13, marginBottom: 13, flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: "#FFF8E8", borderWidth: 1, borderColor: "#F5E5BB" },
@@ -1109,7 +1198,7 @@ const styles = StyleSheet.create({
   explainSub: { color: "#8B7B52", fontSize: 10, marginTop: 3, fontFamily: fonts.regular },
   smallPrimary: { minHeight: 36, borderRadius: 13, paddingHorizontal: 12, alignItems: "center", justifyContent: "center", backgroundColor: "#087355" },
   smallPrimaryText: { color: "#FFFFFF", fontSize: 10.5, fontFamily: fonts.semibold },
-  segment: { height: 46, borderRadius: 22, padding: 4, marginBottom: 18, flexDirection: "row", alignItems: "center", backgroundColor: "rgba(236,248,242,0.88)", overflow: "hidden" },
+  segment: { height: 46, borderRadius: 22, padding: 4, marginBottom: 18, flexDirection: "row", alignItems: "center", backgroundColor: "rgba(236,248,242,0.46)", borderWidth: 1, borderColor: "rgba(255,255,255,0.84)", overflow: "hidden" },
   segmentKnob: { position: "absolute", top: 4, bottom: 4, left: 4, width: "49%", borderRadius: 18, backgroundColor: "rgba(255,255,255,0.95)", shadowColor: "#064632", shadowOpacity: 0.12, shadowRadius: 8, elevation: 2 },
   segmentButton: { flex: 1, height: 38, alignItems: "center", justifyContent: "center", zIndex: 2 },
   segmentActive: { flex: 1, height: 38, borderRadius: 18, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.95)" },
@@ -1142,13 +1231,13 @@ const styles = StyleSheet.create({
   emptyTitle: { color: "#20362F", fontSize: 15, marginTop: 12, fontFamily: fonts.semibold },
   emptyText: { color: "#7A8781", fontSize: 11, lineHeight: 17, marginTop: 5, textAlign: "center", fontFamily: fonts.regular },
   newsList: { gap: 12 },
-  newsListCard: { minHeight: 96, borderRadius: 20, padding: 14, flexDirection: "row", gap: 12, backgroundColor: "rgba(255,255,255,0.78)", borderWidth: 1, borderColor: "#FFFFFF" },
+  newsListCard: { minHeight: 96, borderRadius: 20, padding: 14, flexDirection: "row", gap: 12, backgroundColor: "rgba(255,255,255,0.58)", borderWidth: 1, borderColor: "rgba(255,255,255,0.9)" },
   newsListImportant: { backgroundColor: "rgba(255,243,244,0.84)", borderColor: "#FFDADC" },
   newsListIcon: { width: 44, height: 44, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(236,248,242,0.95)" },
   newsListMeta: { color: "#97A39D", fontSize: 10.5, fontFamily: fonts.medium },
   newsListTitle: { color: "#13241E", fontSize: 13.5, lineHeight: 19, fontFamily: fonts.semibold },
-  detailHeader: { height: 61, paddingHorizontal: 20, flexDirection: "row", alignItems: "center", justifyContent: "space-between", zIndex: 3 },
-  detailBack: { width: 42, height: 42, borderRadius: 21, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.82)", borderWidth: 1, borderColor: "#FFFFFF" },
+  detailHeader: { height: 61, paddingHorizontal: 20, flexDirection: "row", alignItems: "center", justifyContent: "space-between", zIndex: 3, overflow: "hidden", backgroundColor: "rgba(255,255,255,0.18)", borderBottomWidth: 1, borderBottomColor: "rgba(255,255,255,0.45)" },
+  detailBack: { width: 42, height: 42, borderRadius: 21, overflow: "hidden", alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.38)", borderWidth: 1, borderColor: "rgba(255,255,255,0.9)" },
   detailTitle: { color: "#173B31", fontSize: 16, fontFamily: fonts.semibold },
   detailSpacer: { width: 42 },
   flowContent: { paddingHorizontal: 20, paddingTop: 7, paddingBottom: 112 },
@@ -1192,7 +1281,7 @@ const styles = StyleSheet.create({
   choiceTextActive: { color: "#173B31", fontFamily: fonts.semibold },
   textArea: { minHeight: 104, borderRadius: 18, padding: 14, color: "#20362F", fontSize: 12, lineHeight: 18, textAlignVertical: "top", backgroundColor: "rgba(255,255,255,0.82)", borderWidth: 1, borderColor: "rgba(6,95,70,0.11)", fontFamily: fonts.regular },
   inputError: { borderColor: "#D54C55" },
-  reviewCard: { borderRadius: 20, paddingHorizontal: 15, marginTop: 18, backgroundColor: "rgba(255,255,255,0.8)", borderWidth: 1, borderColor: "#FFFFFF" },
+  reviewCard: { borderRadius: 20, paddingHorizontal: 15, marginTop: 18, backgroundColor: "rgba(255,255,255,0.58)", borderWidth: 1, borderColor: "rgba(255,255,255,0.9)", shadowColor: "#064632", shadowOpacity: 0.1, shadowRadius: 16 },
   infoLine: { minHeight: 54, flexDirection: "row", alignItems: "center", gap: 12 },
   infoLineLabel: { flex: 1, color: "#6D7973", fontSize: 11, fontFamily: fonts.medium },
   infoLineValue: { maxWidth: "58%", color: "#20362F", fontSize: 11, textAlign: "right", fontFamily: fonts.semibold },
@@ -1336,40 +1425,79 @@ const styles = StyleSheet.create({
   widgetShift: { color: "rgba(255,255,255,0.66)", fontSize: 9.5, marginTop: 1, fontFamily: fonts.medium },
   widgetAction: { minWidth: 108, height: 36, borderRadius: 18, marginTop: 14, alignItems: "center", justifyContent: "center", backgroundColor: "#A7F3D0" },
   widgetActionText: { color: "#064E3B", fontSize: 10.5, fontFamily: fonts.bold },
-  loginScreen: { flexGrow: 1, paddingHorizontal: 28, paddingTop: 75, paddingBottom: 35 },
-  loginMark: { width: 58, height: 58, borderRadius: 18, alignSelf: "center", alignItems: "center", justifyContent: "center", backgroundColor: "#087355", transform: [{ rotate: "-6deg" }], shadowColor: "#064632", shadowOpacity: 0.25, shadowRadius: 14, elevation: 5 },
-  loginMarkText: { color: "#FFFFFF", fontSize: 27, fontFamily: fonts.bold },
-  authBrand: { color: "#087355", fontSize: 10, letterSpacing: 3.5, marginTop: 13, textAlign: "center", fontFamily: fonts.bold },
-  loginTitle: { color: "#173B31", fontSize: 24, marginTop: 27, textAlign: "center", fontFamily: fonts.bold },
-  loginSubtitle: { color: "#7A8781", fontSize: 11.5, lineHeight: 18, marginTop: 7, marginBottom: 24, textAlign: "center", fontFamily: fonts.regular },
-  googleButton: { height: 52, borderRadius: 17, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 11, backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: "#DDE5E1" },
-  googleLetter: { color: "#4285F4", fontSize: 18, fontFamily: fonts.bold },
-  googleText: { color: "#263A33", fontSize: 12, fontFamily: fonts.semibold },
-  loginDivider: { flexDirection: "row", alignItems: "center", gap: 10, marginVertical: 19 },
+  authScene: { flex: 1, overflow: "hidden", backgroundColor: "rgba(249,251,250,0.94)" },
+  authOrb: { position: "absolute", borderRadius: 999, borderWidth: 1, borderColor: "rgba(6,95,70,0.06)" },
+  authOrbTop: { width: 520, height: 250, left: -260, top: 16, transform: [{ rotate: "-22deg" }], backgroundColor: "rgba(167,243,208,0.12)" },
+  authOrbBottom: { width: 430, height: 210, right: -248, bottom: 48, transform: [{ rotate: "18deg" }], backgroundColor: "rgba(255,224,169,0.14)" },
+  loginScreen: { flexGrow: 1, paddingHorizontal: 24, paddingTop: 25, paddingBottom: 20 },
+  authBrandCard: { width: 164, height: 82, borderRadius: 30, alignSelf: "center", marginTop: 10, marginBottom: 20, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(230,246,239,0.9)", shadowColor: "#065F46", shadowOpacity: 0.13, shadowRadius: 18, shadowOffset: { width: 0, height: 10 } },
+  authWordmark: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 9 },
+  authWordmarkText: { color: "#065F46", fontSize: 25, lineHeight: 30, letterSpacing: -0.8, fontFamily: fonts.bold },
+  authHeading: { alignItems: "center", marginBottom: 16 },
+  loginTitle: { color: "#123024", fontSize: 31, lineHeight: 36, textAlign: "center", fontFamily: fonts.bold },
+  loginSubtitle: { maxWidth: 300, color: "#5D6B65", fontSize: 13, lineHeight: 20, marginTop: 12, textAlign: "center", fontFamily: fonts.regular },
+  authForm: { gap: 12 },
+  authField: { minHeight: 64, borderRadius: 32, paddingHorizontal: 18, flexDirection: "row", alignItems: "center", gap: 12, overflow: "hidden", backgroundColor: "rgba(255,255,255,0.48)", borderWidth: 1, borderColor: "rgba(19,36,30,0.07)", shadowColor: "#064632", shadowOpacity: 0.1, shadowRadius: 16, shadowOffset: { width: 0, height: 8 } },
+  authFieldInput: { flex: 1, minWidth: 0, paddingVertical: 0, color: "#13241E", fontSize: 14, fontFamily: fonts.medium },
+  authPasswordWrap: { flex: 1, height: 36, justifyContent: "center" },
+  authPasswordHiddenInput: { opacity: 0 },
+  authPasswordDots: { position: "absolute", left: 0, color: "#13241E", fontSize: 18, letterSpacing: 2.2, fontFamily: fonts.bold },
+  authEye: { width: 34, height: 34, alignItems: "center", justifyContent: "center" },
+  authForgot: { alignSelf: "flex-end", minHeight: 24, paddingHorizontal: 4, justifyContent: "center" },
+  authForgotText: { color: "#5D6B65", fontSize: 12.5, fontFamily: fonts.semibold },
+  authSubmitRow: { height: 60, flexDirection: "row", gap: 10 },
+  authPrimary: { height: 60, borderRadius: 30, overflow: "hidden", shadowColor: "#065F46", shadowOpacity: 0.32, shadowRadius: 16, shadowOffset: { width: 0, height: 8 } },
+  authPrimaryGrow: { flex: 1 },
+  authPrimaryBlock: { width: "100%" },
+  authPrimaryDisabled: { opacity: 0.42 },
+  authPrimaryGradient: { flex: 1, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "rgba(255,255,255,0.26)", borderRadius: 30 },
+  faceLogin: { width: 60, height: 60, borderRadius: 22, overflow: "hidden", alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.48)", borderWidth: 1, borderColor: "rgba(6,95,70,0.2)", shadowColor: "#065F46", shadowOpacity: 0.18, shadowRadius: 14, shadowOffset: { width: 0, height: 7 } },
+  loginDivider: { flexDirection: "row", alignItems: "center", gap: 12, marginVertical: 2 },
   dividerLine: { flex: 1, height: 1, backgroundColor: "#E3EAE6" },
-  dividerText: { color: "#98A49E", fontSize: 10, fontFamily: fonts.medium },
+  dividerText: { color: "#97A39D", fontSize: 12, fontFamily: fonts.medium },
+  ssoButton: { height: 56, borderRadius: 28, overflow: "hidden", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10, backgroundColor: "rgba(255,255,255,0.30)", borderWidth: 1, borderColor: "#C9D0CC" },
+  ssoIcon: { width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: "#E8F6EF" },
+  ssoText: { color: "#263A33", fontSize: 13.5, fontFamily: fonts.semibold },
   loginInput: { height: 50, borderRadius: 16, paddingHorizontal: 14, color: "#20362F", backgroundColor: "rgba(255,255,255,0.84)", borderWidth: 1, borderColor: "rgba(6,95,70,0.12)", fontSize: 12, fontFamily: fonts.medium },
-  authFootRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", marginTop: 7 },
-  authFootText: { color: "#7A8781", fontSize: 11, fontFamily: fonts.regular },
-  loginFoot: { color: "#98A49E", fontSize: 9.5, marginTop: 24, textAlign: "center", fontFamily: fonts.regular },
+  authFootRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", marginTop: "auto", paddingTop: 18 },
+  authFootText: { color: "#5D6B65", fontSize: 12.5, fontFamily: fonts.regular },
+  authActivate: { color: "#13241E", fontSize: 12.5, fontFamily: fonts.bold },
+  authBack: { position: "absolute", top: 11, left: 18, zIndex: 4, width: 42, height: 42, borderRadius: 21, overflow: "hidden", alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.32)", borderWidth: 1, borderColor: "rgba(255,255,255,0.9)", shadowColor: "#064632", shadowOpacity: 0.1, shadowRadius: 12, shadowOffset: { width: 0, height: 6 } },
+  authProgress: { position: "absolute", top: 30, left: 0, right: 0, zIndex: 3, flexDirection: "row", justifyContent: "center", gap: 8 },
+  authProgressBar: { width: 34, height: 4, borderRadius: 2, backgroundColor: "rgba(19,36,30,0.12)" },
+  authProgressBarActive: { backgroundColor: "#0B8966" },
+  authFlowScreen: { flexGrow: 1, paddingHorizontal: 24, paddingTop: 62, paddingBottom: 20 },
+  authFlowOtp: { paddingTop: 82 },
+  authSubtitleStrong: { color: "#173B31", fontFamily: fonts.semibold },
+  resetNote: { minHeight: 62, borderRadius: 20, paddingHorizontal: 15, paddingVertical: 12, flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: "rgba(221,245,233,0.62)", borderWidth: 1, borderColor: "rgba(6,95,70,0.08)" },
+  resetNoteText: { flex: 1, color: "#496158", fontSize: 11, lineHeight: 17, fontFamily: fonts.regular },
+  authAgree: { flexDirection: "row", alignItems: "flex-start", gap: 10, paddingHorizontal: 3, paddingVertical: 3 },
+  authCheckbox: { width: 20, height: 20, borderRadius: 7, marginTop: 1, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "#AAB5B0", backgroundColor: "rgba(255,255,255,0.7)" },
+  authCheckboxOn: { borderColor: "#087355", backgroundColor: "#087355" },
+  authAgreeText: { flex: 1, color: "#66766F", fontSize: 11, lineHeight: 17, fontFamily: fonts.regular },
+  authAgreeLink: { color: "#087355", fontFamily: fonts.semibold },
+  otpResend: { flexDirection: "row", justifyContent: "center", alignItems: "center", marginTop: 18 },
+  passwordRules: { flexDirection: "row", flexWrap: "wrap", gap: 7, paddingHorizontal: 2 },
+  passwordRule: { color: "#66766F", fontSize: 9.5, lineHeight: 15, paddingHorizontal: 9, paddingVertical: 5, borderRadius: 12, overflow: "hidden", backgroundColor: "rgba(221,245,233,0.64)", fontFamily: fonts.medium },
+  authFieldError: { borderColor: "rgba(200,71,80,0.46)" },
   authContent: { flexGrow: 1, paddingHorizontal: 28, paddingTop: 40, paddingBottom: 45 },
   authIcon: { width: 70, height: 70, borderRadius: 24, alignSelf: "center", alignItems: "center", justifyContent: "center", backgroundColor: "#E8F7F0", borderWidth: 1, borderColor: "#D5EEE3" },
   authTitle: { color: "#173B31", fontSize: 22, marginTop: 24, textAlign: "center", fontFamily: fonts.bold },
   authSubtitle: { color: "#7A8781", fontSize: 11.5, lineHeight: 18, marginTop: 8, marginBottom: 16, textAlign: "center", fontFamily: fonts.regular },
   otpBoxes: { flexDirection: "row", justifyContent: "space-between", gap: 7, marginTop: 22, marginBottom: 14 },
-  otpBox: { flex: 1, maxWidth: 48, height: 54, borderRadius: 15, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.8)", borderWidth: 1, borderColor: "#D8E5DF" },
+  otpBox: { flex: 1, maxWidth: 48, height: 54, borderRadius: 15, padding: 0, textAlign: "center", backgroundColor: "rgba(255,255,255,0.8)", borderWidth: 1, borderColor: "#D8E5DF" },
   otpBoxFilled: { borderColor: "#46AF8B", backgroundColor: "#EFFAF5" },
   otpDigit: { color: "#173B31", fontSize: 18, fontFamily: fonts.semibold },
   otpInput: { width: 1, height: 1, opacity: 0, alignSelf: "center" },
-  quickScrim: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, zIndex: 20, backgroundColor: "rgba(255,255,255,0.76)" },
+  quickScrim: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, zIndex: 20, overflow: "hidden", backgroundColor: "rgba(255,255,255,0.24)" },
   quickMenu: { position: "absolute", right: 23, bottom: 111, zIndex: 31, gap: 11, alignItems: "flex-end" },
   quickItem: { flexDirection: "row", alignItems: "center", gap: 10 },
-  quickLabel: { paddingHorizontal: 13, paddingVertical: 9, borderRadius: 15, alignItems: "flex-end", backgroundColor: "#FFFFFF", shadowColor: "#064632", shadowOpacity: 0.14, shadowRadius: 12, elevation: 3 },
+  quickLabel: { paddingHorizontal: 13, paddingVertical: 9, borderRadius: 15, overflow: "hidden", alignItems: "flex-end", backgroundColor: "rgba(255,255,255,0.36)", borderWidth: 1, borderColor: "rgba(255,255,255,0.92)", shadowColor: "#064632", shadowOpacity: 0.14, shadowRadius: 12, elevation: 3 },
   quickLabelText: { color: "#13241E", fontSize: 12, fontFamily: fonts.semibold },
   quickLabelSub: { color: "#7A8781", fontSize: 9.5, marginTop: 2, fontFamily: fonts.regular },
-  quickCircle: { width: 51, height: 51, borderRadius: 26, alignItems: "center", justifyContent: "center", backgroundColor: "#FFFFFF", shadowColor: "#064632", shadowOpacity: 0.16, shadowRadius: 13, elevation: 4 },
+  quickCircle: { width: 51, height: 51, borderRadius: 26, overflow: "hidden", alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.36)", borderWidth: 1, borderColor: "rgba(255,255,255,0.92)", shadowColor: "#064632", shadowOpacity: 0.16, shadowRadius: 13, elevation: 4 },
   dock: { position: "absolute", left: 18, right: 18, bottom: Platform.OS === "ios" ? 8 : 12, zIndex: 30, height: 64, flexDirection: "row", alignItems: "center", gap: 11 },
-  dockPill: { flex: 1, height: 64, paddingHorizontal: 7, borderRadius: 32, flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: "rgba(255,255,255,0.9)", borderWidth: 1, borderColor: "#FFFFFF", shadowColor: "#064632", shadowOpacity: 0.22, shadowRadius: 18, shadowOffset: { width: 0, height: 9 }, elevation: 7 },
+  dockPill: { flex: 1, height: 64, paddingHorizontal: 7, borderRadius: 32, overflow: "hidden", flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: "rgba(255,255,255,0.2)", borderWidth: 1, borderColor: "rgba(255,255,255,0.92)", shadowColor: "#064632", shadowOpacity: 0.22, shadowRadius: 18, shadowOffset: { width: 0, height: 9 }, elevation: 7 },
   dockPillDim: { opacity: 0.25 },
   dockItem: { height: 48, minWidth: 45, paddingHorizontal: 11, borderRadius: 24, flexDirection: "row", alignItems: "center", justifyContent: "center" },
   dockItemContent: { flexDirection: "row", alignItems: "center", justifyContent: "center" },

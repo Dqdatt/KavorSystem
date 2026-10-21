@@ -13,17 +13,19 @@
     "test": "node -e \"console.log('mobile: device tests run in EAS/TestFlight/Play Internal')\""
   },
   "dependencies": {
-    "@kavor/contracts": "workspace:*",
-    "@expo/dom-webview": "~57.0.1",
     "@expo-google-fonts/montserrat": "^0.4.2",
+    "@expo/dom-webview": "~57.0.1",
     "@expo/vector-icons": "15.0.3",
+    "@kavor/contracts": "workspace:*",
     "expo": "~57.0.30",
+    "expo-blur": "~57.0.3",
     "expo-font": "~57.0.4",
     "expo-linear-gradient": "~57.0.2",
     "expo-status-bar": "~57.0.1",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-native": "0.86.3",
+    "react-native-svg": "15.15.4",
     "react-native-web": "~0.21.0"
   },
   "devDependencies": {
