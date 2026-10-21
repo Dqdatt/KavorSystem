@@ -11,6 +11,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import { StatusBar } from "expo-status-bar";
+import { SymbolView } from "expo-symbols";
 import Svg, { Circle, Defs, LinearGradient as SvgLinearGradient, Path, Stop } from "react-native-svg";
 import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
 import {
@@ -103,6 +104,9 @@ function KavorMark({ size = 58 }: { size?: number }) {
 }
 
 function FaceIdIcon({ size = 28, color = "#065F46" }: { size?: number; color?: string }) {
+  if (Platform.OS === "ios") {
+    return <SymbolView name="faceid" size={size} tintColor={color} weight="regular" style={{ width: size, height: size }} />;
+  }
   return <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" accessibilityLabel="Face ID">
     <Path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
     <Path d="M8 14s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
@@ -175,8 +179,9 @@ function DecorativeBackground() {
 }
 
 function HomeHeader({ onNotice, onProfile, glass = false }: { onNotice: () => void; onProfile?: () => void; glass?: boolean }) {
+  const insets = useSafeAreaInsets();
   return (
-    <View style={[styles.header, glass && styles.headerGlass]}>
+    <View style={[styles.header, { height: 61 + insets.top, paddingTop: insets.top }, glass && styles.headerGlass]}>
       {glass ? <GlassLayer intensity={72} /> : null}
       <Pressable accessibilityLabel="Thông báo" style={styles.circleButton} onPress={onNotice}>
         <GlassLayer intensity={55} />
@@ -511,7 +516,13 @@ function NewsListCard({ title, meta, important = false, onPress }: { title: stri
 }
 
 function DetailHeader({ title, onBack }: { title: string; onBack: () => void }) {
-  return <View style={styles.detailHeader}><GlassLayer intensity={28} /><Pressable accessibilityLabel="Quay lại" style={styles.detailBack} onPress={onBack}><GlassLayer intensity={56} /><AppIcon name="arrow-left" size={22} color="#173B31" /></Pressable><Text style={styles.detailTitle}>{title}</Text><View style={styles.detailSpacer} /></View>;
+  const insets = useSafeAreaInsets();
+  return <View style={[styles.detailHeader, { height: 61 + insets.top, paddingTop: insets.top }]}><GlassLayer intensity={28} /><Pressable accessibilityLabel="Quay lại" style={styles.detailBack} onPress={onBack}><GlassLayer intensity={56} /><AppIcon name="arrow-left" size={22} color="#173B31" /></Pressable><Text style={styles.detailTitle}>{title}</Text><View style={styles.detailSpacer} /></View>;
+}
+
+function FlowFooter({ children }: { children: ReactNode }) {
+  const insets = useSafeAreaInsets();
+  return <View style={[styles.flowFooter, { paddingBottom: Math.max(30, insets.bottom) }]}>{children}</View>;
 }
 
 function ClockScreen({ checkedIn, onBack, onPunch, notify }: { checkedIn: boolean; onBack: () => void; onPunch: () => void; notify: (message: string) => void }) {
@@ -534,7 +545,7 @@ function ApprovalDetail({ item, onBack, onDecision }: { item: RequestItem; onBac
       <View style={styles.reviewCard}><InfoLine label="Loại đơn" value={item.kind === "leave" ? "Nghỉ phép" : "Giải trình công"} /><InfoLine label="Nội dung" value={item.detail} border /><InfoLine label="Lý do" value={item.reason} border /><InfoLine label="Gửi lúc" value={item.created} border /></View>
       <View style={styles.timelineCard}><View style={styles.timelineRow}><View style={styles.timelineDotDone}><AppIcon name="check" size={13} color="#FFFFFF" /></View><View><Text style={styles.timelineTitle}>Nhân viên đã gửi</Text><Text style={styles.timelineSub}>{item.created}</Text></View></View><View style={styles.timelineStem} /><View style={styles.timelineRow}><View style={styles.timelineDotCurrent}><AppIcon name="clock-outline" size={13} color="#8A681A" /></View><View><Text style={styles.timelineTitle}>Quản lý duyệt</Text><Text style={styles.timelineSub}>Đang chờ quyết định của bạn</Text></View></View></View>
     </ScrollView>
-    <View style={styles.flowFooter}><View style={styles.approvalActions}><Pressable style={styles.rejectSmall} onPress={() => onDecision(false)}><Text style={styles.rejectSmallText}>Từ chối</Text></Pressable><Pressable style={styles.approveSmall} onPress={() => onDecision(true)}><Text style={styles.approveSmallText}>Duyệt đơn</Text></Pressable></View></View>
+    <FlowFooter><View style={styles.approvalActions}><Pressable style={styles.rejectSmall} onPress={() => onDecision(false)}><Text style={styles.rejectSmallText}>Từ chối</Text></Pressable><Pressable style={styles.approveSmall} onPress={() => onDecision(true)}><Text style={styles.approveSmallText}>Duyệt đơn</Text></Pressable></View></FlowFooter>
   </>;
 }
 
@@ -555,7 +566,7 @@ function LeaveOverview({ requests, onBack, onCreate, onOpenRequest }: { requests
       <Text style={[styles.sectionTitle, styles.flowSectionTitle]}>Đơn nghỉ của tôi</Text>
       <View style={styles.listCard}>{requests.filter((item) => item.kind === "leave").map((item, index) => <RequestRow key={item.id} icon="airplane" title={item.title} detail={item.detail} status={requestStatusLabel[item.status]} border={index > 0} onPress={() => onOpenRequest(item.id)} />)}</View>
     </ScrollView>
-    <View style={styles.flowFooter}><Pressable style={styles.primaryButton} onPress={onCreate}><Text style={styles.primaryButtonText}>Tạo đơn nghỉ</Text></Pressable></View>
+    <FlowFooter><Pressable style={styles.primaryButton} onPress={onCreate}><Text style={styles.primaryButtonText}>Tạo đơn nghỉ</Text></Pressable></FlowFooter>
   </>;
 }
 
@@ -582,7 +593,7 @@ function LeaveForm({ onBack, onSubmit }: { onBack: () => void; onSubmit: (reques
       <TextInput accessibilityLabel="Lý do nghỉ" multiline placeholder="Ví dụ: Việc gia đình" placeholderTextColor="#A2ADA8" style={styles.textArea} value={reason} onChangeText={setReason} />
       <View style={styles.reviewCard}><InfoLine label="Số ngày nghỉ" value={`${String(days).replace('.', ',')} ngày`} /><InfoLine label="Còn lại sau đơn" value={`${String(6.5 - days).replace('.', ',')} ngày`} border /><InfoLine label="Người duyệt" value="Lê Quang Huy" border /></View>
     </ScrollView>
-    <View style={styles.flowFooter}><Pressable style={styles.primaryButton} onPress={() => onSubmit({ id: `NP-${String(selectedDay).padStart(2, "0")}10`, kind: "leave", title: leaveType === "Phép năm" ? "Nghỉ phép năm" : `Nghỉ ${leaveType.toLocaleLowerCase("vi")}`, detail: `${selectedDay}/10/2026${session === "am" ? " · buổi sáng" : session === "pm" ? " · buổi chiều" : ""} · ${String(days).replace('.', ',')} ngày`, status: "pending", created: "16/10 · 11:18", reason: reason.trim() || "Việc cá nhân" })}><Text style={styles.primaryButtonText}>Gửi đơn nghỉ</Text></Pressable></View>
+    <FlowFooter><Pressable style={styles.primaryButton} onPress={() => onSubmit({ id: `NP-${String(selectedDay).padStart(2, "0")}10`, kind: "leave", title: leaveType === "Phép năm" ? "Nghỉ phép năm" : `Nghỉ ${leaveType.toLocaleLowerCase("vi")}`, detail: `${selectedDay}/10/2026${session === "am" ? " · buổi sáng" : session === "pm" ? " · buổi chiều" : ""} · ${String(days).replace('.', ',')} ngày`, status: "pending", created: "16/10 · 11:18", reason: reason.trim() || "Việc cá nhân" })}><Text style={styles.primaryButtonText}>Gửi đơn nghỉ</Text></Pressable></FlowFooter>
   </>;
 }
 
@@ -611,7 +622,7 @@ function ExplainForm({ onBack, onSubmit }: { onBack: () => void; onSubmit: (requ
       <Pressable style={styles.uploadButton}><AppIcon name="paperclip" size={20} color="#087355" /><Text style={styles.uploadText}>Thêm ảnh hoặc PDF, tối đa 5 MB</Text></Pressable>
       <View style={styles.reviewCard}><InfoLine label="Người duyệt" value="Lê Quang Huy" /></View>
     </ScrollView>
-    <View style={styles.flowFooter}><Pressable style={styles.primaryButton} onPress={submit}><Text style={styles.primaryButtonText}>Gửi giải trình</Text></Pressable></View>
+    <FlowFooter><Pressable style={styles.primaryButton} onPress={submit}><Text style={styles.primaryButtonText}>Gửi giải trình</Text></Pressable></FlowFooter>
   </>;
 }
 
@@ -650,7 +661,7 @@ function OtForm({ onBack, onSubmit }: { onBack: () => void; onSubmit: (request: 
       <Text style={styles.fieldLabel}>Lý do</Text>
       <TextInput accessibilityLabel="Lý do làm thêm" multiline placeholder="Ví dụ: Hoàn thành kế hoạch tháng" placeholderTextColor="#A2ADA8" style={styles.textArea} value={reason} onChangeText={setReason} />
     </ScrollView>
-    <View style={styles.flowFooter}><Pressable style={styles.primaryButton} onPress={() => onSubmit({ id: `OT-${String(day).padStart(2, "0")}10`, kind: "ot", title: "Làm thêm giờ", detail: `${day}/10/2026 · ${hours} giờ`, status: "pending", created: "16/10 · 11:24", reason: reason.trim() || "Hoàn thành công việc được giao" })}><Text style={styles.primaryButtonText}>Gửi đăng ký OT</Text></Pressable></View>
+    <FlowFooter><Pressable style={styles.primaryButton} onPress={() => onSubmit({ id: `OT-${String(day).padStart(2, "0")}10`, kind: "ot", title: "Làm thêm giờ", detail: `${day}/10/2026 · ${hours} giờ`, status: "pending", created: "16/10 · 11:24", reason: reason.trim() || "Hoàn thành công việc được giao" })}><Text style={styles.primaryButtonText}>Gửi đăng ký OT</Text></Pressable></FlowFooter>
   </>;
 }
 
@@ -669,7 +680,7 @@ function AdvanceOverview({ requests, onBack, onCreate, onOpenRequest }: { reques
       <Text style={[styles.sectionTitle, styles.flowSectionTitle]}>Lịch sử tạm ứng</Text>
       <View style={styles.listCard}>{advances.map((item, index) => <RequestRow key={item.id} icon="cash-multiple" title={item.title} detail={item.detail} status={requestStatusLabel[item.status]} border={index > 0} onPress={() => onOpenRequest(item.id)} />)}</View>
     </ScrollView>
-    <View style={styles.flowFooter}><Pressable style={styles.primaryButton} onPress={onCreate}><Text style={styles.primaryButtonText}>Tạo đề nghị tạm ứng</Text></Pressable></View>
+    <FlowFooter><Pressable style={styles.primaryButton} onPress={onCreate}><Text style={styles.primaryButtonText}>Tạo đề nghị tạm ứng</Text></Pressable></FlowFooter>
   </>;
 }
 
@@ -686,7 +697,7 @@ function AdvanceForm({ onBack, onSubmit }: { onBack: () => void; onSubmit: (requ
       <Text style={styles.fieldLabel}>Lý do</Text><TextInput accessibilityLabel="Lý do tạm ứng" multiline placeholder="Ví dụ: Chi phí y tế" placeholderTextColor="#A2ADA8" style={styles.textArea} value={reason} onChangeText={setReason} />
       <View style={styles.reviewCard}><InfoLine label="Nhận vào" value="Vietcombank •6789" /><InfoLine label="Trừ vào" value="Lương 10/2026" border /><InfoLine label="Duyệt" value="QL → HR → Kế toán" border /></View>
     </ScrollView>
-    <View style={styles.flowFooter}><Pressable style={styles.primaryButton} onPress={() => onSubmit({ id: "TU-1016", kind: "advance", title: "Tạm ứng lương", detail: `${amount.toLocaleString("vi-VN")} ₫ · trừ kỳ 10/2026`, status: "pending", created: "16/10 · 11:24", reason: reason.trim() || "Chi phí cá nhân" })}><Text style={styles.primaryButtonText}>Xác nhận bằng PIN</Text></Pressable></View>
+    <FlowFooter><Pressable style={styles.primaryButton} onPress={() => onSubmit({ id: "TU-1016", kind: "advance", title: "Tạm ứng lương", detail: `${amount.toLocaleString("vi-VN")} ₫ · trừ kỳ 10/2026`, status: "pending", created: "16/10 · 11:24", reason: reason.trim() || "Chi phí cá nhân" })}><Text style={styles.primaryButtonText}>Xác nhận bằng PIN</Text></Pressable></FlowFooter>
   </>;
 }
 
@@ -777,7 +788,7 @@ function DeviceScreen({ onBack, notify }: { onBack: () => void; notify: (message
       <View style={styles.reviewCard}><InfoLine label="Thiết bị" value="iPhone 15 · iOS 26" /><InfoLine label="Tên máy" value="iPhone của Hà" border /><InfoLine label="Mã thiết bị" value="8F2A…C41" border /></View>
       <View style={styles.infoNote}><AppIcon name="shield-lock-outline" size={21} color="#087355" /><Text style={styles.infoNoteText}>Kavor chỉ dùng định danh thiết bị để bảo vệ bản ghi chấm công.</Text></View>
     </ScrollView>
-    <View style={styles.flowFooter}><Pressable disabled={registered} style={registered ? styles.disabledButton : styles.primaryButton} onPress={() => { setRegistered(true); notify("Đã đăng ký thiết bị chấm công"); }}><Text style={registered ? styles.disabledButtonText : styles.primaryButtonText}>{registered ? "Đã đăng ký thiết bị này" : "Đăng ký thiết bị này"}</Text></Pressable></View>
+    <FlowFooter><Pressable disabled={registered} style={registered ? styles.disabledButton : styles.primaryButton} onPress={() => { setRegistered(true); notify("Đã đăng ký thiết bị chấm công"); }}><Text style={registered ? styles.disabledButtonText : styles.primaryButtonText}>{registered ? "Đã đăng ký thiết bị này" : "Đăng ký thiết bị này"}</Text></Pressable></FlowFooter>
   </>;
 }
 
@@ -790,16 +801,18 @@ function AuthPrimaryButton({ label, onPress, disabled = false }: { label: string
 }
 
 function AuthFlowFrame({ onBack, step, title, subtitle, children, footer, otp = false }: { onBack: () => void; step?: number; title: string; subtitle: ReactNode; children: ReactNode; footer?: ReactNode; otp?: boolean }) {
-  return <View style={styles.authScene}><View pointerEvents="none" style={[styles.authOrb, styles.authOrbTop]} /><View pointerEvents="none" style={[styles.authOrb, styles.authOrbBottom]} /><Pressable accessibilityLabel="Quay lại" style={styles.authBack} onPress={onBack}><GlassLayer intensity={52} /><AppIcon name="chevron-left" size={22} color="#5D6B65" /></Pressable>{step ? <View style={styles.authProgress}>{[1, 2, 3].map((item) => <View key={item} style={[styles.authProgressBar, item === step && styles.authProgressBarActive]} />)}</View> : null}<ScrollView contentContainerStyle={[styles.authFlowScreen, otp && styles.authFlowOtp]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}><AuthBrand /><View style={styles.authHeading}><Text style={styles.loginTitle}>{title}</Text><Text style={styles.loginSubtitle}>{subtitle}</Text></View>{children}{footer ? <View style={styles.authFootRow}>{footer}</View> : null}</ScrollView></View>;
+  const insets = useSafeAreaInsets();
+  return <View style={styles.authScene}><View pointerEvents="none" style={[styles.authOrb, styles.authOrbTop]} /><View pointerEvents="none" style={[styles.authOrb, styles.authOrbBottom]} /><Pressable accessibilityLabel="Quay lại" style={[styles.authBack, { top: insets.top + 11 }]} onPress={onBack}><GlassLayer intensity={52} /><AppIcon name="chevron-left" size={22} color="#5D6B65" /></Pressable>{step ? <View style={[styles.authProgress, { top: insets.top + 30 }]}>{[1, 2, 3].map((item) => <View key={item} style={[styles.authProgressBar, item === step && styles.authProgressBarActive]} />)}</View> : null}<ScrollView contentContainerStyle={[styles.authFlowScreen, { paddingTop: insets.top + (otp ? 82 : 62), paddingBottom: Math.max(32, insets.bottom) }]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}><AuthBrand /><View style={styles.authHeading}><Text style={styles.loginTitle}>{title}</Text><Text style={styles.loginSubtitle}>{subtitle}</Text></View>{children}{footer ? <View style={styles.authFootRow}>{footer}</View> : null}</ScrollView></View>;
 }
 
 function LoginScreen({ onLogin, onForgot, onActivate }: { onLogin: () => void; onForgot: () => void; onActivate: () => void }) {
+  const insets = useSafeAreaInsets();
   const [employeeId, setEmployeeId] = useState("HD0142");
   const [password, setPassword] = useState("demo-pass");
   const [showPassword, setShowPassword] = useState(false);
   return <View style={styles.authScene}>
     <View pointerEvents="none" style={[styles.authOrb, styles.authOrbTop]} /><View pointerEvents="none" style={[styles.authOrb, styles.authOrbBottom]} />
-    <ScrollView contentContainerStyle={styles.loginScreen} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+    <ScrollView contentContainerStyle={[styles.loginScreen, { paddingTop: insets.top + 25, paddingBottom: Math.max(32, insets.bottom) }]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
       <AuthBrand />
       <View style={styles.authHeading}><Text style={styles.loginTitle}>Đăng nhập</Text><Text style={styles.loginSubtitle}>Chào mừng bạn trở lại Kavor. Đăng nhập để bắt đầu ngày làm việc.</Text></View>
       <View style={styles.authForm}>
@@ -1078,7 +1091,7 @@ function KavorApp() {
       <StatusBar style="dark" />
       <DecorativeBackground />
       <View style={styles.app}>
-        <View style={[styles.safeFrame, { paddingTop: insets.top, paddingBottom: insets.bottom }]}><MotionScreen key={sceneKey} variant={flow || !signedIn ? "push" : "fade"}>{content}</MotionScreen></View>
+        <View style={styles.safeFrame}><MotionScreen key={sceneKey} variant={flow || !signedIn ? "push" : "fade"}>{content}</MotionScreen></View>
         {signedIn && !flow ? <Dock activeTab={activeTab} setActiveTab={(tab) => { setQuickOpen(false); setDockTucked(false); setActiveTab(tab); }} quickOpen={quickOpen} setQuickOpen={setQuickOpen} openFlow={openFlow} tucked={dockTucked} bottomInset={Math.max(12, insets.bottom - 10)} /> : null}
         {message ? <AnimatedToast key={message} message={message} /> : null}
       </View>
