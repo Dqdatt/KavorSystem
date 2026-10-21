@@ -12,6 +12,7 @@ import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import { StatusBar } from "expo-status-bar";
 import Svg, { Circle, Defs, LinearGradient as SvgLinearGradient, Path, Stop } from "react-native-svg";
+import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   AccessibilityInfo,
   Animated,
@@ -20,9 +21,7 @@ import {
   Modal,
   Platform,
   Pressable,
-  SafeAreaView,
   ScrollView,
-  StatusBar as NativeStatusBar,
   StyleSheet,
   Text,
   TextInput,
@@ -100,6 +99,13 @@ function KavorMark({ size = 58 }: { size?: number }) {
     <Defs><SvgLinearGradient id="kavorGreen" x1="35" y1="390" x2="436" y2="35" gradientUnits="userSpaceOnUse"><Stop offset="0" stopColor="#10A37F" /><Stop offset="1" stopColor="#065F46" /></SvgLinearGradient></Defs>
     <Path d="M35 189 L35 389 L141 190 L245 390 L436 35" fill="none" stroke="url(#kavorGreen)" strokeWidth="38" strokeLinecap="round" strokeLinejoin="round" />
     <Circle cx="364" cy="374" r="32" fill="#A7F3D0" />
+  </Svg>;
+}
+
+function FaceIdIcon({ size = 28, color = "#065F46" }: { size?: number; color?: string }) {
+  return <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" accessibilityLabel="Face ID">
+    <Path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    <Path d="M8 14s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
   </Svg>;
 }
 
@@ -800,7 +806,7 @@ function LoginScreen({ onLogin, onForgot, onActivate }: { onLogin: () => void; o
         <View style={styles.authField}><GlassLayer intensity={48} /><AppIcon name="account-outline" size={19} color="#96A19C" /><TextInput accessibilityLabel="Mã nhân viên hoặc email" autoCapitalize="none" value={employeeId} onChangeText={setEmployeeId} placeholder="Mã nhân viên hoặc email" placeholderTextColor="#88938E" style={styles.authFieldInput} /></View>
         <View style={styles.authField}><GlassLayer intensity={48} /><AppIcon name="lock-outline" size={19} color="#96A19C" /><View style={styles.authPasswordWrap}><TextInput accessibilityLabel="Mật khẩu" secureTextEntry={!showPassword} value={password} onChangeText={setPassword} placeholder="Mật khẩu" placeholderTextColor="#88938E" style={[styles.authFieldInput, !showPassword && password.length > 0 && styles.authPasswordHiddenInput]} />{!showPassword && password.length > 0 ? <Text pointerEvents="none" style={styles.authPasswordDots}>{"•".repeat(Math.min(password.length, 10))}</Text> : null}</View><Pressable accessibilityLabel={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"} style={styles.authEye} onPress={() => setShowPassword((value) => !value)}><AppIcon name={showPassword ? "eye-off-outline" : "eye-outline"} size={20} color="#7C8983" /></Pressable></View>
         <Pressable style={styles.authForgot} onPress={onForgot}><Text style={styles.authForgotText}>Quên mật khẩu?</Text></Pressable>
-        <View style={styles.authSubmitRow}><Pressable style={[styles.authPrimary, styles.authPrimaryGrow]} onPress={onLogin}><LinearGradient colors={["#129670", "#065F46", "#044E39"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.authPrimaryGradient}><Text style={styles.primaryButtonText}>Đăng nhập</Text></LinearGradient></Pressable><Pressable accessibilityLabel="Đăng nhập bằng Face ID" style={styles.faceLogin} onPress={onLogin}><GlassLayer intensity={64} /><AppIcon name="face-recognition" size={28} color="#065F46" /></Pressable></View>
+        <View style={styles.authSubmitRow}><Pressable style={[styles.authPrimary, styles.authPrimaryGrow]} onPress={onLogin}><LinearGradient colors={["#129670", "#065F46", "#044E39"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.authPrimaryGradient}><Text style={styles.primaryButtonText}>Đăng nhập</Text></LinearGradient></Pressable><Pressable accessibilityLabel="Đăng nhập bằng Face ID" style={styles.faceLogin} onPress={onLogin}><GlassLayer intensity={64} /><FaceIdIcon /></Pressable></View>
         <View style={styles.loginDivider}><View style={styles.dividerLine} /><Text style={styles.dividerText}>Hoặc</Text><View style={styles.dividerLine} /></View>
         <Pressable style={styles.ssoButton} onPress={onLogin}><GlassLayer intensity={54} /><View style={styles.ssoIcon}><AppIcon name="office-building-outline" size={19} color="#065F46" /></View><Text style={styles.ssoText}>Đăng nhập SSO công ty</Text></Pressable>
       </View>
@@ -868,7 +874,7 @@ function DockTab({ tab, active, onPress }: { tab: (typeof tabs)[number]; active:
   return <Pressable accessibilityRole="button" accessibilityState={{ selected: active }} style={[styles.dockItem, active && styles.dockItemActive]} onPress={onPress}><Animated.View style={[styles.dockItemContent, { transform: [{ scale }] }]}><AppIcon name={active ? tab.activeIcon : tab.icon} size={23} color={active ? "#065F46" : "#6D7973"} />{active ? <Text style={styles.dockLabel}>{tab.label}</Text> : null}</Animated.View></Pressable>;
 }
 
-function Dock({ activeTab, setActiveTab, quickOpen, setQuickOpen, openFlow, tucked }: { activeTab: TabId; setActiveTab: (tab: TabId) => void; quickOpen: boolean; setQuickOpen: (open: boolean) => void; openFlow: (flow: FlowId) => void; tucked: boolean }) {
+function Dock({ activeTab, setActiveTab, quickOpen, setQuickOpen, openFlow, tucked, bottomInset }: { activeTab: TabId; setActiveTab: (tab: TabId) => void; quickOpen: boolean; setQuickOpen: (open: boolean) => void; openFlow: (flow: FlowId) => void; tucked: boolean; bottomInset: number }) {
   const reduced = useReducedMotion();
   const quickAnim = useRef(new Animated.Value(quickOpen ? 1 : 0)).current;
   const dockAnim = useRef(new Animated.Value(tucked ? 0 : 1)).current;
@@ -887,8 +893,8 @@ function Dock({ activeTab, setActiveTab, quickOpen, setQuickOpen, openFlow, tuck
   return (
     <>
       <Animated.View pointerEvents={quickOpen ? "auto" : "none"} style={[styles.quickScrim, { opacity: quickAnim }]}><GlassLayer intensity={28} /><Pressable style={StyleSheet.absoluteFill} onPress={() => setQuickOpen(false)} /></Animated.View>
-      <Animated.View pointerEvents={quickOpen ? "auto" : "none"} style={[styles.quickMenu, { transform: [{ translateY: quickAnim.interpolate({ inputRange: [0, 1], outputRange: [18, 0] }) }] }]}>{quickCreate.map((item, index) => { const start = (quickCreate.length - 1 - index) * 0.055; return <Animated.View key={item.label} style={{ opacity: quickAnim.interpolate({ inputRange: [start, Math.min(1, start + 0.42)], outputRange: [0, 1], extrapolate: "clamp" }), transform: [{ translateY: quickAnim.interpolate({ inputRange: [start, Math.min(1, start + 0.5)], outputRange: [22, 0], extrapolate: "clamp" }) }, { scale: quickAnim.interpolate({ inputRange: [start, Math.min(1, start + 0.5)], outputRange: [0.86, 1], extrapolate: "clamp" }) }] }}><Pressable style={styles.quickItem} onPress={() => runQuickAction(item.flow)}><View style={styles.quickLabel}><GlassLayer intensity={74} /><Text style={styles.quickLabelText}>{item.label}</Text><Text style={styles.quickLabelSub}>{item.detail}</Text></View><View style={styles.quickCircle}><GlassLayer intensity={74} /><AppIcon name={item.icon} size={24} /></View></Pressable></Animated.View>; })}</Animated.View>
-      <Animated.View pointerEvents={tucked ? "none" : "auto"} style={[styles.dock, { opacity: dockAnim, transform: [{ translateY: dockAnim.interpolate({ inputRange: [0, 1], outputRange: [98, 0] }) }] }]}>
+      <Animated.View pointerEvents={quickOpen ? "auto" : "none"} style={[styles.quickMenu, { bottom: bottomInset + 80, transform: [{ translateY: quickAnim.interpolate({ inputRange: [0, 1], outputRange: [18, 0] }) }] }]}>{quickCreate.map((item, index) => { const start = (quickCreate.length - 1 - index) * 0.055; return <Animated.View key={item.label} style={{ opacity: quickAnim.interpolate({ inputRange: [start, Math.min(1, start + 0.42)], outputRange: [0, 1], extrapolate: "clamp" }), transform: [{ translateY: quickAnim.interpolate({ inputRange: [start, Math.min(1, start + 0.5)], outputRange: [22, 0], extrapolate: "clamp" }) }, { scale: quickAnim.interpolate({ inputRange: [start, Math.min(1, start + 0.5)], outputRange: [0.86, 1], extrapolate: "clamp" }) }] }}><Pressable style={styles.quickItem} onPress={() => runQuickAction(item.flow)}><View style={styles.quickLabel}><GlassLayer intensity={74} /><Text style={styles.quickLabelText}>{item.label}</Text><Text style={styles.quickLabelSub}>{item.detail}</Text></View><View style={styles.quickCircle}><GlassLayer intensity={74} /><AppIcon name={item.icon} size={24} /></View></Pressable></Animated.View>; })}</Animated.View>
+      <Animated.View pointerEvents={tucked ? "none" : "auto"} style={[styles.dock, { bottom: bottomInset, opacity: dockAnim, transform: [{ translateY: dockAnim.interpolate({ inputRange: [0, 1], outputRange: [98 + bottomInset, 0] }) }] }]}>
         <View style={[styles.dockPill, quickOpen && styles.dockPillDim]}>
           <GlassLayer intensity={82} />
           <LinearGradient pointerEvents="none" colors={["rgba(255,255,255,0.54)", "rgba(255,255,255,0.18)", "rgba(255,255,255,0.36)"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
@@ -921,10 +927,11 @@ function PinGate({ visible, onClose, onSuccess }: { visible: boolean; onClose: (
     return () => clearTimeout(timer);
   }, [code, onSuccess]);
   const key = (value: number | "delete") => setCode((current) => value === "delete" ? current.slice(0, -1) : current.length < 6 ? `${current}${value}` : current);
-  return <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}><View style={styles.sheetLayer}><Pressable style={styles.sheetScrim} onPress={onClose} /><View style={styles.pinSheet}><View style={styles.sheetHandle} /><Text style={styles.sheetTitle}>Xác thực để tiếp tục</Text><Text style={styles.sheetSubtitle}>Nhập PIN 6 số để xem dữ liệu lương và tạm ứng.</Text><View style={styles.pinDots}>{Array.from({ length: 6 }, (_, index) => <View key={index} style={[styles.pinDot, index < code.length && styles.pinDotActive]} />)}</View><View style={styles.keypad}>{[1,2,3,4,5,6,7,8,9].map((number) => <Pressable key={number} style={({ pressed }) => [styles.keypadKey, pressed && styles.keypadPressed]} onPress={() => key(number)}><Text style={styles.keypadText}>{number}</Text></Pressable>)}<Pressable style={styles.keypadPlain} onPress={onSuccess}><AppIcon name="face-recognition" size={29} color="#087355" /></Pressable><Pressable style={({ pressed }) => [styles.keypadKey, pressed && styles.keypadPressed]} onPress={() => key(0)}><Text style={styles.keypadText}>0</Text></Pressable><Pressable style={styles.keypadPlain} onPress={() => key("delete")}><AppIcon name="backspace-outline" size={25} color="#65736D" /></Pressable></View></View></View></Modal>;
+  return <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}><View style={styles.sheetLayer}><Pressable style={styles.sheetScrim} onPress={onClose} /><View style={styles.pinSheet}><View style={styles.sheetHandle} /><Text style={styles.sheetTitle}>Xác thực để tiếp tục</Text><Text style={styles.sheetSubtitle}>Nhập PIN 6 số để xem dữ liệu lương và tạm ứng.</Text><View style={styles.pinDots}>{Array.from({ length: 6 }, (_, index) => <View key={index} style={[styles.pinDot, index < code.length && styles.pinDotActive]} />)}</View><View style={styles.keypad}>{[1,2,3,4,5,6,7,8,9].map((number) => <Pressable key={number} style={({ pressed }) => [styles.keypadKey, pressed && styles.keypadPressed]} onPress={() => key(number)}><Text style={styles.keypadText}>{number}</Text></Pressable>)}<Pressable accessibilityLabel="Dùng Face ID" style={styles.keypadPlain} onPress={onSuccess}><FaceIdIcon size={30} color="#087355" /></Pressable><Pressable style={({ pressed }) => [styles.keypadKey, pressed && styles.keypadPressed]} onPress={() => key(0)}><Text style={styles.keypadText}>0</Text></Pressable><Pressable style={styles.keypadPlain} onPress={() => key("delete")}><AppIcon name="backspace-outline" size={25} color="#65736D" /></Pressable></View></View></View></Modal>;
 }
 
-export default function App() {
+function KavorApp() {
+  const insets = useSafeAreaInsets();
   const [fontsLoaded] = useFonts({ Montserrat_300Light, Montserrat_400Regular, Montserrat_500Medium, Montserrat_600SemiBold, Montserrat_700Bold });
   const [activeTab, setActiveTab] = useState<TabId>("home");
   const [signedIn, setSignedIn] = useState(false);
@@ -1070,16 +1077,18 @@ export default function App() {
     <View style={styles.root}>
       <StatusBar style="dark" />
       <DecorativeBackground />
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.app}>
-        <MotionScreen key={sceneKey} variant={flow || !signedIn ? "push" : "fade"}>{content}</MotionScreen>
-        {signedIn && !flow ? <Dock activeTab={activeTab} setActiveTab={(tab) => { setQuickOpen(false); setDockTucked(false); setActiveTab(tab); }} quickOpen={quickOpen} setQuickOpen={setQuickOpen} openFlow={openFlow} tucked={dockTucked} /> : null}
+      <View style={styles.app}>
+        <View style={[styles.safeFrame, { paddingTop: insets.top, paddingBottom: insets.bottom }]}><MotionScreen key={sceneKey} variant={flow || !signedIn ? "push" : "fade"}>{content}</MotionScreen></View>
+        {signedIn && !flow ? <Dock activeTab={activeTab} setActiveTab={(tab) => { setQuickOpen(false); setDockTucked(false); setActiveTab(tab); }} quickOpen={quickOpen} setQuickOpen={setQuickOpen} openFlow={openFlow} tucked={dockTucked} bottomInset={Math.max(12, insets.bottom - 10)} /> : null}
         {message ? <AnimatedToast key={message} message={message} /> : null}
-        </View>
-      </SafeAreaView>
+      </View>
       <PinGate visible={pinVisible} onClose={() => { setPinVisible(false); setPendingFlow(null); }} onSuccess={completePin} />
     </View>
   );
+}
+
+export default function App() {
+  return <SafeAreaProvider><KavorApp /></SafeAreaProvider>;
 }
 
 const fonts = { regular: "Montserrat_400Regular", medium: "Montserrat_500Medium", semibold: "Montserrat_600SemiBold", bold: "Montserrat_700Bold", light: "Montserrat_300Light" } as const;
@@ -1087,8 +1096,8 @@ const fonts = { regular: "Montserrat_400Regular", medium: "Montserrat_500Medium"
 const styles = StyleSheet.create({
   loading: { flex: 1, backgroundColor: "#FFFFFF" },
   root: { flex: 1, backgroundColor: "#F8FCFA" },
-  safeArea: { flex: 1, backgroundColor: "transparent", paddingTop: Platform.OS === "android" ? NativeStatusBar.currentHeight : 0 },
   app: { flex: 1, backgroundColor: "transparent", overflow: "hidden" },
+  safeFrame: { flex: 1, backgroundColor: "transparent" },
   scene: { flex: 1 },
   blob: { position: "absolute", borderRadius: 999, overflow: "hidden" },
   blobTop: { width: 370, height: 370, top: -170, left: -165 },
@@ -1496,7 +1505,7 @@ const styles = StyleSheet.create({
   quickLabelText: { color: "#13241E", fontSize: 12, fontFamily: fonts.semibold },
   quickLabelSub: { color: "#7A8781", fontSize: 9.5, marginTop: 2, fontFamily: fonts.regular },
   quickCircle: { width: 51, height: 51, borderRadius: 26, overflow: "hidden", alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.36)", borderWidth: 1, borderColor: "rgba(255,255,255,0.92)", shadowColor: "#064632", shadowOpacity: 0.16, shadowRadius: 13, elevation: 4 },
-  dock: { position: "absolute", left: 18, right: 18, bottom: Platform.OS === "ios" ? 8 : 12, zIndex: 30, height: 64, flexDirection: "row", alignItems: "center", gap: 11 },
+  dock: { position: "absolute", left: 18, right: 18, zIndex: 30, height: 64, flexDirection: "row", alignItems: "center", gap: 11 },
   dockPill: { flex: 1, height: 64, paddingHorizontal: 7, borderRadius: 32, overflow: "hidden", flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: "rgba(255,255,255,0.2)", borderWidth: 1, borderColor: "rgba(255,255,255,0.92)", shadowColor: "#064632", shadowOpacity: 0.22, shadowRadius: 18, shadowOffset: { width: 0, height: 9 }, elevation: 7 },
   dockPillDim: { opacity: 0.25 },
   dockItem: { height: 48, minWidth: 45, paddingHorizontal: 11, borderRadius: 24, flexDirection: "row", alignItems: "center", justifyContent: "center" },
