@@ -19,8 +19,8 @@
       "package": "vn.kavor.mobile",
       "permissions": ["ACCESS_COARSE_LOCATION", "ACCESS_FINE_LOCATION"],
       "adaptiveIcon": {
-        "foregroundImage": "./assets/icon.png",
-        "backgroundColor": "#F4F7F5"
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#065F46"
       }
     },
     "plugins": []

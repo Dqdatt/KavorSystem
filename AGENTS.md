@@ -32,5 +32,7 @@ pnpm build
 ## Cạm bẫy
 
 - `pnpm test` có thể pass dù một số package chỉ in thông báo “pending/no tests yet”; luôn ghi rõ mức độ test thực tế.
+- `pod install`/`expo run:ios` lỗi Unicode Normalization nếu thiếu `LANG=en_US.UTF-8` (CocoaPods 1.17 + Ruby 4 khi shell không đặt locale UTF-8).
+- Code mobile nằm trong `apps/mobile/src/` (port 1:1 từ prototype). So sánh UI dùng `tools/ui-compare/` + deep link `kavor://qa/<state>` (cần `EXPO_PUBLIC_KAVOR_QA=1`); tên state trong `states.mjs` và `src/qa.ts` phải trùng nhau.
 - Ảnh simulator không đồng nghĩa với kiểm thử máy thật. Animation, safe area, Face ID và hành vi navbar phải xác nhận lại trên thiết bị vật lý.
 - Không đưa Supabase publishable key hoặc thông tin đăng nhập vào tài liệu/commit; dùng biến môi trường.

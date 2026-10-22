@@ -13,3 +13,6 @@ coverage/
 supabase/.temp/
 apps/mobile/ios/
 apps/mobile/android/
+
+# Ảnh ghép so sánh UI sinh lại bằng tools/ui-compare/pair.py
+docs/ui-comparison/paired/

@@ -1,21 +1,21 @@
 # PROGRESS
-_Cập nhật: 2026-10-22 08:17 +07 — bởi Codex_
+_Cập nhật: 2026-10-22 09:45 +07 — bởi Claude (Opus 5.5)_
 
 ## Mục tiêu đang làm
-Chốt UI và toàn bộ route mobile bằng cách đối chiếu từng trạng thái của `Kavor HRM Prototype.html` với bản React Native chạy trên iPhone 11. Hoàn thành khi đủ 63 cặp ảnh prototype/native, có bảng kiểm không bỏ sót và các sai khác UI/animation quan trọng đã được sửa trước khi bắt đầu backend.
+Port toàn bộ `Kavor HRM Prototype.html` sang app React Native sao cho giống prototype, sửa các lỗi UI nhỏ và cài bản build lên iPhone 11 thật ("Dqdatt"). Xong khi 70 trạng thái prototype/native khớp và app chạy được trên máy thật. Chưa push git (theo yêu cầu người dùng).
 
 ## Đã xong
-- Đã chụp và chuẩn hóa 63 trạng thái của prototype về kích thước 390×844 — `docs/ui-comparison/prototype/`
-- Đã chụp 33 trạng thái hiện có của app native trên iPhone 11 Simulator và chuẩn hóa về 390×844 — `docs/ui-comparison/native/`
-- Đã loại bỏ ảnh nguồn toàn trang và ảnh raw trùng lặp; chỉ giữ ảnh phục vụ đối chiếu — `docs/ui-comparison/`
-- UI mobile hiện đã có các luồng đăng nhập/kích hoạt/quên mật khẩu, trang chủ, chấm công, đơn từ, tin tức, hồ sơ, nghỉ phép, giải trình, OT, tạm ứng, phiếu lương và phê duyệt — `apps/mobile/`
-- Face ID trên iOS dùng biểu tượng hệ thống và safe area được giới hạn theo từng surface — `apps/mobile/App.tsx`
+- Viết lại toàn bộ app mobile, port 1:1 từ prototype: dữ liệu mẫu, icon SVG gốc, minh họa ILLUS, state/router/actions, sheet, toast, netbar, quick menu, widget/springboard, lỗi E01–E31 — `apps/mobile/src/` (`apps/mobile/App.tsx` chỉ re-export `src/App`)
+- Deep link `kavor://payslips|advance` giờ đi qua `go()` nên vẫn phải nhập PIN (trước đây bỏ qua PIN)
+- Bộ so sánh 70 trạng thái, 70/70 có ảnh native, có manifest và README — `docs/ui-comparison/`
+- Công cụ chụp/ghép tự động — `tools/ui-compare/` (states.mjs, capture-prototype.mjs, capture-native.py, pair.py, manifest.py)
+- Đã build Release và cài lên iPhone 11 thật "Dqdatt" (UDID 00008030-001450C63C04202E), app mở được
+- Icon app mới: nền gradient emerald (#12976F → #065F46), logo trắng — nguồn `apps/mobile/assets/icon.svg`; Android dùng `adaptive-icon.png` trên nền #065F46
+- Kiểm tra ngày 22/10: `pnpm turbo run typecheck test build --force` pass 18/18 task (test thật chỉ có contracts 2 + api 2)
 
 ## Đang dở (QUAN TRỌNG NHẤT)
-- Đang ở bước lập bộ so sánh đầy đủ: đã có 63 ảnh prototype nhưng mới có 33 ảnh native; chưa tạo ảnh ghép hai cột, manifest và báo cáo sai khác. Thư mục làm việc chính là `docs/ui-comparison/`; cần tiếp tục từ danh sách file hiện có, không chụp lại 63 ảnh prototype.
-- Chưa chụp modal PIN native: mở route `kavor://home`, nhấn thẻ “Phiếu lương 09/2026” để hiện `PinModal`, sau đó lưu thành `docs/ui-comparison/native/pin.png`.
-- Những trạng thái prototype chưa có route/native tương ứng cần được đánh dấu “chưa triển khai” trong manifest và dùng khung placeholder 390×844 khi ghép ảnh; không được bỏ qua.
-- Code hiện tại chạy được. Kiểm tra thực tế ngày 2026-10-22: `pnpm typecheck`, `pnpm test`, `pnpm build` đều pass; test web/mobile hiện phần lớn mới là lệnh placeholder, riêng contracts/API có unit test thật.
+- Chưa commit/push các thay đổi (người dùng dặn khoan push; commit chờ người dùng xác nhận).
+- Chưa xác nhận trên máy thật: animation, safe area, Face ID hệ thống, navbar ẩn/hiện khi cuộn, bàn phím trong sheet. Bản trên máy là Release, không có cờ QA.
 
 ## Quyết định đã chốt
 - Mobile hỗ trợ cả iOS và Android, không phụ thuộc Expo Go; dùng native build cho máy thật — vì người dùng muốn cài trực tiếp và Expo Go từng không tương thích.
@@ -31,19 +31,21 @@ Chốt UI và toàn bộ route mobile bằng cách đối chiếu từng trạng
 - Giữ ảnh chụp toàn trang và ảnh simulator raw — bỏ vì trùng dữ liệu, làm commit phình to; chỉ giữ bản 390×844 dùng để so sánh.
 
 ## Vấn đề/bug còn tồn tại
-- Chưa có đủ 63 ảnh native hoặc placeholder, chưa có 63 ảnh ghép prototype–native và chưa có manifest trạng thái.
-- Nhiều modal/error state của prototype chưa có route trực tiếp trong app: các sheet tạm ứng/phê duyệt/chấm công, lỗi E01–E31, punch receipt/offline/outside range, logout/help/salary question và spring states.
-- Chưa kiểm chứng animation bằng video/recording; ảnh tĩnh không đánh giá được navbar ẩn/hiện và chuyển động liquid glass.
-- Ảnh “native” hiện được lấy từ iPhone 11 Simulator chạy release app, chưa phải screenshot trực tiếp từ iPhone 11 vật lý.
-- Các lệnh test của admin-web, console-web, mobile và web-ui vẫn là placeholder, chưa có component/device test tự động thực sự.
+- Ảnh native lấy từ simulator; chưa có ảnh/video từ iPhone 11 thật.
+- Face ID và PIN vẫn là mô phỏng UI (chưa gọi LocalAuthentication); chưa có backend.
+- Android chưa build/kiểm tra lại sau khi viết lại UI (code dùng API chung của RN 0.86, `boxShadow`/`experimental_backgroundImage` cần kiểm tra trên Android).
+- Test tự động của admin-web, console-web, mobile, web-ui vẫn là placeholder.
+- Trên bản dev, gõ phím "r" khi không focus ô nhập sẽ làm Metro reload (chỉ ảnh hưởng dev).
 
 ## Bước tiếp theo
-1. Chụp `pin.png`, lập danh sách ánh xạ đủ 63 prototype state → native state và tạo placeholder cho mọi trạng thái chưa triển khai.
-2. Sinh đủ 63 ảnh ghép hai cột (prototype trái, native phải), tạo `docs/ui-comparison/README.md` và manifest CSV/JSON ghi rõ matched/different/missing.
-3. Review trực quan các cặp, sửa lần lượt sai khác layout/safe area/navigation/modal trong `apps/mobile/App.tsx`, rồi quay video kiểm tra animation và navbar khi cuộn trên iPhone 11 thật.
+1. Người dùng thao tác thử trên iPhone thật, ghi lại điểm lệch về chuyển động/cảm giác chạm.
+2. Commit (sau khi người dùng đồng ý) và cân nhắc push.
+3. Build Android (`pnpm --filter @kavor/mobile android`) và đối chiếu.
+4. Nối Face ID thật (expo-local-authentication) và bắt đầu backend.
 
 ## Câu hỏi đang chờ người dùng trả lời
-- Không có; tiếp tục theo bộ prototype hiện tại và dữ liệu mẫu.
+- Có commit thay đổi hiện tại không (chưa push)?
 
 ## Nhật ký
+- 2026-10-22 — Viết lại app mobile theo prototype, 70/70 trạng thái khớp, cài Release lên iPhone 11 thật.
 - 2026-10-22 — Chụp đủ 63 màn prototype, 33 màn native và bàn giao chính xác phần ghép/đánh giá UI còn dở.
