@@ -10,13 +10,13 @@ Port toàn bộ `Kavor HRM Prototype.html` sang app React Native sao cho giống
 - Bộ so sánh 70 trạng thái, 70/70 có ảnh native, có manifest và README — `docs/ui-comparison/`
 - Công cụ chụp/ghép tự động — `tools/ui-compare/` (states.mjs, capture-prototype.mjs, capture-native.py, pair.py, manifest.py)
 - Đã build Release và cài lên iPhone 11 thật "Dqdatt" (UDID 00008030-001450C63C04202E), app mở được
+- Splash screen: splash gốc nền #065F46 + logo trắng (`expo-splash-screen`, ảnh `apps/mobile/assets/splash-logo.png`), sau đó lớp phủ JS `apps/mobile/src/splash.tsx` hiện gradient, chữ KAVOR rồi mờ vào app (~1,3 s, tôn trọng Reduce Motion; tắt khi chạy QA). Đã cài Release lên iPhone thật.
 - Icon app mới: nền gradient emerald (#12976F → #065F46), logo trắng — nguồn `apps/mobile/assets/icon.svg`; Android dùng `adaptive-icon.png` trên nền #065F46
 - Kiểm tra ngày 22/10: `pnpm turbo run typecheck test build --force` pass 18/18 task (test thật chỉ có contracts 2 + api 2)
 
 ## Đang dở (QUAN TRỌNG NHẤT)
-- Đã commit `c60232d`, gắn tag `mobile-v0.1.0` và push lên origin/main (22/10).
-- Chưa xác nhận trên máy thật: animation, safe area, Face ID hệ thống, navbar ẩn/hiện khi cuộn, bàn phím trong sheet. Bản trên máy là Release, không có cờ QA.
-- Đang chờ người dùng chọn hướng tiếp theo (xem Bước tiếp theo).
+- Splash screen + ghi chú đã commit và push (22/10). Chưa bắt đầu bước 1.
+- Chưa xác nhận trên máy thật: animation, safe area, Face ID hệ thống, navbar ẩn/hiện khi cuộn, bàn phím trong sheet, splash. Người dùng tự test trực tiếp trên iPhone 11.
 
 ## Quyết định đã chốt
 - Mobile hỗ trợ cả iOS và Android, không phụ thuộc Expo Go; dùng native build cho máy thật — vì người dùng muốn cài trực tiếp và Expo Go từng không tương thích.
@@ -39,15 +39,17 @@ Port toàn bộ `Kavor HRM Prototype.html` sang app React Native sao cho giống
 - Trên bản dev, gõ phím "r" khi không focus ô nhập sẽ làm Metro reload (chỉ ảnh hưởng dev).
 
 ## Bước tiếp theo
-1. Đóng Sprint 1 mobile: build Android và đối chiếu, Face ID thật (expo-local-authentication), secure storage, phân phối TestFlight/Play Internal, crash reporting.
-2. Đóng Sprint 1 nền tảng: Supabase staging, secret/config validation, migration check trên CI.
-3. Sprint 2: auth/activation/OTP thật, tenant context + RLS + audit; nối luồng đăng nhập mobile vào API.
-4. Sprint 5 (ưu tiên sớm vì là lõi): API chấm công idempotent + geofence + hàng đợi offline trên mobile.
+1. Mobile (vẫn ở giai đoạn dev, KHÔNG phân phối TestFlight/Play): Face ID thật (expo-local-authentication) + secure store; build Android trên emulator (người dùng không có máy Android) và đối chiếu UI; crash reporting; tách lớp dữ liệu khỏi `src/data.ts` để sau nối API.
+2. Nền tảng: Supabase staging, secret/config validation, migration check trên CI.
+3. Sprint 2: auth/activation/OTP thật, tenant context + RLS + audit; nối đăng nhập mobile vào API.
+4. Chấm công thật: API idempotent + geofence + hàng đợi offline trên mobile.
+5. Web app (HR/Admin `apps/admin-web`, Kavor Console `apps/console-web`) còn phải làm, không được quên khi lên kế hoạch.
 
 ## Câu hỏi đang chờ người dùng trả lời
-- Bắt đầu giai đoạn nào trước: đóng Sprint 1 (Android + staging + phân phối) hay vào Sprint 2 (auth/tenant thật)?
+- Không có.
 
 ## Nhật ký
+- 2026-10-22 — Thêm splash screen, build Release lên iPhone 11 thật, commit + push.
 - 2026-10-22 — Đổi icon app (nền emerald, logo trắng); commit c60232d, tag mobile-v0.1.0, push.
 - 2026-10-22 — Viết lại app mobile theo prototype, 70/70 trạng thái khớp, cài Release lên iPhone 11 thật.
 - 2026-10-22 — Chụp đủ 63 màn prototype, 33 màn native và bàn giao chính xác phần ghép/đánh giá UI còn dở.

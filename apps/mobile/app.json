@@ -23,6 +23,16 @@
         "backgroundColor": "#065F46"
       }
     },
-    "plugins": []
+    "plugins": [
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-logo.png",
+          "imageWidth": 112,
+          "resizeMode": "contain",
+          "backgroundColor": "#065F46"
+        }
+      ]
+    ]
   }
 }

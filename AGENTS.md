@@ -19,6 +19,7 @@ pnpm test
 pnpm build
 ```
 
+- Giai đoạn hiện tại là dev: không phân phối TestFlight/Google Play; người dùng tự test trên iPhone 11 thật ("Dqdatt"). Không có máy Android: kiểm tra Android bằng emulator.
 - Mobile hỗ trợ iOS và Android. Quy trình chính dùng native build (`pnpm --filter @kavor/mobile ios|android`), không dựa vào Expo Go; thư mục native sinh ra được ignore.
 - Không commit `.env`, key/token, `dist`, `.next`, `.expo`, native generated folders hoặc ảnh raw/trung gian.
 
@@ -34,5 +35,6 @@ pnpm build
 - `pnpm test` có thể pass dù một số package chỉ in thông báo “pending/no tests yet”; luôn ghi rõ mức độ test thực tế.
 - `pod install`/`expo run:ios` lỗi Unicode Normalization nếu thiếu `LANG=en_US.UTF-8` (CocoaPods 1.17 + Ruby 4 khi shell không đặt locale UTF-8).
 - Code mobile nằm trong `apps/mobile/src/` (port 1:1 từ prototype). So sánh UI dùng `tools/ui-compare/` + deep link `kavor://qa/<state>` (cần `EXPO_PUBLIC_KAVOR_QA=1`); tên state trong `states.mjs` và `src/qa.ts` phải trùng nhau.
+- `npx expo prebuild -p ios` (kể cả không `--clean`) tạo lại `ios/`: mất `DEVELOPMENT_TEAM`, `RCTNewArchEnabled` trong Info.plist và thư mục Pods. Sao lưu `project.pbxproj`/`Info.plist` trước rồi khôi phục; Pods cài lại khi `expo run:ios`.
 - Ảnh simulator không đồng nghĩa với kiểm thử máy thật. Animation, safe area, Face ID và hành vi navbar phải xác nhận lại trên thiết bị vật lý.
 - Không đưa Supabase publishable key hoặc thông tin đăng nhập vào tài liệu/commit; dùng biến môi trường.

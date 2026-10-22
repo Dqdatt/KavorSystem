@@ -15,6 +15,7 @@ import { SheetContent } from "./sheets";
 import { hm } from "./data";
 import { ACT, S, SKEL, TABS, closeSheet, cur, getVersion, jump, quickClose, quickItems, simNow, subscribe, tab, type Anim, type Route } from "./store";
 import { QA_ENABLED, runQA } from "./qa";
+import { NativeSplashGone, SplashOverlay } from "./splash";
 import { Activate, Forgot, ForgotOtp, Login, Otp, ResetPassword, deviceSpec } from "./screens/auth";
 import { clockSpec, homeSpec } from "./screens/home";
 import { attendanceSpec } from "./screens/attendance";
@@ -307,6 +308,7 @@ function useStore() { return useSyncExternalStore(subscribe, getVersion); }
 
 function KavorApp() {
   useStore();
+  const [splash, setSplash] = useState(!QA_ENABLED);
   const [fonts] = useFonts({ Montserrat_300Light, Montserrat_400Regular, Montserrat_500Medium, Montserrat_600SemiBold, Montserrat_700Bold, Montserrat_800ExtraBold });
   useEffect(() => {
     const handle = (url: string | null) => {
@@ -320,17 +322,18 @@ function KavorApp() {
     const sub = Linking.addEventListener("url", (e) => handle(e.url));
     return () => sub.remove();
   }, []);
-  if (!fonts) return <View style={{ flex: 1, backgroundColor: "#fff" }} />;
+  if (!fonts) return <SplashOverlay ready={false} onDone={() => {}} />;
   const r = cur();
   return (
     <View style={styles.root}>
-      <StatusBar style={LIGHT.includes(r) ? "light" : "dark"} animated />
+      <StatusBar style={splash || LIGHT.includes(r) ? "light" : "dark"} animated />
       <Router />
       <QuickMenu />
       <Dock visible={isNav(r)} />
       <NetBar />
       <SheetHost />
       <Toast />
+      {splash ? <SplashOverlay ready onDone={() => setSplash(false)} /> : <NativeSplashGone />}
     </View>
   );
 }
