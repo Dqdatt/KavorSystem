@@ -104,3 +104,66 @@ export function maskEmail(email: string): string {
   const [user = "", domain = ""] = email.split("@");
   return `${user.slice(0, 2)}${"*".repeat(Math.max(3, user.length - 2))}@${domain}`;
 }
+
+/* ---------- Chấm công ---------- */
+export type DevicePlatform = "ios" | "android";
+export type DeviceRegisterRequest = { installationId: string; platform: DevicePlatform; deviceModel?: string; osVersion?: string; appVersion?: string };
+export type DeviceInfo = { id: string; status: "active" | "pending" | "revoked"; platform: DevicePlatform; deviceModel: string | null; osVersion: string | null; registeredAt: string };
+
+export type WorkLocation = { id: string; name: string; address: string | null; latitude: number; longitude: number; radiusM: number; maxAccuracyM: number };
+
+export type AttendanceKind = "in" | "out";
+export type AttendanceRejectReason = "out_of_range" | "low_accuracy" | "device_not_registered" | "invalid_sequence" | "clock_skew";
+export type AttendanceEventRequest = {
+  /* Khóa chống trùng do app sinh; gửi lại cùng khóa trả về bản ghi cũ */
+  clientEventId: string;
+  kind: AttendanceKind;
+  installationId: string;
+  latitude: number;
+  longitude: number;
+  accuracyM: number;
+  /* Chỉ dùng khi gửi từ hàng đợi offline; online thì máy chủ lấy giờ của máy chủ */
+  occurredAt?: string;
+  offline?: boolean;
+};
+export type AttendanceEvent = {
+  id: string;
+  recordCode: string;
+  kind: AttendanceKind;
+  occurredAt: string;
+  receivedAt: string;
+  status: "accepted" | "rejected";
+  rejectReason: AttendanceRejectReason | null;
+  distanceM: number | null;
+  accuracyM: number | null;
+  locationName: string | null;
+  offline: boolean;
+  /* Phút đi muộn (vào) hoặc về sớm (ra) so với ca; 0 nếu đúng giờ */
+  deviationMinutes: number;
+};
+export type AttendanceToday = {
+  date: string;
+  timezone: string;
+  shift: { start: string; end: string };
+  locations: WorkLocation[];
+  device: DeviceInfo | null;
+  events: AttendanceEvent[];
+  clockIn: AttendanceEvent | null;
+  clockOut: AttendanceEvent | null;
+};
+
+export const ATTENDANCE_ERRORS = {
+  deviceNotRegistered: "ATT_DEVICE_NOT_REGISTERED",
+  devicePending: "ATT_DEVICE_PENDING",
+  invalidSequence: "ATT_INVALID_SEQUENCE",
+  clockSkew: "ATT_CLOCK_SKEW",
+  noLocation: "ATT_NO_LOCATION",
+} as const;
+
+/* Khoảng cách hai tọa độ (mét), công thức haversine */
+export function distanceMeters(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371000, rad = Math.PI / 180;
+  const dLat = (lat2 - lat1) * rad, dLng = (lng2 - lng1) * rad;
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * rad) * Math.cos(lat2 * rad) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}

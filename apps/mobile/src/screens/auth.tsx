@@ -9,6 +9,8 @@ import { useReducedMotion, useShake } from "../motion";
 import { Balanced, Btn, Card, ErrLine, InfoRow, T } from "../ui";
 import { Foot, TopBar, type ScreenSpec } from "../screen";
 import { ACT, S, back, emit, go, toast } from "../store";
+import { deviceSummary, installationId } from "../attendance";
+import { REMOTE } from "../api/http";
 
 /* ---------- khung chung .auth / .auth-page ---------- */
 function AuthPage({ children, back: hasBack, progress, otp }: { children: ReactNode; back?: boolean; progress?: number; otp?: boolean }) {
@@ -227,6 +229,14 @@ export function Activate() {
   );
 }
 
+/* Thông tin máy thật; mã thiết bị là mã cài đặt rút gọn */
+function DeviceCard() {
+  const d = deviceSummary();
+  const [id, setId] = useState("…");
+  useEffect(() => { void installationId().then((v) => setId(`${v.slice(0, 4).toUpperCase()}…${v.slice(-3).toUpperCase()}`)); }, []);
+  return <Card><InfoRow k="Thiết bị" v={d.os ? `${d.model} · ${d.os}` : d.model} strong />{d.name ? <InfoRow k="Tên máy" v={d.name} strong /> : null}<InfoRow k="Mã thiết bị" v={id} strong /></Card>;
+}
+
 export function deviceSpec(): ScreenSpec {
   return {
     head: <TopBar title="Thiết bị chấm công" right={null} />,
@@ -236,10 +246,10 @@ export function deviceSpec(): ScreenSpec {
         <Balanced style={styles.h2}>Đăng ký điện thoại này để chấm công</Balanced>
         <T style={{ color: C.ink2, textAlign: "center", maxWidth: 290 }}>Mỗi nhân viên chấm công trên một điện thoại. Khi đổi máy, bạn gửi yêu cầu để HR reset.</T>
       </View>,
-      <Card key="card"><InfoRow k="Thiết bị" v="iPhone 15 · iOS 26" strong /><InfoRow k="Tên máy" v="iPhone của Hà" strong /><InfoRow k="Mã thiết bị" v="8F2A…C41" strong /></Card>,
+      REMOTE ? <DeviceCard key="card" /> : <Card key="card"><InfoRow k="Thiết bị" v="iPhone 15 · iOS 26" strong /><InfoRow k="Tên máy" v="iPhone của Hà" strong /><InfoRow k="Mã thiết bị" v="8F2A…C41" strong /></Card>,
       <View key="sp" style={{ height: 70 }} />,
     ],
-    foot: <Foot><Btn block onPress={ACT.registerDevice}>Đăng ký thiết bị này</Btn></Foot>,
+    foot: <Foot><Btn block spinKey="registerDevice" onPress={ACT.registerDevice}>Đăng ký thiết bị này</Btn></Foot>,
   };
 }
 

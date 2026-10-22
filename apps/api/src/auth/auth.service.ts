@@ -11,7 +11,7 @@ export class AuthError extends Error {
   }
 }
 
-type EmployeeRow = { id: string; tenant_id: string; employee_code: string; full_name: string; work_email: string | null; user_id: string | null; status: string };
+export type EmployeeRow = { id: string; tenant_id: string; employee_code: string; full_name: string; work_email: string | null; user_id: string | null; status: string };
 
 const OTP_TTL_SECONDS = 300;
 const EMPLOYEE_COLS = "id, tenant_id, employee_code, full_name, work_email, user_id, status";
@@ -151,11 +151,17 @@ export class AuthService {
   }
 
   async meFromToken(accessToken: string): Promise<MeProfile> {
+    return this.me(await this.employeeFromToken(accessToken));
+  }
+
+  /* Nhân viên của phiên hiện tại; dùng cho mọi endpoint /me/*. Tenant lấy từ hồ sơ, không tin client. */
+  async employeeFromToken(accessToken: string): Promise<EmployeeRow> {
     const { data, error } = await this.sb.admin.auth.getUser(accessToken);
     if (error || !data.user) throw new AuthError(AUTH_ERRORS.sessionExpired, "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.", 401);
     const emp = await this.findEmployeeByUser(data.user.id);
     if (!emp) throw new AuthError(AUTH_ERRORS.notActivated, "Tài khoản chưa gắn với hồ sơ nhân viên.", 403);
-    return this.me(emp);
+    if (emp.status === "terminated" || emp.status === "suspended") throw new AuthError(AUTH_ERRORS.accountDisabled, "Tài khoản đang bị khóa. Liên hệ phòng Nhân sự.", 403);
+    return emp;
   }
 
   /* ---------- Nội bộ ---------- */

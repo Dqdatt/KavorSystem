@@ -23,3 +23,11 @@ test("che email", () => {
   assert.equal(maskEmail("thao.ha@haidang.vn"), "th*****@haidang.vn");
   assert.equal(maskEmail("a@x.vn"), "a***@x.vn");
 });
+
+import { distanceMeters } from "./index.js";
+
+test("khoảng cách haversine", () => {
+  assert.equal(Math.round(distanceMeters(10.77439, 106.70394, 10.77439, 106.70394)), 0);
+  /* 0,001 độ vĩ ≈ 111 m */
+  assert.ok(Math.abs(distanceMeters(10.77439, 106.70394, 10.77539, 106.70394) - 111) < 1);
+});

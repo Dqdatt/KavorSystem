@@ -8,7 +8,8 @@ import { Card, Count, InfoRow, Notice, Num, Row, RowBtn, RowStrong, SectionHead,
 import { BrandHead, TopBar, type ScreenSpec } from "../screen";
 import { useClock } from "../clock";
 import { CAT, dec, gh, hm, recentNews, relDay, vnd, advLimit } from "../data";
-import { ACT, S, advEligible, explainLeft, go, holdDone, jump, lvAvail, pendingCount, phase, shiftLabel, shiftTime, tab, toast, worked } from "../store";
+import { REMOTE, DEV_TOOLS } from "../api/http";
+import { ACT, S, advEligible, fmtM, loadToday, explainLeft, go, holdDone, jump, lvAvail, pendingCount, phase, shiftLabel, shiftTime, tab, toast, worked } from "../store";
 
 /* ================= Punch hero ================= */
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
@@ -85,14 +86,17 @@ export function Punch({ size, compact, small, bare }: { size: number; compact?: 
   const ring = useRef(new Animated.Value(704)).current;
   const scale = useRef(new Animated.Value(1)).current;
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /* Vừa giữ đủ 1 giây: lần thả tay ngay sau đó không tính là chạm (tránh toast "đã xong ca") */
+  const held = useRef(false);
   const ringInset = compact ? 7 : small ? 6 : 9;
   const iconSize = compact ? 50 : small ? 40 : 64;
 
   const start = () => {
+    held.current = false;
     if (!holdable) return;
     Animated.timing(scale, { toValue: 0.97, duration: 200, easing: EASE, useNativeDriver: true }).start();
     Animated.timing(ring, { toValue: 0, duration: 900, easing: Easing.linear, useNativeDriver: false }).start();
-    timer.current = setTimeout(() => { timer.current = null; reset(); holdDone(); }, 900);
+    timer.current = setTimeout(() => { timer.current = null; held.current = true; reset(); holdDone(); }, 900);
   };
   const reset = () => {
     Animated.timing(scale, { toValue: 1, duration: 200, easing: EASE, useNativeDriver: true }).start();
@@ -103,6 +107,7 @@ export function Punch({ size, compact, small, bare }: { size: number; compact?: 
     if (timer.current) { clearTimeout(timer.current); timer.current = null; reset(); toast("Nhấn giữ nút tròn khoảng 1 giây để chấm công"); }
   };
   const press = () => {
+    if (held.current) { held.current = false; return; }
     if (st === "done") { toast("Bạn đã hoàn thành ca hôm nay"); return; }
     if (st === "blocked") ACT.blockedTap();
   };
@@ -138,7 +143,7 @@ export function Hero({ compact }: { compact?: boolean }) {
   return (
     <View style={{ alignItems: "center", paddingTop: compact ? 0 : 10 }}>
       <Num style={{ fontSize: compact ? 52 : 68, fontFamily: F.light, letterSpacing: (compact ? 52 : 68) * -0.02, lineHeight: compact ? 56 : 72, color: C.hero }}>{hm(now)}</Num>
-      <T style={{ fontSize: compact ? 17 : 21, color: "#7A8781", marginTop: compact ? 4 : 8 }}>Thứ Sáu, 16 tháng 10</T>
+      <T style={{ fontSize: compact ? 17 : 21, color: "#7A8781", marginTop: compact ? 4 : 8 }}>{REMOTE ? todayLabel() : "Thứ Sáu, 16 tháng 10"}</T>
       <View style={[glass, { marginTop: compact ? 8 : 10, flexDirection: "row", alignItems: "center", gap: 6, paddingVertical: 6, paddingHorizontal: 12, borderRadius: 14 }]}>
         <Ic n="clock" s={14} color={C.ink2} />
         <T style={{ fontSize: 12.5, fontFamily: F.medium, color: C.ink2 }}>{shiftLabel()} · {shiftTime()}</T>
@@ -152,7 +157,7 @@ export function Hero({ compact }: { compact?: boolean }) {
       </View>
       <View style={{ flexDirection: "row", alignItems: "center", gap: 8, justifyContent: "center" }}>
         <Ic n="pin" s={18} w={2} color={S.inRange ? C.hero : C.bad} />
-        <T style={{ fontSize: 14, fontFamily: F.medium, color: S.inRange ? C.hero : C.bad }}>{S.inRange ? "Vị trí: Văn phòng Quận 1" : "Bạn đang ở ngoài vùng chấm công"}</T>
+        <T style={{ fontSize: 14, fontFamily: F.medium, color: S.inRange ? C.hero : C.bad }}>{S.inRange ? `Vị trí: ${S.att.loc.name}` : "Bạn đang ở ngoài vùng chấm công"}</T>
       </View>
       <Morph trigger={ph} style={{ width: "100%", flexDirection: "row", marginTop: compact ? 12 : 26 }}>
         {([["tIn", S.clockIn ? hm(S.clockIn) : "--:--", "Vào ca"], ["tOut", S.clockOut ? hm(S.clockOut) : "--:--", "Ra ca"], ["tDone", w === null ? "--:--" : gh(w), "Giờ làm"]] as Array<[IconName, string, string]>).map(([icon, v, l]) => (
@@ -293,7 +298,20 @@ function Short({ r, icon, label }: { r: string; icon: IconName; label: string })
   );
 }
 
+const WDV = ["Chủ Nhật", "Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy"];
+const todayLabel = () => { const d = new Date(); return `${WDV[d.getDay()]}, ${d.getDate()} tháng ${d.getMonth() + 1}`; };
+
+/* Bản thật: mở màn chấm công thì đọc lại vị trí/khoảng cách (không xin quyền ở đây) */
+function ClockSync() {
+  useEffect(() => { if (REMOTE) void loadToday(); }, []);
+  return null;
+}
+
 export function clockSpec(): ScreenSpec {
+  const a = S.att;
+  const dist = REMOTE
+    ? (a.distM == null ? "Chưa có vị trí" : `${fmtM(a.distM)} · ${S.inRange ? "trong vùng" : "ngoài vùng"}`)
+    : (S.inRange ? "1,8 m · trong vùng" : "126 m · ngoài vùng");
   return {
     head: <TopBar title="Chấm công" />,
     body: [
@@ -301,12 +319,19 @@ export function clockSpec(): ScreenSpec {
       <Card key="c">
         <Row>
           <Gi n="building" s={24} />
-          <View style={{ flex: 1 }}><T style={{ fontFamily: F.semibold }}>Văn phòng Quận 1</T><T style={{ color: C.ink2, fontSize: 12.5, marginTop: 2 }}>12 Nguyễn Huệ · bán kính 3 m</T></View>
+          <View style={{ flex: 1 }}><T style={{ fontFamily: F.semibold }}>{a.loc.name}</T><T style={{ color: C.ink2, fontSize: 12.5, marginTop: 2 }}>{a.loc.address ? a.loc.address + " · " : ""}bán kính {a.loc.radiusM} m</T></View>
         </Row>
-        <InfoRow k="Khoảng cách" v={<St s={S.inRange ? "ok" : "bad"}>{S.inRange ? "1,8 m · trong vùng" : "126 m · ngoài vùng"}</St>} />
-        <InfoRow k="Độ chính xác GPS" v="±2 m" strong />
-        <InfoRow k="Thiết bị" v="iPhone 15 · đã đăng ký" strong />
+        <InfoRow k="Khoảng cách" v={<St s={REMOTE && a.distM == null ? "mute" : S.inRange ? "ok" : "bad"}>{dist}</St>} />
+        <InfoRow k="Độ chính xác GPS" v={REMOTE ? (a.accM == null ? "—" : `±${Math.round(a.accM)} m`) : "±2 m"} strong />
+        <InfoRow k="Thiết bị" v={`${a.device} · đã đăng ký`} strong />
+        {REMOTE && a.queued ? <InfoRow k="Chờ gửi" v={<St s="warn">{a.queued} lần lưu trên máy</St>} /> : null}
+        <ClockSync />
       </Card>,
+      ...(REMOTE && DEV_TOOLS ? [
+        <Pressable key="dev" onPress={ACT.devHere} style={{ alignSelf: "center", paddingVertical: 10 }}>
+          <T style={{ fontSize: 12.5, color: C.ink3, fontFamily: F.medium }}>{S.spin === "devHere" ? "Đang đặt…" : "Dev: đặt văn phòng tại vị trí hiện tại"}</T>
+        </Pressable>,
+      ] : []),
     ],
   };
 }

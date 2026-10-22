@@ -55,6 +55,14 @@
             ]
           }
         }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Kavor dùng vị trí khi bạn chấm công để xác minh địa điểm làm việc.",
+          "isIosBackgroundLocationEnabled": false,
+          "isAndroidBackgroundLocationEnabled": false
+        }
       ]
     ]
   }

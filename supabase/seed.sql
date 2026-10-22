@@ -78,3 +78,14 @@ insert into public.audit_logs (
   '10000000-0000-4000-8000-000000000001', '{"source":"sample-data"}',
   'Development seed only', 'seed-20261020'
 );
+
+-- Ca hành chính và địa điểm chấm công mẫu (prototype: Văn phòng Quận 1, 12 Nguyễn Huệ).
+-- Bán kính thực tế lấy 50 m vì GPS điện thoại hiếm khi chính xác dưới 10 m; mỗi công ty tự cấu hình.
+update public.tenant_settings
+set attendance_settings = attendance_settings || '{"shiftStart":"08:00","shiftEnd":"17:00","maxOfflineHours":24}'
+where tenant_id = '10000000-0000-4000-8000-000000000001';
+
+insert into public.work_locations (id, tenant_id, branch_id, code, name, address, latitude, longitude, radius_m, max_accuracy_m) values
+  ('70000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000001','30000000-0000-4000-8000-000000000001',
+   'HCM-Q1','Văn phòng Quận 1','12 Nguyễn Huệ, Quận 1, TP.HCM', 10.774390, 106.703940, 50, 60)
+on conflict (tenant_id, code) do nothing;

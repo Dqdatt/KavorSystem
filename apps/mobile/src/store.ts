@@ -1,6 +1,7 @@
 /* State + router + actions: port 1:1 từ phần script của Kavor HRM Prototype.html.
    Màn hình đọc trực tiếp từ S; mọi thay đổi gọi emit()/render() để App vẽ lại. */
-import { Vibration } from "react-native";
+import { AppState, Linking, Vibration } from "react-native";
+import appJson from "../app.json";
 import {
   ADV_DAY, LV_DAYS, advLimit, dec, dur, hm, lvKey, pad, toMin, vnd, wdOct, WD,
   type Approval, type MyReq, type OctDay,
@@ -8,8 +9,9 @@ import {
 import type { IllusKind } from "./illus";
 import { api, type Snapshot } from "./api";
 import { authenticate, biometricLabel, clearQuickLogin, clearSession, loadBioPrefs, loadSession, quickLoginEmployee, quickRefreshToken, saveBioPrefs, saveSession, type BioPrefs } from "./auth";
-import { ApiError, REMOTE, authApi } from "./api/http";
-import { passwordProblems, type AuthResult } from "@kavor/contracts";
+import { ApiError, REMOTE, attendanceApi, authApi, isNetworkError, setTokenSource } from "./api/http";
+import { distanceMeters, passwordProblems, type AttendanceEvent, type AttendanceToday, type AuthResult, type WorkLocation } from "@kavor/contracts";
+import { currentFix, deviceRegistration, deviceSummary, enqueue, flushQueue, installationId, LocationError, newEventId, quietFix, readQueue, type Fix } from "./attendance";
 
 export type Anim = "push" | "pop" | "fade";
 export type Route =
@@ -20,13 +22,15 @@ export type Route =
 export type ErrKind = "offline" | "server" | "maintenance" | "session" | "disabled" | "device" | "devicePending" | "locPerm" | "gpsOff" | "update";
 export type SheetKind =
   | "pin" | "face" | "receipt" | "help" | "netSend" | "netPunch" | "earlyOut" | "slowCheck" | "blocked" | "day"
-  | "askPay" | "advExplain" | "advReview" | "advCancel" | "cancelAsk" | "rejectAsk" | "bulkResult" | "editProfile" | "logoutAsk";
+  | "askPay" | "advExplain" | "advReview" | "advCancel" | "cancelAsk" | "rejectAsk" | "bulkResult" | "editProfile" | "logoutAsk" | "queued";
 
 type Done = { illus: IllusKind; title: string; text: string; rows?: Array<[string, string]>; primary: [string, Route] };
 
 /* Đồng hồ mô phỏng: bắt đầu 07:58 như prototype */
 export const SIM = { base: 478 * 60, start: Date.now() };
-export const simNow = () => SIM.base + Math.floor((Date.now() - SIM.start) / 1000);
+/* Bản dùng API thật: giờ thực của máy (giây tính từ 0h); máy chủ mới là nguồn giờ chấm công */
+const secOfDay = (d: Date) => d.getHours() * 3600 + d.getMinutes() * 60 + d.getSeconds();
+export const simNow = () => (REMOTE ? secOfDay(new Date()) : SIM.base + Math.floor((Date.now() - SIM.start) / 1000));
 
 const freshForms = () => ({
   lgId: "HD0142", lgPw: REMOTE ? "" : "demo-pass", lgPwShow: false,
@@ -81,6 +85,12 @@ const makeState = () => ({
   notifShow: false,
   bio: { login: true, unlock: true } as BioPrefs,
   bioLabel: "Face ID",
+  /* Chấm công: giá trị mặc định là dữ liệu mẫu của prototype; bản API thật ghi đè bằng địa điểm/khoảng cách thật */
+  att: {
+    loc: { id: "", name: "Văn phòng Quận 1", address: "12 Nguyễn Huệ", latitude: 0, longitude: 0, radiusM: 3, maxAccuracyM: 60 } as WorkLocation,
+    distM: null as number | null, accM: null as number | null,
+    device: "iPhone 15", last: null as AttendanceEvent | null, queued: 0,
+  },
 });
 export const S = makeState();
 
@@ -107,6 +117,8 @@ export function emit() { version++; listeners.forEach((l) => l()); }
 export const day = (d: number) => S.oct.find((o) => o.d === d);
 export const shiftLabel = () => (S.shift === "fixed" ? "Ca hành chính" : "Ca linh hoạt");
 export const shiftTime = () => (S.shift === "fixed" ? "08:00 – 17:00" : "8 giờ, 07:00 – 19:00");
+/* Khoảng cách kiểu Việt: 1,8 m · 126 m · 1,2 km */
+export const fmtM = (m: number) => (m >= 1000 ? `${dec(Math.round(m / 100) / 10)}\u00A0km` : m >= 100 ? `${Math.round(m)}\u00A0m` : `${dec(Math.round(m * 10) / 10)}\u00A0m`);
 export const phase = () => (!S.clockIn ? "in" : !S.clockOut ? "out" : "done");
 export const worked = () => (S.clockIn ? Math.max(0, Math.floor(((S.clockOut || simNow()) - S.clockIn) / 60)) : null);
 export function verdict(kind: "in" | "out", t: number): [string, "ok" | "warn"] {
@@ -204,6 +216,123 @@ async function signIn(employeeId: string, result?: AuthResult) {
   const session = await saveSession({ employeeId, ...(result ? { auth: result.session, me: result.me } : {}) });
   S.stack = [session.deviceRegistered ? "home" : "device"];
   render(session.deviceRegistered ? "fade" : "push");
+  if (session.deviceRegistered) void loadToday();
+}
+
+/* ---------- chấm công thật (chỉ chạy khi REMOTE) ---------- */
+/* Access token cho API chấm công: hết hạn thì làm mới bằng refresh token rồi lưu lại */
+setTokenSource(async () => {
+  const sess = await loadSession();
+  if (!sess?.auth) return null;
+  if (sess.auth.expiresAt - 60 > Date.now() / 1000) return sess.auth.accessToken;
+  const r = await authApi.refresh({ refreshToken: sess.auth.refreshToken });
+  await saveSession({ employeeId: r.me.employeeCode, auth: r.session, me: r.me });
+  return r.session.accessToken;
+});
+
+let locations: WorkLocation[] = [];
+const accepted = (e: AttendanceEvent | null) => (e && e.status === "accepted" ? secOfDay(new Date(e.occurredAt)) : null);
+/* Chọn địa điểm gần nhất và tính khoảng cách giống cách máy chủ xét (bán kính, không cộng sai số) */
+function applyFix(f: Fix) {
+  const near = locations.map((l) => ({ l, d: distanceMeters(f.latitude, f.longitude, l.latitude, l.longitude) })).sort((a, b) => a.d - b.d)[0];
+  if (!near) return;
+  S.att.loc = near.l; S.att.distM = Math.round(near.d * 10) / 10; S.att.accM = f.accuracyM;
+  S.inRange = near.d <= near.l.radiusM; emit();
+}
+function applyToday(t: AttendanceToday) {
+  locations = t.locations;
+  if (t.locations[0] && !t.locations.some((l) => l.id === S.att.loc.id)) S.att.loc = t.locations[0];
+  S.clockIn = accepted(t.clockIn); S.clockOut = accepted(t.clockOut);
+  S.att.device = t.device?.deviceModel ?? deviceSummary().model;
+  emit();
+}
+const isLoggedIn = () => !["login", "forgot", "forgotOtp", "resetPassword", "activate", "otp"].includes(S.stack[0] ?? "login");
+
+/* Lỗi chấm công → màn lỗi tương ứng của prototype (E19 chờ duyệt, E20 quyền vị trí, E21 GPS, phiên hết hạn) */
+function attError(e: unknown) {
+  closeSheet(true);
+  if (e instanceof LocationError) { showErr(e.kind); return; }
+  if (e instanceof ApiError) {
+    if (e.status === 401) { showErr("session"); return; }
+    if (e.code === "ATT_DEVICE_PENDING") { showErr("devicePending"); return; }
+    if (e.code === "ATT_DEVICE_NOT_REGISTERED") { S.stack = ["device"]; render("fade"); toast(e.message); return; }
+    if (e.code === "ATT_INVALID_SEQUENCE") void loadToday();
+    toast(e.message); return;
+  }
+  toast("Đã có lỗi xảy ra. Vui lòng thử lại.");
+}
+
+/* Gửi các lần chấm công lưu trên máy lúc mất mạng; lỗi mạng hoặc phiên hết hạn thì giữ lại lần sau */
+async function flushPunches() {
+  const r = await flushQueue((p) => attendanceApi.record(p), (e) => isNetworkError(e) || (e instanceof ApiError && e.status === 401));
+  S.att.queued = r.remaining;
+  const ok = r.sent.length, bad = r.failed.length;
+  if (ok || bad) toast(bad ? `Có ${bad} lần chấm công lưu trên máy bị từ chối: ${(r.failed[0]!.error as Error).message}` : `Đã gửi ${ok} lần chấm công lưu trên máy`);
+}
+
+/* Tải trạng thái hôm nay từ máy chủ: giờ vào/ra, địa điểm, thiết bị */
+export async function loadToday() {
+  if (!REMOTE || !isLoggedIn()) return;
+  try {
+    await flushPunches().catch(() => {});
+    const t = await attendanceApi.today(await installationId());
+    applyToday(t);
+    if (t.device?.status === "pending") { showErr("devicePending"); return; }
+    if (!t.device || t.device.status === "revoked") {
+      const sess = await loadSession();
+      if (sess) await saveSession({ employeeId: sess.employeeId, deviceRegistered: false });
+      S.stack = ["device"]; render("fade"); return;
+    }
+    const f = await quietFix();
+    if (f) applyFix(f);
+  } catch (e) {
+    if (e instanceof ApiError && e.status === 401) showErr("session");
+  }
+}
+/* Mở lại app từ nền: đồng bộ hàng đợi và trạng thái hôm nay */
+if (REMOTE) AppState.addEventListener("change", (st) => { if (st === "active") void loadToday(); });
+
+async function punchRemote(kind: "in" | "out") {
+  const e0 = epoch;
+  S.spin = "punch"; emit();
+  /* Chờ lâu (GPS hoặc mạng chậm) thì hiện bảng "Đang gửi…" để người dùng không bấm lại */
+  let slow: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const fix = await currentFix(true);
+    applyFix(fix);
+    slow = setTimeout(() => { if (e0 === epoch) openSheet("slowCheck"); }, 1500);
+    const req = { clientEventId: newEventId(), kind, installationId: await installationId(), latitude: fix.latitude, longitude: fix.longitude, accuracyM: fix.accuracyM };
+    let ev: AttendanceEvent;
+    try {
+      ev = await attendanceApi.record(req);
+    } catch (e) {
+      if (!isNetworkError(e)) throw e;
+      /* Mất mạng: lưu kèm giờ trên máy, máy chủ kiểm tra lại khi gửi (quá 24 giờ sẽ bị từ chối) */
+      await enqueue({ ...req, offline: true, occurredAt: new Date().toISOString() });
+      S.att.queued = (await readQueue()).length;
+      const t = simNow();
+      if (kind === "in") S.clockIn = t; else S.clockOut = t;
+      closeSheet(true); openSheet("queued", `${kind}:${t}`); return;
+    }
+    S.att.last = ev; closeSheet(true);
+    if (ev.status === "rejected") {
+      if (ev.rejectReason === "out_of_range") { S.inRange = false; if (ev.distanceM != null) S.att.distM = ev.distanceM; openSheet("blocked"); }
+      else toast(`GPS chưa đủ chính xác (±${Math.round(ev.accuracyM ?? fix.accuracyM)} m, cần ≤ ${S.att.loc.maxAccuracyM} m). Ra chỗ thoáng rồi thử lại.`);
+      emit(); return;
+    }
+    const t = secOfDay(new Date(ev.occurredAt));
+    if (kind === "in") S.clockIn = t; else S.clockOut = t;
+    S.inRange = true;
+    Vibration.vibrate(30);
+    S.justPunched = true; emit(); openSheet("receipt", `${kind}:${t}`);
+    setTimeout(() => { S.justPunched = false; }, 900);
+  } catch (e) {
+    attError(e);
+  } finally {
+    clearTimeout(slow);
+    if (S.spin === "punch") S.spin = null;
+    emit();
+  }
 }
 
 /* Chạy thao tác gọi API với spinner trên nút `key`; lỗi hiển thị bằng toast (onError trả true nếu đã tự xử lý) */
@@ -248,6 +377,7 @@ export async function restoreSession() {
   }
   Object.assign(S, fromSnapshot(await api.refresh().catch(() => api.cached())));
   S.stack = [session.deviceRegistered ? "home" : "device"]; render();
+  if (session.deviceRegistered) void loadToday();
 }
 
 function pinSuccess() { S.pinUntil = Date.now() + 5 * 60 * 1000; const f = S.pinOk; S.pinOk = null; closeSheet(); f && f(); }
@@ -285,7 +415,17 @@ export const ACT = {
   toast: (a: string) => toast(a),
   retrySend: () => spin("retrySend", 900, () => { if (S.net === "offline") { shake("sheet"); toast("Vẫn chưa có mạng"); return; } closeSheet(true); const f = S.retry; S.retry = null; f && f(); }),
   retryPunch: () => spin("retryPunch", 900, () => { if (S.net === "offline") { shake("sheet"); toast("Vẫn chưa có mạng"); return; } closeSheet(true); holdDone(); }),
-  errRetry: () => spin("errRetry", 900, () => {
+  errRetry: () => {
+    const k = S.err?.kind;
+    /* Bản thật: lấy lại vị trí; được thì về màn chấm công */
+    if (REMOTE && (k === "gpsOff" || k === "locPerm")) {
+      remote("errRetry", async () => { const f = await currentFix(true); applyFix(f); S.err = null; S.stack = ["home", "clock"]; render("fade"); toast(`Đã lấy được vị trí · ±${Math.round(f.accuracyM)} m`); },
+        () => { shake("err"); toast("Vẫn chưa lấy được vị trí"); return true; });
+      return;
+    }
+    ACT._errRetry();
+  },
+  _errRetry: () => spin("errRetry", 900, () => {
     const k = S.err?.kind;
     if (k === "offline" && S.net === "offline") { shake("err"); toast("Vẫn chưa có mạng"); return; }
     const target = S.err?.retry; S.err = null;
@@ -296,8 +436,18 @@ export const ACT = {
   errHR: () => toast("Phòng Nhân sự: 028 3822 0142 · hr@haidang.vn"),
   errLogin: () => { void clearSession(); S.err = null; S.stack = ["login"]; render("fade"); },
   errReset: () => spin("errReset", 800, () => { S.err = { kind: "devicePending" }; render("fade"); toast("Đã gửi yêu cầu chuyển thiết bị"); }),
-  errPending: () => spin("errPending", 800, () => toast("Chưa có thay đổi. HR sẽ xử lý trong giờ hành chính.")),
-  errSettings: () => { toast("Mô phỏng: đã bật quyền vị trí trong Cài đặt"); setTimeout(() => ACT.errClose(), 900); },
+  errPending: () => {
+    if (!REMOTE) { spin("errPending", 800, () => toast("Chưa có thay đổi. HR sẽ xử lý trong giờ hành chính.")); return; }
+    remote("errPending", async () => {
+      const t = await attendanceApi.today(await installationId());
+      if (t.device?.status !== "active") { toast("Chưa có thay đổi. HR sẽ xử lý trong giờ hành chính."); return; }
+      applyToday(t); S.err = null; S.stack = ["home"]; render("fade"); toast("HR đã duyệt thiết bị này");
+    });
+  },
+  errSettings: () => {
+    if (REMOTE) { void Linking.openSettings(); return; }
+    toast("Mô phỏng: đã bật quyền vị trí trong Cài đặt"); setTimeout(() => ACT.errClose(), 900);
+  },
   errUpdate: () => spin("errUpdate", 1200, () => { S.err = null; S.stack = ["home"]; render("fade"); toast("Đã cập nhật lên phiên bản 2.4.0"); }),
   errExplain: () => { S.err = null; S.stack = ["home"]; render("fade"); go("explain"); },
   help: () => openSheet("help", cur()),
@@ -390,13 +540,28 @@ export const ACT = {
       S.f.otp = ["", "", "", "", "", ""]; emit(); toast("Đã gửi lại mã OTP mới · hiệu lực trong 5 phút");
     });
   },
-  registerDevice: () => { sync(api.registerDevice()); void loadSession().then((sess) => saveSession({ employeeId: sess?.employeeId ?? "HD0142", deviceRegistered: true })); S.stack = ["home"]; render("fade"); toast("Đã đăng ký iPhone 15 làm thiết bị chấm công"); },
+  registerDevice: () => {
+    if (REMOTE) {
+      remote("registerDevice", async () => {
+        const d = await attendanceApi.registerDevice(await deviceRegistration(appJson.expo.version));
+        if (d.status === "pending") { showErr("devicePending"); return; }
+        const sess = await loadSession();
+        if (sess) await saveSession({ employeeId: sess.employeeId, deviceRegistered: true });
+        S.att.device = d.deviceModel ?? deviceSummary().model;
+        S.stack = ["home"]; render("fade"); toast(`Đã đăng ký ${S.att.device} làm thiết bị chấm công`);
+        void loadToday();
+      }, (e) => { attError(e); return true; });
+      return;
+    }
+    sync(api.registerDevice()); void loadSession().then((sess) => saveSession({ employeeId: sess?.employeeId ?? "HD0142", deviceRegistered: true })); S.stack = ["home"]; render("fade"); toast("Đã đăng ký iPhone 15 làm thiết bị chấm công");
+  },
   quick: () => { S.quickOpen ? quickClose() : quickOpen(); },
   qgo: (a: string) => { quickClose(); if (a === "_edit") { setTimeout(() => ACT.editProfile(), 160); return; } setTimeout(() => go(a as Route), 110); },
   blockedTap: () => openSheet("blocked"),
   punchGo: () => {
     closeSheet(true);
     if (S.net === "slow" && !S.slowOk) { const e = epoch; openSheet("slowCheck"); setTimeout(() => { if (e !== epoch) return; S.slowOk = true; ACT.punchGo(); S.slowOk = false; }, 2400); return; }
+    if (REMOTE) { if (S.spin !== "punch") void punchRemote(S.clockIn ? "out" : "in"); return; }
     const kind = S.clockIn ? "out" : "in", t = simNow();
     if (kind === "in") S.clockIn = t; else S.clockOut = t;
     sync(api.recordPunch({ kind, at: t }));
@@ -404,7 +569,24 @@ export const ACT = {
     S.justPunched = true; emit(); openSheet("receipt", `${kind}:${t}`);
     setTimeout(() => { S.justPunched = false; }, 900);
   },
-  relocate: () => { S.spin = "relocate"; emit(); setTimeout(() => { S.spin = null; closeSheet(); toast("Vẫn ngoài vùng (±2 m). Đổi “Vị trí” ở bảng bên phải để thử trong vùng."); }, 800); },
+  relocate: () => {
+    if (REMOTE) {
+      remote("relocate", async () => {
+        const f = await currentFix(true); applyFix(f); closeSheet();
+        const d = S.att.distM == null ? "" : ` · cách ${fmtM(S.att.distM)}`;
+        toast(S.inRange ? `Đã vào vùng chấm công${d}` : `Vẫn ngoài vùng${d} (±${Math.round(f.accuracyM)} m)`);
+      }, (e) => { attError(e); return true; });
+      return;
+    }
+    S.spin = "relocate"; emit(); setTimeout(() => { S.spin = null; closeSheet(); toast("Vẫn ngoài vùng (±2 m). Đổi “Vị trí” ở bảng bên phải để thử trong vùng."); }, 800);
+  },
+  /* Chỉ bản dev: dời văn phòng (tenant demo) về vị trí hiện tại để thử chấm công ở bất kỳ đâu */
+  devHere: () => remote("devHere", async () => {
+    const f = await currentFix(true);
+    const l = await attendanceApi.devMoveLocation({ latitude: f.latitude, longitude: f.longitude, radiusM: 50 });
+    toast(`Dev: đã đặt ${l.name} tại vị trí hiện tại (bán kính ${l.radiusM} m)`);
+    await loadToday();
+  }, (e) => { attError(e); return true; }),
   day: (a: string) => openSheet("day", a),
   exFromDay: (a: string) => { closeSheet(true); S.ex.date = +a; const o = day(+a)!; const late = !!o.in && toMin(o.in) > 480; S.ex.type = (!o.in || late) ? "in" : "out"; S.ex.time = late ? 480 : !o.in ? 478 : 1020; go("explain"); },
   attFilter: (a: "all" | "late" | "miss") => { S.attFilter = a; emit(); },

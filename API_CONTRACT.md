@@ -168,24 +168,34 @@ draft → uploaded → mapping_ready → validating
 | POST | `/timesheet-locks` | `timesheet.lock` |
 | POST | `/timesheet-locks/{id}/unlock` | `timesheet.unlock` |
 
-Request chấm công:
+### Đã triển khai (22/10/2026)
+
+| Method | Endpoint | Ghi chú |
+|---|---|---|
+| POST | `/me/devices` | `{ installationId, platform, deviceModel?, osVersion?, appVersion? }`. Máy đầu tiên `active`; đã có máy active thì máy mới `pending` (E19, chờ HR duyệt). Gọi lại cùng `installationId` không tạo bản ghi mới. |
+| GET | `/me/attendance/today?installationId=` | Ca, địa điểm, thiết bị, các bản ghi hôm nay, `clockIn`/`clockOut` hợp lệ (theo múi giờ tenant). |
+| POST | `/me/attendance/events` | Ghi chấm công (bên dưới). Ghi lại cả bản ghi bị từ chối để HR đối soát. |
+| POST | `/dev/work-location` | Chỉ `NODE_ENV=development`: dời địa điểm của tenant về tọa độ gửi lên để thử. |
+
+Request chấm công (`Idempotency-Key` header hoặc `clientEventId` trong body):
 
 ```json
 {
-  "eventType": "check_in",
-  "occurredAt": "2026-10-20T01:28:12Z",
-  "offlineCreatedAt": null,
-  "location": {
-    "latitude": 10.7769,
-    "longitude": 106.7009,
-    "accuracyM": 18.4
-  },
-  "deviceInstallationId": "uuid",
-  "clientEventId": "uuid"
+  "clientEventId": "uuid",
+  "kind": "in",
+  "installationId": "uuid",
+  "latitude": 10.7744,
+  "longitude": 106.7039,
+  "accuracyM": 8,
+  "offline": false,
+  "occurredAt": null
 }
 ```
 
-Response phân biệt `accepted`, `needs_review`, `duplicate` và `rejected`. Retry cùng key trả kết quả trước đó.
+- Online: máy chủ lấy giờ của máy chủ. `offline: true` mới dùng `occurredAt` (giờ trên máy), quá `maxOfflineHours` (mặc định 24) → `ATT_CLOCK_SKEW`.
+- Thứ tự kiểm tra: trùng `clientEventId` (trả bản ghi cũ) → thiết bị (`ATT_DEVICE_NOT_REGISTERED`/`ATT_DEVICE_PENDING`) → giờ offline → trình tự vào/ra (`ATT_INVALID_SEQUENCE`) → vị trí.
+- Vị trí sai số > `maxAccuracyM` → `status: "rejected", rejectReason: "low_accuracy"`; xa hơn `radiusM` của địa điểm gần nhất → `out_of_range`. Bản ghi trả về có `recordCode`, `distanceM`, `locationName`.
+- Mobile: mất mạng thì lưu hàng đợi (Keychain/Keystore) và tự gửi lại cùng `clientEventId` khi mở app.
 
 ## 8. Leave, OT và request
 

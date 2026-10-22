@@ -1,10 +1,11 @@
 # PROGRESS
-_Cập nhật: 2026-10-22 09:45 +07 — bởi Claude (Opus 5.5)_
+_Cập nhật: 2026-10-22 21:15 +07 — bởi Claude (Opus 5.5)_
 
 ## Mục tiêu đang làm
 Port toàn bộ `Kavor HRM Prototype.html` sang app React Native sao cho giống prototype, sửa các lỗi UI nhỏ và cài bản build lên iPhone 11 thật ("Dqdatt"). Xong khi 70 trạng thái prototype/native khớp và app chạy được trên máy thật. Chưa push git (theo yêu cầu người dùng).
 
 ## Đã xong
+- Chấm công thật (22/10): migration `202610220003_attendance.sql` (work_locations, employee_devices, attendance_events bất biến + chống trùng, RLS) đã push lên project thật; pgTAP 9 test. API `/me/devices`, `/me/attendance/today`, `/me/attendance/events` (Idempotency-Key), `/dev/work-location` — `apps/api/src/attendance`, `tools/attendance-smoke.sh` 19/19. Mobile `src/attendance.ts`: GPS thật (`expo-location`, xin quyền khi chấm công), mã cài đặt trong Keychain, hàng đợi offline tự gửi lại khi mở app; biên nhận/ngoài vùng/E19/E20/E21 dùng dữ liệu thật. Đã thử trên simulator: đăng ký máy → vào ca trong vùng → ra ca ngoài vùng bị từ chối → mất mạng lưu hàng đợi → mở lại tự gửi (kiểm tra DB đúng giờ máy).
 - Auth thật (22/10): migration `202610220002_service_role_grants.sql` (service_role không có quyền DML mặc định) — đã push cả hai migration lên project thật; OTP email tiếng Việt (`supabase/templates/otp.html`); giới hạn thử sai; chính sách mật khẩu dùng chung trong `@kavor/contracts`; ô OTP nhận gõ nhanh/tự điền mã; sửa lỗi mất phiên sau bước đăng ký thiết bị.
 - Nền tảng (22/10): Supabase local chạy ở cổng 553xx (máy có project local khác chiếm 543xx); phát hiện và sửa: 3 bảng chưa bật RLS, client không có quyền SELECT nên policy cũ vô tác dụng, anon có TRUNCATE; audit_logs chỉ thêm. API kiểm tra cấu hình khi khởi động (`apps/api/src/config.ts`, 4 test). CI thêm job `database` (db reset + test db + lint).
 - Mobile: màn Hồ sơ → Bảo mật và thiết bị (bật/tắt Face ID đăng nhập & mở khóa lương).
@@ -19,6 +20,8 @@ Port toàn bộ `Kavor HRM Prototype.html` sang app React Native sao cho giống
 - Kiểm tra ngày 22/10: `pnpm turbo run typecheck test build --force` pass 18/18 task (test thật chỉ có contracts 2 + api 2)
 
 ## Đang dở (QUAN TRỌNG NHẤT)
+- Chấm công thật đã xong (xem "Đã xong"); người dùng cần thử trên iPhone: DB local vừa reset nên phải kích hoạt lại HD0142 (OTP xem ở Mailpit), đăng ký thiết bị, rồi dùng nút "Dev: đặt văn phòng tại vị trí hiện tại" ở màn Chấm công (vì văn phòng mẫu ở Q1).
+- Ca/giờ muộn/về sớm trên mobile vẫn tính theo ca 08:00–17:00 cố định của prototype; chưa lấy `shift` từ API.
 - Auth thật (22/10) đã xong và commit: API `/auth/*` + `/me` (apps/api/src/auth), mobile gọi API khi build có `EXPO_PUBLIC_API_URL`. Kiểm thử: `tools/auth-smoke.sh` 15/15 bước; trên simulator đã kích hoạt → đăng nhập → mở lại app giữ phiên.
 - Bản trên iPhone trỏ tới API `http://192.168.1.22:4000/api/v1` (IP LAN của Mac): Mac phải chạy `pnpm dev:backend`, cùng Wi-Fi. Nếu IP Mac đổi phải build lại app.
 - Chưa có môi trường staging thật cho auth: project Supabase thật mới có migration, chưa có dữ liệu nhân viên và SMTP riêng (SMTP mặc định của Supabase chỉ gửi tới thành viên project).
@@ -39,13 +42,13 @@ Port toàn bộ `Kavor HRM Prototype.html` sang app React Native sao cho giống
 
 ## Vấn đề/bug còn tồn tại
 - Ảnh native lấy từ simulator; chưa có ảnh/video từ iPhone 11 thật.
-- Face ID và PIN vẫn là mô phỏng UI (chưa gọi LocalAuthentication); chưa có backend.
-- Android chưa build/kiểm tra lại sau khi viết lại UI (code dùng API chung của RN 0.86, `boxShadow`/`experimental_backgroundImage` cần kiểm tra trên Android).
+- Ngoài auth và chấm công, các màn (công tháng, đơn từ, lương, tin tức) vẫn dùng dữ liệu mẫu.
+- Android chưa thử luồng chấm công thật (GPS/hàng đợi) trên emulator.
 - Test tự động của admin-web, console-web, mobile, web-ui vẫn là placeholder.
 - Trên bản dev, gõ phím "r" khi không focus ô nhập sẽ làm Metro reload (chỉ ảnh hưởng dev).
 
 ## Bước tiếp theo
-1. Chấm công thật: bảng thiết bị + attendance events (idempotent), geofence, hàng đợi offline trên mobile; `POST /me/devices` thay cho bước đăng ký thiết bị giả lập.
+1. Bảng công tháng/lịch sử chấm công từ API (màn Công đang dùng dữ liệu mẫu), ca theo tenant, giải trình công gửi lên API.
 2. Staging thật: SMTP riêng (Resend/SES) cho project Supabase, nhập dữ liệu nhân viên, deploy API.
 3. Web app (HR/Admin, Kavor Console) — HR tạo/nhập nhân viên để họ tự kích hoạt.
 4. Sentry khi có tài khoản.
@@ -54,6 +57,7 @@ Port toàn bộ `Kavor HRM Prototype.html` sang app React Native sao cho giống
 - Không có.
 
 ## Nhật ký
+- 2026-10-22 — Chấm công thật: thiết bị, GPS, geofence, hàng đợi offline; push migration attendance lên project thật; cài bản dev lên iPhone.
 - 2026-10-22 — Auth thật: kích hoạt/OTP/đăng nhập/quên mật khẩu qua API + Supabase Auth; push migration lên project thật; cài bản dùng API lên iPhone.
 - 2026-10-22 — Màn Bảo mật và thiết bị; siết RLS + test cách ly tenant; config validation API; CI database job.
 - 2026-10-22 — Bước 1 xong: Face ID thật, Keychain, crash handler, lớp api, Android emulator 70/70 trạng thái; cài Release lên iPhone.

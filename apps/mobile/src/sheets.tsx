@@ -6,7 +6,8 @@ import { Illus } from "./illus";
 import { Appear } from "./motion";
 import { Btn, BtnRow, Chip, Chips, ErrLine, Field, Inp, Ln, Note, SecT, T, TextArea } from "./ui";
 import { WDF, dur, hm, hms, pad, wdOct } from "./data";
-import { ACT, ADV_DAY, S, closeSheet, day, dayInfo, emit, explainLeft, go, shiftLabel, shiftTime, simNow, verdict, type SheetKind } from "./store";
+import { ACT, ADV_DAY, S, closeSheet, day, dayInfo, emit, explainLeft, fmtM, go, shiftLabel, shiftTime, simNow, verdict, type SheetKind } from "./store";
+import { REMOTE } from "./api/http";
 
 const H3 = ({ children, center }: { children: ReactNode; center?: boolean }) => <T style={{ fontSize: 19, fontFamily: F.bold, textAlign: center ? "center" : "left" }}>{children}</T>;
 const Sub = ({ children, center }: { children: ReactNode; center?: boolean }) => <T style={{ color: C.ink2, marginTop: -10, textAlign: center ? "center" : "left" }}>{children}</T>;
@@ -75,8 +76,18 @@ export function SheetContent({ kind, arg }: { kind: SheetKind; arg?: string }) {
           <T style={{ fontSize: 21, fontFamily: F.bold, textAlign: "center" }}>Đã {kind2 === "in" ? "vào" : "ra"} ca lúc {hm(t)}</T>
           <T style={{ fontSize: 14, fontFamily: F.semibold, color: v[1] === "ok" ? C.ok : C.warn }}>{v[0]}</T>
         </Center>
-        <Box><Ln k="Giờ ghi nhận" v={hms(t)} /><Ln k="Vị trí" v="VP Quận 1 · 1,8 m" /><Ln k="Thiết bị" v="iPhone 15" /><Ln k="Mã bản ghi" v={"CC-161026-" + (kind2 === "in" ? "0142" : "0143")} /></Box>
+        {REMOTE && S.att.last
+          ? <Box><Ln k="Giờ ghi nhận" v={hms(t)} /><Ln k="Vị trí" v={`${S.att.last.locationName ?? S.att.loc.name}${S.att.last.distanceM != null ? " · " + fmtM(S.att.last.distanceM) : ""}`} /><Ln k="Thiết bị" v={S.att.device} /><Ln k="Mã bản ghi" v={S.att.last.recordCode} /></Box>
+          : <Box><Ln k="Giờ ghi nhận" v={hms(t)} /><Ln k="Vị trí" v="VP Quận 1 · 1,8 m" /><Ln k="Thiết bị" v="iPhone 15" /><Ln k="Mã bản ghi" v={"CC-161026-" + (kind2 === "in" ? "0142" : "0143")} /></Box>}
         <Close kind="primary">Xong</Close>
+      </>;
+    }
+    case "queued": {
+      const [k, ts = "0"] = (arg ?? "in:0").split(":");
+      return <>
+        <Center><Illus kind="offline" /><H3 center>Đã lưu {k === "in" ? "vào" : "ra"} ca lúc {hm(+ts)} trên máy</H3>
+          <Muted center>Chưa kết nối được máy chủ. Kavor sẽ tự gửi khi có mạng (trong 24 giờ) và máy chủ vẫn kiểm tra vị trí như bình thường.</Muted><Code>E01</Code></Center>
+        <Close kind="primary">Đã hiểu</Close>
       </>;
     }
     case "help": {
@@ -111,7 +122,7 @@ export function SheetContent({ kind, arg }: { kind: SheetKind; arg?: string }) {
       </View>
     );
     case "blocked": return <>
-      <Center><Gi n="pin" s={48} w={1.5} /><H3 center>Bạn đang ở ngoài vùng chấm công</H3><Muted center>Vị trí hiện tại cách Văn phòng Quận 1 khoảng 126 m. Vùng hợp lệ là 3 m quanh điểm chấm công.</Muted></Center>
+      <Center><Gi n="pin" s={48} w={1.5} /><H3 center>Bạn đang ở ngoài vùng chấm công</H3><Muted center>{REMOTE ? `Vị trí hiện tại cách ${S.att.loc.name} khoảng ${S.att.distM == null ? "?" : fmtM(S.att.distM)}. Vùng hợp lệ là ${S.att.loc.radiusM} m quanh điểm chấm công.` : "Vị trí hiện tại cách Văn phòng Quận 1 khoảng 126 m. Vùng hợp lệ là 3 m quanh điểm chấm công."}</Muted></Center>
       <BtnRow>
         <Btn kind="ghost" icon={<Gi n="refresh" s={18} />} onPress={ACT.relocate}>{S.spin === "relocate" ? "Đang lấy…" : "Lấy lại vị trí"}</Btn>
         <Btn onPress={() => go("explain")}>Giải trình</Btn>

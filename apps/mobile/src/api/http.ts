@@ -1,6 +1,7 @@
 /* Gọi Kavor API: parse envelope { data, meta, error } và chuẩn hóa lỗi để màn hình hiển thị.
    Bật khi build có EXPO_PUBLIC_API_URL (và không ở chế độ QA chụp ảnh dùng dữ liệu mẫu). */
 import type {
+  AttendanceEvent, AttendanceEventRequest, AttendanceToday, DeviceInfo, DeviceRegisterRequest, WorkLocation,
   ActivationStartRequest, ActivationVerifyRequest, ApiEnvelope, AuthResult, LoginRequest, MeProfile,
   OtpSentResponse, PasswordForgotRequest, PasswordResetRequest, RefreshRequest,
 } from "@kavor/contracts";
@@ -50,3 +51,23 @@ export const authApi = {
   logout: (token: string) => call<{ ok: true }>("POST", "/auth/logout", {}, token),
   me: (token: string) => call<MeProfile>("GET", "/me", undefined, token),
 };
+
+/* Lấy access token hiện tại (đã được làm mới khi mở app) — gán từ store để tránh vòng import */
+let tokenSource: () => Promise<string | null> = async () => null;
+export function setTokenSource(fn: () => Promise<string | null>) { tokenSource = fn; }
+async function token(): Promise<string> {
+  const t = await tokenSource();
+  if (!t) throw new ApiError("AUTH_SESSION_EXPIRED", "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.", 401);
+  return t;
+}
+
+export const attendanceApi = {
+  registerDevice: async (b: DeviceRegisterRequest) => call<DeviceInfo>("POST", "/me/devices", b, await token()),
+  today: async (installationId: string) => call<AttendanceToday>("GET", `/me/attendance/today?installationId=${encodeURIComponent(installationId)}`, undefined, await token()),
+  record: async (b: AttendanceEventRequest) => call<AttendanceEvent>("POST", "/me/attendance/events", b, await token()),
+  devMoveLocation: async (b: { latitude: number; longitude: number; radiusM?: number }) => call<WorkLocation>("POST", "/dev/work-location", b, await token()),
+};
+
+export const isNetworkError = (e: unknown) => e instanceof ApiError && (e.code === "NETWORK" || e.status >= 500);
+/* Công cụ dev (đặt văn phòng tại vị trí hiện tại) chỉ hiện khi build có cờ này */
+export const DEV_TOOLS = process.env.EXPO_PUBLIC_KAVOR_DEV_TOOLS === "1";
