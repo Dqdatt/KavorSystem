@@ -2,14 +2,14 @@ project_id = "kavor-system"
 
 [api]
 enabled = true
-port = 54321
+port = 55321
 schemas = ["public", "graphql_public"]
 extra_search_path = ["public", "extensions"]
 max_rows = 1000
 
 [db]
-port = 54322
-shadow_port = 54320
+port = 55322
+shadow_port = 55320
 major_version = 17
 
 [db.seed]
@@ -18,7 +18,7 @@ sql_paths = ["./seed.sql"]
 
 [studio]
 enabled = true
-port = 54323
+port = 55323
 
 [auth]
 enabled = true
@@ -30,3 +30,16 @@ enable_signup = false
 [storage]
 enabled = true
 file_size_limit = "50MiB"
+
+# Dải cổng 553xx để chạy song song với project Supabase local khác trên cùng máy
+[local_smtp]
+enabled = true
+port = 55324
+
+[analytics]
+enabled = false
+port = 55327
+
+[db.pooler]
+enabled = false
+port = 55329

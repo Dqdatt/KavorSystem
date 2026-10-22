@@ -41,5 +41,8 @@ pnpm build
 - iOS Debug (dev client) crash khi khởi động nếu React prebuilt và Expo precompiled modules lệch flavor. Để chụp QA dùng bản Release có cờ: `EXPO_PUBLIC_KAVOR_QA=1 npx expo run:ios --configuration Release --no-bundler`. Biến `EXPO_PUBLIC_*` bị Metro cache: xóa `$TMPDIR/metro-cache` khi đổi cờ QA, kể cả trước khi build bản cho iPhone thật (không được lọt QA).
 - Android: chữ bị cắt/xuống dòng sai trong bản Release nếu nạp font lúc chạy — Montserrat được nhúng native qua plugin `expo-font` (app.json), `useFonts` chỉ chạy trên iOS. `T` (src/ui.tsx) tự thêm NBSP cuối chuỗi trên Android; nhãn một dòng (nút, chip, seg, tag) dùng `numberOfLines={1}`.
 - Chụp Android: `adb shell wm size 828x1792 && adb shell wm density 320`, rồi `UI_PLATFORM=android python3 -I tools/ui-compare/capture-native.py` và `UI_PLATFORM=android python3 -I tools/ui-compare/pair.py`.
+- Supabase local của Kavor chạy cổng 553xx (API 55321, DB 55322) vì máy có project local khác (PharmaPOS_V3) chiếm 543xx — không stop project đó. Lệnh: `supabase start -x studio,imgproxy,vector,logflare,edge-runtime,realtime,storage-api,mailpit,postgres-meta`, `supabase db reset`, `supabase test db`.
+- Supabase mới không tự GRANT SELECT cho anon/authenticated: bảng mới phải tự `enable row level security` + policy + `grant select ... to authenticated`; ghi dữ liệu đi qua API (service role). Thêm test vào `supabase/tests/`.
+- Node cho Xcode đặt trong `apps/mobile/ios/.xcode.env.local` (`NODE_BINARY`); đổi Node thì cập nhật file này.
 - Ảnh simulator không đồng nghĩa với kiểm thử máy thật. Animation, safe area, Face ID và hành vi navbar phải xác nhận lại trên thiết bị vật lý.
 - Không đưa Supabase publishable key hoặc thông tin đăng nhập vào tài liệu/commit; dùng biến môi trường.

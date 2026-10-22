@@ -22,3 +22,17 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm build
+
+  database:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.108.0
+      # Dựng Postgres sạch, chạy toàn bộ migration + seed, rồi chạy test RLS/cách ly tenant
+      - run: supabase db start
+      - run: supabase db reset --local
+      - run: supabase test db
+      - run: supabase db lint --local --level error

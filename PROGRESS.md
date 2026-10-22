@@ -5,6 +5,8 @@ _Cập nhật: 2026-10-22 09:45 +07 — bởi Claude (Opus 5.5)_
 Port toàn bộ `Kavor HRM Prototype.html` sang app React Native sao cho giống prototype, sửa các lỗi UI nhỏ và cài bản build lên iPhone 11 thật ("Dqdatt"). Xong khi 70 trạng thái prototype/native khớp và app chạy được trên máy thật. Chưa push git (theo yêu cầu người dùng).
 
 ## Đã xong
+- Nền tảng (22/10): Supabase local chạy ở cổng 553xx (máy có project local khác chiếm 543xx); phát hiện và sửa: 3 bảng chưa bật RLS, client không có quyền SELECT nên policy cũ vô tác dụng, anon có TRUNCATE; audit_logs chỉ thêm. API kiểm tra cấu hình khi khởi động (`apps/api/src/config.ts`, 4 test). CI thêm job `database` (db reset + test db + lint).
+- Mobile: màn Hồ sơ → Bảo mật và thiết bị (bật/tắt Face ID đăng nhập & mở khóa lương).
 - Bước 1 (22/10): Face ID thật + phiên Keychain (`src/auth.ts`); bắt lỗi nội bộ (`src/crash.tsx`); lớp dữ liệu `src/api/` (KavorApi + mock); Android build chạy trên emulator `Kavor_Pixel_6`, chụp đủ 70 trạng thái (`docs/ui-comparison/android/`) và sửa các lỗi riêng Android (chữ bị cắt, blur, font nhúng native).
 - Viết lại toàn bộ app mobile, port 1:1 từ prototype: dữ liệu mẫu, icon SVG gốc, minh họa ILLUS, state/router/actions, sheet, toast, netbar, quick menu, widget/springboard, lỗi E01–E31 — `apps/mobile/src/` (`apps/mobile/App.tsx` chỉ re-export `src/App`)
 - Deep link `kavor://payslips|advance` giờ đi qua `go()` nên vẫn phải nhập PIN (trước đây bỏ qua PIN)
@@ -16,8 +18,9 @@ Port toàn bộ `Kavor HRM Prototype.html` sang app React Native sao cho giống
 - Kiểm tra ngày 22/10: `pnpm turbo run typecheck test build --force` pass 18/18 task (test thật chỉ có contracts 2 + api 2)
 
 ## Đang dở (QUAN TRỌNG NHẤT)
-- Bước 1 đã xong và commit (22/10). Người dùng cần thử trên iPhone thật: Face ID thật (đăng nhập mật khẩu một lần rồi thử nút Face ID; nút Face ID trong PIN), mở lại app phải vào thẳng trang chủ, đăng xuất phải về màn đăng nhập.
-- Chưa có Sentry (cần tài khoản); `src/crash.tsx` chỉ lưu lỗi trong máy.
+- Nền tảng (22/10): migration `202610220001_rls_hardening.sql` + test pgTAP `supabase/tests/tenant_isolation.test.sql` (16/16 pass local). CHƯA áp lên project Supabase thật `KavorSystem` (ref trong `supabase/.temp`) — chờ người dùng đồng ý chạy `supabase db push`.
+- Bản app có màn "Bảo mật và thiết bị" (commit 22868fa) CHƯA cài lên iPhone vì máy ngắt kết nối lúc build.
+- Key publishable + URL project thật từng nằm trong `.env.example` (commit 95df5ca) → đã thay placeholder; vẫn còn trong lịch sử git, người dùng cân nhắc rotate.
 
 ## Quyết định đã chốt
 - Mobile hỗ trợ cả iOS và Android, không phụ thuộc Expo Go; dùng native build cho máy thật — vì người dùng muốn cài trực tiếp và Expo Go từng không tương thích.
@@ -40,16 +43,17 @@ Port toàn bộ `Kavor HRM Prototype.html` sang app React Native sao cho giống
 - Trên bản dev, gõ phím "r" khi không focus ô nhập sẽ làm Metro reload (chỉ ảnh hưởng dev).
 
 ## Bước tiếp theo
-1. Nền tảng: Supabase staging, secret/config validation, migration check trên CI.
-2. Sprint 2: auth/activation/OTP thật, tenant context + RLS + audit; viết `httpApi` theo interface `KavorApi` và nối đăng nhập mobile.
-3. Chấm công thật: API idempotent + geofence + hàng đợi offline trên mobile.
-4. Web app (HR/Admin `apps/admin-web`, Kavor Console `apps/console-web`).
+1. Được đồng ý thì `supabase db push` lên project thật, rồi chạy lại kiểm tra quyền qua REST.
+2. Sprint 2: auth/activation/OTP thật qua Supabase Auth + API; viết `httpApi` theo `KavorApi` và nối đăng nhập mobile.
+3. Chấm công thật: API idempotent + geofence + hàng đợi offline.
+4. Web app (HR/Admin, Kavor Console).
 5. Sentry khi có tài khoản.
 
 ## Câu hỏi đang chờ người dùng trả lời
-- Không có.
+- Có áp migration RLS lên project Supabase thật không? Có rotate publishable key không?
 
 ## Nhật ký
+- 2026-10-22 — Màn Bảo mật và thiết bị; siết RLS + test cách ly tenant; config validation API; CI database job.
 - 2026-10-22 — Bước 1 xong: Face ID thật, Keychain, crash handler, lớp api, Android emulator 70/70 trạng thái; cài Release lên iPhone.
 - 2026-10-22 — Thêm splash screen, build Release lên iPhone 11 thật, commit + push.
 - 2026-10-22 — Đổi icon app (nền emerald, logo trắng); commit c60232d, tag mobile-v0.1.0, push.
