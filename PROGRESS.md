@@ -14,8 +14,9 @@ Port toàn bộ `Kavor HRM Prototype.html` sang app React Native sao cho giống
 - Kiểm tra ngày 22/10: `pnpm turbo run typecheck test build --force` pass 18/18 task (test thật chỉ có contracts 2 + api 2)
 
 ## Đang dở (QUAN TRỌNG NHẤT)
-- Chưa commit/push các thay đổi (người dùng dặn khoan push; commit chờ người dùng xác nhận).
+- Đã commit `c60232d`, gắn tag `mobile-v0.1.0` và push lên origin/main (22/10).
 - Chưa xác nhận trên máy thật: animation, safe area, Face ID hệ thống, navbar ẩn/hiện khi cuộn, bàn phím trong sheet. Bản trên máy là Release, không có cờ QA.
+- Đang chờ người dùng chọn hướng tiếp theo (xem Bước tiếp theo).
 
 ## Quyết định đã chốt
 - Mobile hỗ trợ cả iOS và Android, không phụ thuộc Expo Go; dùng native build cho máy thật — vì người dùng muốn cài trực tiếp và Expo Go từng không tương thích.
@@ -38,14 +39,15 @@ Port toàn bộ `Kavor HRM Prototype.html` sang app React Native sao cho giống
 - Trên bản dev, gõ phím "r" khi không focus ô nhập sẽ làm Metro reload (chỉ ảnh hưởng dev).
 
 ## Bước tiếp theo
-1. Người dùng thao tác thử trên iPhone thật, ghi lại điểm lệch về chuyển động/cảm giác chạm.
-2. Commit (sau khi người dùng đồng ý) và cân nhắc push.
-3. Build Android (`pnpm --filter @kavor/mobile android`) và đối chiếu.
-4. Nối Face ID thật (expo-local-authentication) và bắt đầu backend.
+1. Đóng Sprint 1 mobile: build Android và đối chiếu, Face ID thật (expo-local-authentication), secure storage, phân phối TestFlight/Play Internal, crash reporting.
+2. Đóng Sprint 1 nền tảng: Supabase staging, secret/config validation, migration check trên CI.
+3. Sprint 2: auth/activation/OTP thật, tenant context + RLS + audit; nối luồng đăng nhập mobile vào API.
+4. Sprint 5 (ưu tiên sớm vì là lõi): API chấm công idempotent + geofence + hàng đợi offline trên mobile.
 
 ## Câu hỏi đang chờ người dùng trả lời
-- Có commit thay đổi hiện tại không (chưa push)?
+- Bắt đầu giai đoạn nào trước: đóng Sprint 1 (Android + staging + phân phối) hay vào Sprint 2 (auth/tenant thật)?
 
 ## Nhật ký
+- 2026-10-22 — Đổi icon app (nền emerald, logo trắng); commit c60232d, tag mobile-v0.1.0, push.
 - 2026-10-22 — Viết lại app mobile theo prototype, 70/70 trạng thái khớp, cài Release lên iPhone 11 thật.
 - 2026-10-22 — Chụp đủ 63 màn prototype, 33 màn native và bàn giao chính xác phần ghép/đánh giá UI còn dở.
