@@ -1,10 +1,11 @@
 # PROGRESS
-_Cập nhật: 2026-10-22 21:15 +07 — bởi Claude (Opus 5.5)_
+_Cập nhật: 2026-10-22 22:30 +07 — bởi Claude (Opus 5.5)_
 
 ## Mục tiêu đang làm
-Port toàn bộ `Kavor HRM Prototype.html` sang app React Native sao cho giống prototype, sửa các lỗi UI nhỏ và cài bản build lên iPhone 11 thật ("Dqdatt"). Xong khi 70 trạng thái prototype/native khớp và app chạy được trên máy thật. Chưa push git (theo yêu cầu người dùng).
+Khép module chấm công giữa mobile và web HR/Admin với dữ liệu thật (bước 1 trong `docs/HR_COVERAGE_AUDIT.md` §5), theo mô hình quyền/rules ở `docs/adr/0001-tenant-admin-va-bo-rules.md`. Xong khi: HR tạo nhân viên trên web → nhân viên kích hoạt trên mobile → HR duyệt thiết bị → chấm công → web hiện realtime; địa điểm/ca cấu hình được trên web theo tầng.
 
 ## Đã xong
+- Quyết định kiến trúc (22/10): ADR 0001 (Kavor cấp Tenant Admin → admin cài đặt công ty → nhân viên tra rule theo tầng/phiên bản; Kavor duy trì luật nhà nước; mẫu mặc định cho tenant mới; chống mất quyền admin; đồng ý dữ liệu cá nhân). Rà soát toàn bộ phần mobile cần HR quản lý: `docs/HR_COVERAGE_AUDIT.md` (12 mục prototype HR thiếu). `DATABASE_SCHEMA.md` §20 bổ sung bảng chính sách có tầng, luật nhà nước, lịch lễ, đồng ý dữ liệu cá nhân.
 - Chấm công thật (22/10): migration `202610220003_attendance.sql` (work_locations, employee_devices, attendance_events bất biến + chống trùng, RLS) đã push lên project thật; pgTAP 9 test. API `/me/devices`, `/me/attendance/today`, `/me/attendance/events` (Idempotency-Key), `/dev/work-location` — `apps/api/src/attendance`, `tools/attendance-smoke.sh` 19/19. Mobile `src/attendance.ts`: GPS thật (`expo-location`, xin quyền khi chấm công), mã cài đặt trong Keychain, hàng đợi offline tự gửi lại khi mở app; biên nhận/ngoài vùng/E19/E20/E21 dùng dữ liệu thật. Đã thử trên simulator: đăng ký máy → vào ca trong vùng → ra ca ngoài vùng bị từ chối → mất mạng lưu hàng đợi → mở lại tự gửi (kiểm tra DB đúng giờ máy).
 - Auth thật (22/10): migration `202610220002_service_role_grants.sql` (service_role không có quyền DML mặc định) — đã push cả hai migration lên project thật; OTP email tiếng Việt (`supabase/templates/otp.html`); giới hạn thử sai; chính sách mật khẩu dùng chung trong `@kavor/contracts`; ô OTP nhận gõ nhanh/tự điền mã; sửa lỗi mất phiên sau bước đăng ký thiết bị.
 - Nền tảng (22/10): Supabase local chạy ở cổng 553xx (máy có project local khác chiếm 543xx); phát hiện và sửa: 3 bảng chưa bật RLS, client không có quyền SELECT nên policy cũ vô tác dụng, anon có TRUNCATE; audit_logs chỉ thêm. API kiểm tra cấu hình khi khởi động (`apps/api/src/config.ts`, 4 test). CI thêm job `database` (db reset + test db + lint).
@@ -48,15 +49,25 @@ Port toàn bộ `Kavor HRM Prototype.html` sang app React Native sao cho giống
 - Trên bản dev, gõ phím "r" khi không focus ô nhập sẽ làm Metro reload (chỉ ảnh hưởng dev).
 
 ## Bước tiếp theo
-1. Bảng công tháng/lịch sử chấm công từ API (màn Công đang dùng dữ liệu mẫu), ca theo tenant, giải trình công gửi lên API.
-2. Staging thật: SMTP riêng (Resend/SES) cho project Supabase, nhập dữ liệu nhân viên, deploy API.
-3. Web app (HR/Admin, Kavor Console) — HR tạo/nhập nhân viên để họ tự kích hoạt.
-4. Sentry khi có tài khoản.
+1. **Khép module chấm công** (làm tiếp từ đây):
+   - Seed HR admin "Mai Phương Thảo" + role/permission; API guard theo permission + scope; audit mọi thao tác.
+   - Web HR/Admin (`apps/admin-web`): đăng nhập (cookie httpOnly qua route Next, gọi API `/auth/login`), layout bám `Kavor HR Admin Prototype.html`, menu theo quyền.
+   - Nhân viên: danh sách/chi tiết/thêm/sửa; trạng thái kích hoạt, gửi lại lời mời, khóa tài khoản.
+   - Thiết bị: duyệt/từ chối/thu hồi (mobile E19 tự chuyển khi được duyệt).
+   - Địa điểm + ca theo tầng (ADR 0001, `DATABASE_SCHEMA.md` §20): CRUD trên web; mobile lấy ca/địa điểm từ API, bỏ 08:00–17:00 cứng và nút dev.
+   - Tổng quan + bảng chấm công hôm nay + bản ghi bị từ chối; realtime bằng Supabase Realtime (tín hiệu → gọi lại API), RLS cho HR, fallback polling 30 s.
+   - Kiểm thử: smoke script API HR (thiếu quyền/khác tenant bị chặn), pgTAP RLS mới, kịch bản đầu-cuối web ↔ mobile, chụp web so prototype.
+2. Nền rules có tầng/phiên bản + cài đặt công ty (thương hiệu, liên hệ, lịch lễ, mẫu mặc định, checklist thiết lập, đồng ý dữ liệu cá nhân).
+3. Kavor Console tối thiểu: tạo tenant, mời Tenant Admin.
+4. Thông báo (lưu, push APNs/FCM, nhắc nhở).
+5. Công tháng + giải trình + workflow → nghỉ phép/OT → tạm ứng → payroll → bản tin/tài liệu.
+- Ngoài luồng chính: staging (SMTP, deploy API) khi có tài khoản; Sentry; số liệu luật cần HR/Payroll SME xác nhận trước pilot.
 
 ## Câu hỏi đang chờ người dùng trả lời
 - Không có.
 
 ## Nhật ký
+- 2026-10-22 — Chốt ADR 0001 (admin công ty + rules có tầng), rà soát phần HR cần quản lý, bổ sung schema §20.
 - 2026-10-22 — Chấm công thật: thiết bị, GPS, geofence, hàng đợi offline; push migration attendance lên project thật; cài bản dev lên iPhone.
 - 2026-10-22 — Auth thật: kích hoạt/OTP/đăng nhập/quên mật khẩu qua API + Supabase Auth; push migration lên project thật; cài bản dùng API lên iPhone.
 - 2026-10-22 — Màn Bảo mật và thiết bị; siết RLS + test cách ly tenant; config validation API; CI database job.

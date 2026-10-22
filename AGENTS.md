@@ -3,6 +3,7 @@
 ## Kiến trúc
 
 - Monorepo pnpm/Turborepo: `apps/admin-web` và `apps/console-web` là Next.js; `apps/mobile` là Expo/React Native; `apps/api` là backend TypeScript; `packages/contracts` chứa contract dùng chung; `packages/web-ui` chứa UI web dùng chung; `supabase/` chứa cấu hình/migration PostgreSQL.
+- Quyết định kiến trúc ở `docs/adr/`. ADR 0001: Kavor cấp Tenant Admin, chính sách nghiệp vụ có tầng (công ty → nhóm → cá nhân) + phiên bản/ngày hiệu lực, tra theo ngày chứ không sao chép vào nhân viên; luật nhà nước do Kavor duy trì. Không thêm giá trị nghiệp vụ cứng mới vào mobile/web — đọc từ API. Phần HR cần quản lý và thứ tự module: `docs/HR_COVERAGE_AUDIT.md`.
 - Prototype mobile chuẩn để đối chiếu là `Kavor HRM Prototype.html`. Deep link mobile dùng scheme `kavor://`.
 - Kavor là SaaS quản trị nhân sự cho doanh nghiệp, không phải dịch vụ đăng ký kinh doanh. Payroll phải cấu hình theo tenant; không phát triển chữ ký số. Supabase/PostgreSQL là nguồn dữ liệu vận hành; Google Sheets chỉ là nguồn import/chuyển đổi.
 

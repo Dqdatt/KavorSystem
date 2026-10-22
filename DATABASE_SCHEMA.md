@@ -611,3 +611,48 @@ Retention phải cấu hình theo loại dữ liệu và hợp đồng tenant. K
 - Support session hết hạn mất quyền ngay.
 - Signed URL tài liệu hết hạn và không dùng chéo tenant.
 - Restore backup giữ nguyên constraint, policy và audit.
+
+## 20. Chính sách có tầng, luật nhà nước và tuân thủ (bổ sung 22/10/2026)
+
+Theo `docs/adr/0001-tenant-admin-va-bo-rules.md`. Tên bảng là đề xuất, chốt khi viết migration của module tương ứng.
+
+### `policy_definitions`, `policy_versions`, `policy_assignments`
+
+- Khung chung cho chính sách nghiệp vụ không có bảng riêng: `attendance` (địa điểm/bán kính/sai số, ca mặc định), `explanation` (số lượt, hạn), `salary_advance` (% hạn mức, ngày khóa, đối tượng), `notification_reminder`.
+- `policy_definitions`: `id`, `tenant_id`, `kind`, `code`, `name`.
+- `policy_versions`: `id`, `policy_id`, `version_no`, `config jsonb` (schema theo `kind`, validate ở API), `effective_from`, `effective_to`, `created_by`. Bất biến; sửa = phiên bản mới.
+- `policy_assignments`: `id`, `tenant_id`, `policy_id`, `scope_type` (`tenant|legal_entity|branch|department|contract_type|employee`), `scope_id`, `effective_from`, `effective_to`, `reason` (bắt buộc khi `employee`).
+- Ưu tiên khi nhiều assignment khớp: employee > department > branch > legal_entity > tenant.
+- Nghỉ phép (`leave_policy_assignments`), ca (`shift_assignments`), workflow (`workflow_versions`), payroll (`payroll_config_versions`) giữ bảng riêng nhưng theo cùng nguyên tắc tầng + phiên bản.
+
+### `statutory_rule_sets`, `statutory_rule_versions` (platform, không có `tenant_id`)
+
+- Luật nhà nước do Kavor duy trì: tỷ lệ bảo hiểm, biểu thuế TNCN, giảm trừ, phép năm tối thiểu, giới hạn OT.
+- `config jsonb`, `effective_from`, `effective_to`, `source_document` (số văn bản), `verified_by`, `verified_at`.
+- Chưa có `verified_by` (chuyên gia xác nhận) thì không dùng cho payroll thật.
+
+### `holiday_calendars`, `holidays`
+
+- `holiday_calendars`: `id`, `tenant_id null` (null = lịch quốc gia do Kavor duy trì), `name`, `year`.
+- `holidays`: `id`, `calendar_id`, `date`, `name`, `kind` (`public|company|compensatory`), `paid boolean`.
+- Tenant dùng lịch quốc gia + lịch riêng; ảnh hưởng tính phép, bảng công, payroll.
+
+### `tenant_policy_templates` (platform)
+
+- Bộ mẫu mặc định theo luật Việt Nam sinh ra khi tạo tenant: role hệ thống, ca hành chính, chính sách phép chuẩn, workflow 1 cấp, quy định giải trình, nhắc nhở, lịch lễ.
+
+### `tenant_settings` — phạm vi sau ADR 0001
+
+- Chỉ giữ cấu hình không cần tầng/phiên bản: `branding` (`logo_path`, `cover_path`, `display_name`), `support_contact` (điện thoại, email, giờ hỗ trợ), `mobile_policy`, chính sách nền tảng (Employee Web, MFA admin, xác nhận đọc bản tin).
+- File logo/ảnh bìa lưu Supabase Storage bucket riêng theo tenant.
+
+### `privacy_terms`, `privacy_consents`
+
+- `privacy_terms`: `id`, `tenant_id`, `version_no`, `content`, `published_at`.
+- `privacy_consents`: `id`, `tenant_id`, `user_id`, `terms_id`, `accepted_at`, `installation_id`, `ip`. Append-only.
+- Điều khoản mới → nhân viên phải đồng ý lại (Nghị định 13/2023/NĐ-CP — nội dung cần chuyên gia pháp lý).
+
+### Tài khoản và admin
+
+- Chặn gỡ/khóa Tenant Admin cuối cùng (trigger hoặc kiểm tra ở API + test).
+- `employees.avatar_path` (Storage) — ai được đổi theo `tenant_settings.mobile_policy`.
