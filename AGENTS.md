@@ -44,5 +44,8 @@ pnpm build
 - Supabase local của Kavor chạy cổng 553xx (API 55321, DB 55322) vì máy có project local khác (PharmaPOS_V3) chiếm 543xx — không stop project đó. Lệnh: `supabase start -x studio,imgproxy,vector,logflare,edge-runtime,realtime,storage-api,mailpit,postgres-meta`, `supabase db reset`, `supabase test db`.
 - Supabase mới không tự GRANT SELECT cho anon/authenticated: bảng mới phải tự `enable row level security` + policy + `grant select ... to authenticated`; ghi dữ liệu đi qua API (service role). Thêm test vào `supabase/tests/`.
 - Node cho Xcode đặt trong `apps/mobile/ios/.xcode.env.local` (`NODE_BINARY`); đổi Node thì cập nhật file này.
+- Backend dev: `pnpm dev:backend` (Supabase local + Mailpit + API). Mobile dùng API thật khi build có `EXPO_PUBLIC_API_URL=http://<IP LAN Mac>:4000/api/v1`; không có biến này hoặc bật QA thì dùng dữ liệu mẫu. OTP xem ở Mailpit `http://127.0.0.1:55324`. Kiểm thử auth: `supabase db reset && bash tools/auth-smoke.sh`.
+- Supabase Auth: signup công khai tắt; API tạo user bằng admin rồi gửi OTP (`shouldCreateUser:false`). Không dùng client admin để đăng nhập (supabase-js sẽ gắn token người dùng vào client) — dùng `authClient()` mới cho mỗi lần.
+- `expo run:ios --device` hay treo ở bước "Connecting to" iPhone: build bằng `xcodebuild ... -destination 'generic/platform=iOS'` rồi `xcrun devicectl device install app`.
 - Ảnh simulator không đồng nghĩa với kiểm thử máy thật. Animation, safe area, Face ID và hành vi navbar phải xác nhận lại trên thiết bị vật lý.
 - Không đưa Supabase publishable key hoặc thông tin đăng nhập vào tài liệu/commit; dùng biến môi trường.

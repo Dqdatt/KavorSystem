@@ -66,7 +66,9 @@ insert into public.employees (
   ('60000000-0000-4000-8000-000000000002','10000000-0000-4000-8000-000000000001','HDG0002','Trần Thu Hà','ha.tran@example.test','0900000002','2023-03-15','official','active','sample','HDG0002'),
   ('60000000-0000-4000-8000-000000000003','10000000-0000-4000-8000-000000000001','HDG0003','Lê Quang Huy','huy.le@example.test','0900000003','2024-02-19','official','active','sample','HDG0003'),
   ('60000000-0000-4000-8000-000000000004','10000000-0000-4000-8000-000000000001','HDG0004','Phạm Ngọc Anh','anh.pham@example.test','0900000004','2023-08-01','official','active','sample','HDG0004'),
-  ('60000000-0000-4000-8000-000000000005','10000000-0000-4000-8000-000000000001','HDG0005','Võ Thảo Linh','linh.vo@example.test','0900000005','2022-11-07','official','active','sample','HDG0005')
+  ('60000000-0000-4000-8000-000000000005','10000000-0000-4000-8000-000000000001','HDG0005','Võ Thảo Linh','linh.vo@example.test','0900000005','2022-11-07','official','active','sample','HDG0005'),
+  -- Nhân viên dùng trong app mobile (prototype): kích hoạt bằng HD0142 + thao.ha@haidang.vn
+  ('60000000-0000-4000-8000-000000000142','10000000-0000-4000-8000-000000000001','HD0142','Trần Thu Hà','thao.ha@haidang.vn','0912345468','2021-03-03','official','active','sample','HD0142')
 on conflict (tenant_id, employee_code) do nothing;
 
 insert into public.audit_logs (

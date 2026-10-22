@@ -10,3 +10,16 @@ test("Kavor exposes both mobile platforms", () => {
 test("sample tenant stays inside its seat limit", () => {
   assert.ok(SAMPLE_TENANT.activeEmployees <= SAMPLE_TENANT.employeeLimit);
 });
+
+import { maskEmail, passwordProblems } from "./index.js";
+
+test("chính sách mật khẩu", () => {
+  assert.deepEqual(passwordProblems("Kavor2026A", "HD0142"), []);
+  assert.equal(passwordProblems("abc").length, 3);
+  assert.ok(passwordProblems("Hd0142abcX", "HD0142").some((p) => p.includes("mã nhân viên")));
+});
+
+test("che email", () => {
+  assert.equal(maskEmail("thao.ha@haidang.vn"), "th*****@haidang.vn");
+  assert.equal(maskEmail("a@x.vn"), "a***@x.vn");
+});

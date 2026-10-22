@@ -92,7 +92,7 @@ export function Login() {
       <Brand />
       <Head title="Đăng nhập">Chào mừng bạn trở lại Kavor. Đăng nhập để bắt đầu ngày làm việc.</Head>
       <View style={{ gap: 12 }}>
-        <Fl icon="user" value="HD0142" placeholder="Mã nhân viên hoặc email" onChange={() => {}} />
+        <Fl icon="user" value={f.lgId} placeholder="Mã nhân viên hoặc email" onChange={(v) => { f.lgId = v; emit(); }} />
         <Fl icon="lock" value={f.lgPw} placeholder="Mật khẩu" secure={!f.lgPwShow} onChange={(v) => { f.lgPw = v; emit(); }}
           trailing={<FlBtn icon={f.lgPwShow ? "eyeOff" : "eye"} label="Hiện mật khẩu" onPress={() => { f.lgPwShow = !f.lgPwShow; emit(); }} />} />
         <View style={{ flexDirection: "row", justifyContent: "flex-end", marginHorizontal: 4, marginBottom: 2 }}>
@@ -141,14 +141,24 @@ function OtpBoxes({ label }: { label: string }) {
   return (
     <View accessibilityLabel={label} style={{ flexDirection: "row", gap: 8, marginTop: 8, marginBottom: 18 }}>
       {otp.map((v, i) => <OtpBox key={i} value={v} inputRef={(r) => { refs.current[i] = r; }} label={`Số OTP ${i + 1}`}
-        onChange={(t) => { const d = t.replace(/\D/g, "").slice(-1); otp[i] = d; emit(); if (d) refs.current[i + 1]?.focus(); }}
+        onChange={(t) => {
+          /* Gõ nhanh, dán hoặc iOS tự điền mã: nhiều chữ số đến cùng lúc → rải sang các ô kế tiếp */
+          const d = t.replace(/\D/g, "");
+          if (!d) { otp[i] = ""; emit(); return; }
+          const typedAfter = !!otp[i] && d.length > otp[i]!.length && d.startsWith(otp[i]!);
+          const chars = typedAfter ? d.slice(otp[i]!.length) : d;
+          let at = typedAfter ? i + 1 : i;
+          for (const c of chars) { if (at > 5) break; otp[at] = c; at++; }
+          emit();
+          refs.current[Math.min(at, 5)]?.focus();
+        }}
         onBack={() => { if (!otp[i]) refs.current[i - 1]?.focus(); }} />)}
     </View>
   );
 }
 function OtpBox({ value, onChange, onBack, inputRef, label }: { value: string; onChange: (t: string) => void; onBack: () => void; inputRef: (r: TextInput | null) => void; label: string }) {
   const [focus, setFocus] = useState(false);
-  return <TextInput ref={inputRef} accessibilityLabel={label} allowFontScaling={false} value={value} onChangeText={onChange} keyboardType="number-pad" maxLength={2} textContentType="oneTimeCode"
+  return <TextInput ref={inputRef} accessibilityLabel={label} allowFontScaling={false} value={value} onChangeText={onChange} keyboardType="number-pad" maxLength={6} textContentType="oneTimeCode" autoComplete="one-time-code" selectTextOnFocus
     onKeyPress={(e) => { if (e.nativeEvent.key === "Backspace") onBack(); }} onFocus={() => setFocus(true)} onBlur={() => setFocus(false)}
     style={[styles.otp, focus && { borderColor: C.emerald, backgroundColor: "#fff", boxShadow: "0px 0px 0px 4px rgba(167,243,208,0.34)" }]} />;
 }
@@ -157,7 +167,7 @@ function OtpScreen({ title, label, btn, act, spinKey, progress }: { title: strin
   return (
     <AuthPage back progress={progress} otp>
       <Brand otp />
-      <Head title={title}>{title === "Nhập mã OTP" ? "Mã xác thực 6 số đã được gửi đến" : "Mã OTP 6 số đã được gửi đến"}{"\n"}<T style={{ fontSize: 13, fontFamily: F.bold, color: C.ink2 }}>thao.ha@haidang.vn</T></Head>
+      <Head title={title}>{title === "Nhập mã OTP" ? "Mã xác thực 6 số đã được gửi đến" : "Mã OTP 6 số đã được gửi đến"}{"\n"}<T style={{ fontSize: 13, fontFamily: F.bold, color: C.ink2 }}>{S.f.otpDest}</T></Head>
       <OtpBoxes label={label} />
       <Btn kind="auth" block spinKey={spinKey} onPress={act}>{btn}</Btn>
       <T style={{ fontSize: 12.5, color: C.ink2, textAlign: "center" }}>Chưa nhận được mã? <AuthLink bold onPress={ACT.resendOtp}>Gửi lại OTP</AuthLink></T>

@@ -7,7 +7,9 @@ import {
 } from "./data";
 import type { IllusKind } from "./illus";
 import { api, type Snapshot } from "./api";
-import { authenticate, biometricLabel, clearSession, loadBioPrefs, loadSession, quickLoginEmployee, saveBioPrefs, saveSession, type BioPrefs } from "./auth";
+import { authenticate, biometricLabel, clearQuickLogin, clearSession, loadBioPrefs, loadSession, quickLoginEmployee, quickRefreshToken, saveBioPrefs, saveSession, type BioPrefs } from "./auth";
+import { ApiError, REMOTE, authApi } from "./api/http";
+import { passwordProblems, type AuthResult } from "@kavor/contracts";
 
 export type Anim = "push" | "pop" | "fade";
 export type Route =
@@ -27,9 +29,11 @@ export const SIM = { base: 478 * 60, start: Date.now() };
 export const simNow = () => SIM.base + Math.floor((Date.now() - SIM.start) / 1000);
 
 const freshForms = () => ({
-  lgPw: "demo-pass", lgPwShow: false,
+  lgId: "HD0142", lgPw: REMOTE ? "" : "demo-pass", lgPwShow: false,
   fgId: "thao.ha@haidang.vn", fgErr: false,
-  otp: ["4", "8", "", "", "", ""],
+  otp: REMOTE ? ["", "", "", "", "", ""] : ["4", "8", "", "", "", ""],
+  /* Email nhận OTP do API trả về; destination là bản đã che để hiển thị */
+  otpEmail: "thao.ha@haidang.vn", otpDest: "thao.ha@haidang.vn", otpCode: "",
   newPw: "", confirmPw: "", newPwShow: false, confirmPwShow: false, resetErr: "",
   acId: "HD0142", acMail: "thao.ha@haidang.vn", acPw: "", agree: false, agreeErr: false,
   rej: "", rejErr: false, payQ: "", payChip: 1, pfPhone: "0912 345 468", pfAddr: "Tân Định, TP.HCM",
@@ -196,10 +200,19 @@ export function shake(key: string) { S.shake = { key, n: S.shake.n + 1 }; emit()
 
 export function openPin(ok: () => void) { S.pin = ""; S.pinOk = ok; openSheet("pin"); }
 /* Lưu phiên vào Keychain; thiết bị đã đăng ký thì vào thẳng trang chủ, chưa thì sang bước đăng ký */
-async function signIn(employeeId: string) {
-  const session = await saveSession({ employeeId });
+async function signIn(employeeId: string, result?: AuthResult) {
+  const session = await saveSession({ employeeId, ...(result ? { auth: result.session, me: result.me } : {}) });
   S.stack = [session.deviceRegistered ? "home" : "device"];
   render(session.deviceRegistered ? "fade" : "push");
+}
+
+/* Chạy thao tác gọi API với spinner trên nút `key`; lỗi hiển thị bằng toast (onError trả true nếu đã tự xử lý) */
+function remote(key: string, fn: () => Promise<void>, onError?: (e: ApiError) => boolean) {
+  S.spin = key; emit();
+  fn().catch((e: unknown) => {
+    const err = e instanceof ApiError ? e : new ApiError("UNKNOWN", "Đã có lỗi xảy ra. Vui lòng thử lại.", 0);
+    if (!onError?.(err)) toast(err.message);
+  }).finally(() => { if (S.spin === key) S.spin = null; emit(); });
 }
 
 /* Bật/tắt Face ID: bật lại cần xác thực sinh trắc học một lần để chắc chắn đúng chủ máy */
@@ -210,6 +223,7 @@ export async function setBioPref(key: keyof BioPrefs, on: boolean) {
   }
   S.bio = { ...S.bio, [key]: on }; emit();
   await saveBioPrefs(S.bio);
+  if (key === "login" && !on) await clearQuickLogin();
   toast(`Đã ${on ? "bật" : "tắt"} ${key === "login" ? "đăng nhập" : "mở khóa lương/tạm ứng"} bằng ${S.bioLabel}`);
 }
 
@@ -219,6 +233,19 @@ export async function restoreSession() {
   S.bioLabel = await biometricLabel().then((l) => (l === "vân tay" ? "vân tay" : l === "Face ID" ? "Face ID" : "sinh trắc học"));
   const session = await loadSession();
   if (!session) return;
+  if (REMOTE) {
+    /* Access token hết hạn thì làm mới bằng refresh token; không làm mới được thì quay về đăng nhập */
+    if (!session.auth) { await clearSession(); return; }
+    if (session.auth.expiresAt - 60 < Date.now() / 1000) {
+      try {
+        const r = await authApi.refresh({ refreshToken: session.auth.refreshToken });
+        await saveSession({ employeeId: r.me.employeeCode, auth: r.session, me: r.me });
+      } catch (e) {
+        if (e instanceof ApiError && e.status === 401) { await clearSession(); toast("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại."); return; }
+        /* Mất mạng: vẫn vào app bằng phiên cũ, các thao tác cần mạng sẽ báo lỗi riêng */
+      }
+    }
+  }
   Object.assign(S, fromSnapshot(await api.refresh().catch(() => api.cached())));
   S.stack = [session.deviceRegistered ? "home" : "device"]; render();
 }
@@ -274,31 +301,96 @@ export const ACT = {
   errUpdate: () => spin("errUpdate", 1200, () => { S.err = null; S.stack = ["home"]; render("fade"); toast("Đã cập nhật lên phiên bản 2.4.0"); }),
   errExplain: () => { S.err = null; S.stack = ["home"]; render("fade"); go("explain"); },
   help: () => openSheet("help", cur()),
-  login: () => spin("login", 700, () => { void signIn("HD0142"); }),
+  login: () => {
+    if (!REMOTE) { spin("login", 700, () => { void signIn("HD0142"); }); return; }
+    if (!S.f.lgId.trim() || !S.f.lgPw) { toast("Nhập mã nhân viên hoặc email và mật khẩu"); return; }
+    remote("login", async () => { const r = await authApi.login({ identifier: S.f.lgId.trim(), password: S.f.lgPw }); S.f.lgPw = ""; await signIn(r.me.employeeCode, r); });
+  },
   /* Face ID ở màn đăng nhập: dùng thông tin đăng nhập nhanh đã lưu từ lần đăng nhập mật khẩu trước */
   faceLogin: async () => {
     const employeeId = await quickLoginEmployee();
     if (!S.bio.login) { toast(`Đăng nhập bằng ${S.bioLabel} đang tắt. Bật lại trong Hồ sơ → Bảo mật và thiết bị.`); return; }
     if (!employeeId) { toast("Đăng nhập bằng mật khẩu một lần để bật đăng nhập nhanh bằng Face ID"); return; }
+    const refreshToken = REMOTE ? await quickRefreshToken() : null;
+    if (REMOTE && !refreshToken) { toast("Đăng nhập bằng mật khẩu một lần để bật đăng nhập nhanh bằng Face ID"); return; }
     const r = await authenticate("Đăng nhập Kavor");
     if (!r.ok) { if (r.reason !== "cancelled") toast(r.message); return; }
-    await signIn(employeeId);
+    if (!REMOTE) { await signIn(employeeId); return; }
+    remote("login", async () => {
+      try {
+        const res = await authApi.refresh({ refreshToken: refreshToken! });
+        await signIn(res.me.employeeCode, res);
+      } catch (e) {
+        if (e instanceof ApiError && e.status === 401) { await clearQuickLogin(); throw new ApiError(e.code, "Phiên đăng nhập nhanh đã hết hạn. Đăng nhập bằng mật khẩu để bật lại Face ID.", 401); }
+        throw e;
+      }
+    });
   },
   ssoLogin: () => { toast("Mở trang đăng nhập một lần (SSO) của công ty · mô phỏng"); setTimeout(() => { void signIn("HD0142"); }, 1000); },
   toActivate: () => { S.stack = ["login", "activate"]; render("push"); },
   toLogin: () => { S.stack = ["login"]; render("pop"); },
-  sendResetOtp: () => { if (!S.f.fgId.trim()) { S.f.fgErr = true; shake("fgErr"); return; } spin("sendResetOtp", 700, () => { S.stack.push("forgotOtp"); render("push"); toast("Đã gửi mã OTP · hiệu lực trong 5 phút"); }); },
-  verifyResetOtp: () => { if (S.f.otp.join("").length < 6) { toast("Vui lòng nhập đủ 6 số OTP"); return; } spin("verifyResetOtp", 700, () => { S.stack.push("resetPassword"); render("push"); }); },
+  sendResetOtp: () => {
+    if (!S.f.fgId.trim()) { S.f.fgErr = true; shake("fgErr"); return; }
+    if (REMOTE) {
+      remote("sendResetOtp", async () => {
+        const r = await authApi.forgot({ identifier: S.f.fgId.trim() });
+        S.f.otpEmail = r.email ?? S.f.fgId.trim(); S.f.otpDest = r.destination ?? S.f.otpEmail; S.f.otp = ["", "", "", "", "", ""];
+        S.stack.push("forgotOtp"); render("push"); toast("Đã gửi mã OTP · hiệu lực trong 5 phút");
+      });
+      return;
+    }
+    spin("sendResetOtp", 700, () => { S.stack.push("forgotOtp"); render("push"); toast("Đã gửi mã OTP · hiệu lực trong 5 phút"); });
+  },
+  verifyResetOtp: () => { if (S.f.otp.join("").length < 6) { toast("Vui lòng nhập đủ 6 số OTP"); return; } S.f.otpCode = S.f.otp.join(""); spin("verifyResetOtp", REMOTE ? 200 : 700, () => { S.stack.push("resetPassword"); render("push"); }); },
   resetPassword: () => {
-    const p = S.f.newPw, c = S.f.confirmPw; let e = "";
-    if (p.length < 8) e = "Mật khẩu cần có ít nhất 8 ký tự."; else if (!/[A-Za-z]/.test(p) || !/[0-9]/.test(p)) e = "Mật khẩu cần có cả chữ và số."; else if (p !== c) e = "Hai mật khẩu chưa khớp.";
+    const p = S.f.newPw, c = S.f.confirmPw;
+    const e = (REMOTE ? passwordProblems(p, S.f.lgId)[0] : p.length < 8 ? "Mật khẩu cần có ít nhất 8 ký tự." : !/[A-Za-z]/.test(p) || !/[0-9]/.test(p) ? "Mật khẩu cần có cả chữ và số." : "") || (p !== c ? "Hai mật khẩu chưa khớp." : "");
     if (e) { S.f.resetErr = e; shake("resetErr"); return; }
+    if (REMOTE) {
+      remote("resetPassword", async () => {
+        await authApi.reset({ email: S.f.otpEmail, code: S.f.otpCode, newPassword: p });
+        S.f = freshForms(); S.stack = ["login"]; render("fade"); toast("Đã đặt lại mật khẩu. Bạn có thể đăng nhập ngay.");
+      }, (err) => { if (err.code === "AUTH_OTP_INVALID") { S.f.resetErr = err.message + " Quay lại để nhập mã khác."; shake("resetErr"); return true; } return false; });
+      return;
+    }
     spin("resetPassword", 800, () => { S.f = freshForms(); S.stack = ["login"]; render("fade"); toast("Đã đặt lại mật khẩu. Bạn có thể đăng nhập ngay."); });
   },
-  activate: () => { if (!S.f.agree) { S.f.agreeErr = true; shake("agreeErr"); return; } spin("activate", 700, () => { S.stack.push("otp"); render("push"); }); },
-  verifyOtp: () => { if (S.f.otp.join("").length < 6) { toast("Vui lòng nhập đủ 6 số OTP"); return; } spin("verifyOtp", 800, () => { toast("Đã kích hoạt tài khoản HD0142"); void signIn("HD0142"); }); },
-  resendOtp: () => toast("Đã gửi lại mã OTP mới · hiệu lực trong 5 phút"),
-  registerDevice: () => { sync(api.registerDevice()); void saveSession({ employeeId: "HD0142", deviceRegistered: true }); S.stack = ["home"]; render("fade"); toast("Đã đăng ký iPhone 15 làm thiết bị chấm công"); },
+  activate: () => {
+    if (!S.f.agree) { S.f.agreeErr = true; shake("agreeErr"); return; }
+    if (REMOTE) {
+      const pw = passwordProblems(S.f.acPw, S.f.acId)[0];
+      if (pw) { toast(pw); return; }
+      remote("activate", async () => {
+        const r = await authApi.activateStart({ employeeCode: S.f.acId.trim(), email: S.f.acMail.trim() });
+        S.f.otpEmail = r.email ?? S.f.acMail.trim(); S.f.otpDest = r.destination ?? S.f.otpEmail; S.f.otp = ["", "", "", "", "", ""];
+        S.stack.push("otp"); render("push"); toast("Đã gửi mã OTP tới email công ty");
+      });
+      return;
+    }
+    spin("activate", 700, () => { S.stack.push("otp"); render("push"); });
+  },
+  verifyOtp: () => {
+    if (S.f.otp.join("").length < 6) { toast("Vui lòng nhập đủ 6 số OTP"); return; }
+    if (REMOTE) {
+      remote("verifyOtp", async () => {
+        const r = await authApi.activateVerify({ email: S.f.otpEmail, code: S.f.otp.join(""), password: S.f.acPw });
+        toast(`Đã kích hoạt tài khoản ${r.me.employeeCode}`); S.f.acPw = "";
+        await signIn(r.me.employeeCode, r);
+      }, (err) => { if (err.code === "AUTH_OTP_INVALID") { S.f.otp = ["", "", "", "", "", ""]; emit(); } return false; });
+      return;
+    }
+    spin("verifyOtp", 800, () => { toast("Đã kích hoạt tài khoản HD0142"); void signIn("HD0142"); });
+  },
+  resendOtp: () => {
+    if (!REMOTE) { toast("Đã gửi lại mã OTP mới · hiệu lực trong 5 phút"); return; }
+    const resetFlow = cur() === "forgotOtp";
+    remote("resendOtp", async () => {
+      if (resetFlow) await authApi.forgot({ identifier: S.f.otpEmail });
+      else await authApi.activateStart({ employeeCode: S.f.acId.trim(), email: S.f.otpEmail });
+      S.f.otp = ["", "", "", "", "", ""]; emit(); toast("Đã gửi lại mã OTP mới · hiệu lực trong 5 phút");
+    });
+  },
+  registerDevice: () => { sync(api.registerDevice()); void loadSession().then((sess) => saveSession({ employeeId: sess?.employeeId ?? "HD0142", deviceRegistered: true })); S.stack = ["home"]; render("fade"); toast("Đã đăng ký iPhone 15 làm thiết bị chấm công"); },
   quick: () => { S.quickOpen ? quickClose() : quickOpen(); },
   qgo: (a: string) => { quickClose(); if (a === "_edit") { setTimeout(() => ACT.editProfile(), 160); return; } setTimeout(() => go(a as Route), 110); },
   blockedTap: () => openSheet("blocked"),
@@ -419,7 +511,13 @@ export const ACT = {
   editProfile: () => openSheet("editProfile"),
   pfSend: () => { if (!needNet(() => ACT.pfSend())) return; sync(api.requestProfileChange({ phone: S.f.pfPhone, address: S.f.pfAddr })); closeSheet(); toast("Đã gửi. Thông tin cũ vẫn hiệu lực đến khi HR duyệt."); },
   logoutAsk: () => openSheet("logoutAsk"),
-  logoutGo: () => { void clearSession(); S.pinUntil = 0; closeSheet(); S.stack = ["login"]; render("fade"); },
+  logoutGo: () => {
+    /* Còn bật đăng nhập bằng Face ID thì giữ refresh token cho lần sau; tắt thì thu hồi phiên trên máy chủ */
+    if (REMOTE) void loadSession().then(async (sess) => {
+      if (!S.bio.login && sess?.auth) { await authApi.logout(sess.auth.accessToken).catch(() => undefined); await clearQuickLogin(); }
+    });
+    void clearSession(); S.pinUntil = 0; S.f = freshForms(); closeSheet(); S.stack = ["login"]; render("fade");
+  },
   pinkey: (a: string) => {
     if (a === "del") S.pin = S.pin.slice(0, -1); else if (S.pin.length < 6) S.pin += a;
     emit();

@@ -2,7 +2,7 @@
 -- Chạy: supabase test db  (mỗi test chạy trong transaction và tự rollback)
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(16);
+select plan(18);
 
 -- Dữ liệu thử: tenant A (seed Hải Đăng) và tenant B, mỗi bên một người dùng
 insert into auth.users (id, email) values
@@ -31,7 +31,7 @@ set local role authenticated;
 select set_config('request.jwt.claims', '{"sub":"a0000000-0000-4000-8000-00000000000a","role":"authenticated"}', true);
 select is((select count(*)::int from public.tenants), 1, 'A chỉ thấy 1 tenant');
 select is((select code from public.tenants), 'HDG-001', 'A thấy đúng tenant của mình');
-select is((select count(*)::int from public.employees), 5, 'A thấy 5 nhân viên của tenant A');
+select is((select count(*)::int from public.employees), 6, 'A thấy 6 nhân viên của tenant A');
 select is((select count(*)::int from public.employees where employee_code = 'B0001'), 0, 'A không thấy nhân viên tenant B');
 select is((select count(*)::int from public.user_profiles), 1, 'A chỉ thấy hồ sơ của chính mình');
 select ok((select count(*) from public.permissions) > 0, 'A đọc được danh mục quyền hệ thống');
@@ -46,6 +46,12 @@ set local role authenticated;
 select set_config('request.jwt.claims', '{"sub":"b0000000-0000-4000-8000-00000000000b","role":"authenticated"}', true);
 select is((select count(*)::int from public.employees), 1, 'B chỉ thấy 1 nhân viên của tenant B');
 select is((select count(*)::int from public.audit_logs), 0, 'B không thấy audit của tenant A');
+reset role;
+
+-- API (service_role) đọc/ghi được nhưng không TRUNCATE
+set local role service_role;
+select is((select count(*)::int from public.employees), 7, 'service_role đọc được mọi nhân viên');
+select throws_ok('truncate public.audit_logs', '42501', null, 'service_role không TRUNCATE được');
 reset role;
 
 -- Audit chỉ được thêm, kể cả với quyền postgres

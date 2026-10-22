@@ -1,14 +1,18 @@
 /* Xác thực sinh trắc học thật (Face ID / Touch ID / vân tay) và lưu phiên trong Keychain/Keystore.
-   Backend chưa có nên token là token giả lập; khi có API chỉ cần thay `issueToken`. */
+   Có API (REMOTE): phiên chứa access/refresh token thật. Chế độ dữ liệu mẫu: token giả lập. */
 import * as LocalAuthentication from "expo-local-authentication";
 import * as SecureStore from "expo-secure-store";
 
-export type Session = { token: string; employeeId: string; deviceRegistered: boolean; createdAt: number };
+import type { AuthSession, MeProfile } from "@kavor/contracts";
+
+export type Session = { token: string; employeeId: string; deviceRegistered: boolean; createdAt: number; auth?: AuthSession; me?: MeProfile };
 export type BiometricResult = { ok: true } | { ok: false; reason: "unavailable" | "not_enrolled" | "cancelled" | "failed"; message: string };
 
 const SESSION_KEY = "kavor.session";
-/* Thông tin đăng nhập nhanh: giữ lại sau khi đăng xuất để lần sau dùng Face ID thay mật khẩu */
+/* Thông tin đăng nhập nhanh: giữ lại sau khi đăng xuất để lần sau dùng Face ID thay mật khẩu.
+   Có API thì lưu refresh token; chỉ đọc sau khi Face ID thành công. */
 const QUICK_LOGIN_KEY = "kavor.quickLogin";
+const QUICK_REFRESH_KEY = "kavor.quickRefresh";
 const opts: SecureStore.SecureStoreOptions = { keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY };
 
 const issueToken = () => `dev.${Date.now().toString(36)}.${Math.random().toString(36).slice(2, 10)}`;
@@ -24,14 +28,25 @@ export async function loadSession(): Promise<Session | null> {
 
 export async function saveSession(patch: Partial<Session> & { employeeId: string }) {
   const prev = await loadSession();
-  const next: Session = { token: prev?.token ?? issueToken(), deviceRegistered: prev?.deviceRegistered ?? false, createdAt: prev?.createdAt ?? Date.now(), ...patch };
+  /* Giữ mọi trường của phiên cũ (token API, hồ sơ, thiết bị) trừ khi đổi người dùng */
+  const same = prev?.employeeId === patch.employeeId;
+  const next: Session = { ...(same ? prev : {}), token: (same && prev?.token) || issueToken(), deviceRegistered: (same && prev?.deviceRegistered) || false, createdAt: (same && prev?.createdAt) || Date.now(), ...patch } as Session;
   await SecureStore.setItemAsync(SESSION_KEY, JSON.stringify(next), opts);
   await SecureStore.setItemAsync(QUICK_LOGIN_KEY, next.employeeId, opts);
+  if (next.auth) await SecureStore.setItemAsync(QUICK_REFRESH_KEY, next.auth.refreshToken, opts);
   return next;
 }
 
 export async function clearSession() {
   await SecureStore.deleteItemAsync(SESSION_KEY, opts).catch(() => {});
+}
+
+export async function quickRefreshToken(): Promise<string | null> {
+  return SecureStore.getItemAsync(QUICK_REFRESH_KEY, opts).catch(() => null);
+}
+/* Quên đăng nhập nhanh (tắt Face ID đăng nhập, hoặc refresh token đã bị thu hồi) */
+export async function clearQuickLogin() {
+  await SecureStore.deleteItemAsync(QUICK_REFRESH_KEY, opts).catch(() => {});
 }
 
 export async function quickLoginEmployee(): Promise<string | null> {

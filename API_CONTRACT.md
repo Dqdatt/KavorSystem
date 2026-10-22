@@ -60,11 +60,16 @@ Cursor-based:
 
 | Method | Endpoint | Permission | Mô tả |
 |---|---|---|---|
-| POST | `/auth/activate` | Public token | Kích hoạt invitation |
-| POST | `/auth/login` | Public | Đăng nhập |
-| POST | `/auth/refresh` | Session | Làm mới token |
+| POST | `/auth/activate/start` | Public | `{employeeCode, email}` khớp hồ sơ HR → gửi OTP 6 số qua email (hiệu lực 5 phút) |
+| POST | `/auth/activate/verify` | Public + OTP | `{email, code, password}` → gắn tài khoản với hồ sơ nhân viên, trả `{session, me}` |
+| POST | `/auth/login` | Public | `{identifier (mã NV hoặc email), password}` → `{session, me}` |
+| POST | `/auth/password/forgot` | Public | `{identifier}` → gửi OTP đặt lại mật khẩu |
+| POST | `/auth/password/reset` | Public + OTP | `{email, code, newPassword}` → `{session, me}` |
+| POST | `/auth/refresh` | Refresh token | `{refreshToken}` → `{session, me}` |
 | POST | `/auth/logout` | Session | Thu hồi session hiện tại |
-| GET | `/me` | Authenticated | User, membership, role, tenant |
+| GET | `/me` | Authenticated | Nhân viên, công ty hiện tại |
+
+Lỗi auth trả mã ổn định trong `error.code` (`AUTH_INVALID_CREDENTIALS`, `AUTH_NOT_ACTIVATED`, `AUTH_ALREADY_ACTIVATED`, `AUTH_EMPLOYEE_NOT_FOUND`, `AUTH_OTP_INVALID`, `AUTH_WEAK_PASSWORD`, `AUTH_RATE_LIMITED`, `AUTH_SESSION_EXPIRED`) — xem `AUTH_ERRORS` trong `@kavor/contracts`. Mật khẩu: ≥ 8 ký tự, có chữ, số, chữ hoa, không chứa mã nhân viên. Sai 5 lần trong 5 phút (đăng nhập) hoặc 15 phút (OTP) thì tạm khóa theo IP + định danh.
 | GET | `/me/permissions` | Authenticated | Permission hiệu lực |
 | POST | `/me/devices` | Authenticated | Đăng ký iOS/Android installation |
 | DELETE | `/me/devices/{id}` | Owner/Admin | Thu hồi thiết bị |

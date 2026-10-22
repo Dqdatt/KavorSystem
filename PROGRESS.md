@@ -5,6 +5,7 @@ _Cập nhật: 2026-10-22 09:45 +07 — bởi Claude (Opus 5.5)_
 Port toàn bộ `Kavor HRM Prototype.html` sang app React Native sao cho giống prototype, sửa các lỗi UI nhỏ và cài bản build lên iPhone 11 thật ("Dqdatt"). Xong khi 70 trạng thái prototype/native khớp và app chạy được trên máy thật. Chưa push git (theo yêu cầu người dùng).
 
 ## Đã xong
+- Auth thật (22/10): migration `202610220002_service_role_grants.sql` (service_role không có quyền DML mặc định) — đã push cả hai migration lên project thật; OTP email tiếng Việt (`supabase/templates/otp.html`); giới hạn thử sai; chính sách mật khẩu dùng chung trong `@kavor/contracts`; ô OTP nhận gõ nhanh/tự điền mã; sửa lỗi mất phiên sau bước đăng ký thiết bị.
 - Nền tảng (22/10): Supabase local chạy ở cổng 553xx (máy có project local khác chiếm 543xx); phát hiện và sửa: 3 bảng chưa bật RLS, client không có quyền SELECT nên policy cũ vô tác dụng, anon có TRUNCATE; audit_logs chỉ thêm. API kiểm tra cấu hình khi khởi động (`apps/api/src/config.ts`, 4 test). CI thêm job `database` (db reset + test db + lint).
 - Mobile: màn Hồ sơ → Bảo mật và thiết bị (bật/tắt Face ID đăng nhập & mở khóa lương).
 - Bước 1 (22/10): Face ID thật + phiên Keychain (`src/auth.ts`); bắt lỗi nội bộ (`src/crash.tsx`); lớp dữ liệu `src/api/` (KavorApi + mock); Android build chạy trên emulator `Kavor_Pixel_6`, chụp đủ 70 trạng thái (`docs/ui-comparison/android/`) và sửa các lỗi riêng Android (chữ bị cắt, blur, font nhúng native).
@@ -18,9 +19,10 @@ Port toàn bộ `Kavor HRM Prototype.html` sang app React Native sao cho giống
 - Kiểm tra ngày 22/10: `pnpm turbo run typecheck test build --force` pass 18/18 task (test thật chỉ có contracts 2 + api 2)
 
 ## Đang dở (QUAN TRỌNG NHẤT)
-- Nền tảng (22/10): migration `202610220001_rls_hardening.sql` + test pgTAP `supabase/tests/tenant_isolation.test.sql` (16/16 pass local). CHƯA áp lên project Supabase thật `KavorSystem` (ref trong `supabase/.temp`) — chờ người dùng đồng ý chạy `supabase db push`.
-- Bản có màn "Bảo mật và thiết bị" đã cài lên iPhone (cài bằng `xcrun devicectl device install app` khi `expo run:ios` treo ở bước kết nối máy).
-- Key publishable + URL project thật từng nằm trong `.env.example` (commit 95df5ca) → đã thay placeholder; vẫn còn trong lịch sử git, người dùng cân nhắc rotate.
+- Auth thật (22/10) đã xong và commit: API `/auth/*` + `/me` (apps/api/src/auth), mobile gọi API khi build có `EXPO_PUBLIC_API_URL`. Kiểm thử: `tools/auth-smoke.sh` 15/15 bước; trên simulator đã kích hoạt → đăng nhập → mở lại app giữ phiên.
+- Bản trên iPhone trỏ tới API `http://192.168.1.22:4000/api/v1` (IP LAN của Mac): Mac phải chạy `pnpm dev:backend`, cùng Wi-Fi. Nếu IP Mac đổi phải build lại app.
+- Chưa có môi trường staging thật cho auth: project Supabase thật mới có migration, chưa có dữ liệu nhân viên và SMTP riêng (SMTP mặc định của Supabase chỉ gửi tới thành viên project).
+- Người dùng cần tự đổi publishable key trên Supabase Dashboard (Settings → API Keys: tạo publishable key mới, xóa key `default` cũ).
 
 ## Quyết định đã chốt
 - Mobile hỗ trợ cả iOS và Android, không phụ thuộc Expo Go; dùng native build cho máy thật — vì người dùng muốn cài trực tiếp và Expo Go từng không tương thích.
@@ -43,16 +45,16 @@ Port toàn bộ `Kavor HRM Prototype.html` sang app React Native sao cho giống
 - Trên bản dev, gõ phím "r" khi không focus ô nhập sẽ làm Metro reload (chỉ ảnh hưởng dev).
 
 ## Bước tiếp theo
-1. Được đồng ý thì `supabase db push` lên project thật, rồi chạy lại kiểm tra quyền qua REST.
-2. Sprint 2: auth/activation/OTP thật qua Supabase Auth + API; viết `httpApi` theo `KavorApi` và nối đăng nhập mobile.
-3. Chấm công thật: API idempotent + geofence + hàng đợi offline.
-4. Web app (HR/Admin, Kavor Console).
-5. Sentry khi có tài khoản.
+1. Chấm công thật: bảng thiết bị + attendance events (idempotent), geofence, hàng đợi offline trên mobile; `POST /me/devices` thay cho bước đăng ký thiết bị giả lập.
+2. Staging thật: SMTP riêng (Resend/SES) cho project Supabase, nhập dữ liệu nhân viên, deploy API.
+3. Web app (HR/Admin, Kavor Console) — HR tạo/nhập nhân viên để họ tự kích hoạt.
+4. Sentry khi có tài khoản.
 
 ## Câu hỏi đang chờ người dùng trả lời
-- Có áp migration RLS lên project Supabase thật không? Có rotate publishable key không?
+- Không có.
 
 ## Nhật ký
+- 2026-10-22 — Auth thật: kích hoạt/OTP/đăng nhập/quên mật khẩu qua API + Supabase Auth; push migration lên project thật; cài bản dùng API lên iPhone.
 - 2026-10-22 — Màn Bảo mật và thiết bị; siết RLS + test cách ly tenant; config validation API; CI database job.
 - 2026-10-22 — Bước 1 xong: Face ID thật, Keychain, crash handler, lớp api, Android emulator 70/70 trạng thái; cài Release lên iPhone.
 - 2026-10-22 — Thêm splash screen, build Release lên iPhone 11 thật, commit + push.

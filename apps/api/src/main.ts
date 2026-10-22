@@ -15,6 +15,8 @@ async function bootstrap() {
   const port = config.port;
 
   app.setGlobalPrefix("api/v1");
+  /* IP thật của client cho giới hạn số lần thử (API đứng sau proxy ở staging) */
+  app.getHttpAdapter().getInstance().set("trust proxy", config.env !== "development");
   app.enableCors({
     origin: config.corsOrigins,
     credentials: true,

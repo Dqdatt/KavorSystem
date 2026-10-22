@@ -43,3 +43,21 @@ port = 55327
 [db.pooler]
 enabled = false
 port = 55329
+
+[auth.email]
+enable_signup = true
+double_confirm_changes = true
+enable_confirmations = false
+otp_length = 6
+otp_expiry = 300
+max_frequency = "30s"
+
+# OTP kích hoạt / quên mật khẩu dùng luồng email OTP (magic link) của Supabase Auth
+[auth.email.template.magic_link]
+subject = "Mã xác thực Kavor"
+content_path = "./supabase/templates/otp.html"
+
+[auth.rate_limit]
+email_sent = 30
+token_verifications = 30
+sign_in_sign_ups = 30
