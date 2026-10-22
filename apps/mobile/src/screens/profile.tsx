@@ -1,5 +1,5 @@
 import { useEffect, useRef, type ReactNode } from "react";
-import { Animated, Platform, Pressable, StyleSheet, View } from "react-native";
+import { Animated, Platform, Pressable, StyleSheet, Switch, View } from "react-native";
 import { Blur } from "../blur";
 import Svg, { Circle } from "react-native-svg";
 import { SvgXml } from "react-native-svg";
@@ -8,11 +8,11 @@ import { C, F, GL, SPRING, glass } from "../theme";
 import { Gi, Ic, Logo, type IconName } from "../icons";
 import { Illus } from "../illus";
 import { Rise, useShake } from "../motion";
-import { Avatar, Balanced, Btn, BtnRow, Card, InfoRow, Notice, Row, RowBtn, SectionHead, Spinner, T, Timeline } from "../ui";
+import { Avatar, Balanced, Btn, BtnRow, Card, InfoRow, Note, Notice, Row, RowBtn, SectionHead, Spinner, T, Timeline } from "../ui";
 import { Foot, TopBar, type ScreenSpec } from "../screen";
 import { useClock } from "../clock";
 import { dec, gh, hm } from "../data";
-import { ACT, S, go, jump, lvAvail, phase, toast, worked, type ErrKind, type Route } from "../store";
+import { ACT, S, go, jump, setBioPref, lvAvail, phase, toast, worked, type ErrKind, type Route } from "../store";
 
 const COVER = '<svg viewBox="0 0 320 124" preserveAspectRatio="xMidYMid slice"><defs><linearGradient id="pfSky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#CFF5E4"/><stop offset="1" stop-color="#F3FCF8"/></linearGradient></defs><rect width="320" height="124" fill="url(#pfSky)"/><circle cx="252" cy="36" r="15" fill="#FFF4D6"/><path d="M0 22c18 8 30 30 34 58l6 44H0z" fill="#2E9C77" opacity=".55"/><path d="M320 14c-20 10-34 34-38 64l-4 46h42z" fill="#2E9C77" opacity=".55"/><path d="M0 80c40-20 70-16 110-8s80-18 120-10 60 0 90-8v70H0z" fill="#A7F3D0"/><path d="M0 96c50-14 100-4 150-10s90-14 170 0v42H0z" fill="#34C79A"/><path d="M0 108c60-8 120 4 190-4s90-4 130 2v18H0z" fill="#0B7A5A"/></svg>';
 const VERIFIED = '<svg width="20" height="20" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="#065F46"/><path d="m7 12.5 3.2 3.2L17 9" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
@@ -53,7 +53,7 @@ export function profileSpec(): ScreenSpec {
       <Card key="links">
         <RowBtn icon={<Gi n="doc" s={24} />} title="Hợp đồng và quyết định" onPress={() => toast("P05–P06: hợp đồng, quyết định và trình xem PDF")} />
         <RowBtn icon={<Gi n="grid" s={24} />} title="Widget chấm công" onPress={() => go("widgetGuide")} />
-        <RowBtn icon={<Gi n="shield" s={24} />} title="Bảo mật và thiết bị" onPress={() => toast("U03: iPhone 15 đăng ký từ 16/10/2026. Gửi yêu cầu reset khi đổi máy.")} />
+        <RowBtn icon={<Gi n="shield" s={24} />} title="Bảo mật và thiết bị" onPress={() => go("security")} />
         <RowBtn icon={<Gi n="bell" s={24} />} title="Thông báo" onPress={() => toast("U02: nhắc chấm công, hạn giải trình, kết quả duyệt, phiếu lương, bản tin.")} />
         <RowBtn icon={<Ic n="logout" s={24} w={1.7} color={C.bad} />} title="Đăng xuất" titleStyle={{ color: C.bad }} chev={false} onPress={ACT.logoutAsk} />
       </Card>,
@@ -334,3 +334,25 @@ const styles = StyleSheet.create({
   lw: { height: 74, borderRadius: 20, paddingVertical: 10, paddingHorizontal: 12 },
   lockBtn: { width: 52, height: 52, borderRadius: 26, alignItems: "center", justifyContent: "center" },
 });
+
+/* ---------- U03 Bảo mật và thiết bị ---------- */
+function Toggle({ on, onChange, label }: { on: boolean; onChange: (v: boolean) => void; label: string }) {
+  return <Switch accessibilityLabel={label} value={on} onValueChange={onChange} trackColor={{ true: C.emerald, false: C.line2 }} ios_backgroundColor={C.line2} />;
+}
+export function securitySpec(): ScreenSpec {
+  const bio = S.bioLabel;
+  return {
+    head: <TopBar title="Bảo mật và thiết bị" right={null} />,
+    body: [
+      <SectionHead key="sh1" title={bio} />,
+      <Card key="bio">
+        <Row><Gi n="face" s={24} /><View style={{ flex: 1 }}><T style={{ fontFamily: F.semibold }}>Đăng nhập bằng {bio}</T><T style={{ color: C.ink2, fontSize: 12.5, marginTop: 2 }}>Không cần nhập mật khẩu khi mở app</T></View><Toggle label={`Đăng nhập bằng ${bio}`} on={S.bio.login} onChange={(v) => { void setBioPref("login", v); }} /></Row>
+        <Row><Gi n="lock" s={24} /><View style={{ flex: 1 }}><T style={{ fontFamily: F.semibold }}>Mở khóa lương và tạm ứng</T><T style={{ color: C.ink2, fontSize: 12.5, marginTop: 2 }}>Dùng {bio} thay cho mã PIN</T></View><Toggle label={`Mở khóa bằng ${bio}`} on={S.bio.unlock} onChange={(v) => { void setBioPref("unlock", v); }} /></Row>
+      </Card>,
+      <Note key="n" icon="info">{`Quyền dùng ${bio} của Kavor do iOS quản lý tại Cài đặt → Face ID & Mật mã → Ứng dụng khác. Nếu tắt ở đó, Kavor sẽ chỉ dùng mã PIN.`}</Note>,
+      <SectionHead key="sh2" title="Thiết bị chấm công" />,
+      <Card key="dev"><InfoRow k="Thiết bị" v="iPhone 15 · iOS 26" strong /><InfoRow k="Đăng ký từ" v="16/10/2026" strong /><InfoRow k="Trạng thái" v="Đang hoạt động" strong /></Card>,
+      <Btn key="reset" kind="ghost" block onPress={() => toast("Đã gửi yêu cầu reset thiết bị cho HR (mô phỏng)")}>Yêu cầu reset khi đổi máy</Btn>,
+    ],
+  };
+}

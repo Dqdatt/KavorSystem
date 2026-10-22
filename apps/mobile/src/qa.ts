@@ -62,6 +62,7 @@ export const QA_STATES: Record<string, () => void> = {
   news: () => jump("news"),
   "news-detail": () => { jump("news"); S.param = "6"; go("newsDetail"); },
   profile: () => jump("profile"),
+  security: () => { jump("profile"); go("security"); },
   "profile-edit-sheet": () => { jump("profile"); ACT.editProfile(); },
   "logout-sheet": () => { jump("profile"); ACT.logoutAsk(); },
   notifications: () => { jump("home"); go("notifications"); },

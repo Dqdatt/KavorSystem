@@ -7,14 +7,14 @@ import {
 } from "./data";
 import type { IllusKind } from "./illus";
 import { api, type Snapshot } from "./api";
-import { authenticate, clearSession, loadSession, quickLoginEmployee, saveSession } from "./auth";
+import { authenticate, biometricLabel, clearSession, loadBioPrefs, loadSession, quickLoginEmployee, saveBioPrefs, saveSession, type BioPrefs } from "./auth";
 
 export type Anim = "push" | "pop" | "fade";
 export type Route =
   | "login" | "forgot" | "forgotOtp" | "resetPassword" | "activate" | "otp" | "device"
   | "home" | "attendance" | "requests" | "news" | "clock" | "explain" | "leave" | "leaveNew"
   | "payslips" | "payslip" | "advance" | "advanceNew" | "advanceDetail" | "reqDetail" | "approvalDetail"
-  | "ot" | "newsDetail" | "profile" | "notifications" | "widgetGuide" | "springHome" | "springLock" | "done" | "err";
+  | "ot" | "newsDetail" | "profile" | "security" | "notifications" | "widgetGuide" | "springHome" | "springLock" | "done" | "err";
 export type ErrKind = "offline" | "server" | "maintenance" | "session" | "disabled" | "device" | "devicePending" | "locPerm" | "gpsOff" | "update";
 export type SheetKind =
   | "pin" | "face" | "receipt" | "help" | "netSend" | "netPunch" | "earlyOut" | "slowCheck" | "blocked" | "day"
@@ -75,6 +75,8 @@ const makeState = () => ({
   shake: { key: "", n: 0 },
   leavingCard: null as string | null,
   notifShow: false,
+  bio: { login: true, unlock: true } as BioPrefs,
+  bioLabel: "Face ID",
 });
 export const S = makeState();
 
@@ -200,8 +202,21 @@ async function signIn(employeeId: string) {
   render(session.deviceRegistered ? "fade" : "push");
 }
 
+/* Bật/tắt Face ID: bật lại cần xác thực sinh trắc học một lần để chắc chắn đúng chủ máy */
+export async function setBioPref(key: keyof BioPrefs, on: boolean) {
+  if (on) {
+    const r = await authenticate(`Bật ${S.bioLabel} cho Kavor`);
+    if (!r.ok) { if (r.reason !== "cancelled") toast(r.message); return; }
+  }
+  S.bio = { ...S.bio, [key]: on }; emit();
+  await saveBioPrefs(S.bio);
+  toast(`Đã ${on ? "bật" : "tắt"} ${key === "login" ? "đăng nhập" : "mở khóa lương/tạm ứng"} bằng ${S.bioLabel}`);
+}
+
 /* Mở app: còn phiên hợp lệ thì bỏ qua màn đăng nhập */
 export async function restoreSession() {
+  S.bio = await loadBioPrefs();
+  S.bioLabel = await biometricLabel().then((l) => (l === "vân tay" ? "vân tay" : l === "Face ID" ? "Face ID" : "sinh trắc học"));
   const session = await loadSession();
   if (!session) return;
   Object.assign(S, fromSnapshot(await api.refresh().catch(() => api.cached())));
@@ -263,6 +278,7 @@ export const ACT = {
   /* Face ID ở màn đăng nhập: dùng thông tin đăng nhập nhanh đã lưu từ lần đăng nhập mật khẩu trước */
   faceLogin: async () => {
     const employeeId = await quickLoginEmployee();
+    if (!S.bio.login) { toast(`Đăng nhập bằng ${S.bioLabel} đang tắt. Bật lại trong Hồ sơ → Bảo mật và thiết bị.`); return; }
     if (!employeeId) { toast("Đăng nhập bằng mật khẩu một lần để bật đăng nhập nhanh bằng Face ID"); return; }
     const r = await authenticate("Đăng nhập Kavor");
     if (!r.ok) { if (r.reason !== "cancelled") toast(r.message); return; }
@@ -411,6 +427,7 @@ export const ACT = {
   },
   /* Face ID thật trong sheet PIN; hủy hoặc không khớp thì quay lại bàn phím PIN */
   faceid: async () => {
+    if (!S.bio.unlock) { toast(`Mở khóa bằng ${S.bioLabel} đang tắt. Nhập PIN hoặc bật lại trong Bảo mật và thiết bị.`); return; }
     if (S.sheet) { S.sheet = { ...S.sheet, kind: "face" }; emit(); }
     const r = await authenticate("Xác thực để xem lương và tạm ứng");
     if (r.ok) { pinSuccess(); return; }
