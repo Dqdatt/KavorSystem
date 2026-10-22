@@ -1,6 +1,6 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import { Animated, Platform, Pressable, StyleSheet, View } from "react-native";
-import { BlurView } from "expo-blur";
+import { Blur } from "../blur";
 import Svg, { Circle } from "react-native-svg";
 import { SvgXml } from "react-native-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -94,7 +94,7 @@ export function Wall({ style }: { style?: object }) {
 function GlassFill({ radius, intensity = 26, fill }: { radius: number; intensity?: number; fill: string }) {
   return (
     <View pointerEvents="none" style={[StyleSheet.absoluteFill, { borderRadius: radius, overflow: "hidden" }]}>
-      <BlurView intensity={intensity} tint="light" style={StyleSheet.absoluteFill} />
+      <Blur intensity={intensity} style={StyleSheet.absoluteFill} />
       <View style={[StyleSheet.absoluteFill, { experimental_backgroundImage: fill }]} />
     </View>
   );

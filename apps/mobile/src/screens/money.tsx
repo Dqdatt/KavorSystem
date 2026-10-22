@@ -3,7 +3,7 @@ import { C, F } from "../theme";
 import { Gi, Ic } from "../icons";
 import { Btn, BtnRow, Card, Chip, Chips, ErrLine, Field, InfoRow, LinkBtn, Ln, Note, Num, Row, RowBtn, RowStrong, SecT, SectionHead, St, T, TbBtn, TextArea, Timeline } from "../ui";
 import { Foot, TopBar, type ScreenSpec } from "../screen";
-import { PAY, advLimit, groupThousands, netPay, sum, vnd } from "../data";
+import { advLimit, groupThousands, netPay, sum, vnd } from "../data";
 import { ACT, ADV_DAY, ADV_STEPS, S, advEligible, advError, emit, go, money } from "../store";
 
 const EyeBtn = () => <TbBtn label="Ẩn hoặc hiện số tiền" onPress={ACT.hideMoney}><Ic n={S.hideMoney ? "eyeOff" : "eye"} s={20} /></TbBtn>;
@@ -16,9 +16,9 @@ export function payslipsSpec(): ScreenSpec {
   return {
     head: <TopBar title="Phiếu lương" right={<EyeBtn />} />,
     body: [
-      <View key="top" style={{ paddingTop: 8 }}><Cap>Thực lĩnh tháng 09/2026</Cap><Amt>{money(netPay(PAY[0]!))}</Amt><Fine>Công bố 05/10 · đã chuyển khoản 05/10</Fine></View>,
+      <View key="top" style={{ paddingTop: 8 }}><Cap>Thực lĩnh tháng 09/2026</Cap><Amt>{money(netPay(S.payslips[0]!))}</Amt><Fine>Công bố 05/10 · đã chuyển khoản 05/10</Fine></View>,
       <Card key="list">
-        {PAY.map((p, i) => <RowBtn key={p.k} icon={<Gi n="receipt" s={24} />} title={`Tháng ${p.k}`} sub={`Công bố ${p.pub}`} right={<RowStrong>{money(netPay(p))}</RowStrong>} onPress={() => { S.param = String(i); go("payslip"); }} />)}
+        {S.payslips.map((p, i) => <RowBtn key={p.k} icon={<Gi n="receipt" s={24} />} title={`Tháng ${p.k}`} sub={`Công bố ${p.pub}`} right={<RowStrong>{money(netPay(p))}</RowStrong>} onPress={() => { S.param = String(i); go("payslip"); }} />)}
         <Row><Ic n="hour" s={24} w={1.6} /><View style={{ flex: 1 }}><T style={{ fontFamily: F.semibold, color: C.ink3 }}>Tháng 10/2026</T><T style={{ color: C.ink2, fontSize: 12.5, marginTop: 2 }}>Chưa công bố · dự kiến 05/11</T></View></Row>
       </Card>,
       <Note key="n" icon="lock">Đã xác thực trong 5 phút. Sau đó app hỏi lại PIN hoặc Face ID.</Note>,
@@ -27,7 +27,7 @@ export function payslipsSpec(): ScreenSpec {
 }
 
 export function payslipSpec(): ScreenSpec {
-  const p = PAY[+(S.param ?? 0) || 0] ?? PAY[0]!;
+  const p = S.payslips[+(S.param ?? 0) || 0] ?? S.payslips[0]!;
   return {
     head: <TopBar title={"Tháng " + p.k} right={<EyeBtn />} />,
     body: [

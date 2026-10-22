@@ -115,7 +115,7 @@ export function Punch({ size, compact, small, bare }: { size: number; compact?: 
         <Pressable accessibilityLabel={label} accessibilityRole="button" onPressIn={start} onPressOut={end} onPress={holdable ? undefined : press}
           style={[{ width: size, height: size, borderRadius: size / 2, alignItems: "center", justifyContent: "center", gap: compact ? 6 : small ? 3 : 10 }, ORB[st]]}>
           <Ic n={st === "done" ? "tDone" : st === "blocked" ? "pin" : "tap"} s={iconSize} w={small ? 1.7 : 1.6} color={color} />
-          <T style={{ color, fontSize: compact ? 15 : small ? 13 : 17, fontFamily: F.semibold, letterSpacing: (compact ? 15 : 17) * 0.04, lineHeight: compact ? 20 : 24 }}>{label}</T>
+          <T numberOfLines={1} style={{ color, fontSize: compact ? 15 : small ? 13 : 17, fontFamily: F.semibold, letterSpacing: (compact ? 15 : 17) * 0.04, lineHeight: compact ? 20 : 24 }}>{label}</T>
           {sub ? <T style={{ color, opacity: 0.85, fontSize: small ? 10 : 11.5, fontFamily: F.medium, marginTop: small ? -1 : -6 }}>{sub}</T> : null}
         </Pressable>
       </Animated.View>
@@ -169,7 +169,7 @@ export function Hero({ compact }: { compact?: boolean }) {
 
 /* ================= News carousel ================= */
 function NewsCarousel() {
-  const list = recentNews();
+  const list = recentNews(S.news);
   const { width } = useWindowDimensions();
   const sideness = width / 2 - 130;
   const step = 310;
@@ -251,7 +251,7 @@ function NcCard({ id, act, imp, icon, cat, date, title }: { id: number; act: boo
 export const ImpTag = ({ shrink }: { shrink?: boolean }) => (
   <View style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingVertical: 2, paddingLeft: 6, paddingRight: 8, borderRadius: 8, backgroundColor: C.bad, flexShrink: shrink ? 1 : 0, width: shrink ? 72 : undefined }}>
     <Ic n="alert" s={11} w={2.6} color="#fff" />
-    <T style={{ color: "#fff", fontSize: 11, fontFamily: F.bold, letterSpacing: 0.11, lineHeight: 16, flexShrink: 1 }}>Quan trọng</T>
+    <T numberOfLines={shrink ? 2 : 1} style={{ color: "#fff", fontSize: 11, fontFamily: F.bold, letterSpacing: 0.11, lineHeight: 16, flexShrink: 1 }}>Quan trọng</T>
   </View>
 );
 

@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { Animated, Pressable, StyleSheet, View } from "react-native";
-import { BlurView } from "expo-blur";
+import { Blur } from "../blur";
 import { C, EASE, F, GL, glass, tint } from "../theme";
 import { Gi, Ic } from "../icons";
 import { Illus } from "../illus";
@@ -94,7 +94,7 @@ function Bulk() {
   return (
     <Animated.View style={[styles.bulk, { opacity: v.interpolate({ inputRange: [0, 1], outputRange: [0, 1], extrapolate: "clamp" }), transform: [{ translateY: v.interpolate({ inputRange: [0, 1], outputRange: [30, 0] }) }] }]}>
       <View style={[StyleSheet.absoluteFill, { borderRadius: 26, overflow: "hidden" }]}>
-        <BlurView intensity={30} tint="light" style={StyleSheet.absoluteFill} />
+        <Blur intensity={30} style={StyleSheet.absoluteFill} />
         <View style={[StyleSheet.absoluteFill, { experimental_backgroundImage: "linear-gradient(160deg, rgba(255,255,255,0.86), rgba(255,255,255,0.6))" }]} />
       </View>
       <T style={{ flex: 1, fontFamily: F.semibold }}>Đã chọn {S.sel.size}</T>

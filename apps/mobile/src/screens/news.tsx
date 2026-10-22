@@ -3,7 +3,7 @@ import { C, F, GL } from "../theme";
 import { Gi, Ic } from "../icons";
 import { Balanced, Card, Chip, Chips, Empty, T } from "../ui";
 import { TabHead, TopBar, type ScreenSpec } from "../screen";
-import { CAT, NEWS, type News } from "../data";
+import { CAT, type News } from "../data";
 import { ACT, S, go } from "../store";
 import { ImpTag } from "./home";
 
@@ -26,7 +26,7 @@ function NewsRow({ n, first }: { n: News; first: boolean }) {
 }
 
 export function newsSpec(): ScreenSpec {
-  const c = S.newsCat, list = NEWS.filter((n) => c === "all" || n.cat === c);
+  const c = S.newsCat, list = S.news.filter((n) => c === "all" || n.cat === c);
   return {
     nav: true,
     head: <TabHead title="Bản tin" />,
@@ -45,7 +45,7 @@ const HERO_BG: Record<string, string> = {
 };
 
 export function newsDetailSpec(): ScreenSpec {
-  const n = NEWS.find((x) => x.id === +(S.param ?? 0)) || NEWS[0]!;
+  const n = S.news.find((x) => x.id === +(S.param ?? 0)) || S.news[0]!;
   const by = n.by.split(" "), ini = ((by[0] ?? "")[0]! + (by[by.length - 1] ?? "")[0]!).toUpperCase();
   const callout = n.id === 6 ? "Hệ thống tạm dừng trong 90 phút, từ 22:00 đến 23:30 tối nay." : n.id === 1 ? "Quy định chấm công mới bắt đầu áp dụng từ ngày 01/11/2026." : "Đây là thông tin quan trọng, bạn nên đọc kỹ trước khi tiếp tục.";
   const file = n.file ? n.file.split(" · ") : null;

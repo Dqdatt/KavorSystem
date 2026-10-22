@@ -5,6 +5,7 @@ _Cập nhật: 2026-10-22 09:45 +07 — bởi Claude (Opus 5.5)_
 Port toàn bộ `Kavor HRM Prototype.html` sang app React Native sao cho giống prototype, sửa các lỗi UI nhỏ và cài bản build lên iPhone 11 thật ("Dqdatt"). Xong khi 70 trạng thái prototype/native khớp và app chạy được trên máy thật. Chưa push git (theo yêu cầu người dùng).
 
 ## Đã xong
+- Bước 1 (22/10): Face ID thật + phiên Keychain (`src/auth.ts`); bắt lỗi nội bộ (`src/crash.tsx`); lớp dữ liệu `src/api/` (KavorApi + mock); Android build chạy trên emulator `Kavor_Pixel_6`, chụp đủ 70 trạng thái (`docs/ui-comparison/android/`) và sửa các lỗi riêng Android (chữ bị cắt, blur, font nhúng native).
 - Viết lại toàn bộ app mobile, port 1:1 từ prototype: dữ liệu mẫu, icon SVG gốc, minh họa ILLUS, state/router/actions, sheet, toast, netbar, quick menu, widget/springboard, lỗi E01–E31 — `apps/mobile/src/` (`apps/mobile/App.tsx` chỉ re-export `src/App`)
 - Deep link `kavor://payslips|advance` giờ đi qua `go()` nên vẫn phải nhập PIN (trước đây bỏ qua PIN)
 - Bộ so sánh 70 trạng thái, 70/70 có ảnh native, có manifest và README — `docs/ui-comparison/`
@@ -15,8 +16,8 @@ Port toàn bộ `Kavor HRM Prototype.html` sang app React Native sao cho giống
 - Kiểm tra ngày 22/10: `pnpm turbo run typecheck test build --force` pass 18/18 task (test thật chỉ có contracts 2 + api 2)
 
 ## Đang dở (QUAN TRỌNG NHẤT)
-- Splash screen + ghi chú đã commit và push (22/10). Chưa bắt đầu bước 1.
-- Chưa xác nhận trên máy thật: animation, safe area, Face ID hệ thống, navbar ẩn/hiện khi cuộn, bàn phím trong sheet, splash. Người dùng tự test trực tiếp trên iPhone 11.
+- Bước 1 đã xong và commit (22/10). Người dùng cần thử trên iPhone thật: Face ID thật (đăng nhập mật khẩu một lần rồi thử nút Face ID; nút Face ID trong PIN), mở lại app phải vào thẳng trang chủ, đăng xuất phải về màn đăng nhập.
+- Chưa có Sentry (cần tài khoản); `src/crash.tsx` chỉ lưu lỗi trong máy.
 
 ## Quyết định đã chốt
 - Mobile hỗ trợ cả iOS và Android, không phụ thuộc Expo Go; dùng native build cho máy thật — vì người dùng muốn cài trực tiếp và Expo Go từng không tương thích.
@@ -39,16 +40,17 @@ Port toàn bộ `Kavor HRM Prototype.html` sang app React Native sao cho giống
 - Trên bản dev, gõ phím "r" khi không focus ô nhập sẽ làm Metro reload (chỉ ảnh hưởng dev).
 
 ## Bước tiếp theo
-1. Mobile (vẫn ở giai đoạn dev, KHÔNG phân phối TestFlight/Play): Face ID thật (expo-local-authentication) + secure store; build Android trên emulator (người dùng không có máy Android) và đối chiếu UI; crash reporting; tách lớp dữ liệu khỏi `src/data.ts` để sau nối API.
-2. Nền tảng: Supabase staging, secret/config validation, migration check trên CI.
-3. Sprint 2: auth/activation/OTP thật, tenant context + RLS + audit; nối đăng nhập mobile vào API.
-4. Chấm công thật: API idempotent + geofence + hàng đợi offline trên mobile.
-5. Web app (HR/Admin `apps/admin-web`, Kavor Console `apps/console-web`) còn phải làm, không được quên khi lên kế hoạch.
+1. Nền tảng: Supabase staging, secret/config validation, migration check trên CI.
+2. Sprint 2: auth/activation/OTP thật, tenant context + RLS + audit; viết `httpApi` theo interface `KavorApi` và nối đăng nhập mobile.
+3. Chấm công thật: API idempotent + geofence + hàng đợi offline trên mobile.
+4. Web app (HR/Admin `apps/admin-web`, Kavor Console `apps/console-web`).
+5. Sentry khi có tài khoản.
 
 ## Câu hỏi đang chờ người dùng trả lời
 - Không có.
 
 ## Nhật ký
+- 2026-10-22 — Bước 1 xong: Face ID thật, Keychain, crash handler, lớp api, Android emulator 70/70 trạng thái; cài Release lên iPhone.
 - 2026-10-22 — Thêm splash screen, build Release lên iPhone 11 thật, commit + push.
 - 2026-10-22 — Đổi icon app (nền emerald, logo trắng); commit c60232d, tag mobile-v0.1.0, push.
 - 2026-10-22 — Viết lại app mobile theo prototype, 70/70 trạng thái khớp, cài Release lên iPhone 11 thật.

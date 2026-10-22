@@ -10,6 +10,10 @@ from PIL import Image, ImageDraw, ImageFont
 
 ROOT = Path(__file__).resolve().parents[2] / "docs" / "ui-comparison"
 W, H, GAP, HEAD = 390, 844, 16, 40
+# UI_PLATFORM=android: ghép prototype với ảnh emulator Android trong android/ → paired-android/
+ANDROID = os.environ.get("UI_PLATFORM") == "android"
+NATIVE_DIR, PAIRED_DIR = ("android", "paired-android") if ANDROID else ("native", "paired")
+LABEL = "ANDROID · emulator 414×896dp" if ANDROID else "NATIVE · iPhone 11"
 
 
 def font(size):
@@ -47,15 +51,15 @@ def load(path):
 
 def pair(state):
     proto = load(ROOT / "prototype" / f"{state}.png")
-    native = load(ROOT / "native" / f"{state}.png")
+    native = load(ROOT / NATIVE_DIR / f"{state}.png")
     out = Image.new("RGB", (W * 2 + GAP * 3, H + HEAD + GAP), "#FFFFFF")
     d = ImageDraw.Draw(out)
     d.text((GAP, 10), f"PROTOTYPE · {state}", fill="#13241E", font=font(18))
-    d.text((W + GAP * 2, 10), "NATIVE · iPhone 11" if native else "NATIVE · thiếu", fill="#13241E" if native else "#D9474F", font=font(18))
+    d.text((W + GAP * 2, 10), LABEL if native else LABEL.split(" · ")[0] + " · thiếu", fill="#13241E" if native else "#D9474F", font=font(18))
     out.paste(proto or placeholder(), (GAP, HEAD))
     out.paste(native or placeholder(), (W + GAP * 2, HEAD))
-    (ROOT / "paired").mkdir(exist_ok=True)
-    out.save(ROOT / "paired" / f"{state}.png", optimize=True)
+    (ROOT / PAIRED_DIR).mkdir(exist_ok=True)
+    out.save(ROOT / PAIRED_DIR / f"{state}.png", optimize=True)
     return native is not None
 
 

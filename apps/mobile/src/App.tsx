@@ -1,6 +1,6 @@
 import { memo, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { Animated, Easing, Keyboard, LogBox, Linking, Platform, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from "react-native";
-import { BlurView } from "expo-blur";
+import { Blur, BlurSource } from "./blur";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
 import {
@@ -13,9 +13,12 @@ import { T } from "./ui";
 import { ScreenView, dockTuck, setTuck, type ScreenSpec } from "./screen";
 import { SheetContent } from "./sheets";
 import { hm } from "./data";
-import { ACT, S, SKEL, TABS, closeSheet, cur, getVersion, jump, quickClose, quickItems, simNow, subscribe, tab, type Anim, type Route } from "./store";
+import { ACT, S, SKEL, TABS, closeSheet, cur, getVersion, jump, quickClose, quickItems, restoreSession, simNow, subscribe, tab, toast, type Anim, type Route } from "./store";
 import { QA_ENABLED, runQA } from "./qa";
 import { NativeSplashGone, SplashOverlay } from "./splash";
+import { CrashBoundary, installCrashHandler, takeLastCrash } from "./crash";
+
+installCrashHandler();
 import { Activate, Forgot, ForgotOtp, Login, Otp, ResetPassword, deviceSpec } from "./screens/auth";
 import { clockSpec, homeSpec } from "./screens/home";
 import { attendanceSpec } from "./screens/attendance";
@@ -142,7 +145,7 @@ function Dock({ visible }: { visible: boolean }) {
     <Animated.View pointerEvents={visible ? "box-none" : "none"} style={[styles.dock, { opacity: gone.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }), transform: [{ translateY: off }] }]}>
       <Animated.View pointerEvents={S.quickOpen ? "none" : "auto"} style={[styles.pill, { opacity: qopen.interpolate({ inputRange: [0, 1], outputRange: [1, 0.25] }) }]}>
         <View style={[StyleSheet.absoluteFill, { borderRadius: 32, overflow: "hidden" }]}>
-          <BlurView intensity={40} tint="light" style={StyleSheet.absoluteFill} />
+          <Blur overlay intensity={40} />
           <View style={[StyleSheet.absoluteFill, { experimental_backgroundImage: "linear-gradient(155deg, rgba(255,255,255,0.62), rgba(255,255,255,0.28) 50%, rgba(255,255,255,0.46))" }]} />
         </View>
         {TABS.map((t) => <DockItem key={t} id={t} on={r === t} />)}
@@ -189,7 +192,7 @@ function QuickMenu() {
     <View style={[StyleSheet.absoluteFill, { zIndex: 38 }]} pointerEvents={open ? "auto" : "none"}>
       <Animated.View style={[StyleSheet.absoluteFill, { opacity: v }]}>
         <Pressable style={StyleSheet.absoluteFill} onPress={quickClose}>
-          <BlurView intensity={60} tint="light" style={StyleSheet.absoluteFill} />
+          <Blur overlay intensity={60} />
           <View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(255,255,255,0.42)" }]} />
         </Pressable>
       </Animated.View>
@@ -231,14 +234,14 @@ function SheetHost() {
     <View style={[StyleSheet.absoluteFill, { zIndex: 80 }]} pointerEvents={visible && show ? "auto" : "none"}>
       <Animated.View style={[StyleSheet.absoluteFill, { opacity: v.interpolate({ inputRange: [0, 1], outputRange: [0, 1], extrapolate: "clamp" }) }]}>
         <Pressable accessibilityLabel="Đóng" style={StyleSheet.absoluteFill} onPress={() => closeSheet()}>
-          <BlurView intensity={30} tint="light" style={StyleSheet.absoluteFill} />
+          <Blur overlay intensity={30} />
           <View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(10,40,30,0.16)" }]} />
         </Pressable>
       </Animated.View>
       <Animated.View style={[StyleSheet.absoluteFill, { transform: [{ translateY: kbUp }] }]} pointerEvents="box-none">
       <Animated.View onLayout={(e) => setSheetH(e.nativeEvent.layout.height)} style={[styles.sheet, { maxHeight: height * 0.86, transform: [{ translateY: slide }, ...sh.transform] }]}>
         <View style={[StyleSheet.absoluteFill, { borderRadius: 34, overflow: "hidden" }]}>
-          <BlurView intensity={50} tint="light" style={StyleSheet.absoluteFill} />
+          <Blur overlay intensity={50} />
           <View style={[StyleSheet.absoluteFill, { experimental_backgroundImage: "linear-gradient(160deg, rgba(255,255,255,0.88), rgba(255,255,255,0.7))" }]} />
         </View>
         <ScrollView bounces={false} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingTop: 10, paddingHorizontal: 20, paddingBottom: 26, gap: 16 }}>
@@ -269,7 +272,7 @@ function Toast() {
   return (
     <Animated.View pointerEvents="none" style={[styles.toast, { top: insets.top + 6, opacity: v.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0, 1, 1] }), transform: [{ translateY: v.interpolate({ inputRange: [0, 1], outputRange: [-90, 0] }) }, { scale: v.interpolate({ inputRange: [0, 1], outputRange: [0.96, 1] }) }] }]}>
       <View style={[StyleSheet.absoluteFill, { borderRadius: 18, overflow: "hidden" }]}>
-        <BlurView intensity={40} tint="light" style={StyleSheet.absoluteFill} />
+        <Blur overlay intensity={40} />
         <View style={[StyleSheet.absoluteFill, { experimental_backgroundImage: "linear-gradient(160deg, rgba(255,255,255,0.9), rgba(255,255,255,0.66))" }]} />
       </View>
       <T style={{ fontSize: 13, fontFamily: F.medium, lineHeight: 18.2 }}>{msg}</T>
@@ -293,7 +296,7 @@ function NetBar() {
     <Animated.View pointerEvents="none" style={{ position: "absolute", top: insets.top + 2, left: 0, right: 0, alignItems: "center", zIndex: 75, opacity: v, transform: [{ translateY: v.interpolate({ inputRange: [0, 1], outputRange: [-60, 0] }) }] }}>
       <View style={[styles.netbar, slow && { borderColor: "rgba(255,255,255,0.2)" }]}>
         <View style={[StyleSheet.absoluteFill, { borderRadius: 18, overflow: "hidden" }]}>
-          <BlurView intensity={30} tint={slow ? "light" : "dark"} style={StyleSheet.absoluteFill} />
+          <Blur overlay intensity={30} tint={slow ? "light" : "dark"} />
           <View style={[StyleSheet.absoluteFill, { backgroundColor: slow ? "rgba(255,241,214,0.82)" : "rgba(19,36,30,0.7)" }]} />
         </View>
         <Ic n={slow ? "signal" : "wifiOff"} s={16} w={slow ? 2.2 : 2} color={slow ? "#8A5300" : C.cream} />
@@ -309,7 +312,16 @@ function useStore() { return useSyncExternalStore(subscribe, getVersion); }
 function KavorApp() {
   useStore();
   const [splash, setSplash] = useState(!QA_ENABLED);
-  const [fonts] = useFonts({ Montserrat_300Light, Montserrat_400Regular, Montserrat_500Medium, Montserrat_600SemiBold, Montserrat_700Bold, Montserrat_800ExtraBold });
+  const [booted, setBooted] = useState(QA_ENABLED);
+  useEffect(() => { if (!QA_ENABLED) restoreSession().finally(() => setBooted(true)); }, []);
+  /* Báo lỗi của lần chạy trước (sau khi splash xong để toast không bị che) */
+  useEffect(() => {
+    if (splash || QA_ENABLED) return;
+    void takeLastCrash().then((c) => { if (c) toast(`Lần trước app gặp lỗi: ${c.message.slice(0, 120)}`); });
+  }, [splash]);
+  /* Android: Montserrat đã nhúng native (plugin expo-font trong app.json). Nạp thêm lúc chạy làm bộ đo chữ
+     và bộ vẽ chữ dùng hai typeface khác nhau, chữ bị ngắt dòng sai ("Đăng nhập" chỉ còn "Đăng"). */
+  const [fonts] = useFonts(Platform.OS === "android" ? {} : { Montserrat_300Light, Montserrat_400Regular, Montserrat_500Medium, Montserrat_600SemiBold, Montserrat_700Bold, Montserrat_800ExtraBold });
   useEffect(() => {
     const handle = (url: string | null) => {
       if (!url) return;
@@ -322,12 +334,12 @@ function KavorApp() {
     const sub = Linking.addEventListener("url", (e) => handle(e.url));
     return () => sub.remove();
   }, []);
-  if (!fonts) return <SplashOverlay ready={false} onDone={() => {}} />;
+  if (!fonts || !booted) return <SplashOverlay ready={false} onDone={() => {}} />;
   const r = cur();
   return (
     <View style={styles.root}>
       <StatusBar style={splash || LIGHT.includes(r) ? "light" : "dark"} animated />
-      <Router />
+      <BlurSource><Router /></BlurSource>
       <QuickMenu />
       <Dock visible={isNav(r)} />
       <NetBar />
@@ -339,7 +351,7 @@ function KavorApp() {
 }
 
 export default function App() {
-  return <SafeAreaProvider><KavorApp /></SafeAreaProvider>;
+  return <SafeAreaProvider><CrashBoundary><KavorApp /></CrashBoundary></SafeAreaProvider>;
 }
 
 const styles = StyleSheet.create({

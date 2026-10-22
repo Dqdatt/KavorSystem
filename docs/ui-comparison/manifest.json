@@ -62,7 +62,7 @@
       "native": "native/device.png",
       "paired": "paired/device.png",
       "status": "matched",
-      "diff": 13.47,
+      "diff": 13.48,
       "note": "Khớp bố cục, màu, chữ và trạng thái."
     },
     {
@@ -71,7 +71,7 @@
       "native": "native/home.png",
       "paired": "paired/home.png",
       "status": "matched",
-      "diff": 17.56,
+      "diff": 17.57,
       "note": "Khớp. Bản tin tự chạy; vị trí thẻ trong ảnh phụ thuộc thời điểm chụp."
     },
     {
@@ -80,7 +80,7 @@
       "native": "native/home-manager.png",
       "paired": "paired/home-manager.png",
       "status": "matched",
-      "diff": 17.42,
+      "diff": 17.43,
       "note": "Khớp bố cục, màu, chữ và trạng thái."
     },
     {
@@ -89,7 +89,7 @@
       "native": "native/home-checked-in.png",
       "paired": "paired/home-checked-in.png",
       "status": "matched",
-      "diff": 14.98,
+      "diff": 14.99,
       "note": "Khớp bố cục, màu, chữ và trạng thái."
     },
     {
@@ -98,7 +98,7 @@
       "native": "native/home-scrolled.png",
       "paired": "paired/home-scrolled.png",
       "status": "matched",
-      "diff": 13.84,
+      "diff": 13.85,
       "note": "Khớp hành vi: navbar ẩn khi cuộn xuống, thanh tiêu đề chuyển kính."
     },
     {
@@ -125,7 +125,7 @@
       "native": "native/clock.png",
       "paired": "paired/clock.png",
       "status": "matched",
-      "diff": 14.87,
+      "diff": 14.93,
       "note": "Khớp bố cục, màu, chữ và trạng thái."
     },
     {
@@ -143,7 +143,7 @@
       "native": "native/punch-receipt.png",
       "paired": "paired/punch-receipt.png",
       "status": "matched",
-      "diff": 12.48,
+      "diff": 12.49,
       "note": "Khớp bố cục, màu, chữ và trạng thái."
     },
     {
@@ -152,7 +152,7 @@
       "native": "native/early-clockout-sheet.png",
       "paired": "paired/early-clockout-sheet.png",
       "status": "matched",
-      "diff": 7.58,
+      "diff": 7.57,
       "note": "Khớp bố cục, màu, chữ và trạng thái."
     },
     {
@@ -179,7 +179,7 @@
       "native": "native/error-e26-slow-network.png",
       "paired": "paired/error-e26-slow-network.png",
       "status": "matched",
-      "diff": 11.27,
+      "diff": 11.15,
       "note": "Khớp. Trạng thái 'Đang gửi chấm công…' chỉ kéo dài 2,4 giây nên được chụp sớm."
     },
     {
@@ -188,7 +188,7 @@
       "native": "native/attendance.png",
       "paired": "paired/attendance.png",
       "status": "matched",
-      "diff": 12.68,
+      "diff": 12.7,
       "note": "Khớp bố cục, màu, chữ và trạng thái."
     },
     {
@@ -197,7 +197,7 @@
       "native": "native/attendance-miss.png",
       "paired": "paired/attendance-miss.png",
       "status": "matched",
-      "diff": 21.97,
+      "diff": 21.99,
       "note": "Khớp bố cục, màu, chữ và trạng thái."
     },
     {
@@ -215,7 +215,7 @@
       "native": "native/explain.png",
       "paired": "paired/explain.png",
       "status": "matched",
-      "diff": 18.16,
+      "diff": 18.19,
       "note": "Khớp bố cục, màu, chữ và trạng thái."
     },
     {
@@ -224,7 +224,7 @@
       "native": "native/done-explain.png",
       "paired": "paired/done-explain.png",
       "status": "matched",
-      "diff": 12.1,
+      "diff": 12.13,
       "note": "Khớp bố cục, màu, chữ và trạng thái."
     },
     {
@@ -233,7 +233,7 @@
       "native": "native/leave.png",
       "paired": "paired/leave.png",
       "status": "matched",
-      "diff": 15.0,
+      "diff": 15.01,
       "note": "Khớp bố cục, màu, chữ và trạng thái."
     },
     {
@@ -242,7 +242,7 @@
       "native": "native/leave-new.png",
       "paired": "paired/leave-new.png",
       "status": "matched",
-      "diff": 9.97,
+      "diff": 9.98,
       "note": "Khớp bố cục, màu, chữ và trạng thái."
     },
     {
@@ -287,7 +287,7 @@
       "native": "native/payslips.png",
       "paired": "paired/payslips.png",
       "status": "matched",
-      "diff": 10.83,
+      "diff": 10.84,
       "note": "Khớp bố cục, màu, chữ và trạng thái."
     },
     {
@@ -323,7 +323,7 @@
       "native": "native/advance-limit-sheet.png",
       "paired": "paired/advance-limit-sheet.png",
       "status": "matched",
-      "diff": 12.45,
+      "diff": 12.44,
       "note": "Khớp bố cục, màu, chữ và trạng thái."
     },
     {
@@ -422,7 +422,7 @@
       "native": "native/approval-detail.png",
       "paired": "paired/approval-detail.png",
       "status": "matched",
-      "diff": 12.08,
+      "diff": 12.07,
       "note": "Khớp bố cục, màu, chữ và trạng thái."
     },
     {
@@ -440,7 +440,7 @@
       "native": "native/approval-bulk-select.png",
       "paired": "paired/approval-bulk-select.png",
       "status": "matched",
-      "diff": 13.44,
+      "diff": 13.45,
       "note": "Khớp bố cục, màu, chữ và trạng thái."
     },
     {
@@ -485,7 +485,7 @@
       "native": "native/profile-edit-sheet.png",
       "paired": "paired/profile-edit-sheet.png",
       "status": "matched",
-      "diff": 15.45,
+      "diff": 15.44,
       "note": "Khớp bố cục, màu, chữ và trạng thái."
     },
     {

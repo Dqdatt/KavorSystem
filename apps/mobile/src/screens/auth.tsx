@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Animated, Pressable, ScrollView, StyleSheet, TextInput, View } from "react-native";
-import { BlurView } from "expo-blur";
+import { Blur } from "../blur";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { C, EASE, F } from "../theme";
 import { FaceId, Gi, Ic, Logo, type IconName } from "../icons";
@@ -29,7 +29,7 @@ function AuthPage({ children, back: hasBack, progress, otp }: { children: ReactN
       </Animated.View>
       {hasBack ? (
         <Pressable accessibilityLabel="Quay lại" onPress={back} style={[styles.back, { top: top + 6 }]}>
-          <BlurView intensity={20} tint="light" style={[StyleSheet.absoluteFill, { borderRadius: 21 }]} />
+          <Blur intensity={20} style={[StyleSheet.absoluteFill, { borderRadius: 21 }]} />
           <Ic n="chevL" s={20} w={2} color={C.ink2} />
         </Pressable>
       ) : null}
@@ -99,8 +99,8 @@ export function Login() {
           <Pressable hitSlop={8} onPress={() => go("forgot")}><T style={{ fontSize: 12.5, fontFamily: F.semibold, color: C.ink2 }}>Quên mật khẩu?</T></Pressable>
         </View>
         <View style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
-          <Btn kind="auth" flex spinKey="login" onPress={() => ACT.login(true)}>Đăng nhập</Btn>
-          <Pressable accessibilityLabel="Đăng nhập bằng Face ID" onPress={() => ACT.login(false)} style={({ pressed }) => [styles.face, pressed && { transform: [{ scale: 0.94 }], backgroundColor: "#EAF7F1", boxShadow: undefined }]}>
+          <Btn kind="auth" flex spinKey="login" onPress={ACT.login}>Đăng nhập</Btn>
+          <Pressable accessibilityLabel="Đăng nhập bằng Face ID" onPress={() => { void ACT.faceLogin(); }} style={({ pressed }) => [styles.face, pressed && { transform: [{ scale: 0.94 }], backgroundColor: "#EAF7F1", boxShadow: undefined }]}>
             <FaceId size={26} color={C.emerald} />
           </Pressable>
         </View>

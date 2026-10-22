@@ -56,7 +56,7 @@ export function SheetContent({ kind, arg }: { kind: SheetKind; arg?: string }) {
       <View style={{ flexDirection: "row", gap: 16, justifyContent: "center", paddingVertical: 4 }}>{Array.from({ length: 6 }, (_, i) => <PinDot key={i} on={i < S.pin.length} />)}</View>
       <View style={styles.keypad}>
         {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => <Key key={n} onPress={() => ACT.pinkey(String(n))}>{String(n)}</Key>)}
-        <Key plain label="Dùng Face ID" onPress={ACT.faceid}><FaceId size={30} color={C.emerald} /></Key>
+        <Key plain label="Dùng Face ID" onPress={() => { void ACT.faceid(); }}><FaceId size={30} color={C.emerald} /></Key>
         <Key onPress={() => ACT.pinkey("0")}>0</Key>
         <Key plain label="Xóa" onPress={() => ACT.pinkey("del")}><Ic n="chevL" s={24} w={2} color={C.ink2} /></Key>
       </View>

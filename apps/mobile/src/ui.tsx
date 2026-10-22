@@ -1,6 +1,6 @@
 import { Children, Fragment, isValidElement, useEffect, useRef, useState, type ReactNode } from "react";
 import {
-  Animated, Easing, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
+  Animated, Easing, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
   type StyleProp, type TextInputProps, type TextProps, type TextStyle, type ViewStyle,
 } from "react-native";
 import { C, F, GL, EASE, glass, lh, tint } from "./theme";
@@ -13,11 +13,24 @@ import { STATUS, type ReqStatus } from "./data";
 export function T({ style, children, ...p }: TextProps & { style?: StyleProp<TextStyle> }) {
   const flat = (StyleSheet.flatten(style) || {}) as TextStyle;
   const size = flat.fontSize ?? 14;
-  return <Text allowFontScaling={false} {...p} style={[{ fontFamily: F.regular, fontSize: 14, color: C.ink, lineHeight: lh(size) }, style]}>{children}</Text>;
+  /* Android đo thiếu bề rộng chữ có letterSpacing dương nên ngắt dòng và mất từ cuối (vd. "VÀO CA" chỉ còn "VÀO").
+     Các chữ này đều là nhãn ngắn một dòng: dùng khoảng trắng không ngắt dòng và bù thêm bề rộng. */
+  const spaced = Platform.OS === "android" && (flat.letterSpacing ?? 0) > 0;
+  const fix = spaced && flat.width == null ? { paddingRight: Math.ceil((flat.letterSpacing ?? 0) * 2) } : null;
+  /* Chữ co theo nội dung (khung = bề rộng đo được) không có chút dư nào; Android làm tròn khi vẽ nên chữ cuối bị đẩy xuống dòng
+     rồi bị cắt ("Thiết bị này chưa được đăng ký" mất "ký"). Thêm một NBSP cuối chuỗi để khung rộng hơn vài pixel. */
+  const single = spaced && (p.numberOfLines == null || p.numberOfLines === 1);
+  const base = single && typeof children === "string" && children.length <= 40 ? children.replace(/ /g, "\u00A0") : children;
+  const text = Platform.OS === "android" && typeof base === "string" ? base + "\u00A0" : base;
+  /* Các chữ giãn ký tự đều là nhãn một dòng; ép 1 dòng để Android dùng đường đo/vẽ khớp nhau */
+  const lines = spaced && p.numberOfLines == null ? { numberOfLines: 1 } : null;
+  return <Text allowFontScaling={false} {...lines} {...p} style={[{ fontFamily: F.regular, fontSize: 14, color: C.ink, lineHeight: lh(size) }, style, fix]}>{text}</Text>;
 }
 /* text-wrap: balance — đo số dòng rồi thu hẹp khung để các dòng dài gần bằng nhau */
 export function Balanced({ style, children, ...p }: TextProps & { style?: StyleProp<TextStyle> }) {
   const [maxW, setMaxW] = useState<number | undefined>();
+  /* Android đo dòng lệch với lúc vẽ nên thu hẹp khung làm mất chữ cuối: chỉ cân dòng trên iOS */
+  if (Platform.OS === "android") return <T {...p} style={style}>{children}</T>;
   const done = useRef(false);
   const self = (StyleSheet.flatten(style) as TextStyle | undefined)?.alignSelf ?? "center";
   return <T {...p} style={[style, maxW ? { maxWidth: maxW, alignSelf: self } : null]} onTextLayout={(e) => {
@@ -50,7 +63,8 @@ export function Btn({ kind = "primary", sm, block, disabled, onPress, children, 
     <Animated.View style={[press.style, block && { alignSelf: "stretch" }, flex && { flex: 1 }, disabled && { opacity: 0.4 }, style]}>
       <Pressable disabled={disabled || busy} onPress={onPress} onPressIn={press.onPressIn} onPressOut={press.onPressOut} accessibilityRole="button"
         style={[styles.btn, sm && styles.btnSm, kind === "primary" && styles.btnPrimary, kind === "ghost" && styles.btnGhost, kind === "danger" && styles.btnDanger, kind === "auth" && styles.btnAuth]}>
-        {busy ? <Spinner color={color} /> : <>{icon}{typeof children === "string" ? <T style={[styles.btnText, sm && { fontSize: 13 }, { color }]}>{children}</T> : children}</>}
+        {/* numberOfLines: bản Release Android có lúc ngắt dòng khi vẽ dù bề rộng đủ ("Đăng nhập" chỉ còn "Đăng") */}
+        {busy ? <Spinner color={color} /> : <>{icon}{typeof children === "string" ? <T numberOfLines={1} style={[styles.btnText, sm && { fontSize: 13 }, { color }]}>{children}</T> : children}</>}
       </Pressable>
     </Animated.View>
   );
@@ -95,7 +109,7 @@ export function RowBtn({ icon, title, sub, right, chev = true, onPress, titleSty
 export const RowStrong = ({ children }: { children: ReactNode }) => <Num style={[styles.rowR, styles.rowStrong]}>{children}</Num>;
 
 export function St({ s, children, style }: { s: "ok" | "bad" | "warn" | "mute"; children: ReactNode; style?: StyleProp<TextStyle> }) {
-  return <T style={[styles.st, { color: s === "ok" ? C.ok : s === "bad" ? C.bad : s === "warn" ? C.warn : C.ink3 }, style]}>{children}</T>;
+  return <T numberOfLines={1} style={[styles.st, { color: s === "ok" ? C.ok : s === "bad" ? C.bad : s === "warn" ? C.warn : C.ink3 }, style]}>{children}</T>;
 }
 export const Tag = ({ st }: { st: ReqStatus }) => <St s={STATUS[st][1]}>{STATUS[st][0]}</St>;
 
@@ -152,7 +166,7 @@ export function Chip({ on, label, onPress, style }: { on?: boolean; label: React
   return (
     <Animated.View style={[pick.style, style]}>
       <Pressable onPress={() => { pick.run(); onPress?.(); }} style={[styles.chip, on && styles.chipOn]}>
-        {typeof label === "string" ? <T style={[styles.chipT, on && styles.chipTOn]}>{label}</T> : label}
+        {typeof label === "string" ? <T numberOfLines={1} style={[styles.chipT, on && styles.chipTOn]}>{label}</T> : label}
       </Pressable>
     </Animated.View>
   );
@@ -178,7 +192,7 @@ export function Seg({ items, value, onChange }: { items: Array<[string, ReactNod
       {kw ? <Animated.View style={[styles.knob, { width: kw, transform: [{ translateX: pos.interpolate({ inputRange: [0, Math.max(1, n - 1)], outputRange: [0, Math.max(1, n - 1) * (kw + 2)] }) }] }]} /> : null}
       {items.map(([k, label]) => (
         <Pressable key={k} style={styles.segBtn} onPress={() => onChange(k)}>
-          {typeof label === "string" ? <T style={[styles.segT, k === value && styles.segTOn]}>{label}</T> : label}
+          {typeof label === "string" ? <T numberOfLines={1} style={[styles.segT, k === value && styles.segTOn]}>{label}</T> : label}
         </Pressable>
       ))}
     </View>

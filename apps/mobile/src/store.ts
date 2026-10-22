@@ -2,10 +2,12 @@
    Màn hình đọc trực tiếp từ S; mọi thay đổi gọi emit()/render() để App vẽ lại. */
 import { Vibration } from "react-native";
 import {
-  ADV_DAY, APPROVALS_INIT, MY_REQ_INIT, OCT, LV_DAYS, advLimit, dec, dur, hm, lvKey, pad, toMin, vnd, wdOct, WD,
+  ADV_DAY, LV_DAYS, advLimit, dec, dur, hm, lvKey, pad, toMin, vnd, wdOct, WD,
   type Approval, type MyReq, type OctDay,
 } from "./data";
 import type { IllusKind } from "./illus";
+import { api, type Snapshot } from "./api";
+import { authenticate, clearSession, loadSession, quickLoginEmployee, saveSession } from "./auth";
 
 export type Anim = "push" | "pop" | "fade";
 export type Route =
@@ -33,6 +35,19 @@ const freshForms = () => ({
   rej: "", rejErr: false, payQ: "", payChip: 1, pfPhone: "0912 345 468", pfAddr: "Tân Định, TP.HCM",
 });
 
+const fromSnapshot = (d: Snapshot) => ({
+  myReq: d.myRequests as MyReq[],
+  approvals: d.approvals as Approval[],
+  oct: d.timesheet as OctDay[],
+  payslips: d.payslips,
+  news: d.news,
+});
+
+/* Gửi thay đổi lên lớp dữ liệu; giao diện đã cập nhật lạc quan nên chỉ báo khi lỗi */
+function sync(p: Promise<void>) {
+  p.catch(() => toast("Chưa đồng bộ được với máy chủ. Kavor sẽ thử lại khi có mạng."));
+}
+
 const makeState = () => ({
   role: "staff" as "staff" | "manager", inRange: true, shift: "fixed" as "fixed" | "flex", contract: "official" as "official" | "probation" | "leaving",
   clockIn: null as number | null, clockOut: null as number | null,
@@ -49,9 +64,7 @@ const makeState = () => ({
   net: "online" as "online" | "offline" | "slow", netWas: "online", err: null as null | { kind: ErrKind; retry?: Route; over?: { t: string; p: string } },
   retry: null as null | (() => void), slowOk: false, newsCat: "all", hideMoney: false, widgetState: "idle" as "idle" | "busy" | "ok",
   done: null as Done | null, justPunched: false, attFilter: "all" as "all" | "late" | "miss", ncIdx: 0,
-  myReq: MY_REQ_INIT.map((r) => ({ ...r })) as MyReq[],
-  approvals: APPROVALS_INIT.map((r) => ({ ...r })) as Approval[],
-  oct: OCT.map((d) => ({ ...d })) as OctDay[],
+  ...fromSnapshot(api.cached()),
   f: freshForms(),
   /* UI */
   nav: { seq: 0, anim: null as Anim | null },
@@ -66,7 +79,10 @@ const makeState = () => ({
 export const S = makeState();
 
 /* Đưa toàn bộ dữ liệu mẫu về trạng thái ban đầu (dùng cho QA/chụp so sánh) */
+/* Tăng mỗi lần reset để các hẹn giờ của trạng thái cũ tự hủy */
+let epoch = 0;
 export function resetAll() {
+  epoch++;
   const seq = S.nav.seq;
   Object.assign(S, makeState());
   S.nav = { seq, anim: null };
@@ -177,6 +193,21 @@ export function spin(key: string, ms: number, done: () => void) {
 export function shake(key: string) { S.shake = { key, n: S.shake.n + 1 }; emit(); }
 
 export function openPin(ok: () => void) { S.pin = ""; S.pinOk = ok; openSheet("pin"); }
+/* Lưu phiên vào Keychain; thiết bị đã đăng ký thì vào thẳng trang chủ, chưa thì sang bước đăng ký */
+async function signIn(employeeId: string) {
+  const session = await saveSession({ employeeId });
+  S.stack = [session.deviceRegistered ? "home" : "device"];
+  render(session.deviceRegistered ? "fade" : "push");
+}
+
+/* Mở app: còn phiên hợp lệ thì bỏ qua màn đăng nhập */
+export async function restoreSession() {
+  const session = await loadSession();
+  if (!session) return;
+  Object.assign(S, fromSnapshot(await api.refresh().catch(() => api.cached())));
+  S.stack = [session.deviceRegistered ? "home" : "device"]; render();
+}
+
 function pinSuccess() { S.pinUntil = Date.now() + 5 * 60 * 1000; const f = S.pinOk; S.pinOk = null; closeSheet(); f && f(); }
 
 export function quickOpen() { S.quickOpen = true; emit(); }
@@ -221,15 +252,23 @@ export const ACT = {
   }),
   errClose: () => { S.err = null; if (S.stack.length > 1) { S.stack.pop(); render("pop"); } else { S.stack = ["home"]; render("fade"); } },
   errHR: () => toast("Phòng Nhân sự: 028 3822 0142 · hr@haidang.vn"),
-  errLogin: () => { S.err = null; S.stack = ["login"]; render("fade"); },
+  errLogin: () => { void clearSession(); S.err = null; S.stack = ["login"]; render("fade"); },
   errReset: () => spin("errReset", 800, () => { S.err = { kind: "devicePending" }; render("fade"); toast("Đã gửi yêu cầu chuyển thiết bị"); }),
   errPending: () => spin("errPending", 800, () => toast("Chưa có thay đổi. HR sẽ xử lý trong giờ hành chính.")),
   errSettings: () => { toast("Mô phỏng: đã bật quyền vị trí trong Cài đặt"); setTimeout(() => ACT.errClose(), 900); },
   errUpdate: () => spin("errUpdate", 1200, () => { S.err = null; S.stack = ["home"]; render("fade"); toast("Đã cập nhật lên phiên bản 2.4.0"); }),
   errExplain: () => { S.err = null; S.stack = ["home"]; render("fade"); go("explain"); },
   help: () => openSheet("help", cur()),
-  login: (withSpin = true) => { const done = () => { S.stack = ["device"]; render("push"); }; if (withSpin) spin("login", 700, done); else done(); },
-  ssoLogin: () => { toast("Mở trang đăng nhập một lần (SSO) của công ty · mô phỏng"); setTimeout(() => { S.stack = ["device"]; render("push"); }, 1000); },
+  login: () => spin("login", 700, () => { void signIn("HD0142"); }),
+  /* Face ID ở màn đăng nhập: dùng thông tin đăng nhập nhanh đã lưu từ lần đăng nhập mật khẩu trước */
+  faceLogin: async () => {
+    const employeeId = await quickLoginEmployee();
+    if (!employeeId) { toast("Đăng nhập bằng mật khẩu một lần để bật đăng nhập nhanh bằng Face ID"); return; }
+    const r = await authenticate("Đăng nhập Kavor");
+    if (!r.ok) { if (r.reason !== "cancelled") toast(r.message); return; }
+    await signIn(employeeId);
+  },
+  ssoLogin: () => { toast("Mở trang đăng nhập một lần (SSO) của công ty · mô phỏng"); setTimeout(() => { void signIn("HD0142"); }, 1000); },
   toActivate: () => { S.stack = ["login", "activate"]; render("push"); },
   toLogin: () => { S.stack = ["login"]; render("pop"); },
   sendResetOtp: () => { if (!S.f.fgId.trim()) { S.f.fgErr = true; shake("fgErr"); return; } spin("sendResetOtp", 700, () => { S.stack.push("forgotOtp"); render("push"); toast("Đã gửi mã OTP · hiệu lực trong 5 phút"); }); },
@@ -241,17 +280,18 @@ export const ACT = {
     spin("resetPassword", 800, () => { S.f = freshForms(); S.stack = ["login"]; render("fade"); toast("Đã đặt lại mật khẩu. Bạn có thể đăng nhập ngay."); });
   },
   activate: () => { if (!S.f.agree) { S.f.agreeErr = true; shake("agreeErr"); return; } spin("activate", 700, () => { S.stack.push("otp"); render("push"); }); },
-  verifyOtp: () => { if (S.f.otp.join("").length < 6) { toast("Vui lòng nhập đủ 6 số OTP"); return; } spin("verifyOtp", 800, () => { toast("Đã kích hoạt tài khoản HD0142"); S.stack = ["device"]; render("push"); }); },
+  verifyOtp: () => { if (S.f.otp.join("").length < 6) { toast("Vui lòng nhập đủ 6 số OTP"); return; } spin("verifyOtp", 800, () => { toast("Đã kích hoạt tài khoản HD0142"); void signIn("HD0142"); }); },
   resendOtp: () => toast("Đã gửi lại mã OTP mới · hiệu lực trong 5 phút"),
-  registerDevice: () => { S.stack = ["home"]; render("fade"); toast("Đã đăng ký iPhone 15 làm thiết bị chấm công"); },
+  registerDevice: () => { sync(api.registerDevice()); void saveSession({ employeeId: "HD0142", deviceRegistered: true }); S.stack = ["home"]; render("fade"); toast("Đã đăng ký iPhone 15 làm thiết bị chấm công"); },
   quick: () => { S.quickOpen ? quickClose() : quickOpen(); },
   qgo: (a: string) => { quickClose(); if (a === "_edit") { setTimeout(() => ACT.editProfile(), 160); return; } setTimeout(() => go(a as Route), 110); },
   blockedTap: () => openSheet("blocked"),
   punchGo: () => {
     closeSheet(true);
-    if (S.net === "slow" && !S.slowOk) { openSheet("slowCheck"); setTimeout(() => { S.slowOk = true; ACT.punchGo(); S.slowOk = false; }, 2400); return; }
+    if (S.net === "slow" && !S.slowOk) { const e = epoch; openSheet("slowCheck"); setTimeout(() => { if (e !== epoch) return; S.slowOk = true; ACT.punchGo(); S.slowOk = false; }, 2400); return; }
     const kind = S.clockIn ? "out" : "in", t = simNow();
     if (kind === "in") S.clockIn = t; else S.clockOut = t;
+    sync(api.recordPunch({ kind, at: t }));
     Vibration.vibrate(30);
     S.justPunched = true; emit(); openSheet("receipt", `${kind}:${t}`);
     setTimeout(() => { S.justPunched = false; }, 900);
@@ -270,7 +310,8 @@ export const ACT = {
     const o = day(S.ex.date)!; o.pendingEx = true; S.explainUsed++;
     const id = "GT-" + pad(S.ex.date) + "10";
     const tn = ({ in: "quên chấm vào", out: "quên chấm ra", trip: "đi công tác", device: "lỗi thiết bị/GPS", other: "khác" } as Record<string, string>)[S.ex.type];
-    S.myReq.unshift({ id, type: "explain", title: "Giải trình công", sub: `${WD[wdOct(S.ex.date)]} ${pad(S.ex.date)}/10 · ${tn}`, status: "pending", created: "16/10 " + hm(simNow()), reason: S.ex.reason });
+    const req: MyReq = { id, type: "explain", title: "Giải trình công", sub: `${WD[wdOct(S.ex.date)]} ${pad(S.ex.date)}/10 · ${tn}`, status: "pending", created: "16/10 " + hm(simNow()), reason: S.ex.reason };
+    S.myReq.unshift(req); sync(api.submitRequest(req));
     S.ex = { date: 12, type: "in", time: 478, reason: "", file: null, err: false };
     S.done = { illus: "explain", title: "Đã gửi yêu cầu giải trình", text: `Lê Quang Huy sẽ nhận thông báo để duyệt. Bạn còn ${explainLeft()}/3 lượt trong tháng 10.`, rows: [["Mã đơn", id], ["Hạn duyệt", "22/10"]], primary: ["Xem đơn của tôi", "requests"] };
     S.stack = ["done"]; render("push");
@@ -292,14 +333,15 @@ export const ACT = {
     const tname = ({ annual: "Nghỉ phép năm", unpaid: "Nghỉ không lương", wedding: "Nghỉ kết hôn", bereave: "Nghỉ tang chế", sick: "Nghỉ ốm (BHXH)" } as Record<string, string>)[v.type] ?? "Nghỉ phép năm";
     if (v.type === "annual") S.leave.pending += n;
     const id = "NP-" + pad(fd) + pad(fm);
-    S.myReq.unshift({ id, type: "leave", title: tname, sub: `${pad(fd)}/${pad(fm)}${to !== v.from ? "–" + pad(td) + "/" + pad(tm) : ""}${half} · ${dec(n)} ngày`, status: "pending", created: "16/10 " + hm(simNow()), reason: v.reason || "—" });
+    const req: MyReq = { id, type: "leave", title: tname, sub: `${pad(fd)}/${pad(fm)}${to !== v.from ? "–" + pad(td) + "/" + pad(tm) : ""}${half} · ${dec(n)} ngày`, status: "pending", created: "16/10 " + hm(simNow()), reason: v.reason || "—" };
+    S.myReq.unshift(req); sync(api.submitRequest(req));
     S.lv = { type: "annual", from: null, to: null, half: "full", reason: "", err: "" };
     S.done = { illus: "leave", title: "Đã gửi đơn nghỉ", text: v.type === "annual" ? `${dec(n)} ngày phép được giữ chỗ đến khi đơn được duyệt.` : "Loại nghỉ này không trừ phép năm.", rows: [["Mã đơn", id], ["Người duyệt", "Lê Quang Huy"]], primary: ["Xem đơn của tôi", "requests"] };
     S.stack = ["done"]; render("push");
   },
   hideMoney: () => { S.hideMoney = !S.hideMoney; emit(); },
   askPay: (a: string) => { S.f.payQ = ""; S.f.payChip = 1; openSheet("askPay", a); },
-  payQSend: () => { if (!needNet(() => ACT.payQSend())) return; closeSheet(); toast("Đã gửi. Bạn sẽ nhận thông báo khi HR trả lời."); },
+  payQSend: () => { if (!needNet(() => ACT.payQSend())) return; sync(api.askPayroll(S.sheet?.arg ?? "", String(S.f.payChip), S.f.payQ)); closeSheet(); toast("Đã gửi. Bạn sẽ nhận thông báo khi HR trả lời."); },
   advExplain: () => openSheet("advExplain"),
   advQuick: (a: number) => { S.advAmt = a; emit(); },
   advReview: () => { if (advError()) return; openSheet("advReview"); },
@@ -307,19 +349,20 @@ export const ACT = {
     if (!needNet(() => ACT.advConfirm())) return; closeSheet(true);
     openPin(() => {
       S.advance = { id: "TU-1016", amount: S.advAmt, step: 1, created: "16/10 " + hm(simNow()), reason: S.advReason };
-      S.myReq.unshift({ id: "TU-1016", type: "advance", title: "Tạm ứng lương", sub: vnd(S.advAmt) + " · trừ kỳ 10/2026", status: "pending", created: S.advance.created, reason: S.advReason || "—", adv: true });
+      const req: MyReq = { id: "TU-1016", type: "advance", title: "Tạm ứng lương", sub: vnd(S.advAmt) + " · trừ kỳ 10/2026", status: "pending", created: S.advance.created, reason: S.advReason || "—", adv: true };
+      S.myReq.unshift(req); sync(api.submitRequest(req));
       S.stack = ["home", "advance", "advanceDetail"]; render("push"); toast("Đã gửi đề nghị tạm ứng TU-1016");
     });
   },
   advStep: () => { const a = S.advance!; a.step = Math.min(5, a.step + 1); if (a.step >= 4) { const r = S.myReq.find((x) => x.id === a.id); if (r) r.status = "approved"; } emit(); },
   advCancel: () => openSheet("advCancel"),
-  advCancelGo: () => { const r = S.myReq.find((x) => x.id === S.advance!.id); if (r) r.status = "cancelled"; S.advance = null; closeSheet(); S.stack = ["home", "advance"]; render("pop"); toast("Đã hủy đề nghị tạm ứng"); },
+  advCancelGo: () => { const r = S.myReq.find((x) => x.id === S.advance!.id); if (r) { r.status = "cancelled"; sync(api.cancelRequest(r.id)); } S.advance = null; closeSheet(); S.stack = ["home", "advance"]; render("pop"); toast("Đã hủy đề nghị tạm ứng"); },
   reqTab: (a: "mine" | "approve") => { S.reqTab = a; S.selectMode = false; S.sel.clear(); emit(); },
   reqFilter: (a: string) => { S.reqFilter = a; emit(); },
   newsCat: (a: string) => { S.newsCat = a; emit(); },
   cancelAsk: (a: string) => openSheet("cancelAsk", a),
   cancelGo: (a: string) => {
-    const r = S.myReq.find((x) => x.id === a)!; r.status = "cancelled";
+    const r = S.myReq.find((x) => x.id === a)!; r.status = "cancelled"; sync(api.cancelRequest(a));
     if (r.title === "Nghỉ phép năm") { const m = r.sub.match(/([\d,]+) ngày/); if (m) S.leave.pending = Math.max(0, S.leave.pending - parseFloat((m[1] ?? "0").replace(",", "."))); }
     if (r.adv) S.advance = null; closeSheet(); emit(); toast("Đã hủy đơn " + a);
   },
@@ -327,6 +370,7 @@ export const ACT = {
   selToggle: (a: string) => { S.sel.has(a) ? S.sel.delete(a) : S.sel.add(a); emit(); },
   approve: (a: string, fromCard = false) => {
     if (!needNet(() => ACT.approve(a, fromCard))) return;
+    sync(api.decide({ ids: [a], approve: true }));
     const finish = () => { S.leavingCard = null; S.approvals = S.approvals.filter((x) => x.id !== a); if (cur() === "approvalDetail") { S.stack.pop(); render("pop"); } else emit(); toast("Đã duyệt đơn " + a); };
     if (fromCard) { S.leavingCard = a; emit(); setTimeout(finish, 260); } else finish();
   },
@@ -334,11 +378,13 @@ export const ACT = {
   rejectGo: (a: string) => {
     if (!S.f.rej.trim()) { S.f.rejErr = true; emit(); return; }
     if (!needNet(() => ACT.rejectGo(a))) return;
+    sync(api.decide({ ids: [a], approve: false, reason: S.f.rej.trim() }));
     S.approvals = S.approvals.filter((x) => x.id !== a); closeSheet(); if (cur() === "approvalDetail") { S.stack.pop(); render("pop"); } else emit(); toast("Đã từ chối đơn " + a);
   },
   bulkApprove: () => {
     if (!needNet(() => ACT.bulkApprove())) return;
     const res = [...S.sel].map((id) => { const r = S.approvals.find((x) => x.id === id)!; return { r, fail: r.type === "advance" }; });
+    sync(api.decide({ ids: res.filter((z) => !z.fail).map((z) => z.r.id), approve: true }));
     S.approvals = S.approvals.filter((x) => !res.some((z) => z.r.id === x.id && !z.fail));
     S.sel.clear(); S.selectMode = false; emit();
     openSheet("bulkResult", JSON.stringify(res.map((z) => ({ id: z.r.id, who: z.r.who, fail: z.fail }))));
@@ -348,28 +394,38 @@ export const ACT = {
   otT: (k: "from" | "to", v: number) => { S.ot[k] = Math.max(0, Math.min(1440, S.ot[k] + v)); emit(); },
   otSubmit: () => {
     if (!needNet(() => ACT.otSubmit())) return; const o = S.ot, h = (o.to - o.from) / 60;
-    S.myReq.unshift({ id: "OT-" + pad(o.date) + "10", type: "ot", title: "Làm thêm giờ", sub: `${WD[wdOct(o.date)]} ${pad(o.date)}/10 · ${hm(o.from * 60)}–${hm(o.to * 60)} · ${dec(h)} giờ`, status: "pending", created: "16/10 " + hm(simNow()), reason: o.reason || "—" });
+    const req: MyReq = { id: "OT-" + pad(o.date) + "10", type: "ot", title: "Làm thêm giờ", sub: `${WD[wdOct(o.date)]} ${pad(o.date)}/10 · ${hm(o.from * 60)}–${hm(o.to * 60)} · ${dec(h)} giờ`, status: "pending", created: "16/10 " + hm(simNow()), reason: o.reason || "—" };
+    S.myReq.unshift(req); sync(api.submitRequest(req));
     S.done = { illus: "ot", title: "Đã gửi đăng ký làm thêm", text: `${dec(h)} giờ ngày ${pad(o.date)}/10 đang chờ quản lý duyệt.`, primary: ["Xem đơn của tôi", "requests"] };
     S.stack = ["done"]; render("push");
   },
   doneGo: (a: Route) => { S.reqTab = "mine"; S.reqFilter = "all"; S.stack = [a]; render("fade"); },
   editProfile: () => openSheet("editProfile"),
-  pfSend: () => { if (!needNet(() => ACT.pfSend())) return; closeSheet(); toast("Đã gửi. Thông tin cũ vẫn hiệu lực đến khi HR duyệt."); },
+  pfSend: () => { if (!needNet(() => ACT.pfSend())) return; sync(api.requestProfileChange({ phone: S.f.pfPhone, address: S.f.pfAddr })); closeSheet(); toast("Đã gửi. Thông tin cũ vẫn hiệu lực đến khi HR duyệt."); },
   logoutAsk: () => openSheet("logoutAsk"),
-  logoutGo: () => { closeSheet(); S.stack = ["login"]; render("fade"); },
+  logoutGo: () => { void clearSession(); S.pinUntil = 0; closeSheet(); S.stack = ["login"]; render("fade"); },
   pinkey: (a: string) => {
     if (a === "del") S.pin = S.pin.slice(0, -1); else if (S.pin.length < 6) S.pin += a;
     emit();
     if (S.pin.length === 6) setTimeout(pinSuccess, 240);
   },
-  faceid: () => { if (S.sheet) { S.sheet = { ...S.sheet, kind: "face" }; emit(); } setTimeout(pinSuccess, 1000); },
+  /* Face ID thật trong sheet PIN; hủy hoặc không khớp thì quay lại bàn phím PIN */
+  faceid: async () => {
+    if (S.sheet) { S.sheet = { ...S.sheet, kind: "face" }; emit(); }
+    const r = await authenticate("Xác thực để xem lương và tạm ứng");
+    if (r.ok) { pinSuccess(); return; }
+    if (S.sheet) { S.sheet = { ...S.sheet, kind: "pin" }; emit(); }
+    if (r.reason !== "cancelled") toast(r.message);
+  },
   wpunch: () => {
     if (phase() === "done" || S.widgetState !== "idle") return;
     if (S.net === "offline") { toast("Widget: không có mạng, chưa chấm công"); return; }
     if (!S.inRange) { toast("Widget: bạn đang ngoài vùng chấm công 3 m"); return; }
     S.widgetState = "busy"; emit();
     setTimeout(() => {
-      if (!S.clockIn) S.clockIn = simNow(); else S.clockOut = simNow();
+      const kind = S.clockIn ? "out" : "in", t = simNow();
+      if (kind === "in") S.clockIn = t; else S.clockOut = t;
+      sync(api.recordPunch({ kind, at: t }));
       S.widgetState = "ok"; S.notifShow = false; emit();
       setTimeout(() => { S.widgetState = "idle"; emit(); }, 2600);
     }, 1200);

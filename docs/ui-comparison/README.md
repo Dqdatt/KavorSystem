@@ -6,7 +6,9 @@ Bộ ảnh đối chiếu `Kavor HRM Prototype.html` với app React Native tron
 | --- | --- |
 | `prototype/` | 70 trạng thái chụp từ prototype bằng Chrome headless |
 | `native/` | 70 trạng thái chụp từ app trên **iPhone 11 Simulator (iOS 18.6)** |
+| `android/` | 70 trạng thái chụp trên Android emulator (Pixel 6, Android 16, đặt 414×896 dp) |
 | `paired/` | Ảnh ghép hai cột (trái prototype, phải native). Không commit, sinh lại bằng lệnh bên dưới |
+| `paired-android/` | Ghép prototype với Android. Không commit, sinh lại bằng `UI_PLATFORM=android pair.py` |
 | `manifest.json`, `manifest.csv` | Danh sách trạng thái, trạng thái khớp, điểm sai khác pixel và ghi chú |
 
 Kết quả lần chụp 22/10/2026: **70/70 trạng thái đã có trên native**, không còn trạng thái "chưa triển khai".

@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useRef, type ReactElement, type ReactNode } from "react";
 import { Animated, Easing, ScrollView, StyleSheet, View, type NativeScrollEvent, type NativeSyntheticEvent, type StyleProp, type ViewStyle } from "react-native";
-import { BlurView } from "expo-blur";
+import { Blur } from "./blur";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { C, EASE, F } from "./theme";
 import { Ic } from "./icons";
@@ -50,7 +50,7 @@ function GlassBar() {
   if (!scrolled) return null;
   return (
     <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { opacity: scrolled }]}>
-      <BlurView intensity={30} tint="light" style={StyleSheet.absoluteFill} />
+      <Blur intensity={30} style={StyleSheet.absoluteFill} />
       <View style={[StyleSheet.absoluteFill, { experimental_backgroundImage: "linear-gradient(180deg, rgba(255,255,255,0.72), rgba(255,255,255,0.42))", boxShadow: "inset 0px -1px 0px rgba(255,255,255,0.85), 0px 8px 20px -14px rgba(6,70,50,0.3)" }]} />
     </Animated.View>
   );
