@@ -19,7 +19,7 @@ Port toàn bộ `Kavor HRM Prototype.html` sang app React Native sao cho giống
 
 ## Đang dở (QUAN TRỌNG NHẤT)
 - Nền tảng (22/10): migration `202610220001_rls_hardening.sql` + test pgTAP `supabase/tests/tenant_isolation.test.sql` (16/16 pass local). CHƯA áp lên project Supabase thật `KavorSystem` (ref trong `supabase/.temp`) — chờ người dùng đồng ý chạy `supabase db push`.
-- Bản app có màn "Bảo mật và thiết bị" (commit 22868fa) CHƯA cài lên iPhone vì máy ngắt kết nối lúc build.
+- Bản có màn "Bảo mật và thiết bị" đã cài lên iPhone (cài bằng `xcrun devicectl device install app` khi `expo run:ios` treo ở bước kết nối máy).
 - Key publishable + URL project thật từng nằm trong `.env.example` (commit 95df5ca) → đã thay placeholder; vẫn còn trong lịch sử git, người dùng cân nhắc rotate.
 
 ## Quyết định đã chốt
