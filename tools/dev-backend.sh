@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Chạy backend dev trên Mac: Supabase local (kèm hộp thư Mailpit) + Kavor API, cho app trên iPhone/simulator gọi tới.
+# Chạy backend dev trên Mac: Supabase local (kèm hộp thư Mailpit, Storage cho logo/ảnh bìa) + Kavor API, cho app trên iPhone/simulator gọi tới.
 #   bash tools/dev-backend.sh          # khởi động
 #   bash tools/dev-backend.sh reset    # xóa sạch DB về dữ liệu mẫu (HD0142 chưa kích hoạt)
 # Key Supabase local được đọc lúc chạy từ `supabase status`, không ghi ra file.
@@ -7,8 +7,8 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 docker info >/dev/null 2>&1 || { open -a Docker; echo "Đang mở Docker…"; until docker info >/dev/null 2>&1; do sleep 2; done; }
-supabase status >/dev/null 2>&1 || supabase start -x studio,imgproxy,vector,logflare,edge-runtime,storage-api,postgres-meta
-[ "${1:-}" = "reset" ] && supabase db reset
+supabase status >/dev/null 2>&1 || supabase start -x studio,imgproxy,vector,logflare,edge-runtime,postgres-meta
+[ "${1:-}" = "reset" ] && bash tools/db-reset.sh
 
 SRK=$(supabase status -o env 2>/dev/null | grep -E '^SERVICE_ROLE_KEY=' | cut -d= -f2- | tr -d '"')
 ANON=$(supabase status -o env 2>/dev/null | grep -E '^ANON_KEY=' | cut -d= -f2- | tr -d '"')

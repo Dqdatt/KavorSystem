@@ -1,5 +1,6 @@
-import { Body, Controller, Get, Headers, HttpCode, HttpException, Inject, Param, Patch, Post, Query, Req } from "@nestjs/common";
-import type { ApiEnvelope } from "@kavor/contracts";
+import { Body, Controller, Get, Headers, HttpCode, HttpException, Inject, Param, Patch, Post, Query, Req, Res, StreamableFile } from "@nestjs/common";
+import type { Response } from "express";
+import { ADMIN_ERRORS, type ApiEnvelope, type BrandingKind } from "@kavor/contracts";
 import type { CorrelatedRequest } from "../correlation.middleware.js";
 import { AuthError } from "../auth/auth.service.js";
 import { SupabaseGateway } from "../auth/supabase.js";
@@ -7,10 +8,17 @@ import { forbidden, resolveAdmin, WEB_PERMISSIONS, type AdminContext } from "./c
 import type { AttendanceAdmin, DeviceAction } from "./attendance-admin.service.js";
 import type { EmployeesAdmin } from "./employees.service.js";
 import type { ScheduleAdmin } from "./schedule.service.js";
-import { date, nullableText, type Body as Json } from "./validate.js";
+import type { MfaAdmin } from "./mfa.service.js";
+import type { RulesAdmin } from "./rules.service.js";
+import { yearParam, type SettingsAdmin } from "./settings.service.js";
+import type { CompanyService } from "../company/company.service.js";
+import { date, nullableText, oneOf, type Body as Json } from "./validate.js";
 
 export const ADMIN_SERVICES = Symbol("ADMIN_SERVICES");
-export type AdminServices = { employees: EmployeesAdmin; attendance: AttendanceAdmin; schedule: ScheduleAdmin };
+export type AdminServices = {
+  employees: EmployeesAdmin; attendance: AttendanceAdmin; schedule: ScheduleAdmin;
+  settings: SettingsAdmin; rules: RulesAdmin; mfa: MfaAdmin; company: CompanyService;
+};
 
 function bearer(header?: string): string {
   const m = /^Bearer\s+(.+)$/i.exec(header ?? "");
@@ -18,7 +26,8 @@ function bearer(header?: string): string {
   return m[1];
 }
 
-/* API cho web HR/Admin. Mỗi request: xác thực token → dựng ngữ cảnh quyền → service tự kiểm tra permission + phạm vi. */
+/* API cho web HR/Admin. Mỗi request: xác thực token → dựng ngữ cảnh quyền → bắt buộc đã qua MFA (trừ các bước MFA)
+   → service tự kiểm tra permission + phạm vi. */
 @Controller("admin")
 export class AdminController {
   constructor(
@@ -26,12 +35,15 @@ export class AdminController {
     @Inject(ADMIN_SERVICES) private readonly svc: AdminServices | null,
   ) {}
 
-  private async run<T>(req: CorrelatedRequest, authz: string | undefined, fn: (svc: AdminServices, ctx: AdminContext) => Promise<T>): Promise<ApiEnvelope<T>> {
+  private async run<T>(req: CorrelatedRequest, authz: string | undefined, fn: (svc: AdminServices, ctx: AdminContext) => Promise<T> | T, opts: { mfaStep?: boolean } = {}): Promise<ApiEnvelope<T>> {
     const correlationId = req.correlationId ?? "unknown";
     try {
       if (!this.sb || !this.svc) throw new AuthError("AUTH_NOT_CONFIGURED", "Máy chủ chưa cấu hình Supabase.", 503, true);
       const ctx = await resolveAdmin(this.sb, bearer(authz), correlationId);
       if (!WEB_PERMISSIONS.some((p) => ctx.can(p))) throw forbidden("Tài khoản của bạn không có quyền truy cập Kavor HR/Admin.");
+      if (!opts.mfaStep && !ctx.mfaSatisfied()) {
+        throw new AuthError(ADMIN_ERRORS.mfaRequired, ctx.totpFactor() ? "Nhập mã từ ứng dụng xác thực để tiếp tục." : "Tài khoản quản trị cần bật xác thực hai lớp trước khi sử dụng.", 403);
+      }
       return { data: await fn(this.svc, ctx), meta: { correlationId }, error: null };
     } catch (e) {
       const err = e instanceof AuthError ? e : new AuthError("INTERNAL_ERROR", "Hệ thống đang gặp sự cố. Vui lòng thử lại sau.", 500, true);
@@ -39,6 +51,16 @@ export class AdminController {
       throw new HttpException({ data: null, meta: { correlationId }, error: { code: err.code, message: err.message, retryable: err.retryable } } satisfies ApiEnvelope<null>, err.status);
     }
   }
+
+  /* ---------- Xác thực hai lớp (được gọi khi phiên mới ở aal1) ---------- */
+  @Get("mfa")
+  mfa(@Req() r: CorrelatedRequest, @Headers("authorization") a?: string) { return this.run(r, a, (s, c) => s.mfa.status(c), { mfaStep: true }); }
+  @Post("mfa/enroll") @HttpCode(200)
+  mfaEnroll(@Req() r: CorrelatedRequest, @Headers("authorization") a?: string) { return this.run(r, a, (s, c) => s.mfa.enroll(c), { mfaStep: true }); }
+  @Post("mfa/verify") @HttpCode(200)
+  mfaVerify(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Body() b: Json) { return this.run(r, a, (s, c) => s.mfa.verify(c, b), { mfaStep: true }); }
+  @Post("employees/:id/mfa-reset") @HttpCode(200)
+  mfaReset(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string, @Body() b: Json) { return this.run(r, a, (s, c) => s.mfa.reset(c, id, b)); }
 
   @Get("me")
   me(@Req() r: CorrelatedRequest, @Headers("authorization") a?: string) { return this.run(r, a, (s, c) => s.employees.me(c)); }
@@ -115,4 +137,46 @@ export class AdminController {
   createAssignment(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Body() b: Json) { return this.run(r, a, (s, c) => s.schedule.createAssignment(c, b)); }
   @Post("policy-assignments/:id/end") @HttpCode(200)
   endAssignment(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string, @Body() b: Json) { return this.run(r, a, (s, c) => s.schedule.endAssignment(c, id, b)); }
+
+  /* ---------- Cài đặt doanh nghiệp ---------- */
+  @Get("settings")
+  settings(@Req() r: CorrelatedRequest, @Headers("authorization") a?: string) { return this.run(r, a, (s, c) => s.settings.get(c)); }
+  @Patch("settings")
+  updateSettings(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Body() b: Json) { return this.run(r, a, (s, c) => s.settings.update(c, b)); }
+  @Get("settings/checklist")
+  checklist(@Req() r: CorrelatedRequest, @Headers("authorization") a?: string) { return this.run(r, a, (s, c) => s.settings.checklist(c)); }
+  @Post("settings/branding/:kind") @HttpCode(200)
+  uploadBranding(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("kind") kind: string, @Body() b: Json) { return this.run(r, a, (s, c) => s.settings.uploadBranding(c, kind, b)); }
+  @Post("settings/branding/:kind/remove") @HttpCode(200)
+  removeBranding(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("kind") kind: string) { return this.run(r, a, (s, c) => s.settings.removeBranding(c, kind)); }
+  /* Ảnh logo/bìa (nhị phân) — web hiển thị qua route Next cùng origin */
+  @Get("settings/branding/:kind")
+  async brandingImage(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("kind") kind: string, @Res({ passthrough: true }) res: Response) {
+    const env = await this.run(r, a, (s, c) => { c.require("tenant.read"); return s.company.brandingImage(c.tenantId, oneOf({ kind }, "kind", ["logo", "cover"] as BrandingKind[])!); });
+    res.setHeader("content-type", env.data!.contentType);
+    res.setHeader("cache-control", "private, max-age=86400");
+    return new StreamableFile(env.data!.data);
+  }
+
+  @Get("holidays")
+  holidays(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Query("year") year?: string) { return this.run(r, a, (s, c) => s.settings.holidays(c, yearParam(year))); }
+  @Post("holidays") @HttpCode(201)
+  addHoliday(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Body() b: Json) { return this.run(r, a, (s, c) => s.settings.addHoliday(c, b)); }
+  @Post("holidays/:id/remove") @HttpCode(200)
+  removeHoliday(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string, @Body() b: Json) { return this.run(r, a, (s, c) => s.settings.removeHoliday(c, id, b)); }
+
+  @Get("privacy")
+  privacy(@Req() r: CorrelatedRequest, @Headers("authorization") a?: string) { return this.run(r, a, (s, c) => s.settings.privacy(c)); }
+  @Post("privacy/terms") @HttpCode(201)
+  publishPrivacy(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Body() b: Json) { return this.run(r, a, (s, c) => s.settings.publishPrivacy(c, b)); }
+
+  /* ---------- Quy định nghiệp vụ (áp dụng dùng chung /policy-assignments) ---------- */
+  @Get("rules")
+  rules(@Req() r: CorrelatedRequest, @Headers("authorization") a?: string) { return this.run(r, a, (s, c) => s.rules.list(c)); }
+  @Post("rules") @HttpCode(201)
+  createRule(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Body() b: Json) { return this.run(r, a, (s, c) => s.rules.create(c, b)); }
+  @Patch("rules/:id")
+  updateRule(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string, @Body() b: Json) { return this.run(r, a, (s, c) => s.rules.update(c, id, b)); }
+  @Post("rules/:id/versions") @HttpCode(201)
+  ruleVersion(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string, @Body() b: Json) { return this.run(r, a, (s, c) => s.rules.addVersion(c, id, b)); }
 }

@@ -1,5 +1,5 @@
 import { useEffect, useRef, type ReactNode } from "react";
-import { Animated, Platform, Pressable, StyleSheet, Switch, View } from "react-native";
+import { Animated, Image, Platform, Pressable, StyleSheet, Switch, View } from "react-native";
 import { Blur } from "../blur";
 import Svg, { Circle } from "react-native-svg";
 import { SvgXml } from "react-native-svg";
@@ -14,13 +14,15 @@ import { useClock } from "../clock";
 import { dec, gh, hm } from "../data";
 import { ACT, S, go, jump, setBioPref, lvAvail, phase, shiftMinutes, toast, worked, type ErrKind, type Route } from "../store";
 
+/* Ảnh bìa mặc định của Kavor (dùng khi công ty chưa tải ảnh bìa riêng) */
 const COVER = '<svg viewBox="0 0 320 124" preserveAspectRatio="xMidYMid slice"><defs><linearGradient id="pfSky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#CFF5E4"/><stop offset="1" stop-color="#F3FCF8"/></linearGradient></defs><rect width="320" height="124" fill="url(#pfSky)"/><circle cx="252" cy="36" r="15" fill="#FFF4D6"/><path d="M0 22c18 8 30 30 34 58l6 44H0z" fill="#2E9C77" opacity=".55"/><path d="M320 14c-20 10-34 34-38 64l-4 46h42z" fill="#2E9C77" opacity=".55"/><path d="M0 80c40-20 70-16 110-8s80-18 120-10 60 0 90-8v70H0z" fill="#A7F3D0"/><path d="M0 96c50-14 100-4 150-10s90-14 170 0v42H0z" fill="#34C79A"/><path d="M0 108c60-8 120 4 190-4s90-4 130 2v18H0z" fill="#0B7A5A"/></svg>';
 const VERIFIED = '<svg width="20" height="20" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="#065F46"/><path d="m7 12.5 3.2 3.2L17 9" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
 function PfCard() {
   return (
     <View style={styles.pf}>
-      <View style={styles.cover}><SvgXml xml={COVER} width="100%" height="100%" /></View>
+      {/* Ảnh bìa do công ty tải lên trên web; chưa có thì dùng ảnh mặc định của Kavor */}
+      <View style={styles.cover}>{S.coverSrc ? <Image source={S.coverSrc} style={{ width: "100%", height: "100%" }} resizeMode="cover" accessibilityIgnoresInvertColors /> : <SvgXml xml={COVER} width="100%" height="100%" />}</View>
       <View style={{ marginTop: -54 }}><Avatar ini="TH" size="xl" /></View>
       <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 12, marginBottom: 2 }}>
         <T style={{ fontSize: 22, fontFamily: F.bold }}>Trần Thu Hà</T>
@@ -354,5 +356,26 @@ export function securitySpec(): ScreenSpec {
       <Card key="dev"><InfoRow k="Thiết bị" v="iPhone 15 · iOS 26" strong /><InfoRow k="Đăng ký từ" v="16/10/2026" strong /><InfoRow k="Trạng thái" v="Đang hoạt động" strong /></Card>,
       <Btn key="reset" kind="ghost" block onPress={() => toast("Đã gửi yêu cầu reset thiết bị cho HR (mô phỏng)")}>Yêu cầu reset khi đổi máy</Btn>,
     ],
+  };
+}
+
+/* Điều khoản dữ liệu cá nhân mới cần đồng ý lại (thiết kế bổ sung — prototype chỉ có ô đồng ý ở màn kích hoạt).
+   Hiện khi đăng nhập/mở app mà công ty vừa công bố phiên bản điều khoản mới. */
+export function consentSpec(): ScreenSpec {
+  const t = S.company?.privacy.terms;
+  const prev = S.company?.privacy.acceptedVersionNo;
+  return {
+    head: <TopBar title="Dữ liệu cá nhân" right={null} />,
+    body: [
+      <View key="c" style={{ alignItems: "center", gap: 10, paddingTop: 6 }}>
+        <Gi n="shield" s={40} />
+        <Balanced style={{ fontSize: 20, lineHeight: 26, fontFamily: F.bold, textAlign: "center" }}>{prev ? "Công ty đã cập nhật điều khoản" : "Đồng ý xử lý dữ liệu cá nhân"}</Balanced>
+        <T style={{ color: C.ink2, textAlign: "center", maxWidth: 300 }}>{`${S.company?.tenant.name ?? "Công ty"} cần bạn đọc và đồng ý ${t ? `phiên bản ${t.versionNo}` : "điều khoản"} trước khi tiếp tục dùng Kavor.`}</T>
+      </View>,
+      t ? <Card key="t"><T style={{ fontFamily: F.bold, marginBottom: 8 }}>{t.title}</T><T style={{ fontSize: 13.5, lineHeight: 20, color: C.ink2 }}>{t.content}</T></Card> : null,
+      <Note key="n" icon="info">Bạn có thể rút lại đồng ý bằng cách liên hệ phòng Nhân sự; khi đó một số chức năng như chấm công sẽ không dùng được.</Note>,
+      <View key="sp" style={{ height: 110 }} />,
+    ].filter(Boolean) as ReactNode[],
+    foot: <Foot><BtnRow><Btn kind="ghost" onPress={ACT.errLogin}>Đăng xuất</Btn><Btn spinKey="acceptPrivacy" onPress={ACT.acceptPrivacy}>Tôi đồng ý</Btn></BtnRow></Foot>,
   };
 }

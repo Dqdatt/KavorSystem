@@ -42,3 +42,6 @@ export const NEWS: News[] = [
   { id: 4, cat: "notice", title: "Chốt công tháng 10 vào ngày 25/10", date: "10/10", by: "Phòng Nhân sự", read: "1 phút", body: ["Hạn gửi giải trình công tháng 10 là hết ngày 22/10. Sau đó bảng công được khóa để tính lương."] },
   { id: 5, cat: "event", title: "Sáu đồng nghiệp tròn 5 năm gắn bó", date: "05/10", by: "Ban Văn hóa", read: "2 phút", body: ["Quà kỷ niệm sẽ được trao tại buổi họp toàn thể cuối tháng."] },
 ];
+
+/* Liên hệ HR của công ty mẫu (bản dùng API lấy từ /me/company — công ty cấu hình trên web) */
+export const SUPPORT_SAMPLE = { phone: "028 3822 0142", email: "hr@haidang.vn", hours: "8:00–17:00, thứ Hai – thứ Sáu", note: null };

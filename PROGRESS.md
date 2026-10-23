@@ -1,10 +1,17 @@
 # PROGRESS
-_Cập nhật: 2026-10-23 10:05 +07 — bởi Claude (Opus 5.5)_
+_Cập nhật: 2026-10-23 14:30 +07 — bởi Claude (Opus 5.5)_
 
 ## Mục tiêu đang làm
-Bước 1 "Khép module chấm công" đã xong (23/10, xem "Đã xong"). Bước kế tiếp: nền rules có tầng/phiên bản + cài đặt công ty (mục 2 ở "Bước tiếp theo").
+Nền quy định có tầng/phiên bản + cài đặt công ty + MFA web đã xong (23/10, xem "Đã xong"); còn thử trên iPhone thật (xem "Đang dở"). Bước kế tiếp: Kavor Console tối thiểu.
 
 ## Đã xong
+- Cài đặt công ty + nền quy định có tầng/phiên bản + MFA web (23/10), theo ADR 0001 §2–5 và `DATABASE_SCHEMA.md` §20:
+  - DB `202610240001_company_settings_rules.sql`: permission `tenant.settings.manage`/`policy.read`/`policy.manage`/`privacy.read`; `tenant_settings.support_contact`/`platform_policy`; quy định nghiệp vụ dùng chung `policy_definitions` + `policy_versions` (bất biến) áp dụng qua `policy_assignments` (thêm kind `explanation`/`salary_advance`/`reminder`, trigger kiểm tra target đúng loại + đúng tenant); lịch lễ `holiday_calendars`/`holidays` (lịch quốc gia 2026 theo BLLĐ Điều 112, `verified_at` null = chưa chuyên gia xác nhận; chặn xóa/sửa ngày đã qua); `privacy_terms` (bất biến) + `privacy_consents` (chỉ thêm, ghi phiên bản/thiết bị/IP); `tenant_policy_templates` + hàm `provision_tenant()` idempotent sinh bộ mẫu (ca HC, 3 quy định, điều khoản v1) — Console sẽ gọi khi tạo tenant; seed gọi cho 2 tenant mẫu. pgTAP `company_settings.test.sql` 25 test (tổng 79, đạt cả trên DB sạch lẫn DB đã chạy smoke — sửa luôn `hr_rls` trùng email với smoke), lint sạch.
+  - API: `/admin/settings` (thông tin tenant, liên hệ HR, chính sách nền tảng), logo/ảnh bìa lên Storage bucket riêng tư `tenant-branding/<tenant_id>/` (nhận dạng PNG/JPEG/WebP theo nội dung, ≤ 2 MB; client lấy ảnh qua API), `/admin/settings/checklist` (tính từ dữ liệu thật), `/admin/holidays`, `/admin/privacy` + công bố phiên bản, `/admin/rules` (tạo/phiên bản/ngừng; áp dụng dùng chung `/admin/policy-assignments`); mobile `/me/company`, `/me/company/branding/:kind`, `/me/policies?date=` (tra theo tầng — `PolicyIndex.resolveRules`), `/me/privacy-consents`; kích hoạt có `privacyAccepted` ghi đồng ý điều khoản hiện hành. Body JSON tối đa 4 MB.
+  - MFA TOTP (Supabase Auth) bắt buộc mọi tài khoản web HR/Admin: API chặn `MFA_REQUIRED` khi phiên chưa aal2 (trừ `/admin/mfa*`), liên kết bằng QR + khóa thủ công, giới hạn nhập sai, quản trị viên khác đặt lại được (có lý do, audit, không tự đặt lại cho mình).
+  - Web: bước "Xác thực hai lớp" sau mật khẩu; trang **Cài đặt doanh nghiệp** — tab Doanh nghiệp bám prototype (Thông tin tenant + Chính sách nền tảng) + thương hiệu, liên hệ HR; tab Thiết lập ban đầu, Quy định, Ngày lễ, Dữ liệu cá nhân (thiết kế bổ sung); banner checklist ở Tổng quan; nút đặt lại MFA trong hồ sơ nhân viên. Đã thử trên trình duyệt: đăng nhập → QR → mã TOTP → trang cài đặt, tải logo/ảnh bìa hiển thị đúng.
+  - Mobile: ảnh bìa hồ sơ lấy từ công ty (chưa có thì ảnh mặc định Kavor), "Liên hệ HR" lấy từ công ty (bỏ "028 3822 0142 · hr@haidang.vn" khỏi code, chỉ còn ở dữ liệu mẫu), màn **Dữ liệu cá nhân** hỏi đồng ý lại khi công ty công bố điều khoản mới (thiết kế bổ sung, chưa có trạng thái QA vì prototype không có), kích hoạt gửi đồng ý.
+  - Smoke: `tools/settings-smoke.sh` 74 bước; `hr-smoke.sh` thêm MFA; hàm dùng chung `tools/smoke-lib.sh`; `tools/db-reset.sh` (reset + khởi động lại Kong + chờ Auth/REST). Unit test API 20 (thêm nhận dạng ảnh), contracts 6 (thêm kiểm tra cấu hình quy định).
 - Khép module chấm công web HR/Admin ↔ mobile với dữ liệu thật (23/10):
   - DB `202610230001_hr_attendance_admin.sql`: role/permission hệ thống theo `PERMISSION_MATRIX.md` (tenant_admin, hr_ops, manager, auditor, employee); hàm phạm vi `scoped_employees`/`employee_in_scope` dùng chung API + RLS; membership gắn hồ sơ và có trước khi kích hoạt (gán role cho HR được mời); trigger chặn khóa/gỡ Tenant Admin cuối cùng; ca + địa điểm có phiên bản bất biến; `policy_assignments` áp dụng theo tầng; thiết bị duyệt/từ chối/thu hồi (`approve_device` nguyên tử); siết RLS `employees` và `audit_logs` (trước đây mọi nhân viên đọc được toàn bộ hồ sơ và audit của công ty); Realtime cho `attendance_events`/`employee_devices`/`employees`. pgTAP 54/54, `supabase db lint` sạch.
   - API `/admin/*` (`apps/api/src/admin`): kiểm tra permission + phạm vi ở mọi request, ngoài phạm vi/khác tenant trả 404, audit trước/sau mọi thao tác ghi; nhân viên (danh sách/chi tiết/tạo/sửa có ngày hiệu lực, mời qua SMTP, khóa/mở khóa), thiết bị, ca/địa điểm/phiên bản/áp dụng, bảng hôm nay, bản ghi bị từ chối, tổng quan. Tra tầng `apps/api/src/attendance/policy.ts` (unit test). Bỏ `/dev/work-location`. `tools/hr-smoke.sh` 63/63; `attendance-smoke.sh`, `auth-smoke.sh` vẫn đạt; unit test API 18/18.
@@ -27,12 +34,17 @@ Bước 1 "Khép module chấm công" đã xong (23/10, xem "Đã xong"). Bướ
 - Kiểm tra ngày 22/10: `pnpm turbo run typecheck test build --force` pass 18/18 task (test thật chỉ có contracts 2 + api 2)
 
 ## Đang dở (QUAN TRỌNG NHẤT)
-- Không có việc dở của bước 1. DB local đang có dữ liệu thử: HD0142 (iPhone thật, máy đã duyệt), HD0300 (simulator), HR Admin HD0007 đã kích hoạt; "Văn phòng Quận 1" có phiên bản v2 từ 23/10 đặt tại vị trí thử của người dùng. Muốn về dữ liệu mẫu: `supabase db reset`.
+- **Chưa thử trên iPhone thật** phần mobile mới (ảnh bìa, liên hệ HR, màn đồng ý điều khoản): lúc làm iPhone "Dqdatt" không kết nối. DB local đã reset về dữ liệu mẫu (cần kích hoạt lại HD0142 trên iPhone, HR HD0007 trên web — lần đầu web sẽ yêu cầu liên kết ứng dụng xác thực). Cách thử: web HR đổi ảnh bìa/liên hệ HR/công bố điều khoản v2 → mở lại app → thấy ảnh bìa mới, "Liên hệ HR" đúng số mới, màn Dữ liệu cá nhân hỏi đồng ý.
+- Bản Release cho iPhone (API `http://172.17.91.14:4000/api/v1`, không bật QA) đã build sẵn ở `apps/mobile/ios/build-device/Build/Products/Release-iphoneos/Kavor.app`; khi cắm iPhone: `xcrun devicectl device install app --device 36F8CE4A-8C04-5232-AB9D-0041A426F6A0 apps/mobile/ios/build-device/Build/Products/Release-iphoneos/Kavor.app`.
+- Reset DB local: dùng `bash tools/db-reset.sh` (sau `supabase db reset` Kong giữ IP cũ của Auth → 502).
 - Bản trên iPhone trỏ tới API `http://172.17.91.14:4000/api/v1` (IP LAN mới của Mac, trước là 192.168.1.22): Mac phải chạy `pnpm dev:backend`, cùng Wi-Fi. Nếu IP Mac đổi phải build lại app.
 - Chưa có môi trường staging: migration 23/10 **chưa push** lên project Supabase thật; project thật chưa có dữ liệu nhân viên, SMTP riêng và Realtime chưa kiểm tra ở đó.
 - Người dùng cần tự đổi publishable key trên Supabase Dashboard (Settings → API Keys: tạo publishable key mới, xóa key `default` cũ).
 
 ## Quyết định đã chốt
+- MFA bắt buộc với **mọi** tài khoản dùng web HR/Admin (không chỉ Tenant Admin), tenant không tắt được — vì HR/quản lý/kiểm soát đều xem dữ liệu cá nhân của nhiều người (Claude quyết định kỹ thuật, 23/10).
+- Logo/ảnh bìa: một bucket riêng tư, thư mục theo tenant, chỉ API đọc/ghi; app và web lấy ảnh qua API (iPhone trong LAN không tới được địa chỉ Supabase local, và không lộ đường dẫn tenant khác) (23/10).
+- Checklist thiết lập tính từ dữ liệu thật, không cho đánh dấu tay; bước chưa có module (nghỉ phép, workflow) hiện "Sắp có" (23/10).
 - Chỉ máy đầu tiên của nhân viên tự hoạt động; máy sau hoặc máy từng bị thu hồi/từ chối phải chờ HR duyệt — nếu không, thu hồi máy vô tác dụng (Claude quyết định kỹ thuật, 23/10).
 - Phiên bản ca/địa điểm và áp dụng theo tầng chỉ hiệu lực từ hôm nay trở đi; không sửa hồi tố công đã chấm (23/10).
 - Realtime web dùng RLS nên access token (≈1 giờ) được cấp cho JS trình duyệt qua `/api/realtime`; refresh token vẫn httpOnly. Chấp nhận rủi ro XSS lộ token tối đa 1 giờ; sự kiện Realtime chỉ là tín hiệu, dữ liệu luôn lấy lại qua API (23/10).
@@ -49,7 +61,9 @@ Bước 1 "Khép module chấm công" đã xong (23/10, xem "Đã xong"). Bướ
 - Giữ ảnh chụp toàn trang và ảnh simulator raw — bỏ vì trùng dữ liệu, làm commit phình to; chỉ giữ bản 390×844 dùng để so sánh.
 
 ## Vấn đề/bug còn tồn tại
-- Web HR/Admin chưa bắt buộc MFA cho admin (ADR 0001 yêu cầu) — cần làm trước pilot.
+- Luật nhà nước dạng số (`statutory_rule_sets`: bảo hiểm, thuế, phép năm tối thiểu, giới hạn OT) chưa làm — làm cùng module phép/payroll. Lịch lễ quốc gia mới có 2026; 2027 chờ Chính phủ công bố lịch Tết. Nội dung điều khoản mẫu và ngày lễ cần chuyên gia xác nhận.
+- Mobile chưa dùng `/me/policies` cho giải trình/tạm ứng (2 module này còn dữ liệu mẫu: "3 lượt", "30%" vẫn cứng) — nối khi làm module tương ứng. Server chưa chặn API chấm công khi nhân viên chưa đồng ý điều khoản (app tự chặn bằng màn đồng ý).
+- Đặt lại MFA không đăng xuất phiên aal2 đang mở của người đó (hết hạn sau ≤ 1 giờ). Tenant Admin cuối cùng mất điện thoại chỉ khôi phục qua Kavor Console (chưa có).
 - Ca qua đêm, tầng "loại hợp đồng", lịch xếp ca theo ngày, bản đồ chọn vị trí chưa có. Trình duyệt nhúng trong app Claude không cấp quyền vị trí; nút "Dùng vị trí hiện tại của trình duyệt" cần Chrome/Safari thật.
 - Bảng công tháng trên mobile (dữ liệu mẫu tháng 10) vẫn là dữ liệu mẫu; muộn/sớm của nó tính theo ca hiện tại.
 - Phạm vi/tầng dùng phân công tổ chức hiện tại; danh sách nhân viên/chấm công lọc trong bộ nhớ API — đủ cho vài nghìn nhân viên, cần phân trang ở SQL khi lớn hơn. RLS `employees` gọi hàm phạm vi theo từng dòng (chậm nếu client đọc trực tiếp nhiều dòng; hiện client không đọc trực tiếp).
@@ -61,16 +75,17 @@ Bước 1 "Khép module chấm công" đã xong (23/10, xem "Đã xong"). Bướ
 - Trên bản dev, gõ phím "r" khi không focus ô nhập sẽ làm Metro reload (chỉ ảnh hưởng dev).
 
 ## Bước tiếp theo
-1. Nền rules có tầng/phiên bản + cài đặt công ty (thương hiệu, liên hệ, lịch lễ, mẫu mặc định, checklist thiết lập, đồng ý dữ liệu cá nhân); dùng lại `policy_assignments` + `PolicyIndex`. Kèm MFA cho admin web.
-2. Kavor Console tối thiểu: tạo tenant, mời Tenant Admin.
+1. Thử trên iPhone thật phần cài đặt công ty (xem "Đang dở").
+2. Kavor Console tối thiểu: tạo tenant (gọi `provision_tenant`), mời Tenant Admin, khôi phục quyền/MFA chủ sở hữu.
 3. Thông báo (lưu, push APNs/FCM, nhắc nhở) — gồm báo nhân viên khi máy được duyệt/từ chối thay cho polling E19.
 4. Công tháng + giải trình + workflow → nghỉ phép/OT → tạm ứng → payroll → bản tin/tài liệu.
-- Ngoài luồng chính: push migration 23/10 lên project thật khi có staging (SMTP, deploy API, Realtime); test component cho admin-web; Sentry; số liệu luật cần HR/Payroll SME xác nhận trước pilot.
+- Ngoài luồng chính: push migration 23/10 + 24/10 lên project thật khi có staging (SMTP, deploy API, Realtime); test component cho admin-web; Sentry; số liệu luật cần HR/Payroll SME xác nhận trước pilot.
 
 ## Câu hỏi đang chờ người dùng trả lời
 - Không có.
 
 ## Nhật ký
+- 2026-10-23 — Cài đặt công ty + quy định có tầng/phiên bản (thương hiệu Storage, liên hệ HR, lịch lễ, bộ mẫu tenant mới, checklist, điều khoản dữ liệu cá nhân) + MFA TOTP cho web HR/Admin; mobile đọc ảnh bìa/liên hệ/điều khoản từ API.
 - 2026-10-23 — Khép module chấm công: quyền/phạm vi + RLS HR, API `/admin/*`, web HR/Admin (đăng nhập, nhân viên, thiết bị, ca & địa điểm theo tầng, realtime), mobile lấy ca/địa điểm từ API, E19 tự chuyển; thử đầu-cuối trên iPhone thật; cài Release lên iPhone.
 - 2026-10-22 — Chốt ADR 0001 (admin công ty + rules có tầng), rà soát phần HR cần quản lý, bổ sung schema §20.
 - 2026-10-22 — Chấm công thật: thiết bị, GPS, geofence, hàng đợi offline; push migration attendance lên project thật; cài bản dev lên iPhone.

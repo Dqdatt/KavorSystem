@@ -2,7 +2,7 @@
    Không sao chép rule vào nhân viên: mỗi lần cần thì tra từ phân công tổ chức hiện hành + policy_assignments,
    chọn tầng ưu tiên cao nhất (cá nhân > phòng ban > chi nhánh > pháp nhân > công ty), rồi chọn phiên bản
    có hiệu lực ở ngày đó. Phần chọn là hàm thuần để test được; PolicyIndex nạp dữ liệu một lần cho cả tenant. */
-import type { PolicyKind, PolicyScopeType, PolicySource, ResolvedPolicies, ShiftInfo, WorkLocation } from "@kavor/contracts";
+import { RULE_KINDS, type PolicyKind, type PolicyScopeType, type PolicySource, type ResolvedPolicies, type ResolvedRule, type RuleConfig, type RuleKind, type ShiftInfo, type WorkLocation } from "@kavor/contracts";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 export type AssignmentRow = {
@@ -17,6 +17,8 @@ export type ShiftVersionRow = {
 export type ShiftRow = { id: string; code: string; name: string; active: boolean };
 export type LocationVersionRow = { id: string; location_id: string; version_no: number; latitude: number; longitude: number; radius_m: number; max_accuracy_m: number; effective_from: string; note: string | null; created_at: string };
 export type LocationRow = { id: string; code: string; name: string; address: string | null; branch_id: string | null; active: boolean };
+export type RuleRow = { id: string; kind: RuleKind; code: string; name: string; active: boolean };
+export type RuleVersionRow = { id: string; policy_id: string; version_no: number; config: RuleConfig; effective_from: string; note: string | null; created_at: string };
 
 export const TIER_RANK: Record<PolicyScopeType, number> = { employee: 5, department: 4, branch: 3, legal_entity: 2, tenant: 1 };
 
@@ -71,22 +73,26 @@ export class PolicyIndex {
     readonly shiftVersions: Map<string, ShiftVersionRow[]>,
     readonly locations: Map<string, LocationRow>,
     readonly locationVersions: Map<string, LocationVersionRow[]>,
+    readonly rules: Map<string, RuleRow>,
+    readonly ruleVersions: Map<string, RuleVersionRow[]>,
     private readonly names: Map<string, string>,
   ) {}
 
   static async load(db: SupabaseClient, tenantId: string): Promise<PolicyIndex> {
-    const [as, sh, sv, lo, lv, de, br, le, em] = await Promise.all([
+    const [as, sh, sv, lo, lv, ru, rv, de, br, le, em] = await Promise.all([
       db.from("policy_assignments").select("id, kind, target_id, scope_type, scope_id, effective_from, effective_to, reason, created_at, created_by").eq("tenant_id", tenantId),
       db.from("shift_definitions").select("id, code, name, active").eq("tenant_id", tenantId),
       db.from("shift_versions").select("id, shift_id, version_no, start_time, end_time, break_start, break_end, late_grace_minutes, early_grace_minutes, effective_from, note, created_at").eq("tenant_id", tenantId),
       db.from("work_locations").select("id, code, name, address, branch_id, active").eq("tenant_id", tenantId),
       db.from("work_location_versions").select("id, location_id, version_no, latitude, longitude, radius_m, max_accuracy_m, effective_from, note, created_at").eq("tenant_id", tenantId),
+      db.from("policy_definitions").select("id, kind, code, name, active").eq("tenant_id", tenantId),
+      db.from("policy_versions").select("id, policy_id, version_no, config, effective_from, note, created_at").eq("tenant_id", tenantId),
       db.from("departments").select("id, name").eq("tenant_id", tenantId),
       db.from("branches").select("id, name").eq("tenant_id", tenantId),
       db.from("legal_entities").select("id, name").eq("tenant_id", tenantId),
       db.from("employees").select("id, full_name").eq("tenant_id", tenantId),
     ]);
-    for (const r of [as, sh, sv, lo, lv]) if (r.error) throw r.error;
+    for (const r of [as, sh, sv, lo, lv, ru, rv]) if (r.error) throw r.error;
     const group = <T extends Record<K, string>, K extends string>(rows: T[], key: K) => {
       const m = new Map<string, T[]>();
       for (const r of rows) m.set(r[key], [...(m.get(r[key]) ?? []), r]);
@@ -101,6 +107,8 @@ export class PolicyIndex {
       group((sv.data ?? []) as ShiftVersionRow[], "shift_id"),
       new Map(((lo.data ?? []) as LocationRow[]).map((l) => [l.id, l])),
       group((lv.data ?? []) as LocationVersionRow[], "location_id"),
+      new Map(((ru.data ?? []) as RuleRow[]).map((r) => [r.id, r])),
+      group((rv.data ?? []) as RuleVersionRow[], "policy_id"),
       names,
     );
   }
@@ -136,6 +144,19 @@ export class PolicyIndex {
       if (loc && !locations.some((x) => x.id === loc.id)) locations.push(loc);
     }
     return { date, shift, locations, locationSource: locTier[0] ? this.source(locTier[0]) : null };
+  }
+
+  /* Quy định nghiệp vụ (giải trình, tạm ứng, nhắc nhở) áp dụng cho nhân viên vào ngày D, kèm tầng nguồn */
+  resolveRules(employeeId: string, placement: Placement | null, date: string): Partial<Record<RuleKind, ResolvedRule>> {
+    const out: Partial<Record<RuleKind, ResolvedRule>> = {};
+    for (const kind of Object.keys(RULE_KINDS) as RuleKind[]) {
+      for (const a of pickTier(this.assignments, kind, employeeId, placement, date)) {
+        const r = this.rules.get(a.target_id);
+        const v = r?.active ? pickVersion(this.ruleVersions.get(a.target_id) ?? [], date) : null;
+        if (r && v) { out[kind] = { kind, policyId: r.id, name: r.name, versionNo: v.version_no, config: v.config, source: this.source(a) }; break; }
+      }
+    }
+    return out;
   }
 }
 

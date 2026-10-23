@@ -6,10 +6,10 @@ select plan(27);
 
 -- Người dùng thử, gắn vào membership đã mời sẵn trong seed
 insert into auth.users (id, email) values
-  ('a1000000-0000-4000-8000-000000000007', 'thao.mai@example.test'),
-  ('a1000000-0000-4000-8000-000000000003', 'huy.le@example.test'),
-  ('a1000000-0000-4000-8000-000000000142', 'ha@example.test'),
-  ('a1000000-0000-4000-8000-000000000b01', 'binh@example.test');
+  ('a1000000-0000-4000-8000-000000000007', 'thao.mai.rls@example.test'),
+  ('a1000000-0000-4000-8000-000000000003', 'huy.le.rls@example.test'),
+  ('a1000000-0000-4000-8000-000000000142', 'ha.rls@example.test'),
+  ('a1000000-0000-4000-8000-000000000b01', 'binh.rls@example.test');
 update public.employees set user_id = 'a1000000-0000-4000-8000-000000000007' where id = '60000000-0000-4000-8000-000000000007';
 update public.employees set user_id = 'a1000000-0000-4000-8000-000000000003' where id = '60000000-0000-4000-8000-000000000003';
 update public.employees set user_id = 'a1000000-0000-4000-8000-000000000142' where id = '60000000-0000-4000-8000-000000000142';
@@ -79,7 +79,7 @@ select lives_ok($$update public.memberships set status = 'suspended' where id = 
 -- Phiên bản bất biến, áp dụng chỉ được kết thúc
 select throws_ok($$update public.shift_versions set start_time = '09:00'$$, 'P0001', 'shift_versions is immutable', 'Không sửa được phiên bản ca');
 select throws_ok($$update public.policy_assignments set target_id = gen_random_uuid()$$, 'P0001', 'policy_assignments: only effective_to can change', 'Chỉ đổi được ngày kết thúc của áp dụng');
-select throws_ok($$insert into public.policy_assignments (tenant_id, kind, target_id, scope_type, scope_id, effective_from) values ('10000000-0000-4000-8000-000000000001','shift',gen_random_uuid(),'employee','60000000-0000-4000-8000-000000000142','2026-11-01')$$, '23514', null, 'Ngoại lệ cá nhân bắt buộc có lý do');
+select throws_ok($$insert into public.policy_assignments (tenant_id, kind, target_id, scope_type, scope_id, effective_from) values ('10000000-0000-4000-8000-000000000001','shift','90000000-0000-4000-8000-000000000001','employee','60000000-0000-4000-8000-000000000142','2026-11-01')$$, '23514', null, 'Ngoại lệ cá nhân bắt buộc có lý do');
 
 select * from finish();
 rollback;

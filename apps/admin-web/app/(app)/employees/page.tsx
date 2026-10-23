@@ -12,6 +12,8 @@ import { ReasonModal } from "../../_ui/reason-modal";
 const AUDIT: Record<string, string> = {
   "employee.created": "Tạo hồ sơ", "employee.updated": "Sửa hồ sơ", "employee.invited": "Gửi lời mời kích hoạt", "account.locked": "Khóa tài khoản", "account.unlocked": "Mở khóa tài khoản",
   "auth.activated": "Nhân viên kích hoạt tài khoản", "auth.activation.otp_sent": "Gửi OTP kích hoạt", "auth.login": "Đăng nhập", "auth.login_failed": "Đăng nhập sai mật khẩu", "auth.password_reset": "Đặt lại mật khẩu",
+  "auth.mfa_enrolled": "Bật xác thực hai lớp", "auth.mfa_verified": "Xác thực hai lớp khi đăng nhập web", "auth.mfa_reset": "Đặt lại xác thực hai lớp",
+  "privacy.consented": "Đồng ý điều khoản dữ liệu cá nhân",
   "device.registered": "Đăng ký thiết bị", "device.change_requested": "Yêu cầu dùng máy mới", "device.approved": "Duyệt thiết bị", "device.rejected": "Từ chối thiết bị", "device.revoked": "Thu hồi thiết bị",
 };
 
@@ -121,6 +123,11 @@ function EmployeeDrawer({ id, onClose, onEdit, onChanged }: { id: string; onClos
               {e.account === "active" && can(me, "membership.disable") && e.id !== me.employeeId ? (
                 <button className="btn small danger" onClick={() => setAsk({ title: `Khóa tài khoản ${e.fullName}?`, label: "Lý do khóa", danger: true, ok: "Đã khóa tài khoản — mọi phiên đăng nhập bị chặn ngay", go: (reason) => call("POST", `employees/${e.id}/lock`, { reason }) })}>
                   <Icon name="lock" /> Khóa tài khoản
+                </button>
+              ) : null}
+              {e.account === "active" && can(me, "membership.disable") && e.id !== me.employeeId ? (
+                <button className="btn small" onClick={() => setAsk({ title: `Đặt lại xác thực hai lớp của ${e.fullName}?`, label: "Lý do (ví dụ: mất điện thoại)", ok: "Đã đặt lại — lần đăng nhập web sau phải liên kết lại ứng dụng xác thực", go: (reason) => call("POST", `employees/${e.id}/mfa-reset`, { reason }) })}>
+                  <Icon name="shield" /> Đặt lại xác thực hai lớp
                 </button>
               ) : null}
               {e.account === "locked" && can(me, "membership.disable") ? (

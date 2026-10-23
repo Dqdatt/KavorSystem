@@ -2,31 +2,13 @@
 # Kiểm thử API HR/Admin: quyền theo permission + phạm vi, cách ly tenant, nhân viên/tài khoản, thiết bị, ca theo tầng, audit.
 # Cần DB vừa `supabase db reset` và API đang chạy (bash tools/dev-backend.sh, có SMTP Mailpit).
 set -euo pipefail
-API=${API:-http://localhost:4000/api/v1}
-MAIL=${MAIL:-http://127.0.0.1:55324}
-PW=Kavor2026A
 HA=60000000-0000-4000-8000-000000000142     # Trần Thu Hà · Marketing
 AN=60000000-0000-4000-8000-000000000001     # Nguyễn Minh An · Ban Điều hành
 THAO=60000000-0000-4000-8000-000000000007   # Mai Phương Thảo · HR Admin
 MKT=40000000-0000-4000-8000-000000000005; AE=50000000-0000-4000-8000-000000000008
 OFFICE_LAT=10.774390; OFFICE_LNG=106.703940
 
-call() { local m=$1 path=$2 tok=${3:-} body=${4:-}; curl -s -X "$m" "$API/$path" -H 'content-type: application/json' ${tok:+-H "authorization: Bearer $tok"} ${body:+-d "$body"}; }
-status() { local m=$1 path=$2 tok=${3:-} body=${4:-}; curl -s -o /dev/null -w '%{http_code}' -X "$m" "$API/$path" -H 'content-type: application/json' ${tok:+-H "authorization: Bearer $tok"} ${body:+-d "$body"}; }
-field() { python3 -c "import json,sys; d=json.load(sys.stdin); v=d; [v:=v[k] if isinstance(v,dict) else (v[int(k)] if isinstance(v,list) else None) for k in sys.argv[1].split('.')]; print('' if v is None else v)" "$1"; }
-py() { python3 -c "import json,sys; d=json.load(sys.stdin)['data']; print($1)"; }
-check() { if [ "$2" = "$3" ]; then echo "✔ $1"; else echo "✘ $1 (được: '$2', cần: '$3')"; exit 1; fi; }
-uuid() { python3 -c "import uuid; print(uuid.uuid4())"; }
-otp() {
-  local id="" i
-  for i in $(seq 1 30); do
-    id=$(curl -s "$MAIL/api/v1/search?query=to:$1%20subject:%22M%C3%A3%22" | python3 -c "import json,sys; m=json.load(sys.stdin).get('messages') or []; print(m[0]['ID'] if m else '')" 2>/dev/null || true)
-    [ -n "$id" ] && break; sleep 0.5
-  done
-  curl -s "$MAIL/api/v1/message/$id" | python3 -c "import json,sys,re; print(re.search(r'\b(\d{6})\b', json.load(sys.stdin)['Text']).group(1))"
-}
-activate() { call POST auth/activate/start "" "{\"employeeCode\":\"$1\",\"email\":\"$2\"}" >/dev/null; local code; code=$(otp "$2"); call POST auth/activate/verify "" "{\"email\":\"$2\",\"code\":\"$code\",\"password\":\"$PW\"}" | field data.session.accessToken; }
-today() { python3 -c "import datetime,zoneinfo; print((datetime.datetime.now(zoneinfo.ZoneInfo('Asia/Ho_Chi_Minh'))+datetime.timedelta(days=int('${1:-0}'))).date())"; }
+source "$(dirname "$0")/smoke-lib.sh"
 
 # bash 3.2 (macOS) phân tích sai chuỗi JSON có \" lồng trong "$(...)" (bung ngoặc nhọn, gọi API nhiều lần):
 # luôn gán body vào biến B trước rồi mới gọi trong check
@@ -36,6 +18,9 @@ HR=$(activate HD0007 thao.mai@haidang.vn); [ -n "$HR" ] && echo "✔ Kích hoạ
 EMP=$(activate HD0142 thao.ha@haidang.vn); [ -n "$EMP" ] && echo "✔ Kích hoạt nhân viên Trần Thu Hà"
 MGR=$(activate HDG0003 huy.le@example.test); [ -n "$MGR" ] && echo "✔ Kích hoạt quản lý Lê Quang Huy (phạm vi phòng Marketing)"
 TB=$(activate BX0001 admin@maub.test); [ -n "$TB" ] && echo "✔ Kích hoạt Tenant Admin của Công ty Mẫu B"
+check "HR chưa xác thực hai lớp → chặn" "$(call GET admin/me "$HR" | field error.code)" MFA_REQUIRED
+HR=$(mfa "$HR"); MGR=$(mfa "$MGR"); TB=$(mfa "$TB")
+[ -n "$HR" ] && [ -n "$MGR" ] && [ -n "$TB" ] && echo "✔ HR, quản lý, admin tenant B liên kết ứng dụng xác thực (TOTP)"
 
 echo "— Quyền và phạm vi"
 r=$(call GET admin/me "$HR")

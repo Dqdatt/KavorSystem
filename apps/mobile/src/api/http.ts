@@ -2,8 +2,8 @@
    Bật khi build có EXPO_PUBLIC_API_URL (và không ở chế độ QA chụp ảnh dùng dữ liệu mẫu). */
 import type {
   AttendanceEvent, AttendanceEventRequest, AttendanceToday, DeviceInfo, DeviceRegisterRequest,
-  ActivationStartRequest, ActivationVerifyRequest, ApiEnvelope, AuthResult, LoginRequest, MeProfile,
-  OtpSentResponse, PasswordForgotRequest, PasswordResetRequest, RefreshRequest,
+  ActivationStartRequest, ActivationVerifyRequest, ApiEnvelope, AuthResult, BrandingKind, LoginRequest, MeProfile, MyCompany,
+  OtpSentResponse, PasswordForgotRequest, PasswordResetRequest, PrivacyConsentRequest, RefreshRequest,
 } from "@kavor/contracts";
 import { QA_ENABLED } from "../qa";
 
@@ -65,6 +65,14 @@ export const attendanceApi = {
   registerDevice: async (b: DeviceRegisterRequest) => call<DeviceInfo>("POST", "/me/devices", b, await token()),
   today: async (installationId: string) => call<AttendanceToday>("GET", `/me/attendance/today?installationId=${encodeURIComponent(installationId)}`, undefined, await token()),
   record: async (b: AttendanceEventRequest) => call<AttendanceEvent>("POST", "/me/attendance/events", b, await token()),
+};
+
+/* Thông tin công ty (thương hiệu, liên hệ HR, ngày lễ, điều khoản dữ liệu cá nhân) — công ty cấu hình trên web */
+export const companyApi = {
+  get: async () => call<MyCompany>("GET", "/me/company", undefined, await token()),
+  consent: async (b: PrivacyConsentRequest) => call<{ acceptedVersionNo: number }>("POST", "/me/privacy-consents", b, await token()),
+  /* Ảnh tải bằng <Image> kèm header Authorization; ?v= đổi khi công ty thay ảnh nên cache được */
+  brandingSource: async (kind: BrandingKind, version: string) => ({ uri: `${BASE}/me/company/branding/${kind}?v=${version}`, headers: { authorization: `Bearer ${await token()}` } }),
 };
 
 export const isNetworkError = (e: unknown) => e instanceof ApiError && (e.code === "NETWORK" || e.status >= 500);

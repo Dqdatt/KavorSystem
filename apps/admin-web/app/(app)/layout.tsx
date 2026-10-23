@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import type { AdminMe } from "@kavor/contracts";
+import { ADMIN_ERRORS, type AdminMe } from "@kavor/contracts";
 import { COOKIE, api } from "../_lib/session";
 import { Shell } from "./shell";
 
@@ -10,6 +10,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   if (!token) redirect("/login");
   const { status, json } = await api<AdminMe>("GET", "admin/me", { token });
   if (status === 401) redirect("/login");
+  if (json.error?.code === ADMIN_ERRORS.mfaRequired) redirect("/login?step=mfa");
   if (!json.data) {
     return (
       <div className="login-wrap"><div className="card login-card"><div className="card-body">

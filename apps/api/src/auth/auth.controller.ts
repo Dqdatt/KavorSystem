@@ -36,8 +36,10 @@ export class AuthController {
   }
 
   @Post("auth/activate/verify") @HttpCode(200)
-  activateVerify(@Req() req: CorrelatedRequest, @Body() b: Body) {
-    return this.run(req, (s, ip, cid) => s.verifyActivation(str(b, "email"), str(b, "code", 6), str(b, "password", 128), ip, cid));
+  activateVerify(@Req() req: CorrelatedRequest, @Headers("user-agent") ua: string | undefined, @Body() b: Body) {
+    const installationId = typeof b?.installationId === "string" && b.installationId.length <= 128 ? b.installationId : undefined;
+    return this.run(req, (s, ip, cid) => s.verifyActivation(str(b, "email"), str(b, "code", 6), str(b, "password", 128), ip, cid,
+      b?.privacyAccepted === true ? { installationId, userAgent: ua } : undefined));
   }
 
   @Post("auth/login") @HttpCode(200)

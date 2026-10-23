@@ -46,6 +46,14 @@ port = 55327
 enabled = false
 port = 55329
 
+# MFA TOTP: bắt buộc cho tài khoản dùng web HR/Admin (ADR 0001)
+[auth.mfa]
+max_enrolled_factors = 10
+
+[auth.mfa.totp]
+enroll_enabled = true
+verify_enabled = true
+
 [auth.email]
 enable_signup = true
 double_confirm_changes = true

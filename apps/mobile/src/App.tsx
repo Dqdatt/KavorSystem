@@ -26,7 +26,7 @@ import { explainSpec, leaveNewSpec, leaveSpec, otSpec } from "./screens/forms";
 import { advanceDetailSpec, advanceNewSpec, advanceSpec, payslipSpec, payslipsSpec } from "./screens/money";
 import { approvalDetailSpec, reqDetailSpec, requestsSpec } from "./screens/requests";
 import { newsDetailSpec, newsSpec } from "./screens/news";
-import { SpringHome, SpringLock, doneSpec, errSpec, notificationsSpec, profileSpec, securitySpec, widgetGuideSpec } from "./screens/profile";
+import { SpringHome, SpringLock, consentSpec, doneSpec, errSpec, notificationsSpec, profileSpec, securitySpec, widgetGuideSpec } from "./screens/profile";
 
 if (QA_ENABLED) LogBox.ignoreAllLogs();
 
@@ -38,7 +38,7 @@ const SPECS: Partial<Record<Route, () => ScreenSpec>> = {
   device: deviceSpec, home: homeSpec, clock: clockSpec, attendance: attendanceSpec, explain: explainSpec, leave: leaveSpec, leaveNew: leaveNewSpec, ot: otSpec,
   payslips: payslipsSpec, payslip: payslipSpec, advance: advanceSpec, advanceNew: advanceNewSpec, advanceDetail: advanceDetailSpec,
   requests: requestsSpec, reqDetail: reqDetailSpec, approvalDetail: approvalDetailSpec, news: newsSpec, newsDetail: newsDetailSpec,
-  profile: profileSpec, security: securitySpec, notifications: notificationsSpec, widgetGuide: widgetGuideSpec, done: doneSpec, err: errSpec,
+  profile: profileSpec, security: securitySpec, notifications: notificationsSpec, widgetGuide: widgetGuideSpec, done: doneSpec, err: errSpec, consent: consentSpec,
 };
 const LIGHT: Route[] = ["springHome", "springLock"];
 const isNav = (r: Route) => TABS.includes(r);

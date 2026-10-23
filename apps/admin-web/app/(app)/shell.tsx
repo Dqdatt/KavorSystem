@@ -7,8 +7,8 @@ import { useRealtimeStatus } from "../_lib/client";
 import { Icon, MeContext, ToastProvider, can, initials, longDate } from "../_ui/kit";
 
 type NavItem = { href: string; label: string; icon: string; perm?: string };
-/* Chỉ hiện trang của module đã làm (chấm công). Các mục khác của prototype (Tổ chức, Nghỉ phép, Đơn & phê duyệt, Lương,
-   Tài liệu, Bản tin, Tích hợp, Báo cáo, Phân quyền, Cài đặt) sẽ thêm khi module tương ứng tới lượt. */
+/* Chỉ hiện trang của module đã làm (chấm công, cài đặt doanh nghiệp). Các mục khác của prototype (Tổ chức, Nghỉ phép,
+   Đơn & phê duyệt, Lương, Tài liệu, Bản tin, Tích hợp, Báo cáo, Phân quyền) sẽ thêm khi module tương ứng tới lượt. */
 const NAV: Array<{ label?: string; items: NavItem[] }> = [
   { items: [{ href: "/", label: "Tổng quan", icon: "home" }] },
   { label: "Nhân sự", items: [{ href: "/employees", label: "Nhân viên", icon: "users", perm: "employee.read" }] },
@@ -17,7 +17,7 @@ const NAV: Array<{ label?: string; items: NavItem[] }> = [
     { href: "/schedules", label: "Ca & địa điểm", icon: "calendar", perm: "schedule.read" },
   ] },
 ];
-const TITLES: Record<string, string> = { "/": "Tổng quan", "/employees": "Nhân viên", "/attendance": "Chấm công", "/schedules": "Ca & địa điểm" };
+const TITLES: Record<string, string> = { "/": "Tổng quan", "/employees": "Nhân viên", "/attendance": "Chấm công", "/schedules": "Ca & địa điểm", "/settings": "Cài đặt doanh nghiệp" };
 
 function today(tz: string) {
   return new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
@@ -64,6 +64,11 @@ export function Shell({ me, children }: { me: AdminMe; children: ReactNode }) {
             })}
             <div className="sidebar-spacer" />
             <div className="nav-sep" />
+            {can(me, "policy.read") || can(me, "tenant.settings.manage") ? (
+              <Link href="/settings" className={`nav-item ${active("/settings") ? "active" : ""}`} onClick={() => setMenu(false)}>
+                <span className="nav-icon"><Icon name="settings" /></span><span className="nav-text">Cài đặt doanh nghiệp</span>
+              </Link>
+            ) : null}
             <button className="nav-item" onClick={logout}><span className="nav-icon"><Icon name="logout" /></span><span className="nav-text">Đăng xuất</span></button>
             <div className="sidebar-user" title={me.roles.map((r) => `${r.name} · ${r.scopeName}`).join("\n")}>
               <span className="avatar">{initials(me.fullName)}</span>

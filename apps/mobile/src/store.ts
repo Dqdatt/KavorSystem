@@ -9,8 +9,9 @@ import {
 import type { IllusKind } from "./illus";
 import { api, type Snapshot } from "./api";
 import { authenticate, biometricLabel, clearQuickLogin, clearSession, loadBioPrefs, loadSession, quickLoginEmployee, quickRefreshToken, saveBioPrefs, saveSession, type BioPrefs } from "./auth";
-import { ApiError, REMOTE, attendanceApi, authApi, isNetworkError, setTokenSource } from "./api/http";
-import { distanceMeters, passwordProblems, type AttendanceEvent, type AttendanceToday, type AuthResult, type WorkLocation } from "@kavor/contracts";
+import { ApiError, REMOTE, attendanceApi, authApi, companyApi, isNetworkError, setTokenSource } from "./api/http";
+import { SUPPORT_SAMPLE } from "./api/mock-data";
+import { distanceMeters, passwordProblems, type AttendanceEvent, type AttendanceToday, type AuthResult, type MyCompany, type SupportContact, type WorkLocation } from "@kavor/contracts";
 import { currentFix, deviceRegistration, deviceSummary, enqueue, flushQueue, installationId, LocationError, newEventId, quietFix, readQueue, type Fix } from "./attendance";
 
 export type Anim = "push" | "pop" | "fade";
@@ -18,7 +19,7 @@ export type Route =
   | "login" | "forgot" | "forgotOtp" | "resetPassword" | "activate" | "otp" | "device"
   | "home" | "attendance" | "requests" | "news" | "clock" | "explain" | "leave" | "leaveNew"
   | "payslips" | "payslip" | "advance" | "advanceNew" | "advanceDetail" | "reqDetail" | "approvalDetail"
-  | "ot" | "newsDetail" | "profile" | "security" | "notifications" | "widgetGuide" | "springHome" | "springLock" | "done" | "err";
+  | "ot" | "newsDetail" | "profile" | "security" | "notifications" | "widgetGuide" | "springHome" | "springLock" | "done" | "err" | "consent";
 export type ErrKind = "offline" | "server" | "maintenance" | "session" | "disabled" | "device" | "devicePending" | "locPerm" | "gpsOff" | "update";
 export type SheetKind =
   | "pin" | "face" | "receipt" | "help" | "netSend" | "netPunch" | "earlyOut" | "slowCheck" | "blocked" | "day"
@@ -76,6 +77,10 @@ const makeState = () => ({
   retry: null as null | (() => void), slowOk: false, newsCat: "all", hideMoney: false, widgetState: "idle" as "idle" | "busy" | "ok",
   done: null as Done | null, justPunched: false, attFilter: "all" as "all" | "late" | "miss", ncIdx: 0,
   ...fromSnapshot(api.cached()),
+  /* Thông tin công ty (bản dùng API): thương hiệu, liên hệ HR, điều khoản dữ liệu cá nhân. coverSrc: ảnh bìa kèm header đăng nhập */
+  company: null as MyCompany | null,
+  coverSrc: null as null | { uri: string; headers: Record<string, string> },
+  afterConsent: null as Route | null,
   f: freshForms(),
   /* UI */
   nav: { seq: 0, anim: null as Anim | null },
@@ -217,12 +222,32 @@ export function spin(key: string, ms: number, done: () => void) {
 export function shake(key: string) { S.shake = { key, n: S.shake.n + 1 }; emit(); }
 
 export function openPin(ok: () => void) { S.pin = ""; S.pinOk = ok; openSheet("pin"); }
-/* Lưu phiên vào Keychain; thiết bị đã đăng ký thì vào thẳng trang chủ, chưa thì sang bước đăng ký */
+/* Lưu phiên vào Keychain; thiết bị đã đăng ký thì vào thẳng trang chủ, chưa thì sang bước đăng ký.
+   Công ty có điều khoản dữ liệu cá nhân mới chưa đồng ý thì hỏi trước (ADR 0001 §5). */
 async function signIn(employeeId: string, result?: AuthResult) {
   const session = await saveSession({ employeeId, ...(result ? { auth: result.session, me: result.me } : {}) });
-  S.stack = [session.deviceRegistered ? "home" : "device"];
+  const target: Route = session.deviceRegistered ? "home" : "device";
+  if ((await loadCompany())?.privacy.required) { askConsent(target); return; }
+  S.stack = [target];
   render(session.deviceRegistered ? "fade" : "push");
   if (session.deviceRegistered) void loadToday();
+}
+
+/* ---------- thông tin công ty (chỉ khi REMOTE; bản mẫu dùng liên hệ mẫu và ảnh bìa mặc định) ---------- */
+export const support = (): SupportContact | null => (REMOTE ? S.company?.support ?? null : SUPPORT_SAMPLE);
+export async function loadCompany(): Promise<MyCompany | null> {
+  if (!REMOTE) return null;
+  try {
+    const c = await companyApi.get();
+    S.company = c;
+    S.coverSrc = c.branding.coverVersion ? await companyApi.brandingSource("cover", c.branding.coverVersion) : null;
+    emit();
+    return c;
+  } catch { return S.company; }
+}
+function askConsent(next: Route) {
+  if (cur() === "consent") return;
+  S.afterConsent = next; S.stack = ["consent"]; render("fade");
 }
 
 /* ---------- chấm công thật (chỉ chạy khi REMOTE) ---------- */
@@ -283,7 +308,7 @@ async function flushPunches() {
 
 /* Tải trạng thái hôm nay từ máy chủ: giờ vào/ra, địa điểm, thiết bị */
 export async function loadToday() {
-  if (!REMOTE || !isLoggedIn()) return;
+  if (!REMOTE || !isLoggedIn() || S.stack[0] === "consent") return;
   try {
     await flushPunches().catch(() => {});
     const t = await attendanceApi.today(await installationId());
@@ -333,7 +358,12 @@ async function checkPending(manual: boolean) {
 }
 
 /* Mở lại app từ nền: đồng bộ hàng đợi và trạng thái hôm nay */
-if (REMOTE) AppState.addEventListener("change", (st) => { if (st === "active") void loadToday(); });
+if (REMOTE) AppState.addEventListener("change", (st) => {
+  if (st !== "active") return;
+  void loadToday();
+  /* HR công bố điều khoản mới trong lúc app chạy nền → hỏi đồng ý ở lần mở kế tiếp */
+  if (isLoggedIn()) void loadCompany().then((c) => { if (c?.privacy.required) askConsent(cur() === "device" ? "device" : "home"); });
+});
 
 async function punchRemote(kind: "in" | "out") {
   const e0 = epoch;
@@ -419,7 +449,9 @@ export async function restoreSession() {
     }
   }
   Object.assign(S, fromSnapshot(await api.refresh().catch(() => api.cached())));
-  S.stack = [session.deviceRegistered ? "home" : "device"]; render();
+  const target: Route = session.deviceRegistered ? "home" : "device";
+  if ((await loadCompany())?.privacy.required) { askConsent(target); return; }
+  S.stack = [target]; render();
   if (session.deviceRegistered) void loadToday();
 }
 
@@ -477,7 +509,22 @@ export const ACT = {
     S.stack = ["home"]; render("fade"); toast(k === "gpsOff" ? "Đã lấy được vị trí · ±2 m" : k === "server" ? "Hệ thống đã hoạt động lại" : "Đã kết nối lại");
   }),
   errClose: () => { S.err = null; if (S.stack.length > 1) { S.stack.pop(); render("pop"); } else { S.stack = ["home"]; render("fade"); } },
-  errHR: () => toast("Phòng Nhân sự: 028 3822 0142 · hr@haidang.vn"),
+  errHR: () => {
+    const s = support();
+    toast(s && (s.phone || s.email) ? `Phòng Nhân sự: ${[s.phone, s.email].filter(Boolean).join(" · ")}${s.hours ? ` (${s.hours})` : ""}` : "Liên hệ phòng Nhân sự của công ty để được hỗ trợ.");
+  },
+  /* Đồng ý điều khoản dữ liệu cá nhân mới (thiết kế bổ sung, prototype không có màn này) */
+  acceptPrivacy: () => {
+    const terms = S.company?.privacy.terms;
+    if (!terms) return;
+    remote("acceptPrivacy", async () => {
+      await companyApi.consent({ termsId: terms.id, installationId: await installationId() });
+      if (S.company) S.company = { ...S.company, privacy: { ...S.company.privacy, required: false, acceptedVersionNo: terms.versionNo } };
+      const next = S.afterConsent ?? "home"; S.afterConsent = null;
+      S.stack = [next]; render("fade"); toast(`Đã đồng ý điều khoản phiên bản ${terms.versionNo}`);
+      if (next === "home") void loadToday();
+    }, (e) => { if (e.code === "PRIVACY_TERMS_CHANGED") { toast(e.message); void loadCompany(); return true; } return false; });
+  },
   errLogin: () => { void clearSession(); S.err = null; S.stack = ["login"]; render("fade"); },
   errReset: () => spin("errReset", 800, () => { S.err = { kind: "devicePending" }; render("fade"); toast("Đã gửi yêu cầu chuyển thiết bị"); }),
   errPending: () => {
@@ -563,7 +610,8 @@ export const ACT = {
     if (S.f.otp.join("").length < 6) { toast("Vui lòng nhập đủ 6 số OTP"); return; }
     if (REMOTE) {
       remote("verifyOtp", async () => {
-        const r = await authApi.activateVerify({ email: S.f.otpEmail, code: S.f.otp.join(""), password: S.f.acPw });
+        /* Ô "Tôi đồng ý…" đã tích ở bước trước: máy chủ ghi nhận đồng ý điều khoản hiện hành của công ty */
+        const r = await authApi.activateVerify({ email: S.f.otpEmail, code: S.f.otp.join(""), password: S.f.acPw, privacyAccepted: S.f.agree, installationId: await installationId() });
         toast(`Đã kích hoạt tài khoản ${r.me.employeeCode}`); S.f.acPw = "";
         await signIn(r.me.employeeCode, r);
       }, (err) => { if (err.code === "AUTH_OTP_INVALID") { S.f.otp = ["", "", "", "", "", ""]; emit(); } return false; });

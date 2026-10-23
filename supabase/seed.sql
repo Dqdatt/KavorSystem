@@ -11,7 +11,7 @@ insert into public.tenant_settings (
   tenant_id, branding, attendance_settings, notification_settings, mobile_policy
 ) values (
   '10000000-0000-4000-8000-000000000001',
-  '{"primaryColor":"#176d4a","logo":"kavor-sample"}',
+  '{}',
   '{"method":"gps","defaultGeofenceRadiusM":200,"maxAcceptedAccuracyM":100}',
   '{"inApp":true,"push":true,"email":false}',
   '{"minimumIosVersion":"0.1.0","minimumAndroidVersion":"0.1.0"}'
@@ -158,3 +158,15 @@ insert into public.memberships (id, tenant_id, employee_id, status) values
   ('80000000-0000-4000-8000-000000000b01','10000000-0000-4000-8000-000000000002','60000000-0000-4000-8000-000000000b01','invited');
 insert into public.role_assignments (tenant_id, membership_id, role_id, scope_type, effective_from)
 select '10000000-0000-4000-8000-000000000002','80000000-0000-4000-8000-000000000b01', id, 'tenant', '2025-01-01' from public.roles where code = 'tenant_admin' and tenant_id is null;
+
+-- Cài đặt công ty (dữ liệu mẫu): liên hệ HR hiển thị trên mobile, một ngày nghỉ riêng của công ty
+update public.tenant_settings
+set support_contact = '{"phone":"028 3822 0142","email":"hr@haidang.vn","hours":"8:00–17:00, thứ Hai – thứ Sáu"}'
+where tenant_id = '10000000-0000-4000-8000-000000000001';
+insert into public.holiday_calendars (id, tenant_id, year, name) values
+  ('c1000000-0000-4000-8000-000000002026','10000000-0000-4000-8000-000000000001',2026,'Ngày nghỉ riêng Hải Đăng Group 2026');
+insert into public.holidays (calendar_id, holiday_date, name, kind) values
+  ('c1000000-0000-4000-8000-000000002026','2026-12-31','Tất niên công ty','company');
+
+-- Bộ mẫu mặc định (quy định giải trình/tạm ứng/nhắc nhở, điều khoản dữ liệu cá nhân v1; ca HC đã có ở trên)
+select public.provision_tenant(id) from public.tenants order by code;

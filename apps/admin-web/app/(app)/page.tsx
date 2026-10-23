@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import type { AdminOverview, OverviewDay } from "@kavor/contracts";
+import type { AdminOverview, OverviewDay, SetupChecklist } from "@kavor/contracts";
 import { useApi } from "../_lib/client";
 import { ACCOUNT, Empty, Icon, LoadError, Person, Status, can, fmtDate, num, useMe } from "../_ui/kit";
 
@@ -34,6 +34,8 @@ export default function Overview() {
   const me = useMe();
   const { data: o, error, reload } = useApi<AdminOverview>("overview", { tables: ["attendance_events", "employee_devices", "employees"], tenantId: me.tenant.id });
   const att = can(me, "attendance.read");
+  /* Checklist thiết lập ban đầu chỉ nhắc người cấu hình được công ty */
+  const setup = useApi<SetupChecklist>(can(me, "tenant.settings.manage") ? "settings/checklist" : null).data;
   const pct = o && o.activeEmployees ? `${((o.presentToday / o.activeEmployees) * 100).toLocaleString("vi-VN", { maximumFractionDigits: 1 })}%` : "—";
 
   return (
@@ -43,6 +45,12 @@ export default function Overview() {
         <div className="banner">
           <span className="banner-icon"><Icon name="shield" /></span>
           <span className="banner-copy"><b>Công ty chỉ có {me.tenantAdminCount} Tenant Admin</b><span>Nên có ít nhất 2 Tenant Admin để không mất quyền quản trị khi một người nghỉ hoặc mất tài khoản.</span></span>
+        </div>
+      ) : setup && setup.done < setup.total ? (
+        <div className="banner">
+          <span className="banner-icon"><Icon name="checks" /></span>
+          <span className="banner-copy"><b>Thiết lập ban đầu: đã xong {setup.done}/{setup.total} bước</b><span>Còn: {setup.steps.filter((s) => s.state === "todo" || s.state === "warn").map((s) => s.title.toLowerCase()).slice(0, 3).join(", ")}.</span></span>
+          <Link className="btn" href="/settings?tab=setup">Xem checklist <Icon name="arrow" /></Link>
         </div>
       ) : o && o.devicesPending > 0 ? (
         <div className="banner">

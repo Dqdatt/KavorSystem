@@ -8,16 +8,22 @@ import { conflict, forbidden, invalid, notFound, type AdminContext } from "./con
 import { addDays, date, nullableText, number, oneOf, req, text, time, uuid, type Body } from "./validate.js";
 
 const SCOPES: readonly PolicyScopeType[] = ["tenant", "legal_entity", "branch", "department", "employee"];
-const KINDS: readonly PolicyKind[] = ["shift", "work_location"];
+const KINDS: readonly PolicyKind[] = ["shift", "work_location", "explanation", "salary_advance", "reminder"];
+/* Ca/địa điểm thuộc quyền xếp lịch; quy định nghiệp vụ (giải trình, tạm ứng, nhắc nhở) thuộc quyền quản lý quy định */
+const managePerm = (kind: PolicyKind) => (kind === "shift" || kind === "work_location" ? "schedule.manage" : "policy.manage");
+const TARGET: Record<PolicyKind, [string, string]> = {
+  shift: ["shift_definitions", "ca"], work_location: ["work_locations", "địa điểm"],
+  explanation: ["policy_definitions", "quy định"], salary_advance: ["policy_definitions", "quy định"], reminder: ["policy_definitions", "quy định"],
+};
 const CODE = /^[A-Za-z0-9._-]{1,20}$/;
 
 export class ScheduleAdmin {
   constructor(private readonly sb: SupabaseGateway) {}
 
-  private async today(ctx: AdminContext) { return localParts(new Date(), (await tenantSettings(this.sb, ctx.tenantId)).timezone).date; }
+  async today(ctx: AdminContext) { return localParts(new Date(), (await tenantSettings(this.sb, ctx.tenantId)).timezone).date; }
 
   /* Không cho phiên bản/áp dụng có hiệu lực trong quá khứ: công đã chấm phải giữ nguyên rule lúc chấm */
-  private notPast(d: string, today: string, field = "effectiveFrom") {
+  notPast(d: string, today: string, field = "effectiveFrom") {
     if (d < today) throw invalid(`"${field}" phải từ hôm nay (${today}) trở đi; không sửa hồi tố công đã chấm.`);
   }
 
@@ -170,16 +176,18 @@ export class ScheduleAdmin {
   }
 
   /* ---------- Áp dụng theo tầng ---------- */
-  async assignments(ctx: AdminContext, kind?: string): Promise<PolicyAssignment[]> {
-    ctx.require("schedule.read");
+  async assignments(ctx: AdminContext, kind?: string, loaded?: PolicyIndex): Promise<PolicyAssignment[]> {
+    if (!ctx.can("schedule.read")) ctx.require("policy.read");
     const today = await this.today(ctx);
-    const index = await PolicyIndex.load(ctx.db, ctx.tenantId);
+    const index = loaded ?? await PolicyIndex.load(ctx.db, ctx.tenantId);
     const creators = [...new Set(index.assignments.map((a) => a.created_by).filter((x): x is string => !!x))];
     const { data: names } = creators.length ? await ctx.db.from("employees").select("user_id, full_name").eq("tenant_id", ctx.tenantId).in("user_id", creators) : { data: [] };
     const creator = new Map(((names ?? []) as Array<{ user_id: string; full_name: string }>).map((r) => [r.user_id, r.full_name]));
     const rank: Record<string, number> = { active: 0, scheduled: 1, ended: 2, cancelled: 3 };
-    return index.assignments.filter((a) => !kind || a.kind === kind).map((a): PolicyAssignment => {
-      const target = a.kind === "shift" ? index.shifts.get(a.target_id)?.name : index.locations.get(a.target_id)?.name;
+    /* kind=schedule: chỉ ca + địa điểm (trang Ca & địa điểm); quy định nghiệp vụ hiển thị ở Cài đặt doanh nghiệp */
+    const wanted = (k: PolicyKind) => !kind || (kind === "schedule" ? k === "shift" || k === "work_location" : k === kind);
+    return index.assignments.filter((a) => wanted(a.kind)).map((a): PolicyAssignment => {
+      const target = a.kind === "shift" ? index.shifts.get(a.target_id)?.name : a.kind === "work_location" ? index.locations.get(a.target_id)?.name : index.rules.get(a.target_id)?.name;
       const state = a.effective_to && a.effective_to < a.effective_from ? "cancelled" : isEffective(a, today) ? "active" : a.effective_from > today ? "scheduled" : "ended";
       return {
         id: a.id, kind: a.kind, target: { id: a.target_id, name: target ?? "—" }, scopeType: a.scope_type,
@@ -190,9 +198,10 @@ export class ScheduleAdmin {
   }
 
   async createAssignment(ctx: AdminContext, b: Body): Promise<PolicyAssignment> {
-    ctx.require("schedule.manage");
-    const today = await this.today(ctx);
     const kind = oneOf(b, "kind", KINDS)!;
+    const perm = managePerm(kind);
+    ctx.require(perm);
+    const today = await this.today(ctx);
     const targetId = uuid(b, "targetId")!;
     const scopeType = oneOf(b, "scopeType", SCOPES)!;
     const scopeId = scopeType === "tenant" ? null : uuid(b, "scopeId")!;
@@ -202,8 +211,8 @@ export class ScheduleAdmin {
     this.notPast(effectiveFrom, today);
     if (effectiveTo && effectiveTo < effectiveFrom) throw invalid("Ngày kết thúc phải sau ngày bắt đầu.");
     if (scopeType === "employee" && (!reason || reason.length < 5)) throw invalid("Ngoại lệ cho một nhân viên bắt buộc ghi lý do (ít nhất 5 ký tự).");
-    await this.assertInTenant(ctx, kind === "shift" ? "shift_definitions" : "work_locations", targetId, kind === "shift" ? "ca" : "địa điểm");
-    await this.assertScopeAllowed(ctx, scopeType, scopeId);
+    await this.assertInTenant(ctx, TARGET[kind][0], targetId, TARGET[kind][1], TARGET[kind][0] === "policy_definitions" ? kind : undefined);
+    await this.assertScopeAllowed(ctx, scopeType, scopeId, perm);
     const { data, error } = await ctx.db.from("policy_assignments").insert({
       tenant_id: ctx.tenantId, kind, target_id: targetId, scope_type: scopeType, scope_id: scopeId, effective_from: effectiveFrom, effective_to: effectiveTo, reason, created_by: ctx.userId,
     }).select("id").single();
@@ -215,12 +224,14 @@ export class ScheduleAdmin {
 
   /* Kết thúc từ ngày `endOn` (ngày cuối còn áp dụng); áp dụng chưa bắt đầu thì hủy */
   async endAssignment(ctx: AdminContext, id: string, b: Body): Promise<PolicyAssignment> {
-    ctx.require("schedule.manage");
-    const today = await this.today(ctx);
-    const { data } = await ctx.db.from("policy_assignments").select("id, scope_type, scope_id, effective_from, effective_to").eq("id", id).eq("tenant_id", ctx.tenantId).maybeSingle();
+    if (!/^[0-9a-f-]{36}$/i.test(id)) throw notFound("áp dụng");
+    const { data } = await ctx.db.from("policy_assignments").select("id, kind, scope_type, scope_id, effective_from, effective_to").eq("id", id).eq("tenant_id", ctx.tenantId).maybeSingle();
     if (!data) throw notFound("áp dụng");
-    const a = data as { scope_type: PolicyScopeType; scope_id: string | null; effective_from: string; effective_to: string | null };
-    await this.assertScopeAllowed(ctx, a.scope_type, a.scope_id);
+    const a = data as { kind: PolicyKind; scope_type: PolicyScopeType; scope_id: string | null; effective_from: string; effective_to: string | null };
+    const perm = managePerm(a.kind);
+    ctx.require(perm);
+    const today = await this.today(ctx);
+    await this.assertScopeAllowed(ctx, a.scope_type, a.scope_id, perm);
     const notStarted = a.effective_from > today;
     const endOn = notStarted ? addDays(a.effective_from, -1) : date(b, "endOn", true) ?? today;
     if (!notStarted) this.notPast(endOn, addDays(today, -1), "endOn");
@@ -233,20 +244,22 @@ export class ScheduleAdmin {
     return (await this.assignments(ctx)).find((x) => x.id === id)!;
   }
 
-  private async assertInTenant(ctx: AdminContext, table: string, id: string, label: string) {
-    const { data } = await ctx.db.from(table).select("id").eq("id", id).eq("tenant_id", ctx.tenantId).maybeSingle();
+  private async assertInTenant(ctx: AdminContext, table: string, id: string, label: string, kind?: string) {
+    let q = ctx.db.from(table).select("id").eq("id", id).eq("tenant_id", ctx.tenantId);
+    if (kind) q = q.eq("kind", kind);
+    const { data } = await q.maybeSingle();
     if (!data) throw notFound(label);
   }
 
   /* Áp dụng ở tầng công ty/pháp nhân cần quyền toàn công ty; HR phạm vi hẹp chỉ áp dụng cho đơn vị/nhân viên mình quản lý */
-  private async assertScopeAllowed(ctx: AdminContext, scopeType: PolicyScopeType, scopeId: string | null) {
+  private async assertScopeAllowed(ctx: AdminContext, scopeType: PolicyScopeType, scopeId: string | null, perm: string) {
     if (scopeType !== "tenant") {
       const table = { legal_entity: "legal_entities", branch: "branches", department: "departments", employee: "employees" }[scopeType];
       await this.assertInTenant(ctx, table, scopeId!, "phạm vi áp dụng");
     }
-    if (ctx.tenantWide("schedule.manage")) return;
-    if (scopeType === "employee") { await ctx.requireEmployee("schedule.manage", scopeId!); return; }
-    if (!ctx.scopes("schedule.manage").some((g) => g.scope_type === scopeType && g.scope_id === scopeId)) throw forbidden("Phạm vi áp dụng nằm ngoài quyền của bạn.");
+    if (ctx.tenantWide(perm)) return;
+    if (scopeType === "employee") { await ctx.requireEmployee(perm, scopeId!); return; }
+    if (!ctx.scopes(perm).some((g) => g.scope_type === scopeType && g.scope_id === scopeId)) throw forbidden("Phạm vi áp dụng nằm ngoài quyền của bạn.");
   }
 }
 

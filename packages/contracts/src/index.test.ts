@@ -31,3 +31,14 @@ test("khoảng cách haversine", () => {
   /* 0,001 độ vĩ ≈ 111 m */
   assert.ok(Math.abs(distanceMeters(10.77439, 106.70394, 10.77539, 106.70394) - 111) < 1);
 });
+
+import { checkRuleConfig } from "./index.js";
+
+test("rule config keeps declared fields and rejects bad values", () => {
+  const ok = checkRuleConfig("explanation", { monthlyLimit: 3, deadlineDays: 3, extra: "x" });
+  assert.deepEqual(ok, { config: { monthlyLimit: 3, deadlineDays: 3 }, problems: [] });
+  const bad = checkRuleConfig("salary_advance", { enabled: "yes", maxPercent: 120, excludeProbation: true, excludeNoticePeriod: false });
+  assert.equal(bad.problems.length, 2);
+  assert.equal(checkRuleConfig("reminder", null).problems.length, 3);
+  assert.equal(checkRuleConfig("explanation", { monthlyLimit: 2.5, deadlineDays: 3 }).problems.length, 1);
+});

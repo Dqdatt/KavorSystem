@@ -4,6 +4,7 @@ import {
 } from "@kavor/contracts";
 import type { Session } from "@supabase/supabase-js";
 import type { SupabaseGateway } from "./supabase.js";
+import { currentTerms, recordConsent } from "../company/privacy.js";
 
 export class AuthError extends Error {
   constructor(readonly code: string, message: string, readonly status = 400, readonly retryable = false) {
@@ -65,7 +66,8 @@ export class AuthService {
     });
   }
 
-  async verifyActivation(email: string, code: string, password: string, ip: string, correlationId: string): Promise<AuthResult> {
+  /* consent: nhân viên đã tích đồng ý xử lý dữ liệu cá nhân ở màn kích hoạt → ghi nhận với điều khoản hiện hành */
+  async verifyActivation(email: string, code: string, password: string, ip: string, correlationId: string, consent?: { installationId?: string; userAgent?: string }): Promise<AuthResult> {
     return this.otpLimiter.guard(`actv:${ip}:${email.toLowerCase()}`, async () => {
     const emp = await this.findEmployeeByEmail(email);
     if (!emp || emp.user_id) throw new AuthError(AUTH_ERRORS.otpInvalid, "Mã OTP không đúng hoặc đã hết hạn.", 400);
@@ -85,6 +87,13 @@ export class AuthService {
     if (!invited?.length) await this.sb.admin.from("memberships").upsert({ tenant_id: emp.tenant_id, employee_id: emp.id, ...joined }, { onConflict: "tenant_id,user_id" });
     await this.sb.admin.from("user_profiles").upsert({ id: userId, display_name: emp.full_name });
     await this.audit(emp.tenant_id, userId, "auth.activated", emp.id, correlationId);
+    if (consent) {
+      const terms = await currentTerms(this.sb.admin, emp.tenant_id);
+      if (terms) {
+        await recordConsent(this.sb.admin, { tenantId: emp.tenant_id, employeeId: emp.id, userId, termsId: terms.id, installationId: consent.installationId, ip, userAgent: consent.userAgent });
+        await this.audit(emp.tenant_id, userId, "privacy.consented", emp.id, correlationId);
+      }
+    }
     return this.passwordLogin(email, password, emp);
     });
   }

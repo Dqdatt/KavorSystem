@@ -176,7 +176,7 @@ const STATE: Record<PolicyAssignment["state"], [string, string]> = { active: ["Ä
 
 function Assignments() {
   const me = useMe();
-  const { data, error, reload } = useApi<PolicyAssignment[]>("policy-assignments");
+  const { data, error, reload } = useApi<PolicyAssignment[]>("policy-assignments?kind=schedule");
   const [creating, setCreating] = useState(false);
   const [ending, setEnding] = useState<PolicyAssignment | null>(null);
   const [showOld, setShowOld] = useState(false);

@@ -1,5 +1,6 @@
 import "reflect-metadata";
 import { NestFactory } from "@nestjs/core";
+import type { NestExpressApplication } from "@nestjs/platform-express";
 import { AppModule } from "./app.module.js";
 import { ConfigError, loadConfig } from "./config.js";
 
@@ -11,7 +12,9 @@ async function bootstrap() {
     if (e instanceof ConfigError) { console.error(e.message); process.exit(1); }
     throw e;
   }
-  const app = await NestFactory.create(AppModule, { cors: false });
+  /* Body JSON tối đa 4 MB: đủ cho ảnh logo/bìa 2 MB gửi dạng base64; mặc định của Express chỉ 100 KB */
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, { cors: false, bodyParser: false });
+  app.useBodyParser("json", { limit: "4mb" });
   const port = config.port;
 
   app.setGlobalPrefix("api/v1");

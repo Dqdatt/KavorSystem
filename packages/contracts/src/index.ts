@@ -69,7 +69,8 @@ export type MeProfile = {
 export type AuthResult = { session: AuthSession; me: MeProfile };
 
 export type ActivationStartRequest = { employeeCode: string; email: string };
-export type ActivationVerifyRequest = { email: string; code: string; password: string };
+/* privacyAccepted: nhân viên đã tích "Tôi đồng ý…" ở màn kích hoạt → ghi nhận đồng ý điều khoản hiện hành */
+export type ActivationVerifyRequest = { email: string; code: string; password: string; privacyAccepted?: boolean; installationId?: string };
 export type LoginRequest = { identifier: string; password: string };
 export type PasswordForgotRequest = { identifier: string };
 export type PasswordResetRequest = { email: string; code: string; newPassword: string };
@@ -291,7 +292,7 @@ export type LocationVersion = { id: string; versionNo: number; latitude: number;
 export type LocationDef = { id: string; code: string; name: string; address: string | null; branch: Ref | null; active: boolean; current: LocationVersion | null; next: LocationVersion | null; versions: LocationVersion[] };
 export type LocationVersionInput = { latitude: number; longitude: number; radiusM: number; maxAccuracyM: number; effectiveFrom: string; note?: string | null };
 
-export type PolicyKind = "shift" | "work_location";
+export type PolicyKind = "shift" | "work_location" | RuleKind;
 export type PolicyAssignment = {
   id: string; kind: PolicyKind; target: Ref; scopeType: PolicyScopeType; scope: Ref | null;
   effectiveFrom: string; effectiveTo: string | null; reason: string | null; createdAt: string; createdBy: string | null;
@@ -338,4 +339,125 @@ export const ADMIN_ERRORS = {
   conflict: "CONFLICT",
   lastTenantAdmin: "LAST_TENANT_ADMIN",
   emailNotConfigured: "EMAIL_NOT_CONFIGURED",
+  /* Tài khoản web HR/Admin phải xác thực hai lớp (TOTP) trước khi dùng */
+  mfaRequired: "MFA_REQUIRED",
 } as const;
+
+/* ---------- MFA (TOTP) cho web HR/Admin ---------- */
+/* verified: phiên hiện tại đã qua bước mã TOTP (aal2) */
+export type MfaStatus = { required: boolean; enrolled: boolean; verified: boolean; factorId: string | null };
+/* qrCode: ảnh SVG dạng data URI để quét bằng ứng dụng xác thực; secret: nhập tay khi không quét được */
+export type MfaEnrollment = { factorId: string; qrCode: string; secret: string; uri: string };
+export type MfaVerifyRequest = { factorId: string; code: string };
+
+/* ---------- Cài đặt công ty (ADR 0001 §3–5) ---------- */
+export type SupportContact = { phone: string | null; email: string | null; hours: string | null; note: string | null };
+export type BrandingKind = "logo" | "cover";
+/* version: đổi khi thay ảnh (dùng làm khóa cache); null = chưa có ảnh, client dùng ảnh mặc định của Kavor */
+export type Branding = { logoVersion: string | null; coverVersion: string | null };
+/* MFA luôn bật cho web HR/Admin; Employee Web và đồng bộ Google Sheets theo gói dịch vụ (Kavor Console) */
+export type PlatformPolicy = { mfaRequired: true; employeeWeb: boolean; sheetsAutoSync: boolean; newsReadReceipt: boolean };
+export type TenantProfile = { code: string; displayName: string; legalName: string | null; taxCode: string | null; timezone: string; currency: string };
+export type CompanySettings = { tenant: TenantProfile; branding: Branding; support: SupportContact; platform: PlatformPolicy; updatedAt: string; canManage: boolean };
+export type CompanySettingsUpdate = {
+  displayName?: string;
+  legalName?: string | null;
+  taxCode?: string | null;
+  support?: Partial<SupportContact>;
+  platform?: { newsReadReceipt?: boolean };
+};
+export type BrandingUpload = { contentType: string; dataBase64: string };
+
+/* Quy định nghiệp vụ có tầng/phiên bản. Mô tả trường dùng chung: web dựng form, API kiểm tra. */
+export type RuleKind = "explanation" | "salary_advance" | "reminder";
+export type RuleField = { key: string; label: string; type: "int" | "bool"; min?: number; max?: number; unit?: string };
+export const RULE_KINDS: Record<RuleKind, { label: string; description: string; fields: RuleField[] }> = {
+  explanation: {
+    label: "Giải trình công",
+    description: "Số lượt nhân viên được giải trình thiếu/sai giờ chấm công mỗi tháng và hạn gửi.",
+    fields: [
+      { key: "monthlyLimit", label: "Số lượt mỗi tháng", type: "int", min: 0, max: 31, unit: "lượt" },
+      { key: "deadlineDays", label: "Hạn gửi sau ngày phát sinh", type: "int", min: 1, max: 31, unit: "ngày" },
+    ],
+  },
+  salary_advance: {
+    label: "Tạm ứng lương",
+    description: "Hạn mức tạm ứng theo % lương cơ bản và đối tượng được tạm ứng.",
+    fields: [
+      { key: "enabled", label: "Cho phép tạm ứng", type: "bool" },
+      { key: "maxPercent", label: "Hạn mức tối đa", type: "int", min: 0, max: 100, unit: "% lương cơ bản" },
+      { key: "excludeProbation", label: "Không áp dụng cho nhân viên thử việc", type: "bool" },
+      { key: "excludeNoticePeriod", label: "Không áp dụng trong thời gian báo trước nghỉ việc", type: "bool" },
+    ],
+  },
+  reminder: {
+    label: "Nhắc nhở",
+    description: "Thời điểm nhắc chấm công và nhắc hạn giải trình trên điện thoại.",
+    fields: [
+      { key: "clockInBeforeMinutes", label: "Nhắc vào ca trước giờ bắt đầu", type: "int", min: 0, max: 120, unit: "phút" },
+      { key: "clockOutAfterMinutes", label: "Nhắc ra ca sau giờ kết thúc", type: "int", min: 0, max: 120, unit: "phút" },
+      { key: "explanationDeadline", label: "Nhắc trước hạn giải trình", type: "bool" },
+    ],
+  },
+};
+export type RuleConfig = Record<string, number | boolean>;
+/* Kiểm tra cấu hình một quy định theo mô tả trường: chỉ giữ trường đã khai báo, thiếu/sai kiểu/ngoài khoảng đều báo lỗi */
+export function checkRuleConfig(kind: RuleKind, raw: unknown): { config: RuleConfig; problems: string[] } {
+  const spec = RULE_KINDS[kind];
+  const input = (raw && typeof raw === "object" && !Array.isArray(raw) ? raw : {}) as Record<string, unknown>;
+  const config: RuleConfig = {}, problems: string[] = [];
+  for (const f of spec.fields) {
+    const v = input[f.key];
+    if (f.type === "bool") {
+      if (typeof v !== "boolean") problems.push(`"${f.label}" phải là bật/tắt.`); else config[f.key] = v;
+    } else if (typeof v !== "number" || !Number.isInteger(v) || v < (f.min ?? 0) || v > (f.max ?? 1e9)) {
+      problems.push(`"${f.label}" phải là số nguyên từ ${f.min ?? 0} đến ${f.max}.`);
+    } else config[f.key] = v;
+  }
+  return { config, problems };
+}
+export type RuleVersion = { id: string; versionNo: number; config: RuleConfig; effectiveFrom: string; note: string | null; createdAt: string };
+export type RulePolicy = {
+  id: string; kind: RuleKind; code: string; name: string; active: boolean;
+  current: RuleVersion | null; next: RuleVersion | null; versions: RuleVersion[]; assignments: PolicyAssignment[];
+};
+export type RulePolicyInput = { kind: RuleKind; code: string; name: string; config: RuleConfig; effectiveFrom: string; note?: string | null };
+export type RuleVersionInput = { config: RuleConfig; effectiveFrom: string; note?: string | null };
+/* Quy định áp dụng cho một nhân viên vào một ngày, kèm nguồn (tầng nào) */
+export type ResolvedRule = { kind: RuleKind; policyId: string; name: string; versionNo: number; config: RuleConfig; source: PolicySource };
+export type MyPolicies = { date: string; rules: Partial<Record<RuleKind, ResolvedRule>> };
+
+/* Lịch nghỉ lễ: quốc gia do Kavor duy trì + ngày nghỉ riêng của công ty */
+export type HolidayKind = "public" | "company" | "compensatory";
+export type Holiday = { id: string; date: string; name: string; kind: HolidayKind; paid: boolean; scope: "national" | "company" };
+export type HolidayYear = { year: number; national: { name: string; source: string | null; verified: boolean } | null; holidays: Holiday[] };
+export type HolidayInput = { date: string; name: string; kind: "company" | "compensatory"; paid?: boolean };
+
+/* Điều khoản xử lý dữ liệu cá nhân có phiên bản (Nghị định 13/2023/NĐ-CP) */
+export type PrivacyTerms = { id: string; versionNo: number; title: string; content: string; publishedAt: string };
+export type PrivacyOverview = {
+  current: PrivacyTerms | null;
+  versions: Array<PrivacyTerms & { consents: number }>;
+  /* Nhân viên đã kích hoạt tài khoản trong phạm vi: bao nhiêu người đã đồng ý phiên bản hiện hành */
+  accounts: number;
+  consentedCurrent: number;
+  pending: Array<{ id: string; code: string; fullName: string; lastVersionNo: number | null }>;
+};
+export type PrivacyTermsInput = { title: string; content: string };
+export type PrivacyConsentRequest = { termsId: string; installationId?: string };
+
+/* Checklist thiết lập ban đầu (plan.md §24.1): trạng thái tính từ dữ liệu thật, không đánh dấu tay */
+export type SetupStepState = "done" | "todo" | "warn" | "unavailable";
+export type SetupStep = { key: string; title: string; detail: string; state: SetupStepState; href: string | null };
+export type SetupChecklist = { steps: SetupStep[]; done: number; total: number };
+
+/* ---------- Mobile: thông tin công ty ---------- */
+export type MyCompany = {
+  tenant: { id: string; code: string; name: string };
+  branding: Branding;
+  /* null: công ty chưa nhập liên hệ HR */
+  support: SupportContact | null;
+  /* required: có điều khoản mới chưa đồng ý → app hiện màn đồng ý trước khi dùng tiếp */
+  privacy: { required: boolean; terms: PrivacyTerms | null; acceptedVersionNo: number | null };
+  holidays: Holiday[];
+};

@@ -9,7 +9,18 @@ export type Grant = { permission: string; role_code: string; role_name: string; 
 export type ActorEmployee = { id: string; full_name: string; employee_code: string; work_email: string | null };
 
 /* Permission mở được web HR/Admin (có ít nhất một trong số này) */
-export const WEB_PERMISSIONS = ["employee.read", "attendance.read", "schedule.read", "attendance.device.manage", "audit.read", "role.read"];
+export const WEB_PERMISSIONS = ["employee.read", "attendance.read", "schedule.read", "attendance.device.manage", "audit.read", "role.read", "policy.read", "tenant.settings.manage"];
+
+/* Mọi tài khoản dùng web HR/Admin phải xác thực hai lớp (ADR 0001: admin bắt buộc MFA; HR/quản lý/kiểm soát cũng xem
+   dữ liệu cá nhân của nhiều người nên áp chung). Không cho tenant tắt. */
+export const MFA_REQUIRED_FOR_WEB = true;
+
+export type MfaFactor = { id: string; factor_type: string; status: string };
+
+/* Claim trong access token đã được Supabase Auth xác minh ở getUser (aal1: mật khẩu; aal2: đã qua TOTP) */
+function claim(accessToken: string, key: string): unknown {
+  try { return (JSON.parse(Buffer.from(accessToken.split(".")[1] ?? "", "base64url").toString("utf8")) as Record<string, unknown>)[key]; } catch { return undefined; }
+}
 
 export const forbidden = (message = "Bạn không có quyền thực hiện thao tác này.") => new AuthError(ADMIN_ERRORS.forbidden, message, 403);
 export const notFound = (what = "dữ liệu") => new AuthError(ADMIN_ERRORS.notFound, `Không tìm thấy ${what}.`, 404);
@@ -26,7 +37,14 @@ export class AdminContext {
     readonly actor: ActorEmployee | null,
     readonly grants: Grant[],
     readonly correlationId: string,
+    readonly accessToken: string,
+    readonly aal: string,
+    readonly factors: MfaFactor[],
   ) {}
+
+  /* Ứng dụng xác thực đã liên kết (TOTP đã xác minh ít nhất một lần) */
+  totpFactor(): MfaFactor | null { return this.factors.find((f) => f.factor_type === "totp" && f.status === "verified") ?? null; }
+  mfaSatisfied() { return !MFA_REQUIRED_FOR_WEB || this.aal === "aal2"; }
 
   get db() { return this.sb.admin; }
 
@@ -89,5 +107,6 @@ export async function resolveAdmin(sb: SupabaseGateway, accessToken: string, cor
   if (gErr) throw gErr;
   const e = emp as (ActorEmployee & { status: string }) | null;
   if (e && (e.status === "terminated" || e.status === "suspended")) throw new AuthError(AUTH_ERRORS.accountDisabled, "Tài khoản đang bị khóa. Liên hệ quản trị viên công ty.", 403);
-  return new AdminContext(sb, user.id, user.email ?? "", m.tenant_id, m.id, e, (grants ?? []) as Grant[], correlationId);
+  const factors = ((user.factors ?? []) as Array<{ id: string; factor_type: string; status: string }>).map((f) => ({ id: f.id, factor_type: f.factor_type, status: f.status }));
+  return new AdminContext(sb, user.id, user.email ?? "", m.tenant_id, m.id, e, (grants ?? []) as Grant[], correlationId, accessToken, String(claim(accessToken, "aal") ?? "aal1"), factors);
 }
