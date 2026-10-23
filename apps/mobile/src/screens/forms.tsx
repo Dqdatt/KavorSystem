@@ -151,7 +151,7 @@ export function leaveNewSpec(): ScreenSpec {
 
 export function otSpec(): ScreenSpec {
   const o = S.ot, h = (o.to - o.from) / 60, dates = [16, 19, 20, 21, 22];
-  const clash = S.shift === "fixed" && o.from < 1020;
+  const clash = S.shift === "fixed" && S.sh.assigned && o.from < S.sh.end;
   return {
     head: <TopBar title="Làm thêm giờ" />,
     body: [
@@ -161,7 +161,7 @@ export function otSpec(): ScreenSpec {
           <View style={{ flex: 1 }}><Field label="Từ"><Stepper value={hm(o.from * 60)} minusLabel="Lùi 30 phút" plusLabel="Thêm 30 phút" onMinus={() => ACT.otT("from", -30)} onPlus={() => ACT.otT("from", 30)} /></Field></View>
           <View style={{ flex: 1 }}><Field label="Đến"><Stepper value={hm(o.to * 60)} minusLabel="Lùi 30 phút" plusLabel="Thêm 30 phút" onMinus={() => ACT.otT("to", -30)} onPlus={() => ACT.otT("to", 30)} /></Field></View>
         </View>
-        {clash ? <ErrLine>Trùng giờ ca chính. Ca hành chính kết thúc 17:00.</ErrLine> : null}
+        {clash ? <ErrLine>Trùng giờ ca chính. {S.sh.name} kết thúc {hm(S.sh.end * 60)}.</ErrLine> : null}
         <Card><InfoRow k="Tổng giờ" v={dec(h) + " giờ"} strong /><InfoRow k="Hệ số" v="150% · ngày thường" strong /><InfoRow k="Người duyệt" v="Lê Quang Huy" strong /></Card>
         <Field label="Công việc"><TextArea accessibilityLabel="Công việc" defaultValue={o.reason} placeholder="Ví dụ: Hoàn thiện key visual chiến dịch" onChangeText={(t) => { S.ot.reason = t; }} /></Field>
       </Form>,

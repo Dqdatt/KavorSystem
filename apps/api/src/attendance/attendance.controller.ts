@@ -85,9 +85,4 @@ export class AttendanceController {
       return event;
     });
   }
-
-  @Post("dev/work-location") @HttpCode(200)
-  devLocation(@Req() req: CorrelatedRequest, @Headers("authorization") authz: string | undefined, @Body() b: Body) {
-    return this.run(req, authz, (svc, emp) => svc.devMoveLocation(emp, num(b, "latitude", -90, 90), num(b, "longitude", -180, 180), typeof b?.radiusM === "number" ? b.radiusM : undefined));
-  }
 }

@@ -112,7 +112,7 @@ export function SheetContent({ kind, arg }: { kind: SheetKind; arg?: string }) {
     </>;
     case "earlyOut": {
       const m = Math.floor(simNow() / 60);
-      return <><H3>Ra ca sớm?</H3><Sub>Ca kết thúc lúc 17:00. Ra ca bây giờ sẽ ghi nhận về sớm {dur(1020 - m)}.</Sub>
+      return <><H3>Ra ca sớm?</H3><Sub>Ca kết thúc lúc {hm(S.sh.end * 60)}. Ra ca bây giờ sẽ ghi nhận về sớm {dur(S.sh.end - m)}.</Sub>
         <BtnRow><Btn kind="ghost" onPress={() => closeSheet()}>Ở lại</Btn><Btn kind="danger" onPress={ACT.punchGo}>Vẫn ra ca</Btn></BtnRow></>;
     }
     case "slowCheck": return (

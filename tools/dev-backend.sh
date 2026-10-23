@@ -7,17 +7,21 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 docker info >/dev/null 2>&1 || { open -a Docker; echo "Đang mở Docker…"; until docker info >/dev/null 2>&1; do sleep 2; done; }
-supabase status >/dev/null 2>&1 || supabase start -x studio,imgproxy,vector,logflare,edge-runtime,realtime,storage-api,postgres-meta
+supabase status >/dev/null 2>&1 || supabase start -x studio,imgproxy,vector,logflare,edge-runtime,storage-api,postgres-meta
 [ "${1:-}" = "reset" ] && supabase db reset
 
 SRK=$(supabase status -o env 2>/dev/null | grep -E '^SERVICE_ROLE_KEY=' | cut -d= -f2- | tr -d '"')
+ANON=$(supabase status -o env 2>/dev/null | grep -E '^ANON_KEY=' | cut -d= -f2- | tr -d '"')
+# Web HR/Admin (pnpm dev:admin) đọc file này: Realtime cần URL + publishable key local. File bị .gitignore.
+printf 'KAVOR_API_URL=http://localhost:4000/api/v1\nSUPABASE_URL=http://127.0.0.1:55321\nSUPABASE_PUBLISHABLE_KEY=%s\n' "$ANON" > apps/admin-web/.env.local
 IP=$(ipconfig getifaddr en0 || ipconfig getifaddr en1 || echo localhost)
 pkill -f "tsx.*apps/api/src/main.ts|tsx.*src/main.ts" 2>/dev/null || true
 
 echo
 echo "API:      http://$IP:4000/api/v1   (build app với EXPO_PUBLIC_API_URL=http://$IP:4000/api/v1)"
+echo "Web HR/Admin: pnpm dev:admin → http://localhost:3000"
 echo "Hộp thư OTP (Mailpit): http://127.0.0.1:55324"
-echo "Tài khoản mẫu: mã HD0142 · email thao.ha@haidang.vn"
+echo "Tài khoản mẫu: nhân viên HD0142 · thao.ha@haidang.vn — HR Admin HD0007 · thao.mai@haidang.vn (kích hoạt trên web)"
 echo
 cd apps/api
-SUPABASE_URL=http://127.0.0.1:55321 SUPABASE_SERVICE_ROLE_KEY="$SRK" API_PORT=4000 exec pnpm exec tsx src/main.ts
+SUPABASE_URL=http://127.0.0.1:55321 SUPABASE_SERVICE_ROLE_KEY="$SRK" SMTP_URL=smtp://127.0.0.1:55325 API_PORT=4000 exec pnpm exec tsx src/main.ts

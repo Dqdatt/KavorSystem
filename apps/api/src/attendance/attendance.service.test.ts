@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { judgeLocation, localParts } from "./attendance.service.js";
 
-const office = { id: "l1", name: "VP", address: null, latitude: 10.77439, longitude: 106.70394, radius_m: 50, max_accuracy_m: 60 };
+const office = { id: "l1", name: "VP", address: null, latitude: 10.77439, longitude: 106.70394, radiusM: 50, maxAccuracyM: 60 };
 
 test("trong vùng khi khoảng cách ≤ bán kính và GPS đủ chính xác", () => {
   const v = judgeLocation(10.7745, 106.70394, 12, [office]);

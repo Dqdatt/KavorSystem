@@ -47,7 +47,9 @@ insert into public.departments (id, tenant_id, branch_id, code, name, effective_
   ('40000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000001','30000000-0000-4000-8000-000000000001','EXEC','Ban Điều hành','2026-01-01'),
   ('40000000-0000-4000-8000-000000000002','10000000-0000-4000-8000-000000000001','30000000-0000-4000-8000-000000000001','HR','Nhân sự','2026-01-01'),
   ('40000000-0000-4000-8000-000000000003','10000000-0000-4000-8000-000000000001','30000000-0000-4000-8000-000000000001','FIN','Tài chính - Kế toán','2026-01-01'),
-  ('40000000-0000-4000-8000-000000000004','10000000-0000-4000-8000-000000000001','30000000-0000-4000-8000-000000000001','OPS','Vận hành','2026-01-01')
+  ('40000000-0000-4000-8000-000000000004','10000000-0000-4000-8000-000000000001','30000000-0000-4000-8000-000000000001','OPS','Vận hành','2026-01-01'),
+  ('40000000-0000-4000-8000-000000000005','10000000-0000-4000-8000-000000000001','30000000-0000-4000-8000-000000000001','MKT','Marketing','2026-01-01'),
+  ('40000000-0000-4000-8000-000000000006','10000000-0000-4000-8000-000000000001','30000000-0000-4000-8000-000000000002','HN-SALES','Kinh doanh Hà Nội','2026-01-01')
 on conflict (tenant_id, code) do nothing;
 
 insert into public.positions (id, tenant_id, code, name, job_level, effective_from) values
@@ -55,7 +57,10 @@ insert into public.positions (id, tenant_id, code, name, job_level, effective_fr
   ('50000000-0000-4000-8000-000000000002','10000000-0000-4000-8000-000000000001','HRM','Trưởng phòng Nhân sự','L4','2026-01-01'),
   ('50000000-0000-4000-8000-000000000003','10000000-0000-4000-8000-000000000001','HRO','Chuyên viên Nhân sự','L2','2026-01-01'),
   ('50000000-0000-4000-8000-000000000004','10000000-0000-4000-8000-000000000001','ACCT','Kế toán viên','L2','2026-01-01'),
-  ('50000000-0000-4000-8000-000000000005','10000000-0000-4000-8000-000000000001','OM','Trưởng nhóm Vận hành','L3','2026-01-01')
+  ('50000000-0000-4000-8000-000000000005','10000000-0000-4000-8000-000000000001','OM','Trưởng nhóm Vận hành','L3','2026-01-01'),
+  ('50000000-0000-4000-8000-000000000006','10000000-0000-4000-8000-000000000001','MKTM','Trưởng phòng Marketing','L4','2026-01-01'),
+  ('50000000-0000-4000-8000-000000000007','10000000-0000-4000-8000-000000000001','DSN','Senior Designer','L3','2026-01-01'),
+  ('50000000-0000-4000-8000-000000000008','10000000-0000-4000-8000-000000000001','AE','Account Executive','L2','2026-01-01')
 on conflict (tenant_id, code) do nothing;
 
 insert into public.employees (
@@ -68,7 +73,9 @@ insert into public.employees (
   ('60000000-0000-4000-8000-000000000004','10000000-0000-4000-8000-000000000001','HDG0004','Phạm Ngọc Anh','anh.pham@example.test','0900000004','2023-08-01','official','active','sample','HDG0004'),
   ('60000000-0000-4000-8000-000000000005','10000000-0000-4000-8000-000000000001','HDG0005','Võ Thảo Linh','linh.vo@example.test','0900000005','2022-11-07','official','active','sample','HDG0005'),
   -- Nhân viên dùng trong app mobile (prototype): kích hoạt bằng HD0142 + thao.ha@haidang.vn
-  ('60000000-0000-4000-8000-000000000142','10000000-0000-4000-8000-000000000001','HD0142','Trần Thu Hà','thao.ha@haidang.vn','0912345468','2021-03-03','official','active','sample','HD0142')
+  ('60000000-0000-4000-8000-000000000142','10000000-0000-4000-8000-000000000001','HD0142','Trần Thu Hà','thao.ha@haidang.vn','0912345468','2021-03-03','official','active','sample','HD0142'),
+  -- HR Administrator của web HR/Admin (prototype): kích hoạt bằng HD0007 + thao.mai@haidang.vn
+  ('60000000-0000-4000-8000-000000000007','10000000-0000-4000-8000-000000000001','HD0007','Mai Phương Thảo','thao.mai@haidang.vn','0912000007','2020-05-04','official','active','sample','HD0007')
 on conflict (tenant_id, employee_code) do nothing;
 
 insert into public.audit_logs (
@@ -79,13 +86,75 @@ insert into public.audit_logs (
   'Development seed only', 'seed-20261020'
 );
 
--- Ca hành chính và địa điểm chấm công mẫu (prototype: Văn phòng Quận 1, 12 Nguyễn Huệ).
--- Bán kính thực tế lấy 50 m vì GPS điện thoại hiếm khi chính xác dưới 10 m; mỗi công ty tự cấu hình.
+
+-- Phân công tổ chức hiện hành (dùng để tính phạm vi quyền và tầng áp dụng ca/địa điểm)
+insert into public.employee_assignments (tenant_id, employee_id, legal_entity_id, branch_id, department_id, position_id, manager_employee_id, effective_from) values
+  ('10000000-0000-4000-8000-000000000001','60000000-0000-4000-8000-000000000001','20000000-0000-4000-8000-000000000001','30000000-0000-4000-8000-000000000001','40000000-0000-4000-8000-000000000001','50000000-0000-4000-8000-000000000001',null,'2022-01-10'),
+  ('10000000-0000-4000-8000-000000000001','60000000-0000-4000-8000-000000000002','20000000-0000-4000-8000-000000000001','30000000-0000-4000-8000-000000000001','40000000-0000-4000-8000-000000000002','50000000-0000-4000-8000-000000000003','60000000-0000-4000-8000-000000000007','2023-03-15'),
+  ('10000000-0000-4000-8000-000000000001','60000000-0000-4000-8000-000000000003','20000000-0000-4000-8000-000000000001','30000000-0000-4000-8000-000000000001','40000000-0000-4000-8000-000000000005','50000000-0000-4000-8000-000000000006','60000000-0000-4000-8000-000000000001','2024-02-19'),
+  ('10000000-0000-4000-8000-000000000001','60000000-0000-4000-8000-000000000004','20000000-0000-4000-8000-000000000001','30000000-0000-4000-8000-000000000002','40000000-0000-4000-8000-000000000006','50000000-0000-4000-8000-000000000008',null,'2023-08-01'),
+  ('10000000-0000-4000-8000-000000000001','60000000-0000-4000-8000-000000000005','20000000-0000-4000-8000-000000000001','30000000-0000-4000-8000-000000000001','40000000-0000-4000-8000-000000000004','50000000-0000-4000-8000-000000000005','60000000-0000-4000-8000-000000000001','2022-11-07'),
+  ('10000000-0000-4000-8000-000000000001','60000000-0000-4000-8000-000000000142','20000000-0000-4000-8000-000000000001','30000000-0000-4000-8000-000000000001','40000000-0000-4000-8000-000000000005','50000000-0000-4000-8000-000000000007','60000000-0000-4000-8000-000000000003','2021-03-03'),
+  ('10000000-0000-4000-8000-000000000001','60000000-0000-4000-8000-000000000007','20000000-0000-4000-8000-000000000001','30000000-0000-4000-8000-000000000001','40000000-0000-4000-8000-000000000002','50000000-0000-4000-8000-000000000002','60000000-0000-4000-8000-000000000001','2020-05-04');
+
+-- Tài khoản quản trị được mời trước khi kích hoạt: membership chưa có user, role gán sẵn.
+-- Mai Phương Thảo: Tenant Admin + HR Operations toàn công ty. Lê Quang Huy: quản lý phòng Marketing.
+insert into public.memberships (id, tenant_id, employee_id, status) values
+  ('80000000-0000-4000-8000-000000000007','10000000-0000-4000-8000-000000000001','60000000-0000-4000-8000-000000000007','invited'),
+  ('80000000-0000-4000-8000-000000000003','10000000-0000-4000-8000-000000000001','60000000-0000-4000-8000-000000000003','invited');
+insert into public.role_assignments (tenant_id, membership_id, role_id, scope_type, scope_id, effective_from)
+select '10000000-0000-4000-8000-000000000001', m, r.id, st, sid, '2026-01-01'
+from (values
+  ('80000000-0000-4000-8000-000000000007'::uuid, 'tenant_admin', 'tenant', null::uuid),
+  ('80000000-0000-4000-8000-000000000007'::uuid, 'hr_ops', 'tenant', null::uuid),
+  ('80000000-0000-4000-8000-000000000003'::uuid, 'manager', 'department', '40000000-0000-4000-8000-000000000005'::uuid)
+) v(m, code, st, sid)
+join public.roles r on r.code = v.code and r.tenant_id is null;
+
+-- Chấm công: chỉ giữ giới hạn offline ở cấu hình tenant; ca/địa điểm cấu hình theo tầng bên dưới
 update public.tenant_settings
-set attendance_settings = attendance_settings || '{"shiftStart":"08:00","shiftEnd":"17:00","maxOfflineHours":24}'
+set attendance_settings = attendance_settings || '{"maxOfflineHours":24}'
 where tenant_id = '10000000-0000-4000-8000-000000000001';
 
-insert into public.work_locations (id, tenant_id, branch_id, code, name, address, latitude, longitude, radius_m, max_accuracy_m) values
-  ('70000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000001','30000000-0000-4000-8000-000000000001',
-   'HCM-Q1','Văn phòng Quận 1','12 Nguyễn Huệ, Quận 1, TP.HCM', 10.774390, 106.703940, 50, 60)
-on conflict (tenant_id, code) do nothing;
+-- Địa điểm mẫu (prototype: Văn phòng Quận 1, 12 Nguyễn Huệ). Bán kính 50 m vì GPS điện thoại hiếm khi chính xác dưới 10 m.
+insert into public.work_locations (id, tenant_id, branch_id, code, name, address) values
+  ('70000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000001','30000000-0000-4000-8000-000000000001','HCM-Q1','Văn phòng Quận 1','12 Nguyễn Huệ, Quận 1, TP.HCM'),
+  ('70000000-0000-4000-8000-000000000002','10000000-0000-4000-8000-000000000001','30000000-0000-4000-8000-000000000002','HN-HK','Văn phòng Hoàn Kiếm','25 Lý Thường Kiệt, Hoàn Kiếm, Hà Nội');
+insert into public.work_location_versions (tenant_id, location_id, version_no, latitude, longitude, radius_m, max_accuracy_m, effective_from) values
+  ('10000000-0000-4000-8000-000000000001','70000000-0000-4000-8000-000000000001',1,10.774390,106.703940,50,60,'2026-01-01'),
+  ('10000000-0000-4000-8000-000000000001','70000000-0000-4000-8000-000000000002',1,21.024500,105.852400,80,60,'2026-01-01');
+
+-- Ca hành chính 08:00–17:00, nghỉ trưa 12:00–13:00 (mẫu mặc định; công ty tự sửa bằng phiên bản mới)
+insert into public.shift_definitions (id, tenant_id, code, name) values
+  ('90000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000001','HC','Ca hành chính');
+insert into public.shift_versions (tenant_id, shift_id, version_no, start_time, end_time, break_start, break_end, effective_from) values
+  ('10000000-0000-4000-8000-000000000001','90000000-0000-4000-8000-000000000001',1,'08:00','17:00','12:00','13:00','2026-01-01');
+
+-- Áp dụng theo tầng: ca HC cho toàn công ty; mỗi chi nhánh chấm công tại văn phòng của mình
+insert into public.policy_assignments (tenant_id, kind, target_id, scope_type, scope_id, effective_from) values
+  ('10000000-0000-4000-8000-000000000001','shift','90000000-0000-4000-8000-000000000001','tenant',null,'2026-01-01'),
+  ('10000000-0000-4000-8000-000000000001','work_location','70000000-0000-4000-8000-000000000001','branch','30000000-0000-4000-8000-000000000001','2026-01-01'),
+  ('10000000-0000-4000-8000-000000000001','work_location','70000000-0000-4000-8000-000000000002','branch','30000000-0000-4000-8000-000000000002','2026-01-01');
+
+-- Tenant thứ hai để kiểm thử cách ly dữ liệu giữa công ty (không dùng trong app)
+insert into public.tenants (id, code, display_name, status, plan_code) values
+  ('10000000-0000-4000-8000-000000000002','MAUB-001','Công ty Mẫu B','active','starter');
+insert into public.tenant_settings (tenant_id) values ('10000000-0000-4000-8000-000000000002');
+insert into public.legal_entities (id, tenant_id, code, name, effective_from) values
+  ('20000000-0000-4000-8000-000000000002','10000000-0000-4000-8000-000000000002','MAUB','Công ty Mẫu B','2026-01-01');
+insert into public.branches (id, tenant_id, legal_entity_id, code, name, effective_from) values
+  ('30000000-0000-4000-8000-000000000012','10000000-0000-4000-8000-000000000002','20000000-0000-4000-8000-000000000002','HCM','TP. Hồ Chí Minh','2026-01-01');
+insert into public.departments (id, tenant_id, branch_id, code, name, effective_from) values
+  ('40000000-0000-4000-8000-000000000012','10000000-0000-4000-8000-000000000002','30000000-0000-4000-8000-000000000012','ADM','Hành chính','2026-01-01');
+insert into public.positions (id, tenant_id, code, name, effective_from) values
+  ('50000000-0000-4000-8000-000000000012','10000000-0000-4000-8000-000000000002','ADM','Quản trị','2026-01-01');
+insert into public.employees (id, tenant_id, employee_code, full_name, work_email, hire_date, source_system, external_id) values
+  ('60000000-0000-4000-8000-000000000b01','10000000-0000-4000-8000-000000000002','BX0001','Đỗ Văn Bình','admin@maub.test','2025-01-01','sample','BX0001'),
+  ('60000000-0000-4000-8000-000000000b02','10000000-0000-4000-8000-000000000002','BX0002','Ngô Thị Bích','bich@maub.test','2025-02-01','sample','BX0002');
+insert into public.employee_assignments (tenant_id, employee_id, legal_entity_id, branch_id, department_id, position_id, effective_from)
+select '10000000-0000-4000-8000-000000000002', id, '20000000-0000-4000-8000-000000000002','30000000-0000-4000-8000-000000000012','40000000-0000-4000-8000-000000000012','50000000-0000-4000-8000-000000000012','2025-01-01'
+from public.employees where tenant_id = '10000000-0000-4000-8000-000000000002';
+insert into public.memberships (id, tenant_id, employee_id, status) values
+  ('80000000-0000-4000-8000-000000000b01','10000000-0000-4000-8000-000000000002','60000000-0000-4000-8000-000000000b01','invited');
+insert into public.role_assignments (tenant_id, membership_id, role_id, scope_type, effective_from)
+select '10000000-0000-4000-8000-000000000002','80000000-0000-4000-8000-000000000b01', id, 'tenant', '2025-01-01' from public.roles where code = 'tenant_admin' and tenant_id is null;

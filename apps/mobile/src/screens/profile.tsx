@@ -12,7 +12,7 @@ import { Avatar, Balanced, Btn, BtnRow, Card, InfoRow, Note, Notice, Row, RowBtn
 import { Foot, TopBar, type ScreenSpec } from "../screen";
 import { useClock } from "../clock";
 import { dec, gh, hm } from "../data";
-import { ACT, S, go, jump, setBioPref, lvAvail, phase, toast, worked, type ErrKind, type Route } from "../store";
+import { ACT, S, go, jump, setBioPref, lvAvail, phase, shiftMinutes, toast, worked, type ErrKind, type Route } from "../store";
 
 const COVER = '<svg viewBox="0 0 320 124" preserveAspectRatio="xMidYMid slice"><defs><linearGradient id="pfSky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#CFF5E4"/><stop offset="1" stop-color="#F3FCF8"/></linearGradient></defs><rect width="320" height="124" fill="url(#pfSky)"/><circle cx="252" cy="36" r="15" fill="#FFF4D6"/><path d="M0 22c18 8 30 30 34 58l6 44H0z" fill="#2E9C77" opacity=".55"/><path d="M320 14c-20 10-34 34-38 64l-4 46h42z" fill="#2E9C77" opacity=".55"/><path d="M0 80c40-20 70-16 110-8s80-18 120-10 60 0 90-8v70H0z" fill="#A7F3D0"/><path d="M0 96c50-14 100-4 150-10s90-14 170 0v42H0z" fill="#34C79A"/><path d="M0 108c60-8 120 4 190-4s90-4 130 2v18H0z" fill="#0B7A5A"/></svg>';
 const VERIFIED = '<svg width="20" height="20" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="#065F46"/><path d="m7 12.5 3.2 3.2L17 9" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
@@ -204,7 +204,7 @@ export function SpringHome() {
             <Pressable accessibilityLabel="Mở app Kavor" onPress={ACT.openApp} style={[styles.wdg, { height: 160, padding: 15, justifyContent: "space-between" }]}>
               <GlassFill radius={24} fill={WDG_FILL} />
               <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}><Logo size={16} /><T style={styles.wh}>Hôm nay</T></View>
-              <View><T style={{ fontSize: 32, lineHeight: 32, fontFamily: F.light, color: "#fff" }}>{w === null ? "00:00" : gh(w)}</T><T style={styles.ws}>giờ làm / 08:00</T></View>
+              <View><T style={{ fontSize: 32, lineHeight: 32, fontFamily: F.light, color: "#fff" }}>{w === null ? "00:00" : gh(w)}</T><T style={styles.ws}>giờ làm / {gh(shiftMinutes())}</T></View>
               <T style={styles.ws}>Phép còn {dec(lvAvail())} ngày</T>
             </Pressable>
           </Rise>
@@ -227,7 +227,7 @@ export function SpringHome() {
 export function SpringLock() {
   const insets = useSafeAreaInsets();
   const now = useClock();
-  const ph = phase(), prog = Math.min(1, (worked() || 0) / 480);
+  const ph = phase(), prog = Math.min(1, (worked() || 0) / Math.max(1, shiftMinutes()));
   return (
     <View style={{ ...StyleSheet.absoluteFill }}>
       <Wall />

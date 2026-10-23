@@ -31,7 +31,7 @@ set local role authenticated;
 select set_config('request.jwt.claims', '{"sub":"a0000000-0000-4000-8000-00000000000a","role":"authenticated"}', true);
 select is((select count(*)::int from public.tenants), 1, 'A chỉ thấy 1 tenant');
 select is((select code from public.tenants), 'HDG-001', 'A thấy đúng tenant của mình');
-select is((select count(*)::int from public.employees), 6, 'A thấy 6 nhân viên của tenant A');
+select is((select count(*)::int from public.employees), 0, 'A không có quyền employee.read nên không thấy hồ sơ người khác');
 select is((select count(*)::int from public.employees where employee_code = 'B0001'), 0, 'A không thấy nhân viên tenant B');
 select is((select count(*)::int from public.user_profiles), 1, 'A chỉ thấy hồ sơ của chính mình');
 select ok((select count(*) from public.permissions) > 0, 'A đọc được danh mục quyền hệ thống');
@@ -44,13 +44,13 @@ set local role authenticated;
 
 -- Người dùng B chỉ thấy tenant B
 select set_config('request.jwt.claims', '{"sub":"b0000000-0000-4000-8000-00000000000b","role":"authenticated"}', true);
-select is((select count(*)::int from public.employees), 1, 'B chỉ thấy 1 nhân viên của tenant B');
+select is((select count(*)::int from public.employees), 0, 'B không có quyền employee.read nên không thấy hồ sơ');
 select is((select count(*)::int from public.audit_logs), 0, 'B không thấy audit của tenant A');
 reset role;
 
 -- API (service_role) đọc/ghi được nhưng không TRUNCATE
 set local role service_role;
-select is((select count(*)::int from public.employees), 7, 'service_role đọc được mọi nhân viên');
+select ok((select count(*) from public.employees where tenant_id in ('10000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-0000000000bb')) >= 8, 'service_role đọc được nhân viên mọi tenant');
 select throws_ok('truncate public.audit_logs', '42501', null, 'service_role không TRUNCATE được');
 reset role;
 

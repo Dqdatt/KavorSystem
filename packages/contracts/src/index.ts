@@ -108,7 +108,9 @@ export function maskEmail(email: string): string {
 /* ---------- Chấm công ---------- */
 export type DevicePlatform = "ios" | "android";
 export type DeviceRegisterRequest = { installationId: string; platform: DevicePlatform; deviceModel?: string; osVersion?: string; appVersion?: string };
-export type DeviceInfo = { id: string; status: "active" | "pending" | "revoked"; platform: DevicePlatform; deviceModel: string | null; osVersion: string | null; registeredAt: string };
+export type DeviceStatus = "active" | "pending" | "revoked" | "rejected";
+/* decisionReason: lý do HR từ chối/thu hồi (hiển thị cho nhân viên) */
+export type DeviceInfo = { id: string; status: DeviceStatus; platform: DevicePlatform; deviceModel: string | null; osVersion: string | null; registeredAt: string; decisionReason: string | null };
 
 export type WorkLocation = { id: string; name: string; address: string | null; latitude: number; longitude: number; radiusM: number; maxAccuracyM: number };
 
@@ -141,10 +143,24 @@ export type AttendanceEvent = {
   /* Phút đi muộn (vào) hoặc về sớm (ra) so với ca; 0 nếu đúng giờ */
   deviationMinutes: number;
 };
+/* Ca áp dụng cho nhân viên vào một ngày, đã tra theo tầng (ADR 0001); giờ dạng "HH:MM" theo múi giờ công ty */
+export type ShiftInfo = {
+  id: string;
+  code: string;
+  name: string;
+  versionNo: number;
+  start: string;
+  end: string;
+  breakStart: string | null;
+  breakEnd: string | null;
+  lateGraceMinutes: number;
+  earlyGraceMinutes: number;
+};
 export type AttendanceToday = {
   date: string;
   timezone: string;
-  shift: { start: string; end: string };
+  /* null: nhân viên chưa được áp dụng ca nào */
+  shift: ShiftInfo | null;
   locations: WorkLocation[];
   device: DeviceInfo | null;
   events: AttendanceEvent[];
@@ -167,3 +183,159 @@ export function distanceMeters(lat1: number, lng1: number, lat2: number, lng2: n
   const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * rad) * Math.cos(lat2 * rad) * Math.sin(dLng / 2) ** 2;
   return 2 * R * Math.asin(Math.sqrt(a));
 }
+
+/* ---------- HR/Admin (web) ---------- */
+/* Một file duy nhất: mobile (Metro) và web (Next) import thẳng mã nguồn TS nên không dùng đường dẫn ".js" */
+export type ScopeType = "tenant" | "legal_entity" | "branch" | "department" | "self" | "direct_reports";
+export type PolicyScopeType = "tenant" | "legal_entity" | "branch" | "department" | "employee";
+export type Ref = { id: string; name: string };
+
+export type AdminRole = { code: string; name: string; scopeType: ScopeType; scopeName: string };
+export type AdminMe = {
+  userId: string;
+  employeeId: string | null;
+  fullName: string;
+  email: string;
+  tenant: { id: string; code: string; name: string; timezone: string };
+  roles: AdminRole[];
+  permissions: string[];
+  /* Cảnh báo thường trực khi tenant chỉ còn một Tenant Admin (ADR 0001) */
+  tenantAdminCount: number;
+};
+
+/* not_invited: chưa gửi lời mời · invited: đã mời, chưa kích hoạt · active · locked: HR đã khóa đăng nhập */
+export type AccountStatus = "not_invited" | "invited" | "active" | "locked";
+export type EmploymentType = "probation" | "official" | "contractor" | "intern";
+export type EmployeeStatus = "preboarding" | "active" | "suspended" | "on_leave" | "leaving" | "terminated";
+
+export type EmployeeListItem = {
+  id: string;
+  code: string;
+  fullName: string;
+  email: string | null;
+  phone: string | null;
+  hireDate: string;
+  employmentType: EmploymentType;
+  status: EmployeeStatus;
+  department: Ref | null;
+  position: Ref | null;
+  branch: Ref | null;
+  account: AccountStatus;
+  invitedAt: string | null;
+  lastLoginAt: string | null;
+  devicePending: boolean;
+};
+
+export type PolicySource = { scopeType: PolicyScopeType; scopeName: string; assignmentId: string };
+export type ResolvedPolicies = {
+  date: string;
+  shift: (ShiftInfo & { source: PolicySource }) | null;
+  locations: WorkLocation[];
+  locationSource: PolicySource | null;
+};
+
+export type AdminDevice = {
+  id: string;
+  employee: { id: string; code: string; fullName: string };
+  platform: DevicePlatform;
+  deviceModel: string | null;
+  osVersion: string | null;
+  appVersion: string | null;
+  status: DeviceStatus;
+  registeredAt: string;
+  lastSeenAt: string | null;
+  decidedAt: string | null;
+  decidedBy: string | null;
+  decisionReason: string | null;
+};
+
+export type AdminAttendanceEvent = AttendanceEvent & { employee: { id: string; code: string; fullName: string; department: string | null }; deviceModel: string | null };
+
+export type AuditEntry = { id: string; action: string; actor: string | null; createdAt: string; reason: string | null; before: unknown; after: unknown };
+
+export type EmployeeDetail = EmployeeListItem & {
+  legalEntity: Ref | null;
+  manager: Ref | null;
+  assignmentFrom: string | null;
+  terminationDate: string | null;
+  devices: AdminDevice[];
+  policies: ResolvedPolicies;
+  recentEvents: AdminAttendanceEvent[];
+  audit: AuditEntry[];
+};
+
+export type EmployeeUpsert = {
+  employeeCode: string;
+  fullName: string;
+  workEmail: string;
+  phone?: string | null;
+  hireDate: string;
+  employmentType: EmploymentType;
+  status?: EmployeeStatus;
+  departmentId: string;
+  positionId: string;
+  managerEmployeeId?: string | null;
+  /* Ngày hiệu lực khi đổi phòng ban/chức danh/quản lý; mặc định hôm nay */
+  effectiveFrom?: string;
+  sendInvite?: boolean;
+};
+
+export type ShiftVersion = {
+  id: string; versionNo: number; start: string; end: string; breakStart: string | null; breakEnd: string | null;
+  lateGraceMinutes: number; earlyGraceMinutes: number; effectiveFrom: string; note: string | null; createdAt: string;
+};
+export type ShiftDef = { id: string; code: string; name: string; active: boolean; current: ShiftVersion | null; next: ShiftVersion | null; versions: ShiftVersion[] };
+export type ShiftVersionInput = { start: string; end: string; breakStart?: string | null; breakEnd?: string | null; lateGraceMinutes?: number; earlyGraceMinutes?: number; effectiveFrom: string; note?: string | null };
+
+export type LocationVersion = { id: string; versionNo: number; latitude: number; longitude: number; radiusM: number; maxAccuracyM: number; effectiveFrom: string; note: string | null; createdAt: string };
+export type LocationDef = { id: string; code: string; name: string; address: string | null; branch: Ref | null; active: boolean; current: LocationVersion | null; next: LocationVersion | null; versions: LocationVersion[] };
+export type LocationVersionInput = { latitude: number; longitude: number; radiusM: number; maxAccuracyM: number; effectiveFrom: string; note?: string | null };
+
+export type PolicyKind = "shift" | "work_location";
+export type PolicyAssignment = {
+  id: string; kind: PolicyKind; target: Ref; scopeType: PolicyScopeType; scope: Ref | null;
+  effectiveFrom: string; effectiveTo: string | null; reason: string | null; createdAt: string; createdBy: string | null;
+  state: "active" | "scheduled" | "ended" | "cancelled";
+};
+export type PolicyAssignmentInput = { kind: PolicyKind; targetId: string; scopeType: PolicyScopeType; scopeId?: string | null; effectiveFrom: string; effectiveTo?: string | null; reason?: string | null };
+
+export type OrgOptions = { legalEntities: Ref[]; branches: Ref[]; departments: Array<Ref & { branchId: string | null }>; positions: Ref[]; employees: Array<Ref & { code: string }> };
+
+export type TodayState = "not_started" | "working" | "done" | "absent" | "no_shift";
+export type TodayRow = {
+  employee: { id: string; code: string; fullName: string; department: string | null };
+  shift: { name: string; start: string; end: string } | null;
+  clockIn: { at: string; lateMinutes: number; offline: boolean; location: string | null } | null;
+  clockOut: { at: string; earlyMinutes: number; offline: boolean; location: string | null } | null;
+  state: TodayState;
+  late: boolean;
+  early: boolean;
+  rejectedCount: number;
+};
+export type AttendanceBoard = {
+  date: string;
+  timezone: string;
+  rows: TodayRow[];
+  summary: { inScope: number; present: number; late: number; notYet: number; rejected: number; devicesPending: number };
+};
+
+export type OverviewDay = { date: string; present: number; late: number; rejected: number };
+export type AdminOverview = {
+  date: string;
+  activeEmployees: number;
+  notActivated: number;
+  presentToday: number;
+  lateToday: number;
+  rejectedToday: number;
+  devicesPending: number;
+  days: OverviewDay[];
+  recentEmployees: EmployeeListItem[];
+};
+
+export const ADMIN_ERRORS = {
+  forbidden: "FORBIDDEN",
+  notFound: "NOT_FOUND",
+  conflict: "CONFLICT",
+  lastTenantAdmin: "LAST_TENANT_ADMIN",
+  emailNotConfigured: "EMAIL_NOT_CONFIGURED",
+} as const;

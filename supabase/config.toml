@@ -35,6 +35,8 @@ file_size_limit = "50MiB"
 [local_smtp]
 enabled = true
 port = 55324
+# SMTP của Mailpit để API gửi thư mời kích hoạt khi chạy local
+smtp_port = 55325
 
 [analytics]
 enabled = false

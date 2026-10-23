@@ -58,6 +58,9 @@ function sync(p: Promise<void>) {
 
 const makeState = () => ({
   role: "staff" as "staff" | "manager", inRange: true, shift: "fixed" as "fixed" | "flex", contract: "official" as "official" | "probation" | "leaving",
+  /* Ca áp dụng (phút trong ngày). Bản dùng API lấy từ /me/attendance/today — HR cấu hình theo tầng trên web;
+     bản mẫu giữ ca của prototype. assigned=false: nhân viên chưa được áp dụng ca nào. */
+  sh: { name: "Ca hành chính", start: 480, end: 1020, breakMin: 60, lateGrace: 0, earlyGrace: 0, assigned: true },
   clockIn: null as number | null, clockOut: null as number | null,
   stack: ["login"] as Route[], param: null as string | null, pinUntil: 0, pin: "", pinOk: null as null | (() => void),
   quickOpen: false,
@@ -115,17 +118,20 @@ export function emit() { version++; listeners.forEach((l) => l()); }
 
 /* ---------- derived ---------- */
 export const day = (d: number) => S.oct.find((o) => o.d === d);
-export const shiftLabel = () => (S.shift === "fixed" ? "Ca hành chính" : "Ca linh hoạt");
-export const shiftTime = () => (S.shift === "fixed" ? "08:00 – 17:00" : "8 giờ, 07:00 – 19:00");
+export const shiftLabel = () => (!S.sh.assigned ? "Chưa được xếp ca" : S.shift === "fixed" ? S.sh.name : "Ca linh hoạt");
+export const shiftTime = () => (!S.sh.assigned ? "Liên hệ phòng Nhân sự" : S.shift === "fixed" ? `${hm(S.sh.start * 60)} – ${hm(S.sh.end * 60)}` : "8 giờ, 07:00 – 19:00");
+/* Số phút làm việc của ca (trừ nghỉ giữa ca) */
+export const shiftMinutes = () => Math.max(0, S.sh.end - S.sh.start - S.sh.breakMin);
 /* Khoảng cách kiểu Việt: 1,8 m · 126 m · 1,2 km */
 export const fmtM = (m: number) => (m >= 1000 ? `${dec(Math.round(m / 100) / 10)}\u00A0km` : m >= 100 ? `${Math.round(m)}\u00A0m` : `${dec(Math.round(m * 10) / 10)}\u00A0m`);
 export const phase = () => (!S.clockIn ? "in" : !S.clockOut ? "out" : "done");
 export const worked = () => (S.clockIn ? Math.max(0, Math.floor(((S.clockOut || simNow()) - S.clockIn) / 60)) : null);
 export function verdict(kind: "in" | "out", t: number): [string, "ok" | "warn"] {
   const m = Math.floor(t / 60);
-  if (S.shift === "flex") { if (kind === "in") return ["Đã ghi nhận", "ok"]; const w = worked() ?? 0; return w >= 480 ? ["Đủ 8 giờ", "ok"] : [`Thiếu ${dur(480 - w)}`, "warn"]; }
-  if (kind === "in") { const l = m - 480; return l > 0 ? [`Muộn ${dur(l)}`, "warn"] : ["Đúng giờ", "ok"]; }
-  const e = 1020 - m; return e > 0 ? [`Về sớm ${dur(e)}`, "warn"] : ["Đủ giờ", "ok"];
+  if (!S.sh.assigned) return ["Đã ghi nhận", "ok"];
+  if (S.shift === "flex") { if (kind === "in") return ["Đã ghi nhận", "ok"]; const w = worked() ?? 0, need = shiftMinutes(); return w >= need ? [`Đủ ${dur(need)}`, "ok"] : [`Thiếu ${dur(need - w)}`, "warn"]; }
+  if (kind === "in") { const l = m - S.sh.start; return l > S.sh.lateGrace ? [`Muộn ${dur(l)}`, "warn"] : ["Đúng giờ", "ok"]; }
+  const e = S.sh.end - m; return e > S.sh.earlyGrace ? [`Về sớm ${dur(e)}`, "warn"] : ["Đủ giờ", "ok"];
 }
 export const explainLeft = () => S.explainLimit - S.explainUsed;
 export const lvAvail = () => S.leave.granted + S.leave.carry - S.leave.used - S.leave.pending;
@@ -148,10 +154,10 @@ export function dayInfo(o: OctDay) {
   if (o.leave) return { leave: true, in: null, out: null, hrs: null, note: null, inOk: true, outOk: true, flagIn: false, flagOut: false, issue: false };
   if (!o.in || !o.out) {
     const note: [string, string] = o.explained ? [`Đã điều chỉnh theo ${o.explained}`, "ok"] : o.pendingEx ? ["Giải trình đang chờ duyệt", "warn"] : [!o.in ? "Thiếu giờ vào" : "Thiếu giờ ra", "bad"];
-    return { leave: false, in: o.in ?? null, out: o.out || (o.explained ? o.fix! : null), hrs: o.explained ? toMin(o.fix!) - toMin(o.in!) - 60 : null, note,
+    return { leave: false, in: o.in ?? null, out: o.out || (o.explained ? o.fix! : null), hrs: o.explained ? toMin(o.fix!) - toMin(o.in!) - S.sh.breakMin : null, note,
       issue: !o.explained && !o.pendingEx, inOk: !!o.in, outOk: !!o.out || !!o.explained, flagIn: !o.in, flagOut: !o.out && !o.explained };
   }
-  const l = toMin(o.in) - 480, e = 1020 - toMin(o.out), hrs = toMin(o.out) - toMin(o.in) - 60;
+  const l = toMin(o.in) - S.sh.start, e = S.sh.end - toMin(o.out), hrs = toMin(o.out) - toMin(o.in) - S.sh.breakMin;
   return { leave: false, in: o.in, out: o.out, hrs, inOk: !(fixed && l > 0), outOk: !(fixed && e > 0), flagIn: fixed && l > 0, flagOut: false, issue: false,
     note: (o.ot ? [o.ot, "mute"] : fixed && l > 0 ? [`Muộn ${l} phút`, "bad"] : fixed && e > 0 ? [`Về sớm ${e} phút`, "bad"] : null) as [string, string] | null };
 }
@@ -241,6 +247,11 @@ function applyFix(f: Fix) {
 }
 function applyToday(t: AttendanceToday) {
   locations = t.locations;
+  const sh = t.shift;
+  if (sh) {
+    const br = sh.breakStart && sh.breakEnd ? toMin(sh.breakEnd) - toMin(sh.breakStart) : 0;
+    S.sh = { name: sh.name, start: toMin(sh.start), end: toMin(sh.end), breakMin: br, lateGrace: sh.lateGraceMinutes, earlyGrace: sh.earlyGraceMinutes, assigned: true };
+  } else S.sh = { ...S.sh, assigned: false };
   if (t.locations[0] && !t.locations.some((l) => l.id === S.att.loc.id)) S.att.loc = t.locations[0];
   S.clockIn = accepted(t.clockIn); S.clockOut = accepted(t.clockOut);
   S.att.device = t.device?.deviceModel ?? deviceSummary().model;
@@ -278,17 +289,49 @@ export async function loadToday() {
     const t = await attendanceApi.today(await installationId());
     applyToday(t);
     if (t.device?.status === "pending") { showErr("devicePending"); return; }
-    if (!t.device || t.device.status === "revoked") {
-      const sess = await loadSession();
-      if (sess) await saveSession({ employeeId: sess.employeeId, deviceRegistered: false });
-      S.stack = ["device"]; render("fade"); return;
-    }
+    if (!t.device || t.device.status === "revoked" || t.device.status === "rejected") { await deviceLost(t.device); return; }
     const f = await quietFix();
     if (f) applyFix(f);
   } catch (e) {
     if (e instanceof ApiError && e.status === 401) showErr("session");
   }
 }
+/* Máy bị HR thu hồi/từ chối (hoặc chưa đăng ký): về màn đăng ký thiết bị, báo lý do HR ghi */
+async function deviceLost(d: AttendanceToday["device"]) {
+  const sess = await loadSession();
+  if (sess) await saveSession({ employeeId: sess.employeeId, deviceRegistered: false });
+  S.err = null; S.stack = ["device"]; render("fade");
+  if (d && (d.status === "rejected" || d.status === "revoked")) toast(`HR đã ${d.status === "rejected" ? "từ chối" : "thu hồi"} thiết bị này${d.decisionReason ? `: ${d.decisionReason}` : ""}`);
+}
+
+/* E19 (chờ HR duyệt máy): hỏi lại máy chủ mỗi 8 giây khi app đang mở; duyệt xong tự vào trang chủ */
+let pendingTimer: ReturnType<typeof setInterval> | null = null;
+function stopPendingWatch() { if (pendingTimer) { clearInterval(pendingTimer); pendingTimer = null; } }
+function watchPending() {
+  if (!REMOTE || pendingTimer) return;
+  pendingTimer = setInterval(() => { void checkPending(false); }, 8000);
+}
+async function checkPending(manual: boolean) {
+  if (S.err?.kind !== "devicePending") { stopPendingWatch(); return; }
+  if (!manual && AppState.currentState !== "active") return;
+  try {
+    const t = await attendanceApi.today(await installationId());
+    if (S.err?.kind !== "devicePending") return;
+    const st = t.device?.status;
+    if (st === "active") {
+      stopPendingWatch(); applyToday(t);
+      const sess = await loadSession();
+      if (sess) await saveSession({ employeeId: sess.employeeId, deviceRegistered: true });
+      S.err = null; S.stack = ["home"]; render("fade"); toast("HR đã duyệt thiết bị này · bạn có thể chấm công");
+      void loadToday();
+    } else if (st !== "pending") { stopPendingWatch(); await deviceLost(t.device); }
+    else if (manual) toast("Chưa có thay đổi. HR sẽ xử lý trong giờ hành chính.");
+  } catch (e) {
+    if (e instanceof ApiError && e.status === 401) { stopPendingWatch(); showErr("session"); }
+    else if (manual) toast(e instanceof ApiError ? e.message : "Chưa kiểm tra được. Thử lại sau.");
+  }
+}
+
 /* Mở lại app từ nền: đồng bộ hàng đợi và trạng thái hôm nay */
 if (REMOTE) AppState.addEventListener("change", (st) => { if (st === "active") void loadToday(); });
 
@@ -387,6 +430,7 @@ export function quickClose() { if (!S.quickOpen) return; S.quickOpen = false; em
 
 export function showErr(kind: ErrKind) {
   closeSheet(true); quickClose(); S.err = { kind };
+  if (kind === "devicePending") watchPending();
   S.stack = ["maintenance", "session", "disabled", "update"].includes(kind) ? ["err"] : ["home", "err"]; render("fade");
 }
 
@@ -403,9 +447,9 @@ export function setNet(v: "online" | "offline" | "slow") {
 /* ---------- hold-to-punch ---------- */
 export function holdDone() {
   if (S.net === "offline") { openSheet("netPunch"); return; }
-  if (phase() === "out" && S.shift === "fixed") {
+  if (phase() === "out" && S.shift === "fixed" && S.sh.assigned) {
     const m = Math.floor(simNow() / 60);
-    if (m < 1020) { openSheet("earlyOut"); return; }
+    if (S.sh.end - m > S.sh.earlyGrace) { openSheet("earlyOut"); return; }
   }
   ACT.punchGo();
 }
@@ -438,11 +482,7 @@ export const ACT = {
   errReset: () => spin("errReset", 800, () => { S.err = { kind: "devicePending" }; render("fade"); toast("Đã gửi yêu cầu chuyển thiết bị"); }),
   errPending: () => {
     if (!REMOTE) { spin("errPending", 800, () => toast("Chưa có thay đổi. HR sẽ xử lý trong giờ hành chính.")); return; }
-    remote("errPending", async () => {
-      const t = await attendanceApi.today(await installationId());
-      if (t.device?.status !== "active") { toast("Chưa có thay đổi. HR sẽ xử lý trong giờ hành chính."); return; }
-      applyToday(t); S.err = null; S.stack = ["home"]; render("fade"); toast("HR đã duyệt thiết bị này");
-    });
+    remote("errPending", () => checkPending(true));
   },
   errSettings: () => {
     if (REMOTE) { void Linking.openSettings(); return; }
@@ -580,18 +620,11 @@ export const ACT = {
     }
     S.spin = "relocate"; emit(); setTimeout(() => { S.spin = null; closeSheet(); toast("Vẫn ngoài vùng (±2 m). Đổi “Vị trí” ở bảng bên phải để thử trong vùng."); }, 800);
   },
-  /* Chỉ bản dev: dời văn phòng (tenant demo) về vị trí hiện tại để thử chấm công ở bất kỳ đâu */
-  devHere: () => remote("devHere", async () => {
-    const f = await currentFix(true);
-    const l = await attendanceApi.devMoveLocation({ latitude: f.latitude, longitude: f.longitude, radiusM: 50 });
-    toast(`Dev: đã đặt ${l.name} tại vị trí hiện tại (bán kính ${l.radiusM} m)`);
-    await loadToday();
-  }, (e) => { attError(e); return true; }),
   day: (a: string) => openSheet("day", a),
-  exFromDay: (a: string) => { closeSheet(true); S.ex.date = +a; const o = day(+a)!; const late = !!o.in && toMin(o.in) > 480; S.ex.type = (!o.in || late) ? "in" : "out"; S.ex.time = late ? 480 : !o.in ? 478 : 1020; go("explain"); },
+  exFromDay: (a: string) => { closeSheet(true); S.ex.date = +a; const o = day(+a)!; const late = !!o.in && toMin(o.in) > S.sh.start; S.ex.type = (!o.in || late) ? "in" : "out"; S.ex.time = late ? S.sh.start : !o.in ? S.sh.start - 2 : S.sh.end; go("explain"); },
   attFilter: (a: "all" | "late" | "miss") => { S.attFilter = a; emit(); },
-  exDate: (a: number) => { S.ex.date = a; const o = day(a)!; if (!o.in) { S.ex.type = "in"; S.ex.time = 478; } emit(); },
-  exType: (a: string) => { S.ex.type = a; S.ex.time = a === "out" ? 1020 : 478; emit(); },
+  exDate: (a: number) => { S.ex.date = a; const o = day(a)!; if (!o.in) { S.ex.type = "in"; S.ex.time = S.sh.start - 2; } emit(); },
+  exType: (a: string) => { S.ex.type = a; S.ex.time = a === "out" ? S.sh.end : S.sh.start - 2; emit(); },
   exTime: (a: number) => { S.ex.time = Math.max(360, Math.min(1320, S.ex.time + a)); emit(); },
   exFile: () => { S.ex.file = S.ex.file ? null : "Xac-nhan-bao-ve-15-10.jpg · 1,2 MB"; emit(); },
   exSubmit: () => {

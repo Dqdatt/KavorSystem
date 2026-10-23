@@ -8,6 +8,8 @@ export type AppConfig = {
   port: number;
   corsOrigins: string[];
   supabase: { url: string; serviceRoleKey: string } | null;
+  /* Gửi thư mời kích hoạt; null = chưa cấu hình (API báo lỗi khi HR bấm gửi lời mời) */
+  mail: { smtpUrl: string; from: string } | null;
 };
 
 type Source = Record<string, string | undefined>;
@@ -58,6 +60,16 @@ export function loadConfig(source: Source = process.env): AppConfig {
   }
   if (required && corsOrigins.some((o) => o.startsWith("http://localhost"))) problems.push("Không dùng origin localhost trong API_CORS_ORIGINS ở staging/production");
 
+  const smtpUrl = get("SMTP_URL");
+  let mail: AppConfig["mail"] = null;
+  if (smtpUrl) {
+    try {
+      const u = new URL(smtpUrl);
+      if (!["smtp:", "smtps:"].includes(u.protocol)) problems.push("SMTP_URL phải bắt đầu bằng smtp:// hoặc smtps://");
+      else mail = { smtpUrl, from: get("MAIL_FROM") ?? "Kavor <no-reply@kavor.vn>" };
+    } catch { problems.push("SMTP_URL không phải URL hợp lệ"); }
+  }
+
   if (problems.length) throw new ConfigError(problems);
-  return { env, port, corsOrigins, supabase };
+  return { env, port, corsOrigins, supabase, mail };
 }

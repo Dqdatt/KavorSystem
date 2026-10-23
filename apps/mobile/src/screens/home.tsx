@@ -8,7 +8,7 @@ import { Card, Count, InfoRow, Notice, Num, Row, RowBtn, RowStrong, SectionHead,
 import { BrandHead, TopBar, type ScreenSpec } from "../screen";
 import { useClock } from "../clock";
 import { CAT, dec, gh, hm, recentNews, relDay, vnd, advLimit } from "../data";
-import { REMOTE, DEV_TOOLS } from "../api/http";
+import { REMOTE } from "../api/http";
 import { ACT, S, advEligible, fmtM, loadToday, explainLeft, go, holdDone, jump, lvAvail, pendingCount, phase, shiftLabel, shiftTime, tab, toast, worked } from "../store";
 
 /* ================= Punch hero ================= */
@@ -327,11 +327,6 @@ export function clockSpec(): ScreenSpec {
         {REMOTE && a.queued ? <InfoRow k="Chờ gửi" v={<St s="warn">{a.queued} lần lưu trên máy</St>} /> : null}
         <ClockSync />
       </Card>,
-      ...(REMOTE && DEV_TOOLS ? [
-        <Pressable key="dev" onPress={ACT.devHere} style={{ alignSelf: "center", paddingVertical: 10 }}>
-          <T style={{ fontSize: 12.5, color: C.ink3, fontFamily: F.medium }}>{S.spin === "devHere" ? "Đang đặt…" : "Dev: đặt văn phòng tại vị trí hiện tại"}</T>
-        </Pressable>,
-      ] : []),
     ],
   };
 }

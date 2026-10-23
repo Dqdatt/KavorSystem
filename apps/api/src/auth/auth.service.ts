@@ -79,7 +79,10 @@ export class AuthService {
     /* Liên kết tài khoản với hồ sơ nhân viên; chỉ thành công nếu hồ sơ chưa gắn tài khoản nào */
     const { data: linked, error: linkErr } = await this.sb.admin.from("employees").update({ user_id: userId }).eq("id", emp.id).is("user_id", null).select("id");
     if (linkErr || !linked?.length) throw new AuthError(AUTH_ERRORS.alreadyActivated, "Tài khoản đã được kích hoạt.", 409);
-    await this.sb.admin.from("memberships").upsert({ tenant_id: emp.tenant_id, user_id: userId, status: "active", joined_at: new Date().toISOString() }, { onConflict: "tenant_id,user_id" });
+    /* Membership có thể đã được tạo trước (HR/Admin được mời và gán role trước khi kích hoạt) */
+    const joined = { user_id: userId, status: "active", joined_at: new Date().toISOString() };
+    const { data: invited } = await this.sb.admin.from("memberships").update(joined).eq("tenant_id", emp.tenant_id).eq("employee_id", emp.id).select("id");
+    if (!invited?.length) await this.sb.admin.from("memberships").upsert({ tenant_id: emp.tenant_id, employee_id: emp.id, ...joined }, { onConflict: "tenant_id,user_id" });
     await this.sb.admin.from("user_profiles").upsert({ id: userId, display_name: emp.full_name });
     await this.audit(emp.tenant_id, userId, "auth.activated", emp.id, correlationId);
     return this.passwordLogin(email, password, emp);
@@ -94,6 +97,7 @@ export class AuthService {
     if (!emp) throw invalid;
     if (!emp.user_id) throw new AuthError(AUTH_ERRORS.notActivated, "Tài khoản chưa được kích hoạt. Chọn “Kích hoạt tài khoản” để bắt đầu.", 403);
     if (emp.status === "terminated" || emp.status === "suspended") throw new AuthError(AUTH_ERRORS.accountDisabled, "Tài khoản đang bị khóa. Liên hệ phòng Nhân sự.", 403);
+    await this.assertNotLocked(emp);
     const { data: u } = await this.sb.admin.auth.admin.getUserById(emp.user_id);
     if (!u.user?.email) throw invalid;
     try {
@@ -143,6 +147,8 @@ export class AuthService {
     if (error || !data.session || !data.user) throw new AuthError(AUTH_ERRORS.sessionExpired, "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.", 401);
     const emp = await this.findEmployeeByUser(data.user.id);
     if (!emp) throw new AuthError(AUTH_ERRORS.sessionExpired, "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.", 401);
+    if (emp.status === "terminated" || emp.status === "suspended") throw new AuthError(AUTH_ERRORS.accountDisabled, "Tài khoản đang bị khóa. Liên hệ phòng Nhân sự.", 403);
+    await this.assertNotLocked(emp);
     return { session: toSession(data.session), me: await this.me(emp) };
   }
 
@@ -157,11 +163,20 @@ export class AuthService {
   /* Nhân viên của phiên hiện tại; dùng cho mọi endpoint /me/*. Tenant lấy từ hồ sơ, không tin client. */
   async employeeFromToken(accessToken: string): Promise<EmployeeRow> {
     const { data, error } = await this.sb.admin.auth.getUser(accessToken);
+    if (error && error.status !== 401 && error.status !== 403) throw new AuthError("AUTH_UNAVAILABLE", "Máy chủ xác thực đang bận. Vui lòng thử lại.", 503, true);
     if (error || !data.user) throw new AuthError(AUTH_ERRORS.sessionExpired, "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.", 401);
     const emp = await this.findEmployeeByUser(data.user.id);
     if (!emp) throw new AuthError(AUTH_ERRORS.notActivated, "Tài khoản chưa gắn với hồ sơ nhân viên.", 403);
     if (emp.status === "terminated" || emp.status === "suspended") throw new AuthError(AUTH_ERRORS.accountDisabled, "Tài khoản đang bị khóa. Liên hệ phòng Nhân sự.", 403);
+    await this.assertNotLocked(emp);
     return emp;
+  }
+
+  /* HR khóa đăng nhập bằng cách chuyển membership sang suspended (hồ sơ nhân sự giữ nguyên) */
+  private async assertNotLocked(emp: EmployeeRow) {
+    if (!emp.user_id) return;
+    const { data } = await this.sb.admin.from("memberships").select("status").eq("tenant_id", emp.tenant_id).eq("user_id", emp.user_id).maybeSingle();
+    if (data && data.status !== "active") throw new AuthError(AUTH_ERRORS.accountDisabled, "Tài khoản đang bị khóa. Liên hệ phòng Nhân sự.", 403);
   }
 
   /* ---------- Nội bộ ---------- */

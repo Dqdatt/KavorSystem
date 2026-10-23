@@ -6,7 +6,7 @@ import { Appear, Rise } from "../motion";
 import { Btn, Card, Empty, ErrLine, Num, St, T } from "../ui";
 import { TabHead, type ScreenSpec } from "../screen";
 import { WD, gh, pad, toMin, wdOct, type OctDay } from "../data";
-import { ACT, S, day, dayInfo, explainLeft, go, toast } from "../store";
+import { ACT, S, day, dayInfo, explainLeft, go, shiftMinutes, toast } from "../store";
 
 function ArRow({ o, filtered, first }: { o: OctDay; filtered?: boolean; first?: boolean }) {
   const i = dayInfo(o);
@@ -17,7 +17,7 @@ function ArRow({ o, filtered, first }: { o: OctDay; filtered?: boolean; first?: 
       <Num style={{ fontSize: 15, fontFamily: F.medium, color: !v ? C.ink3 : ok ? C.ok : C.bad }}>{v || "--:--"}</Num>
     </View>
   );
-  const hrsColor = i.leave ? C.ink3 : i.hrs == null ? C.ink3 : i.hrs >= 480 ? C.ok : C.bad;
+  const hrsColor = i.leave ? C.ink3 : i.hrs == null ? C.ink3 : i.hrs >= shiftMinutes() ? C.ok : C.bad;
   return (
     <Pressable onPress={() => ACT.day(String(o.d))} style={({ pressed }) => [styles.ar, pressed && { backgroundColor: C.soft }]}>
       {!first ? <View style={styles.arLine} /> : null}
@@ -33,7 +33,7 @@ function ArRow({ o, filtered, first }: { o: OctDay; filtered?: boolean; first?: 
           <View style={{ flex: 1 }}>{tm(i.out, i.outOk, i.flagOut, "arOut")}</View>
         </>}
         <View style={styles.hrs}>
-          <Num style={{ fontSize: 15, fontFamily: F.medium, color: hrsColor }}>{i.hrs != null ? gh(i.hrs) : i.leave ? "08:00" : "--:--"}</Num>
+          <Num style={{ fontSize: 15, fontFamily: F.medium, color: hrsColor }}>{i.hrs != null ? gh(i.hrs) : i.leave ? gh(shiftMinutes()) : "--:--"}</Num>
           <Ic n="chevR" s={16} w={2} color={C.ink3} />
         </View>
       </View>
@@ -51,7 +51,7 @@ export function attendanceSpec(): ScreenSpec {
   const fixed = S.shift === "fixed";
   if (S.attFilter === "late" && !fixed) S.attFilter = "all";
   const f = S.attFilter;
-  const lateDays = S.oct.filter((o) => fixed && o.in && o.out && toMin(o.in) > 480);
+  const lateDays = S.oct.filter((o) => fixed && o.in && o.out && toMin(o.in) > S.sh.start);
   const missDays = S.oct.filter((o) => !o.today && !o.leave && (!o.in || !o.out));
   const missOpen = missDays.filter((o) => !o.explained && !o.pendingEx).length;
   const left = explainLeft();

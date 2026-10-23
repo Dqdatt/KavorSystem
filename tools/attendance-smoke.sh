@@ -15,8 +15,11 @@ uuid() { python3 -c "import uuid; print(uuid.uuid4())"; }
 
 curl -s -X DELETE "$MAIL/api/v1/messages" >/dev/null
 post auth/activate/start "{\"employeeCode\":\"HD0142\",\"email\":\"$EMAIL\"}" >/dev/null
-sleep 2
-id=$(curl -s "$MAIL/api/v1/search?query=to:$EMAIL" | python3 -c "import json,sys; print(json.load(sys.stdin)['messages'][0]['ID'])")
+id=""
+for _ in $(seq 1 30); do
+  id=$(curl -s "$MAIL/api/v1/search?query=to:$EMAIL" | python3 -c "import json,sys; m=json.load(sys.stdin).get('messages') or []; print(m[0]['ID'] if m else '')" 2>/dev/null || true)
+  [ -n "$id" ] && break; sleep 0.5
+done
 code=$(curl -s "$MAIL/api/v1/message/$id" | python3 -c "import json,sys,re; print(re.search(r'\b(\d{6})\b', json.load(sys.stdin)['Text']).group(1))")
 TOKEN=$(post auth/activate/verify "{\"email\":\"$EMAIL\",\"code\":\"$code\",\"password\":\"Kavor2026A\"}" | field data.session.accessToken)
 [ -n "$TOKEN" ] && echo "✔ Đã kích hoạt và đăng nhập HD0142"
