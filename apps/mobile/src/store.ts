@@ -8,7 +8,7 @@ import {
 } from "./data";
 import type { IllusKind } from "./illus";
 import { api, type Snapshot } from "./api";
-import { authenticate, biometricLabel, clearQuickLogin, clearSession, loadBioPrefs, loadSession, quickLoginEmployee, quickRefreshToken, saveBioPrefs, saveSession, type BioPrefs } from "./auth";
+import { authenticate, biometricLabel, clearQuickLogin, clearSession, loadBioPrefs, loadSession, loadSupport, quickLoginEmployee, quickRefreshToken, saveBioPrefs, saveSession, saveSupport, type BioPrefs } from "./auth";
 import { ApiError, REMOTE, attendanceApi, authApi, companyApi, isNetworkError, setTokenSource } from "./api/http";
 import { SUPPORT_SAMPLE } from "./api/mock-data";
 import { distanceMeters, passwordProblems, type AttendanceEvent, type AttendanceToday, type AuthResult, type MyCompany, type SupportContact, type WorkLocation } from "@kavor/contracts";
@@ -79,6 +79,7 @@ const makeState = () => ({
   ...fromSnapshot(api.cached()),
   /* Thông tin công ty (bản dùng API): thương hiệu, liên hệ HR, điều khoản dữ liệu cá nhân. coverSrc: ảnh bìa kèm header đăng nhập */
   company: null as MyCompany | null,
+  supportCache: null as SupportContact | null,
   coverSrc: null as null | { uri: string; headers: Record<string, string> },
   afterConsent: null as Route | null,
   f: freshForms(),
@@ -234,12 +235,13 @@ async function signIn(employeeId: string, result?: AuthResult) {
 }
 
 /* ---------- thông tin công ty (chỉ khi REMOTE; bản mẫu dùng liên hệ mẫu và ảnh bìa mặc định) ---------- */
-export const support = (): SupportContact | null => (REMOTE ? S.company?.support ?? null : SUPPORT_SAMPLE);
+export const support = (): SupportContact | null => (REMOTE ? S.company?.support ?? S.supportCache : SUPPORT_SAMPLE);
 export async function loadCompany(): Promise<MyCompany | null> {
   if (!REMOTE) return null;
   try {
     const c = await companyApi.get();
-    S.company = c;
+    S.company = c; S.supportCache = c.support;
+    void saveSupport(c.support);
     S.coverSrc = c.branding.coverVersion ? await companyApi.brandingSource("cover", c.branding.coverVersion) : null;
     emit();
     return c;
@@ -319,7 +321,12 @@ export async function loadToday() {
     if (f) applyFix(f);
   } catch (e) {
     if (e instanceof ApiError && e.status === 401) showErr("session");
+    else if (e instanceof ApiError && e.code === "AUTH_ACCOUNT_DISABLED") lockedErr((await loadSession())?.me?.employeeCode ?? "");
   }
+}
+/* HR khóa đăng nhập (bản dùng API): màn E16 với mã nhân viên thật; "Liên hệ HR" dùng liên hệ công ty đã lưu */
+function lockedErr(code: string) {
+  showErr("disabled", { t: "Tài khoản đang bị khóa", p: `Tài khoản${code ? ` ${code.toUpperCase()}` : ""} tạm thời bị khóa. Liên hệ phòng Nhân sự để được hỗ trợ.` });
 }
 /* Máy bị HR thu hồi/từ chối (hoặc chưa đăng ký): về màn đăng ký thiết bị, báo lý do HR ghi */
 async function deviceLost(d: AttendanceToday["device"]) {
@@ -432,6 +439,7 @@ export async function setBioPref(key: keyof BioPrefs, on: boolean) {
 /* Mở app: còn phiên hợp lệ thì bỏ qua màn đăng nhập */
 export async function restoreSession() {
   S.bio = await loadBioPrefs();
+  if (REMOTE) S.supportCache = await loadSupport();
   S.bioLabel = await biometricLabel().then((l) => (l === "vân tay" ? "vân tay" : l === "Face ID" ? "Face ID" : "sinh trắc học"));
   const session = await loadSession();
   if (!session) return;
@@ -460,8 +468,8 @@ function pinSuccess() { S.pinUntil = Date.now() + 5 * 60 * 1000; const f = S.pin
 export function quickOpen() { S.quickOpen = true; emit(); }
 export function quickClose() { if (!S.quickOpen) return; S.quickOpen = false; emit(); }
 
-export function showErr(kind: ErrKind) {
-  closeSheet(true); quickClose(); S.err = { kind };
+export function showErr(kind: ErrKind, over?: { t: string; p: string }) {
+  closeSheet(true); quickClose(); S.err = { kind, ...(over ? { over } : {}) };
   if (kind === "devicePending") watchPending();
   S.stack = ["maintenance", "session", "disabled", "update"].includes(kind) ? ["err"] : ["home", "err"]; render("fade");
 }
@@ -511,7 +519,10 @@ export const ACT = {
   errClose: () => { S.err = null; if (S.stack.length > 1) { S.stack.pop(); render("pop"); } else { S.stack = ["home"]; render("fade"); } },
   errHR: () => {
     const s = support();
-    toast(s && (s.phone || s.email) ? `Phòng Nhân sự: ${[s.phone, s.email].filter(Boolean).join(" · ")}${s.hours ? ` (${s.hours})` : ""}` : "Liên hệ phòng Nhân sự của công ty để được hỗ trợ.");
+    /* Mỗi ý một dòng ngắn để toast không ngắt giữa cụm từ; số điện thoại dùng khoảng trắng không ngắt */
+    const keep = (t: string) => t.replace(/ /g, "\u00A0");
+    const lines = s ? [s.phone ? `Phòng Nhân sự: ${keep(s.phone)}` : "Phòng Nhân sự", s.email, s.hours ? `Giờ hỗ trợ: ${s.hours}` : null].filter(Boolean) : [];
+    toast(s && (s.phone || s.email) ? lines.join("\n") : "Liên hệ phòng Nhân sự của công ty để được hỗ trợ.");
   },
   /* Đồng ý điều khoản dữ liệu cá nhân mới (thiết kế bổ sung, prototype không có màn này) */
   acceptPrivacy: () => {
@@ -541,7 +552,8 @@ export const ACT = {
   login: () => {
     if (!REMOTE) { spin("login", 700, () => { void signIn("HD0142"); }); return; }
     if (!S.f.lgId.trim() || !S.f.lgPw) { toast("Nhập mã nhân viên hoặc email và mật khẩu"); return; }
-    remote("login", async () => { const r = await authApi.login({ identifier: S.f.lgId.trim(), password: S.f.lgPw }); S.f.lgPw = ""; await signIn(r.me.employeeCode, r); });
+    remote("login", async () => { const r = await authApi.login({ identifier: S.f.lgId.trim(), password: S.f.lgPw }); S.f.lgPw = ""; await signIn(r.me.employeeCode, r); },
+      (e) => { if (e.code === "AUTH_ACCOUNT_DISABLED") { S.f.lgPw = ""; lockedErr(S.f.lgId.trim()); return true; } return false; });
   },
   /* Face ID ở màn đăng nhập: dùng thông tin đăng nhập nhanh đã lưu từ lần đăng nhập mật khẩu trước */
   faceLogin: async () => {

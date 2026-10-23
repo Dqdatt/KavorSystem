@@ -74,8 +74,9 @@ export const BellBtn = () => <TbBtn label="Thông báo" dot onPress={() => go("n
 export const AvaBtn = () => <Avatar ini="TH" onPress={() => go("profile")} />;
 
 /* topbar(t, right): right undefined → nút help; null → trống */
-export function TopBar({ title, right }: { title: string; right?: ReactNode | null }) {
-  return <Bar left={<BackBtn />} title={title} right={right === undefined ? <HelpBtn /> : right ?? <View style={{ width: 42 }} />} />;
+/* back={false}: màn gốc không có chỗ quay lại (ví dụ màn đồng ý điều khoản) — giữ chỗ để tiêu đề vẫn ở giữa */
+export function TopBar({ title, right, back = true }: { title: string; right?: ReactNode | null; back?: boolean }) {
+  return <Bar left={back ? <BackBtn /> : <View style={{ width: 42 }} />} title={title} right={right === undefined ? <HelpBtn /> : right ?? <View style={{ width: 42 }} />} />;
 }
 export const TabHead = ({ title, left }: { title: string; left?: ReactNode }) => <Bar kind="big" left={left ?? <BellBtn />} title={title} right={<AvaBtn />} />;
 export const BrandHead = ({ title }: { title: string }) => <Bar kind="brand" left={<BellBtn />} title={title} right={<AvaBtn />} />;

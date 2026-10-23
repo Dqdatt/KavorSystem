@@ -365,14 +365,14 @@ export function consentSpec(): ScreenSpec {
   const t = S.company?.privacy.terms;
   const prev = S.company?.privacy.acceptedVersionNo;
   return {
-    head: <TopBar title="Dữ liệu cá nhân" right={null} />,
+    head: <TopBar title="Dữ liệu cá nhân" right={null} back={false} />,
     body: [
       <View key="c" style={{ alignItems: "center", gap: 10, paddingTop: 6 }}>
         <Gi n="shield" s={40} />
         <Balanced style={{ fontSize: 20, lineHeight: 26, fontFamily: F.bold, textAlign: "center" }}>{prev ? "Công ty đã cập nhật điều khoản" : "Đồng ý xử lý dữ liệu cá nhân"}</Balanced>
         <T style={{ color: C.ink2, textAlign: "center", maxWidth: 300 }}>{`${S.company?.tenant.name ?? "Công ty"} cần bạn đọc và đồng ý ${t ? `phiên bản ${t.versionNo}` : "điều khoản"} trước khi tiếp tục dùng Kavor.`}</T>
       </View>,
-      t ? <Card key="t"><T style={{ fontFamily: F.bold, marginBottom: 8 }}>{t.title}</T><T style={{ fontSize: 13.5, lineHeight: 20, color: C.ink2 }}>{t.content}</T></Card> : null,
+      t ? <Card key="t" pad><T style={{ fontFamily: F.bold, marginBottom: 8 }}>{t.title}</T><T style={{ fontSize: 13.5, lineHeight: 20, color: C.ink2 }}>{t.content}</T></Card> : null,
       <Note key="n" icon="info">Bạn có thể rút lại đồng ý bằng cách liên hệ phòng Nhân sự; khi đó một số chức năng như chấm công sẽ không dùng được.</Note>,
       <View key="sp" style={{ height: 110 }} />,
     ].filter(Boolean) as ReactNode[],

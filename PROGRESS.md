@@ -1,8 +1,8 @@
 # PROGRESS
-_Cập nhật: 2026-10-23 14:30 +07 — bởi Claude (Opus 5.5)_
+_Cập nhật: 2026-10-23 16:35 +07 — bởi Claude (Opus 5.5)_
 
 ## Mục tiêu đang làm
-Nền quy định có tầng/phiên bản + cài đặt công ty + MFA web đã xong (23/10, xem "Đã xong"); còn thử trên iPhone thật (xem "Đang dở"). Bước kế tiếp: Kavor Console tối thiểu.
+Nền quy định có tầng/phiên bản + cài đặt công ty + MFA web đã xong và đã thử đầu-cuối trên iPhone 11 thật (23/10, xem "Đã xong"). Bước kế tiếp: Kavor Console tối thiểu.
 
 ## Đã xong
 - Cài đặt công ty + nền quy định có tầng/phiên bản + MFA web (23/10), theo ADR 0001 §2–5 và `DATABASE_SCHEMA.md` §20:
@@ -11,6 +11,8 @@ Nền quy định có tầng/phiên bản + cài đặt công ty + MFA web đã 
   - MFA TOTP (Supabase Auth) bắt buộc mọi tài khoản web HR/Admin: API chặn `MFA_REQUIRED` khi phiên chưa aal2 (trừ `/admin/mfa*`), liên kết bằng QR + khóa thủ công, giới hạn nhập sai, quản trị viên khác đặt lại được (có lý do, audit, không tự đặt lại cho mình).
   - Web: bước "Xác thực hai lớp" sau mật khẩu; trang **Cài đặt doanh nghiệp** — tab Doanh nghiệp bám prototype (Thông tin tenant + Chính sách nền tảng) + thương hiệu, liên hệ HR; tab Thiết lập ban đầu, Quy định, Ngày lễ, Dữ liệu cá nhân (thiết kế bổ sung); banner checklist ở Tổng quan; nút đặt lại MFA trong hồ sơ nhân viên. Đã thử trên trình duyệt: đăng nhập → QR → mã TOTP → trang cài đặt, tải logo/ảnh bìa hiển thị đúng.
   - Mobile: ảnh bìa hồ sơ lấy từ công ty (chưa có thì ảnh mặc định Kavor), "Liên hệ HR" lấy từ công ty (bỏ "028 3822 0142 · hr@haidang.vn" khỏi code, chỉ còn ở dữ liệu mẫu), màn **Dữ liệu cá nhân** hỏi đồng ý lại khi công ty công bố điều khoản mới (thiết kế bổ sung, chưa có trạng thái QA vì prototype không có), kích hoạt gửi đồng ý.
+  - Đầu-cuối trên iPhone 11 thật "Dqdatt" (Release, API `http://192.168.1.25:4000/api/v1`): kích hoạt HD0142 có tích đồng ý → server ghi đồng ý v1 kèm thiết bị → HR tải ảnh bìa, đổi liên hệ HR, công bố điều khoản v2 → mở lại app hiện màn "Công ty đã cập nhật điều khoản" → đồng ý (server ghi v2) → Hồ sơ hiện ảnh bìa mới → HR khóa tài khoản → mở lại app hiện E16 với mã thật → "Liên hệ HR" hiện liên hệ mới → sửa giao diện rồi thử lại với điều khoản v3 và khóa lần hai.
+  - Sửa sau khi thử máy thật: trước đây bản dùng API không bao giờ hiện E16 (tài khoản bị khóa chỉ ra toast lỗi) nên không xem được liên hệ HR — giờ đăng nhập/tải dữ liệu bị khóa thì hiện E16 với mã nhân viên thật; liên hệ HR gần nhất lưu trong Keychain (`kavor.support`, giữ cả sau đăng xuất) vì tài khoản bị khóa không gọi được `/me/company`; màn điều khoản bỏ nút quay lại (`TopBar back={false}`) và thêm lề cho khung nội dung (chữ bị cắt mép trái); thông báo liên hệ HR tách 3 dòng (trước bị ngắt giữa cụm từ).
   - Smoke: `tools/settings-smoke.sh` 74 bước; `hr-smoke.sh` thêm MFA; hàm dùng chung `tools/smoke-lib.sh`; `tools/db-reset.sh` (reset + khởi động lại Kong + chờ Auth/REST). Unit test API 20 (thêm nhận dạng ảnh), contracts 6 (thêm kiểm tra cấu hình quy định).
 - Khép module chấm công web HR/Admin ↔ mobile với dữ liệu thật (23/10):
   - DB `202610230001_hr_attendance_admin.sql`: role/permission hệ thống theo `PERMISSION_MATRIX.md` (tenant_admin, hr_ops, manager, auditor, employee); hàm phạm vi `scoped_employees`/`employee_in_scope` dùng chung API + RLS; membership gắn hồ sơ và có trước khi kích hoạt (gán role cho HR được mời); trigger chặn khóa/gỡ Tenant Admin cuối cùng; ca + địa điểm có phiên bản bất biến; `policy_assignments` áp dụng theo tầng; thiết bị duyệt/từ chối/thu hồi (`approve_device` nguyên tử); siết RLS `employees` và `audit_logs` (trước đây mọi nhân viên đọc được toàn bộ hồ sơ và audit của công ty); Realtime cho `attendance_events`/`employee_devices`/`employees`. pgTAP 54/54, `supabase db lint` sạch.
@@ -34,10 +36,10 @@ Nền quy định có tầng/phiên bản + cài đặt công ty + MFA web đã 
 - Kiểm tra ngày 22/10: `pnpm turbo run typecheck test build --force` pass 18/18 task (test thật chỉ có contracts 2 + api 2)
 
 ## Đang dở (QUAN TRỌNG NHẤT)
-- **Chưa thử trên iPhone thật** phần mobile mới (ảnh bìa, liên hệ HR, màn đồng ý điều khoản): lúc làm iPhone "Dqdatt" không kết nối. DB local đã reset về dữ liệu mẫu (cần kích hoạt lại HD0142 trên iPhone, HR HD0007 trên web — lần đầu web sẽ yêu cầu liên kết ứng dụng xác thực). Cách thử: web HR đổi ảnh bìa/liên hệ HR/công bố điều khoản v2 → mở lại app → thấy ảnh bìa mới, "Liên hệ HR" đúng số mới, màn Dữ liệu cá nhân hỏi đồng ý.
-- Bản Release cho iPhone (API `http://172.17.91.14:4000/api/v1`, không bật QA) đã build sẵn ở `apps/mobile/ios/build-device/Build/Products/Release-iphoneos/Kavor.app`; khi cắm iPhone: `xcrun devicectl device install app --device 36F8CE4A-8C04-5232-AB9D-0041A426F6A0 apps/mobile/ios/build-device/Build/Products/Release-iphoneos/Kavor.app`.
+- Không có việc dở. DB local đang có dữ liệu thử trên iPhone: HD0142 đã kích hoạt (máy đã duyệt, đồng ý điều khoản v1–v3, đang mở khóa); HR HD0007 đã kích hoạt và liên kết TOTP bằng khóa Claude tạo khi thử qua API — muốn đăng nhập web bằng ứng dụng xác thực của mình thì `bash tools/db-reset.sh` rồi kích hoạt lại (hoặc nhờ một admin khác đặt lại MFA). Ảnh bìa sọc cam, liên hệ HR "028 9999 2026 · nhansu.test@haidang.vn" là dữ liệu thử.
+- Cài bản mới lên iPhone: build `xcodebuild -workspace ios/Kavor.xcworkspace -scheme Kavor -configuration Release -destination 'generic/platform=iOS' -derivedDataPath ios/build-device -allowProvisioningUpdates build` (trong `apps/mobile`, có `EXPO_PUBLIC_API_URL`, xóa `$TMPDIR/metro-cache` trước) rồi `xcrun devicectl device install app --device 36F8CE4A-8C04-5232-AB9D-0041A426F6A0 ios/build-device/Build/Products/Release-iphoneos/Kavor.app`. Nếu devicectl báo "unavailable": mở khóa iPhone, bấm Tin cậy, cắm cáp dữ liệu.
 - Reset DB local: dùng `bash tools/db-reset.sh` (sau `supabase db reset` Kong giữ IP cũ của Auth → 502).
-- Bản trên iPhone trỏ tới API `http://172.17.91.14:4000/api/v1` (IP LAN mới của Mac, trước là 192.168.1.22): Mac phải chạy `pnpm dev:backend`, cùng Wi-Fi. Nếu IP Mac đổi phải build lại app.
+- Bản trên iPhone trỏ tới API `http://192.168.1.25:4000/api/v1` (IP LAN của Mac ngày 23/10 chiều; trước là 172.17.91.14, 192.168.1.22): Mac phải chạy `pnpm dev:backend`, cùng Wi-Fi. IP Mac đổi thì phải build lại app.
 - Chưa có môi trường staging: migration 23/10 **chưa push** lên project Supabase thật; project thật chưa có dữ liệu nhân viên, SMTP riêng và Realtime chưa kiểm tra ở đó.
 - Người dùng cần tự đổi publishable key trên Supabase Dashboard (Settings → API Keys: tạo publishable key mới, xóa key `default` cũ).
 
@@ -75,16 +77,16 @@ Nền quy định có tầng/phiên bản + cài đặt công ty + MFA web đã 
 - Trên bản dev, gõ phím "r" khi không focus ô nhập sẽ làm Metro reload (chỉ ảnh hưởng dev).
 
 ## Bước tiếp theo
-1. Thử trên iPhone thật phần cài đặt công ty (xem "Đang dở").
-2. Kavor Console tối thiểu: tạo tenant (gọi `provision_tenant`), mời Tenant Admin, khôi phục quyền/MFA chủ sở hữu.
-3. Thông báo (lưu, push APNs/FCM, nhắc nhở) — gồm báo nhân viên khi máy được duyệt/từ chối thay cho polling E19.
-4. Công tháng + giải trình + workflow → nghỉ phép/OT → tạm ứng → payroll → bản tin/tài liệu.
+1. Kavor Console tối thiểu: tạo tenant (gọi `provision_tenant`), mời Tenant Admin, khôi phục quyền/MFA chủ sở hữu.
+2. Thông báo (lưu, push APNs/FCM, nhắc nhở) — gồm báo nhân viên khi máy được duyệt/từ chối thay cho polling E19.
+3. Công tháng + giải trình + workflow → nghỉ phép/OT → tạm ứng → payroll → bản tin/tài liệu.
 - Ngoài luồng chính: push migration 23/10 + 24/10 lên project thật khi có staging (SMTP, deploy API, Realtime); test component cho admin-web; Sentry; số liệu luật cần HR/Payroll SME xác nhận trước pilot.
 
 ## Câu hỏi đang chờ người dùng trả lời
 - Không có.
 
 ## Nhật ký
+- 2026-10-23 — Thử đầu-cuối cài đặt công ty trên iPhone thật (ảnh bìa, liên hệ HR, đồng ý điều khoản v1→v3, khóa/mở khóa); sửa E16 khi bị khóa, lưu liên hệ HR, giao diện màn điều khoản và thông báo liên hệ.
 - 2026-10-23 — Cài đặt công ty + quy định có tầng/phiên bản (thương hiệu Storage, liên hệ HR, lịch lễ, bộ mẫu tenant mới, checklist, điều khoản dữ liệu cá nhân) + MFA TOTP cho web HR/Admin; mobile đọc ảnh bìa/liên hệ/điều khoản từ API.
 - 2026-10-23 — Khép module chấm công: quyền/phạm vi + RLS HR, API `/admin/*`, web HR/Admin (đăng nhập, nhân viên, thiết bị, ca & địa điểm theo tầng, realtime), mobile lấy ca/địa điểm từ API, E19 tự chuyển; thử đầu-cuối trên iPhone thật; cài Release lên iPhone.
 - 2026-10-22 — Chốt ADR 0001 (admin công ty + rules có tầng), rà soát phần HR cần quản lý, bổ sung schema §20.

@@ -3,7 +3,7 @@
 import * as LocalAuthentication from "expo-local-authentication";
 import * as SecureStore from "expo-secure-store";
 
-import type { AuthSession, MeProfile } from "@kavor/contracts";
+import type { AuthSession, MeProfile, SupportContact } from "@kavor/contracts";
 
 export type Session = { token: string; employeeId: string; deviceRegistered: boolean; createdAt: number; auth?: AuthSession; me?: MeProfile };
 export type BiometricResult = { ok: true } | { ok: false; reason: "unavailable" | "not_enrolled" | "cancelled" | "failed"; message: string };
@@ -35,6 +35,16 @@ export async function saveSession(patch: Partial<Session> & { employeeId: string
   await SecureStore.setItemAsync(QUICK_LOGIN_KEY, next.employeeId, opts);
   if (next.auth) await SecureStore.setItemAsync(QUICK_REFRESH_KEY, next.auth.refreshToken, opts);
   return next;
+}
+
+/* Liên hệ HR gần nhất của công ty: giữ cả sau khi đăng xuất, vì khi tài khoản bị khóa app không gọi được /me/company
+   mà màn E16 vẫn cần chỉ cho nhân viên cách liên hệ */
+const SUPPORT_KEY = "kavor.support";
+export async function saveSupport(s: SupportContact | null) {
+  await (s ? SecureStore.setItemAsync(SUPPORT_KEY, JSON.stringify(s), opts) : SecureStore.deleteItemAsync(SUPPORT_KEY, opts)).catch(() => {});
+}
+export async function loadSupport(): Promise<SupportContact | null> {
+  try { const raw = await SecureStore.getItemAsync(SUPPORT_KEY, opts); return raw ? (JSON.parse(raw) as SupportContact) : null; } catch { return null; }
 }
 
 export async function clearSession() {
