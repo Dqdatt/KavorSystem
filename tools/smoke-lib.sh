@@ -23,11 +23,11 @@ today() { python3 -c "import datetime,zoneinfo; print((datetime.datetime.now(zon
 
 # Mã TOTP hiện tại (RFC 6238, 30 giây, 6 số) từ secret base32 — như ứng dụng xác thực trên điện thoại
 totp() { python3 -c "import base64,hmac,hashlib,struct,time,sys; s=sys.argv[1]; k=base64.b32decode(s+'='*(-len(s)%8)); h=hmac.new(k,struct.pack('>Q',int(time.time())//30),hashlib.sha1).digest(); o=h[-1]&15; print('%06d'%((struct.unpack('>I',h[o:o+4])[0]&0x7fffffff)%1000000))" "$1"; }
-# Liên kết ứng dụng xác thực cho tài khoản web rồi nhập mã → in access token aal2
+# Liên kết ứng dụng xác thực cho tài khoản web rồi nhập mã → in access token aal2. $2: admin (web HR) hoặc console
 mfa() {
-  local r fid sec code body
-  r=$(call POST admin/mfa/enroll "$1")
+  local r fid sec code body p=${2:-admin}
+  r=$(call POST "$p/mfa/enroll" "$1")
   fid=$(echo "$r" | field data.factorId); sec=$(echo "$r" | field data.secret); code=$(totp "$sec")
   body="{\"factorId\":\"$fid\",\"code\":\"$code\"}"
-  call POST admin/mfa/verify "$1" "$body" | field data.accessToken
+  call POST "$p/mfa/verify" "$1" "$body" | field data.accessToken
 }

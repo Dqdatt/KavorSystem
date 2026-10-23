@@ -50,9 +50,10 @@ export class AuthService {
   /* ---------- Kích hoạt tài khoản ---------- */
   async startActivation(employeeCode: string, email: string, ip: string, correlationId: string): Promise<OtpSentResponse> {
     return this.otpLimiter.guard(`act:${ip}:${email.toLowerCase()}`, async () => {
-    const emp = await this.findEmployeeByCode(employeeCode);
-    /* Không tiết lộ mã nào tồn tại: cùng một thông báo khi sai mã hoặc sai email */
-    if (!emp || !emp.work_email || emp.work_email.toLowerCase() !== email.trim().toLowerCase()) {
+    /* Tìm theo email (khóa duy nhất của tài khoản đăng nhập) rồi đối chiếu mã: mã như ADMIN01, NV001 trùng giữa các công ty.
+       Không tiết lộ mã nào tồn tại: cùng một thông báo khi sai mã hoặc sai email */
+    const emp = await this.findEmployeeByEmail(email);
+    if (!emp || !emp.work_email || emp.employee_code.toLowerCase() !== employeeCode.trim().toLowerCase()) {
       throw new AuthError(AUTH_ERRORS.employeeNotFound, "Mã nhân viên và email công ty không khớp hồ sơ nhân sự. Liên hệ phòng Nhân sự nếu bạn chắc chắn thông tin đúng.", 404);
     }
     if (emp.status === "terminated" || emp.status === "suspended") throw new AuthError(AUTH_ERRORS.accountDisabled, "Hồ sơ nhân viên đang không hoạt động. Liên hệ phòng Nhân sự.", 403);

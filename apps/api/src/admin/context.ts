@@ -18,7 +18,7 @@ export const MFA_REQUIRED_FOR_WEB = true;
 export type MfaFactor = { id: string; factor_type: string; status: string };
 
 /* Claim trong access token đã được Supabase Auth xác minh ở getUser (aal1: mật khẩu; aal2: đã qua TOTP) */
-function claim(accessToken: string, key: string): unknown {
+export function claim(accessToken: string, key: string): unknown {
   try { return (JSON.parse(Buffer.from(accessToken.split(".")[1] ?? "", "base64url").toString("utf8")) as Record<string, unknown>)[key]; } catch { return undefined; }
 }
 

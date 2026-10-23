@@ -10,6 +10,8 @@ export type AppConfig = {
   supabase: { url: string; serviceRoleKey: string } | null;
   /* Gửi thư mời kích hoạt; null = chưa cấu hình (API báo lỗi khi HR bấm gửi lời mời) */
   mail: { smtpUrl: string; from: string } | null;
+  /* Địa chỉ web HR/Admin ghi trong thư mời Tenant Admin (Kavor Console) */
+  adminWebUrl: string;
 };
 
 type Source = Record<string, string | undefined>;
@@ -70,6 +72,9 @@ export function loadConfig(source: Source = process.env): AppConfig {
     } catch { problems.push("SMTP_URL không phải URL hợp lệ"); }
   }
 
+  const adminWebUrl = (get("ADMIN_WEB_URL") ?? "http://localhost:3000").replace(/\/+$/, "");
+  try { new URL(adminWebUrl); } catch { problems.push(`ADMIN_WEB_URL không phải URL hợp lệ: "${adminWebUrl}"`); }
+
   if (problems.length) throw new ConfigError(problems);
-  return { env, port, corsOrigins, supabase, mail };
+  return { env, port, corsOrigins, supabase, mail, adminWebUrl };
 }

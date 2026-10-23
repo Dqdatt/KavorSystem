@@ -19,15 +19,25 @@ import { MfaAdmin } from "./admin/mfa.service.js";
 import { BrandingStore } from "./company/branding.js";
 import { CompanyService } from "./company/company.service.js";
 import { CompanyController, COMPANY_SERVICE } from "./company/company.controller.js";
+import { ConsoleController, CONSOLE_SERVICES } from "./console/console.controller.js";
+import { ConsoleService } from "./console/console.service.js";
 
 @Module({
-  controllers: [AppController, AuthController, AttendanceController, CompanyController, AdminController],
+  controllers: [AppController, AuthController, AttendanceController, CompanyController, AdminController, ConsoleController],
   providers: [
     AppService,
     /* Chưa cấu hình Supabase (dev chỉ dùng dữ liệu mẫu) thì các endpoint auth trả 503 */
     { provide: SupabaseGateway, useFactory: () => { const c = loadConfig().supabase; return c ? new SupabaseGateway(c) : null; } },
     { provide: AUTH_SERVICE, inject: [SupabaseGateway], useFactory: (sb: SupabaseGateway | null) => (sb ? new AuthService(sb) : null) },
     { provide: ATTENDANCE_SERVICE, inject: [SupabaseGateway], useFactory: (sb: SupabaseGateway | null) => (sb ? new AttendanceService(sb) : null) },
+    {
+      provide: CONSOLE_SERVICES, inject: [SupabaseGateway],
+      useFactory: (sb: SupabaseGateway | null) => {
+        if (!sb) return null;
+        const c = loadConfig();
+        return { console: new ConsoleService(sb, new Mailer(c.mail), c.adminWebUrl), mfa: new MfaAdmin(sb) };
+      },
+    },
     { provide: BrandingStore, inject: [SupabaseGateway], useFactory: (sb: SupabaseGateway | null) => (sb ? new BrandingStore(sb) : null) },
     { provide: COMPANY_SERVICE, inject: [SupabaseGateway, BrandingStore], useFactory: (sb: SupabaseGateway | null, b: BrandingStore | null) => (sb && b ? new CompanyService(sb, b) : null) },
     {

@@ -8,7 +8,7 @@ select plan(25);
 insert into public.tenants (id, code, display_name, status) values ('10000000-0000-4000-8000-0000000000c1', 'TEST-C', 'Công ty Thử C', 'provisioning');
 select is(
   (select jsonb_array_length(public.provision_tenant('10000000-0000-4000-8000-0000000000c1') -> 'created')),
-  6, 'Tenant mới nhận đủ bộ mẫu: cài đặt, ca, 3 quy định, điều khoản');
+  7, 'Tenant mới nhận đủ bộ mẫu: cài đặt, tổ chức, ca, 3 quy định, điều khoản');
 select is(
   (select jsonb_array_length(public.provision_tenant('10000000-0000-4000-8000-0000000000c1') -> 'created')),
   0, 'Gọi lại provision_tenant không tạo trùng');

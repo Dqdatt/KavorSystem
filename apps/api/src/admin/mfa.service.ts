@@ -4,6 +4,9 @@ import { AUTH_ERRORS, type AuthSession, type MfaEnrollment, type MfaStatus } fro
 import { AuthError, RateLimiter } from "../auth/auth.service.js";
 import type { SupabaseGateway } from "../auth/supabase.js";
 import { MFA_REQUIRED_FOR_WEB, conflict, forbidden, invalid, notFound, type AdminContext } from "./context.js";
+
+/* Phần ngữ cảnh MFA cần — dùng chung cho web HR/Admin (AdminContext) và Kavor Console (ConsoleContext) */
+export type MfaCtx = Pick<AdminContext, "userId" | "accessToken" | "aal" | "factors" | "db" | "totpFactor" | "audit"> & { actor: { id: string } | null };
 import { nullableText, req, uuid, type Body } from "./validate.js";
 
 type Verified = { access_token: string; refresh_token: string; expires_at?: number; expires_in?: number };
@@ -14,12 +17,12 @@ export class MfaAdmin {
 
   constructor(private readonly sb: SupabaseGateway) {}
 
-  status(ctx: AdminContext): MfaStatus {
+  status(ctx: MfaCtx): MfaStatus {
     const f = ctx.totpFactor();
     return { required: MFA_REQUIRED_FOR_WEB, enrolled: !!f, verified: ctx.aal === "aal2", factorId: f?.id ?? null };
   }
 
-  async enroll(ctx: AdminContext): Promise<MfaEnrollment> {
+  async enroll(ctx: MfaCtx): Promise<MfaEnrollment> {
     if (ctx.totpFactor()) throw conflict("Tài khoản đã liên kết ứng dụng xác thực. Nhập mã 6 số từ ứng dụng để tiếp tục.");
     /* Lần liên kết trước bỏ dở (chưa nhập mã) thì xóa để tạo mã QR mới */
     for (const f of ctx.factors.filter((x) => x.status !== "verified")) await ctx.db.auth.admin.mfa.deleteFactor({ id: f.id, userId: ctx.userId });
@@ -33,7 +36,7 @@ export class MfaAdmin {
   }
 
   /* Nhập mã 6 số → phiên mới aal2 (web ghi lại cookie) */
-  async verify(ctx: AdminContext, b: Body): Promise<AuthSession> {
+  async verify(ctx: MfaCtx, b: Body): Promise<AuthSession> {
     const factorId = uuid(b, "factorId")!;
     const code = req(b, "code", { pattern: /^\d{6}$/, hint: "6 chữ số" });
     const factor = ctx.factors.find((f) => f.id === factorId && f.factor_type === "totp");

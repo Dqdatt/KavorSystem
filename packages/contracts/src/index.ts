@@ -461,3 +461,51 @@ export type MyCompany = {
   privacy: { required: boolean; terms: PrivacyTerms | null; acceptedVersionNo: number | null };
   holidays: Holiday[];
 };
+
+/* ---------- Kavor Console (nhân viên Kavor vận hành nền tảng) ---------- */
+export type OperatorRole = "platform_operator" | "platform_support";
+export type OperatorMe = { userId: string; email: string; fullName: string; role: OperatorRole };
+export type ConsoleAuthResult = { session: AuthSession; operator: OperatorMe };
+export type PlanCode = "trial" | "starter" | "growth" | "enterprise";
+
+export type ConsoleTenant = {
+  id: string; code: string; name: string; legalName: string | null; plan: PlanCode; status: TenantStatus; employeeLimit: number;
+  /* Hồ sơ chưa nghỉ việc · tài khoản đã kích hoạt */
+  employees: number; accounts: number;
+  admins: { active: number; invited: number };
+  createdAt: string;
+};
+export type TenantAdminInfo = {
+  employeeId: string; code: string; fullName: string; email: string | null; account: AccountStatus;
+  mfaEnrolled: boolean; lastLoginAt: string | null; invitedAt: string | null;
+};
+export type RecoveryKind = "mfa_reset" | "grant_admin";
+export type RecoveryStatus = "pending" | "approved" | "rejected" | "cancelled" | "expired";
+export type OwnerRecovery = {
+  id: string; tenant: { id: string; code: string; name: string }; kind: RecoveryKind;
+  target: { employeeId: string | null; name: string; email: string | null };
+  verification: string; reason: string; requestedBy: string; requestedAt: string; expiresAt: string;
+  status: RecoveryStatus; decidedBy: string | null; decidedAt: string | null; decisionNote: string | null; result: unknown;
+  /* Người đang xem là người tạo yêu cầu (không tự duyệt được) */
+  mine: boolean;
+};
+export type ConsoleAuditEntry = {
+  id: string; createdAt: string; actor: string; tenant: { id: string; code: string; name: string } | null;
+  action: string; resourceType: string; resourceId: string | null; reason: string | null;
+};
+export type ConsoleTenantDetail = ConsoleTenant & {
+  taxCode: string | null; timezone: string; tenantAdmins: TenantAdminInfo[]; recoveries: OwnerRecovery[]; audit: ConsoleAuditEntry[];
+};
+export type ConsoleOverview = {
+  tenants: { total: number; active: number; trial: number; suspended: number };
+  employees: number; accounts: number; pendingRecoveries: number;
+  /* Chống mất quyền: tenant chỉ còn 1 Tenant Admin hoạt động, hoặc không còn ai */
+  singleAdminTenants: number; noActiveAdminTenants: number;
+  recentTenants: ConsoleTenant[];
+};
+export type TenantCreateInput = { code: string; name: string; legalName?: string | null; plan: PlanCode; employeeLimit: number; adminName: string; adminEmail: string };
+export type TenantCreateResult = { tenant: ConsoleTenantDetail; invite: { sent: boolean; error: string | null } };
+export type RecoveryInput = {
+  tenantId: string; kind: RecoveryKind; targetEmployeeId?: string | null; newAdminName?: string | null; newAdminEmail?: string | null;
+  verification: string; reason: string;
+};

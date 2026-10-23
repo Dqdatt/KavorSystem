@@ -1,6 +1,7 @@
 {
   "version": "0.0.1",
   "configurations": [
-    { "name": "admin-web", "runtimeExecutable": "pnpm", "runtimeArgs": ["--filter", "@kavor/admin-web", "dev"], "port": 3000 }
+    { "name": "admin-web", "runtimeExecutable": "pnpm", "runtimeArgs": ["--filter", "@kavor/admin-web", "dev"], "port": 3000 },
+    { "name": "console-web", "runtimeExecutable": "pnpm", "runtimeArgs": ["--filter", "@kavor/console-web", "dev"], "port": 3001 }
   ]
 }

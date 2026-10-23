@@ -1,10 +1,16 @@
 # PROGRESS
-_Cập nhật: 2026-10-23 16:35 +07 — bởi Claude (Opus 5.5)_
+_Cập nhật: 2026-10-23 19:30 +07 — bởi Claude (Opus 5.5)_
 
 ## Mục tiêu đang làm
-Nền quy định có tầng/phiên bản + cài đặt công ty + MFA web đã xong và đã thử đầu-cuối trên iPhone 11 thật (23/10, xem "Đã xong"). Bước kế tiếp: Kavor Console tối thiểu.
+Kavor Console tối thiểu đã xong (23/10, xem "Đã xong"). Bước kế tiếp: thông báo (lưu, push APNs/FCM, nhắc nhở).
 
 ## Đã xong
+- Kavor Console tối thiểu (23/10), theo ADR 0001 §1:
+  - DB `202610240002_platform_console.sql`: `platform_operators` (nhân viên Kavor, tách khỏi nhân viên tenant); `owner_recovery_requests` (đặt lại MFA / cấp Tenant Admin mới: bắt buộc ghi cách xác minh + lý do, người duyệt ≠ người tạo — chặn ở DB, hết hạn 24 giờ, mỗi tenant một yêu cầu cùng loại đang chờ, không sửa/xóa sau khi quyết định); `create_tenant_with_admin()` tạo tenant + bộ mẫu + Tenant Admin đầu tiên trong một transaction; `grant_tenant_admin()` idempotent (tìm theo email, chưa có thì tạo hồ sơ ADMINnn); bộ mẫu thêm cơ cấu tổ chức tối thiểu (pháp nhân, Trụ sở chính, Ban Giám đốc + Hành chính – Nhân sự, 3 chức danh) vì web HR chưa có trang Tổ chức; audit `actor_type 'platform'` (tenant cũng thấy). pgTAP `platform_console.test.sql` 21 test (tổng 100).
+  - API `/console/*`: đăng nhập riêng (tài khoản tenant đúng mật khẩu vẫn báo sai chung chung), refresh, MFA TOTP bắt buộc (dùng chung `MfaAdmin` với web HR); tổng quan, danh sách/chi tiết tenant (số nhân sự, tài khoản, Tenant Admin + đã bật MFA chưa — không đọc hồ sơ/chấm công), tạo tenant + gửi thư mời Tenant Admin (thư riêng chỉ web HR `ADMIN_WEB_URL`), gửi lại lời mời, yêu cầu/duyệt/từ chối/hủy khôi phục, audit nền tảng. Nhân viên Kavor tạo bằng `tools/create-operator.sh` (không có màn hình).
+  - Web `apps/console-web` (cổng 3001, thay trang demo `DashboardShell`): khung + CSS gốc của Kavor Console Prototype.html như web HR, cookie httpOnly riêng `kc_*`; Tổng quan, Doanh nghiệp (bảng + modal "Tạo tenant mới" + drawer chi tiết bám prototype), Khôi phục chủ sở hữu, Audit log (thiết kế bổ sung/bám page-audit). Các mục khác của prototype (Gói dịch vụ, Usage, Sync jobs, Sự cố, Releases, Feature flags, Support access, Cài đặt nền tảng) chưa làm, ẩn khỏi menu. Đã thử trên trình duyệt: đăng nhập → QR → mã TOTP → tổng quan → tạo tenant MQL-028 → drawer hiện ADMIN01 chờ kích hoạt → audit.
+  - Sửa 2 lỗi có từ trước, phát hiện khi làm Console: (1) `unique nulls not distinct (tenant_id, source_system, external_id)` khiến mỗi công ty chỉ tạo được **một** nhân viên trên web (nhân viên thứ hai báo nhầm "mã đã tồn tại") — giờ chỉ chống trùng khi có mã ngoài; (2) kích hoạt tài khoản tìm nhân viên theo mã trên toàn hệ thống nên hỏng khi hai công ty trùng mã (ADMIN01, NV001) — giờ tìm theo email rồi đối chiếu mã.
+  - Smoke `tools/console-smoke.sh` 44 bước (tạo 2 nhân viên Kavor, tạo 2 tenant, Tenant Admin kích hoạt + bật MFA + tạo 2 nhân viên, đặt lại MFA hai người, cấp admin mới bị từ chối rồi duyệt, hủy, audit); 4 smoke cũ vẫn đạt; build 18/18.
 - Cài đặt công ty + nền quy định có tầng/phiên bản + MFA web (23/10), theo ADR 0001 §2–5 và `DATABASE_SCHEMA.md` §20:
   - DB `202610240001_company_settings_rules.sql`: permission `tenant.settings.manage`/`policy.read`/`policy.manage`/`privacy.read`; `tenant_settings.support_contact`/`platform_policy`; quy định nghiệp vụ dùng chung `policy_definitions` + `policy_versions` (bất biến) áp dụng qua `policy_assignments` (thêm kind `explanation`/`salary_advance`/`reminder`, trigger kiểm tra target đúng loại + đúng tenant); lịch lễ `holiday_calendars`/`holidays` (lịch quốc gia 2026 theo BLLĐ Điều 112, `verified_at` null = chưa chuyên gia xác nhận; chặn xóa/sửa ngày đã qua); `privacy_terms` (bất biến) + `privacy_consents` (chỉ thêm, ghi phiên bản/thiết bị/IP); `tenant_policy_templates` + hàm `provision_tenant()` idempotent sinh bộ mẫu (ca HC, 3 quy định, điều khoản v1) — Console sẽ gọi khi tạo tenant; seed gọi cho 2 tenant mẫu. pgTAP `company_settings.test.sql` 25 test (tổng 79, đạt cả trên DB sạch lẫn DB đã chạy smoke — sửa luôn `hr_rls` trùng email với smoke), lint sạch.
   - API: `/admin/settings` (thông tin tenant, liên hệ HR, chính sách nền tảng), logo/ảnh bìa lên Storage bucket riêng tư `tenant-branding/<tenant_id>/` (nhận dạng PNG/JPEG/WebP theo nội dung, ≤ 2 MB; client lấy ảnh qua API), `/admin/settings/checklist` (tính từ dữ liệu thật), `/admin/holidays`, `/admin/privacy` + công bố phiên bản, `/admin/rules` (tạo/phiên bản/ngừng; áp dụng dùng chung `/admin/policy-assignments`); mobile `/me/company`, `/me/company/branding/:kind`, `/me/policies?date=` (tra theo tầng — `PolicyIndex.resolveRules`), `/me/privacy-consents`; kích hoạt có `privacyAccepted` ghi đồng ý điều khoản hiện hành. Body JSON tối đa 4 MB.
@@ -36,7 +42,7 @@ Nền quy định có tầng/phiên bản + cài đặt công ty + MFA web đã 
 - Kiểm tra ngày 22/10: `pnpm turbo run typecheck test build --force` pass 18/18 task (test thật chỉ có contracts 2 + api 2)
 
 ## Đang dở (QUAN TRỌNG NHẤT)
-- Không có việc dở. DB local đang có dữ liệu thử trên iPhone: HD0142 đã kích hoạt (máy đã duyệt, đồng ý điều khoản v1–v3, đang mở khóa); HR HD0007 đã kích hoạt và liên kết TOTP bằng khóa Claude tạo khi thử qua API — muốn đăng nhập web bằng ứng dụng xác thực của mình thì `bash tools/db-reset.sh` rồi kích hoạt lại (hoặc nhờ một admin khác đặt lại MFA). Ảnh bìa sọc cam, liên hệ HR "028 9999 2026 · nhansu.test@haidang.vn" là dữ liệu thử.
+- Không có việc dở. DB local đã reset về dữ liệu mẫu sau khi chạy smoke (iPhone cần kích hoạt lại HD0142; chưa có nhân viên Kavor nào). Thử Console: `OPERATOR_PASSWORD='…' bash tools/create-operator.sh <email> "<Họ tên>"` (tạo 2 người để thử duyệt khôi phục), `pnpm dev:console` → http://localhost:3001, lần đầu liên kết ứng dụng xác thực.
 - Cài bản mới lên iPhone: build `xcodebuild -workspace ios/Kavor.xcworkspace -scheme Kavor -configuration Release -destination 'generic/platform=iOS' -derivedDataPath ios/build-device -allowProvisioningUpdates build` (trong `apps/mobile`, có `EXPO_PUBLIC_API_URL`, xóa `$TMPDIR/metro-cache` trước) rồi `xcrun devicectl device install app --device 36F8CE4A-8C04-5232-AB9D-0041A426F6A0 ios/build-device/Build/Products/Release-iphoneos/Kavor.app`. Nếu devicectl báo "unavailable": mở khóa iPhone, bấm Tin cậy, cắm cáp dữ liệu.
 - Reset DB local: dùng `bash tools/db-reset.sh` (sau `supabase db reset` Kong giữ IP cũ của Auth → 502).
 - Bản trên iPhone trỏ tới API `http://192.168.1.25:4000/api/v1` (IP LAN của Mac ngày 23/10 chiều; trước là 172.17.91.14, 192.168.1.22): Mac phải chạy `pnpm dev:backend`, cùng Wi-Fi. IP Mac đổi thì phải build lại app.
@@ -44,6 +50,7 @@ Nền quy định có tầng/phiên bản + cài đặt công ty + MFA web đã 
 - Người dùng cần tự đổi publishable key trên Supabase Dashboard (Settings → API Keys: tạo publishable key mới, xóa key `default` cũ).
 
 ## Quyết định đã chốt
+- Kavor Console (23/10, Claude quyết định kỹ thuật theo ADR 0001): nhân viên Kavor là bảng riêng, đăng nhập riêng, luôn bắt buộc MFA; chỉ thấy số liệu vận hành và danh sách Tenant Admin, không đọc dữ liệu HR. Console không tự thêm/bớt admin ngoài luồng khôi phục; khôi phục cần ghi cách xác minh, người thứ hai duyệt, hết hạn 24 giờ, công ty thấy trong audit. Nhân viên Kavor đầu tiên tạo bằng dòng lệnh.
 - MFA bắt buộc với **mọi** tài khoản dùng web HR/Admin (không chỉ Tenant Admin), tenant không tắt được — vì HR/quản lý/kiểm soát đều xem dữ liệu cá nhân của nhiều người (Claude quyết định kỹ thuật, 23/10).
 - Logo/ảnh bìa: một bucket riêng tư, thư mục theo tenant, chỉ API đọc/ghi; app và web lấy ảnh qua API (iPhone trong LAN không tới được địa chỉ Supabase local, và không lộ đường dẫn tenant khác) (23/10).
 - Checklist thiết lập tính từ dữ liệu thật, không cho đánh dấu tay; bước chưa có module (nghỉ phép, workflow) hiện "Sắp có" (23/10).
@@ -65,7 +72,9 @@ Nền quy định có tầng/phiên bản + cài đặt công ty + MFA web đã 
 ## Vấn đề/bug còn tồn tại
 - Luật nhà nước dạng số (`statutory_rule_sets`: bảo hiểm, thuế, phép năm tối thiểu, giới hạn OT) chưa làm — làm cùng module phép/payroll. Lịch lễ quốc gia mới có 2026; 2027 chờ Chính phủ công bố lịch Tết. Nội dung điều khoản mẫu và ngày lễ cần chuyên gia xác nhận.
 - Mobile chưa dùng `/me/policies` cho giải trình/tạm ứng (2 module này còn dữ liệu mẫu: "3 lượt", "30%" vẫn cứng) — nối khi làm module tương ứng. Server chưa chặn API chấm công khi nhân viên chưa đồng ý điều khoản (app tự chặn bằng màn đồng ý).
-- Đặt lại MFA không đăng xuất phiên aal2 đang mở của người đó (hết hạn sau ≤ 1 giờ). Tenant Admin cuối cùng mất điện thoại chỉ khôi phục qua Kavor Console (chưa có).
+- Đặt lại MFA (web HR hoặc Console) không đăng xuất phiên aal2 đang mở của người đó (hết hạn sau ≤ 1 giờ).
+- Console chưa có: khóa/đóng tenant, gói dịch vụ + giới hạn (mới lưu `plan_code`/`employee_limit`, chưa chặn khi vượt), support access có thời hạn (`support_access_sessions`), màn quản lý nhân viên Kavor; nhân viên Kavor mất điện thoại phải nhờ người có service role xóa factor. Bộ kit giao diện console-web là bản sao từ admin-web (chuyển chung vào `@kavor/web-ui` khi ổn định); `DashboardShell` của web-ui không còn ai dùng.
+- Cấp Tenant Admin cho người có tài khoản đang bị khóa thì role được gán nhưng vẫn không đăng nhập được cho tới khi mở khóa.
 - Ca qua đêm, tầng "loại hợp đồng", lịch xếp ca theo ngày, bản đồ chọn vị trí chưa có. Trình duyệt nhúng trong app Claude không cấp quyền vị trí; nút "Dùng vị trí hiện tại của trình duyệt" cần Chrome/Safari thật.
 - Bảng công tháng trên mobile (dữ liệu mẫu tháng 10) vẫn là dữ liệu mẫu; muộn/sớm của nó tính theo ca hiện tại.
 - Phạm vi/tầng dùng phân công tổ chức hiện tại; danh sách nhân viên/chấm công lọc trong bộ nhớ API — đủ cho vài nghìn nhân viên, cần phân trang ở SQL khi lớn hơn. RLS `employees` gọi hàm phạm vi theo từng dòng (chậm nếu client đọc trực tiếp nhiều dòng; hiện client không đọc trực tiếp).
@@ -77,15 +86,16 @@ Nền quy định có tầng/phiên bản + cài đặt công ty + MFA web đã 
 - Trên bản dev, gõ phím "r" khi không focus ô nhập sẽ làm Metro reload (chỉ ảnh hưởng dev).
 
 ## Bước tiếp theo
-1. Kavor Console tối thiểu: tạo tenant (gọi `provision_tenant`), mời Tenant Admin, khôi phục quyền/MFA chủ sở hữu.
-2. Thông báo (lưu, push APNs/FCM, nhắc nhở) — gồm báo nhân viên khi máy được duyệt/từ chối thay cho polling E19.
-3. Công tháng + giải trình + workflow → nghỉ phép/OT → tạm ứng → payroll → bản tin/tài liệu.
-- Ngoài luồng chính: push migration 23/10 + 24/10 lên project thật khi có staging (SMTP, deploy API, Realtime); test component cho admin-web; Sentry; số liệu luật cần HR/Payroll SME xác nhận trước pilot.
+1. Thông báo (lưu, push APNs/FCM, nhắc nhở) — gồm báo nhân viên khi máy được duyệt/từ chối thay cho polling E19.
+2. Công tháng + giải trình + workflow → nghỉ phép/OT → tạm ứng → payroll → bản tin/tài liệu.
+- Staging (nên làm trước pilot, có thể xen trước bước 1): push migration 23/10 + 24/10 lên project thật, deploy API + 2 web, SMTP, Realtime — iPhone không còn phụ thuộc IP LAN của Mac.
+- Ngoài luồng chính: push migration lên project thật khi có staging (SMTP, deploy API, Realtime); test component cho admin-web; Sentry; số liệu luật cần HR/Payroll SME xác nhận trước pilot.
 
 ## Câu hỏi đang chờ người dùng trả lời
 - Không có.
 
 ## Nhật ký
+- 2026-10-23 — Kavor Console tối thiểu: tạo tenant + mời Tenant Admin, khôi phục chủ sở hữu hai người, audit nền tảng; sửa lỗi chỉ tạo được một nhân viên/công ty và lỗi kích hoạt khi trùng mã giữa công ty.
 - 2026-10-23 — Thử đầu-cuối cài đặt công ty trên iPhone thật (ảnh bìa, liên hệ HR, đồng ý điều khoản v1→v3, khóa/mở khóa); sửa E16 khi bị khóa, lưu liên hệ HR, giao diện màn điều khoản và thông báo liên hệ.
 - 2026-10-23 — Cài đặt công ty + quy định có tầng/phiên bản (thương hiệu Storage, liên hệ HR, lịch lễ, bộ mẫu tenant mới, checklist, điều khoản dữ liệu cá nhân) + MFA TOTP cho web HR/Admin; mobile đọc ảnh bìa/liên hệ/điều khoản từ API.
 - 2026-10-23 — Khép module chấm công: quyền/phạm vi + RLS HR, API `/admin/*`, web HR/Admin (đăng nhập, nhân viên, thiết bị, ca & địa điểm theo tầng, realtime), mobile lấy ca/địa điểm từ API, E19 tự chuyển; thử đầu-cuối trên iPhone thật; cài Release lên iPhone.
