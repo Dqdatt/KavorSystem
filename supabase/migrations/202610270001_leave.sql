@@ -335,7 +335,11 @@ begin
   what := case when new.request_type = 'leave' then '' else public.request_type_label(new.request_type) || ' ' end || coalesce(public.request_label(new.id), '');
   if new.status = 'approved' then
     perform public.notify(new.tenant_id, new.requester_employee_id, 'request.approved', 'Đơn ' || new.request_no || ' đã được duyệt',
-      what || ' · ' || coalesce(actor, 'Người duyệt') || ' duyệt' || case new.request_type when 'explanation' then ', bảng công đã cập nhật' when 'leave' then ', đã trừ vào sổ phép nếu có' else '' end,
+      what || ' · ' || coalesce(actor, 'Người duyệt') || ' duyệt' || case
+        when new.request_type = 'explanation' then ', bảng công đã cập nhật'
+        -- Trigger trừ phép (requests_leave_settle) chạy trước trigger này (theo thứ tự tên) nên giao dịch "đã nghỉ" đã có
+        when exists (select 1 from public.leave_transactions where request_id = new.id and kind = 'consume') then ', đã trừ vào sổ phép'
+        else '' end,
       'request', new.id, new.request_no, null, 'done:' || new.id);
   else
     perform public.notify(new.tenant_id, new.requester_employee_id, 'request.rejected', 'Đơn ' || new.request_no || ' bị từ chối',
