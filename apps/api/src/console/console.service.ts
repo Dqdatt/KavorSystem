@@ -11,6 +11,7 @@ import { conflict, forbidden, invalid, notFound } from "../admin/context.js";
 import type { Mailer } from "../admin/mailer.js";
 import { EMAIL, nullableText, number, oneOf, req, uuid, type Body } from "../admin/validate.js";
 import type { ConsoleContext } from "./context.js";
+import { localParts } from "../attendance/attendance.service.js";
 
 const PLANS: readonly PlanCode[] = ["trial", "starter", "growth", "enterprise"];
 const KINDS: readonly RecoveryKind[] = ["mfa_reset", "grant_admin"];
@@ -40,11 +41,14 @@ export class ConsoleService {
       db.from("role_assignments").select("tenant_id, effective_from, effective_to, roles!inner(code, tenant_id), memberships!inner(status)").eq("roles.code", "tenant_admin").is("roles.tenant_id", null),
     ]);
     if (error) throw error;
-    const today = new Date().toISOString().slice(0, 10);
+    /* "Hôm nay" theo múi giờ từng tenant (vai trò ghi theo ngày giờ công ty, không theo UTC) */
+    const tz = new Map(((ts ?? []) as TenantRow[]).map((t) => [t.id, t.timezone]));
+    const todayOf = (tenantId: string) => localParts(new Date(), tz.get(tenantId) ?? "Asia/Ho_Chi_Minh").date;
     const count = new Map<string, { employees: number; accounts: number; active: number; invited: number }>();
     const of = (t: string) => { let c = count.get(t); if (!c) count.set(t, c = { employees: 0, accounts: 0, active: 0, invited: 0 }); return c; };
     for (const e of (es ?? []) as Array<{ tenant_id: string; user_id: string | null }>) { const c = of(e.tenant_id); c.employees++; if (e.user_id) c.accounts++; }
     for (const a of (as ?? []) as unknown as Array<{ tenant_id: string; effective_from: string; effective_to: string | null; memberships: { status: string } }>) {
+      const today = todayOf(a.tenant_id);
       if (a.effective_from > today || (a.effective_to && a.effective_to < today)) continue;
       if (a.memberships.status === "active") of(a.tenant_id).active++;
       else if (a.memberships.status === "invited") of(a.tenant_id).invited++;
@@ -90,7 +94,8 @@ export class ConsoleService {
 
   /* Tenant Admin của một tenant: trạng thái tài khoản + đã liên kết MFA chưa (để biết có cần khôi phục) */
   private async admins(ctx: ConsoleContext, tenantId: string): Promise<TenantAdminInfo[]> {
-    const today = new Date().toISOString().slice(0, 10);
+    const { data: t } = await ctx.db.from("tenants").select("timezone").eq("id", tenantId).maybeSingle();
+    const today = localParts(new Date(), (t?.timezone as string | undefined) ?? "Asia/Ho_Chi_Minh").date;
     const { data } = await ctx.db.from("role_assignments").select("effective_from, effective_to, roles!inner(code, tenant_id), memberships!inner(id, status, employee_id, user_id)")
       .eq("tenant_id", tenantId).eq("roles.code", "tenant_admin").is("roles.tenant_id", null);
     const rows = ((data ?? []) as unknown as Array<{ effective_from: string; effective_to: string | null; memberships: AdminRow & { id: string } }>)
