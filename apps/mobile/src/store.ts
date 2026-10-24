@@ -494,6 +494,11 @@ async function checkPending(manual: boolean) {
   }
 }
 
+/* Đang mở app: hỏi thông báo mới mỗi 30 giây để chuông hiện chấm (chưa có push; iPhone trong LAN không nối được Realtime) */
+if (REMOTE) setInterval(() => {
+  if (AppState.currentState === "active" && isLoggedIn() && !["login", "consent", "device", "notifications"].includes(cur())) void loadNotifications();
+}, 30_000);
+
 /* Mở lại app từ nền: đồng bộ hàng đợi và trạng thái hôm nay */
 if (REMOTE) AppState.addEventListener("change", (st) => {
   if (st !== "active") return;
