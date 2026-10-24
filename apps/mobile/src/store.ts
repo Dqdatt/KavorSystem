@@ -9,11 +9,12 @@ import {
 import type { IllusKind } from "./illus";
 import { api, type Snapshot } from "./api";
 import { authenticate, biometricLabel, clearQuickLogin, clearSession, loadBioPrefs, loadSession, loadSupport, quickLoginEmployee, quickRefreshToken, saveBioPrefs, saveSession, saveSupport, type BioPrefs } from "./auth";
-import { ApiError, REMOTE, attendanceApi, authApi, companyApi, isNetworkError, setTokenSource, timesheetApi } from "./api/http";
+import { ApiError, REMOTE, attendanceApi, authApi, companyApi, isNetworkError, notificationsApi, setTokenSource, timesheetApi } from "./api/http";
+import { clearExplainReminders, onReminderTap, scheduleExplainReminders } from "./notify";
 import { MY_REQ_INIT, SUPPORT_SAMPLE } from "./api/mock-data";
 import {
   EXPLANATION_KINDS, distanceMeters, passwordProblems,
-  type AttendanceEvent, type AttendanceToday, type AuthResult, type ExplanationKind, type MyCompany, type MyTimesheet, type RequestItem, type SupportContact, type TimesheetDay, type WorkLocation,
+  type AttendanceEvent, type AttendanceToday, type AuthResult, type ExplanationKind, type AppNotification, type MyCompany, type MyTimesheet, type NotificationFeed, type RequestItem, type SupportContact, type TimesheetDay, type WorkLocation,
 } from "@kavor/contracts";
 import { currentFix, deviceRegistration, deviceSummary, enqueue, flushQueue, installationId, LocationError, newEventId, quietFix, readQueue, type Fix } from "./attendance";
 
@@ -111,6 +112,10 @@ const makeState = () => ({
   ts: null as MyTimesheet | null,
   reqItems: new Map<string, RequestItem>(),
   exDay: null as string | null,
+  /* Thông báo trong app (bản dùng API) */
+  notifs: null as NotificationFeed | null,
+  /* Thông báo chưa đọc lúc mở màn Thông báo: vẫn hiện chấm xanh trong lần xem đó dù đã đánh dấu đọc trên máy chủ */
+  notifFresh: new Set<string>(),
   f: freshForms(),
   /* UI */
   nav: { seq: 0, anim: null as Anim | null },
@@ -208,6 +213,8 @@ export async function loadTimesheet(month?: string, manual = false) {
     S.ts = t;
     if (t.explanation) { S.explainLimit = t.explanation.limit; S.explainUsed = t.explanation.used; }
     emit();
+    /* Chỉ kỳ hiện tại mới có ngày còn hạn giải trình */
+    if (t.days.some((d) => d.kind === "today" || d.kind === "future")) void scheduleExplainReminders(t, (date) => { const d = tsDay(date); return d ? issueText(d) : ""; });
   } catch (e) {
     if (e instanceof ApiError && e.status === 401) showErr("session");
     else if (manual) toast(e instanceof ApiError ? e.message : "Chưa tải được bảng công.");
@@ -236,7 +243,20 @@ export async function loadRequests() {
     if (e instanceof ApiError && e.status === 401) showErr("session");
   }
 }
-const refreshWork = () => { void loadTimesheet(S.ts?.period.month); void loadRequests(); };
+/* Thông báo từ máy chủ: tải khi mở app/quay lại app/về trang chủ (chưa có push khi app tắt) */
+export async function loadNotifications() {
+  if (!REMOTE || !isLoggedIn() || S.stack[0] === "consent") return;
+  try { S.notifs = await notificationsApi.feed(); emit(); }
+  catch (e) { if (e instanceof ApiError && e.status === 401) showErr("session"); }
+}
+const refreshWork = () => { void loadTimesheet(S.ts?.period.month); void loadRequests(); void loadNotifications(); };
+export const unreadCount = () => (REMOTE ? S.notifs?.unread ?? 0 : 2);
+
+/* Bấm nhắc hạn giải trình → mở form giải trình ngày đó (đăng nhập xong mới mở; khi app vừa khởi động thì đợi khôi phục phiên) */
+const replayReminder = REMOTE ? onReminderTap((date) => {
+  if (!isLoggedIn() || ["login", "consent", "device"].includes(S.stack[0]!)) return;
+  void loadTimesheet(S.ts?.period.month).then(() => { if (tsDay(date)?.canExplain) ACT.exFromDay(date); else tab("attendance"); });
+}) : () => {};
 export const lvAvail = () => S.leave.granted + S.leave.carry - S.leave.used - S.leave.pending;
 export const pendingCount = () => (S.role === "manager" ? S.approvals.length : 0);
 export function advEligible(): [string, string] | null {
@@ -278,7 +298,18 @@ export function render(anim?: Anim) {
   emit();
 }
 
+/* Mở màn Thông báo: tải mới rồi đánh dấu đã đọc tất cả */
+function openNotifications() {
+  S.notifFresh = new Set((S.notifs?.items ?? []).filter((n) => !n.readAt).map((n) => n.id));
+  void notificationsApi.feed().then(async (f) => {
+    f.items.filter((n) => !n.readAt).forEach((n) => S.notifFresh.add(n.id));
+    S.notifs = f; emit();
+    if (f.unread) { S.notifs = await notificationsApi.read(); emit(); }
+  }).catch(() => undefined);
+}
+
 export function go(r: Route) {
+  if (r === "notifications" && REMOTE) openNotifications();
   closeSheet();
   if (S.net === "offline" && NEEDNET[r]) { S.err = { kind: "offline", retry: r, over: { t: "Cần kết nối để xem", p: "Phiếu lương và tạm ứng không lưu trên máy vì lý do bảo mật. Kết nối mạng rồi thử lại." } }; S.stack.push("err"); render("push"); return; }
   if (GATED[r] && Date.now() > S.pinUntil) { openPin(() => { S.stack.push(r); render("push"); }); return; }
@@ -560,7 +591,7 @@ export async function restoreSession() {
   const target: Route = session.deviceRegistered ? "home" : "device";
   if ((await loadCompany())?.privacy.required) { askConsent(target); return; }
   S.stack = [target]; render();
-  if (session.deviceRegistered) { void loadToday(); refreshWork(); }
+  if (session.deviceRegistered) { void loadToday(); refreshWork(); replayReminder(); }
 }
 
 function pinSuccess() { S.pinUntil = Date.now() + 5 * 60 * 1000; const f = S.pinOk; S.pinOk = null; closeSheet(); f && f(); }
@@ -948,6 +979,8 @@ export const ACT = {
     if (REMOTE) void loadSession().then(async (sess) => {
       if (!S.bio.login && sess?.auth) { await authApi.logout(sess.auth.accessToken).catch(() => undefined); await clearQuickLogin(); }
     });
+    /* Đăng xuất: bỏ nhắc nhở và thông báo của người vừa dùng máy */
+    if (REMOTE) { void clearExplainReminders().catch(() => undefined); S.notifs = null; S.ts = null; }
     void clearSession(); S.pinUntil = 0; S.f = freshForms(); closeSheet(); S.stack = ["login"]; render("fade");
   },
   pinkey: (a: string) => {
@@ -976,6 +1009,19 @@ export const ACT = {
       S.widgetState = "ok"; S.notifShow = false; emit();
       setTimeout(() => { S.widgetState = "idle"; emit(); }, 2600);
     }, 1200);
+  },
+  /* Bấm một thông báo: đơn cần duyệt → màn duyệt; kết quả đơn → chi tiết đơn; máy → Bảo mật và thiết bị */
+  notifOpen: (n: AppNotification) => {
+    if (!n.link) return;
+    if (n.link.type === "device") { go("security"); return; }
+    const no = n.link.no; if (!no) return;
+    remote("notifOpen", async () => {
+      await loadRequests();
+      S.param = no;
+      if (n.actionable && S.approvals.some((x) => x.id === no)) { S.role = "manager"; go("approvalDetail"); }
+      else if (S.reqItems.has(no) && S.myReq.some((x) => x.id === no)) go("reqDetail");
+      else toast("Đơn này đã được xử lý, không còn chờ bạn.");
+    });
   },
   notifTap: () => { S.stack = ["home", "clock"]; render("fade"); },
   lockTap: () => { if (phase() === "done") { toast("Bạn đã xong ca hôm nay"); return; } toast("Face ID: đã mở khóa"); setTimeout(() => { S.stack = ["home", "clock"]; render("fade"); }, 700); },

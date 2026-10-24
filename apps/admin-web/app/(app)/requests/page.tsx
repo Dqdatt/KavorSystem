@@ -1,20 +1,31 @@
 "use client";
 /* Đơn & phê duyệt: bám page-requests của Kavor HR Admin Prototype.html (hàng đợi theo SLA, modal xem & duyệt).
    "Cấu hình workflow" là thiết kế bổ sung: luồng duyệt theo loại đơn, có phiên bản theo ngày hiệu lực. */
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { STEP_RESOLVERS, type RequestItem, type RequestQueue, type StepResolver, type WorkflowDef, type WorkflowStepInput } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
 import { Empty, ErrorLine, Field, Icon, LoadError, Modal, Person, Status, can, fmtDate, fmtDateTime, tenantToday, useAction, useMe } from "../../_ui/kit";
 import { REQUEST_STATUS, REQUEST_TYPE, RequestModal, requestSummary, slaLabel } from "../../_ui/request";
 
-export default function RequestsPage() {
+export default function Page() { return <Suspense><RequestsPage /></Suspense>; }
+
+function RequestsPage() {
   const me = useMe();
+  const router = useRouter();
+  const params = useSearchParams();
+  const openId = params.get("open");
   const [status, setStatus] = useState("pending");
   const { data, error, reload } = useApi<RequestQueue>(`requests?status=${status}`, { tables: ["requests", "approval_tasks"], tenantId: me.tenant.id });
   const [filter, setFilter] = useState<"all" | "mine" | "overdue">("all");
   const [q, setQ] = useState("");
   const [open, setOpen] = useState<RequestItem | null>(null);
   const [config, setConfig] = useState(false);
+  /* Mở từ thông báo: /requests?open=<id> (đơn có thể không thuộc bộ lọc đang xem) */
+  useEffect(() => {
+    if (!openId) return;
+    void call<RequestItem>("GET", `requests/${openId}`).then(setOpen).catch(() => undefined).finally(() => router.replace("/requests", { scroll: false }));
+  }, [openId, router]);
   const items = useMemo(() => (data?.items ?? []).filter((r) => (filter === "all" || (filter === "mine" ? !!r.myTaskId : r.overdue))
     && (!q.trim() || `${r.no} ${r.requester.fullName} ${r.requester.code}`.toLowerCase().includes(q.trim().toLowerCase()))), [data, filter, q]);
   const c = data?.counts;

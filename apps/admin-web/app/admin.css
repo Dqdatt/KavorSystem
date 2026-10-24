@@ -23,3 +23,11 @@ a.nav-item, a.quick-item { text-decoration: none; color: inherit; }
 /* Bảng trong drawer (chi tiết bảng công): vừa chiều rộng drawer, ô gọn hơn */
 .drawer .data-table.compact { min-width: 0; }
 .drawer .data-table.compact th, .drawer .data-table.compact td { padding: 0 8px; height: 40px; }
+
+/* Bảng thông báo thả xuống từ chuông (thiết kế bổ sung, dùng .notification của prototype) */
+.notif-pop { position: absolute; right: 0; top: calc(100% + 8px); width: 360px; max-height: min(520px, 75vh); overflow: auto; z-index: 60; box-shadow: 0 18px 40px -18px rgba(6, 40, 30, .35); }
+.notif-pop .notification { width: 100%; text-align: left; font: inherit; color: inherit; cursor: pointer; }
+.notif-pop .notification:hover { border-color: var(--line-strong); }
+.notif-pop .notification.unread { background: #fff; border-color: var(--line-strong); }
+.notif-pop .notification.unread .notification-copy b::after { content: ""; display: inline-block; width: 6px; height: 6px; margin-left: 6px; border-radius: 50%; background: var(--green); vertical-align: middle; }
+.notif-pop .notif-act { color: var(--green) !important; font-weight: 600; }

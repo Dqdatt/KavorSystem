@@ -14,6 +14,7 @@ import { yearParam, type SettingsAdmin } from "./settings.service.js";
 import type { CompanyService } from "../company/company.service.js";
 import type { RequestsService } from "../timesheet/requests.service.js";
 import { viewerOf } from "../timesheet/requests.service.js";
+import type { NotificationsService } from "../notifications/notifications.service.js";
 import type { TimesheetAdmin } from "../timesheet/timesheet-admin.service.js";
 import { date, nullableText, oneOf, type Body as Json } from "./validate.js";
 
@@ -21,7 +22,7 @@ export const ADMIN_SERVICES = Symbol("ADMIN_SERVICES");
 export type AdminServices = {
   employees: EmployeesAdmin; attendance: AttendanceAdmin; schedule: ScheduleAdmin;
   settings: SettingsAdmin; rules: RulesAdmin; mfa: MfaAdmin; company: CompanyService;
-  timesheets: TimesheetAdmin; requests: RequestsService;
+  timesheets: TimesheetAdmin; requests: RequestsService; notifications: NotificationsService;
 };
 
 function bearer(header?: string): string {
@@ -202,6 +203,16 @@ export class AdminController {
   unlockTimesheet(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Body() b: Json) { return this.run(r, a, (s, c) => s.timesheets.unlock(c, b)); }
 
   /* ---------- Đơn & phê duyệt ---------- */
+  /* Thông báo của chính người đăng nhập web (hồ sơ nhân viên gắn với tài khoản) */
+  @Get("notifications")
+  notifications(@Req() r: CorrelatedRequest, @Headers("authorization") a?: string) {
+    return this.run(r, a, (s, c) => c.actor ? s.notifications.feed(c.tenantId, c.actor.id) : Promise.resolve({ items: [], unread: 0 }));
+  }
+  @Post("notifications/read") @HttpCode(200)
+  notificationsRead(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Body() b: Json) {
+    return this.run(r, a, (s, c) => c.actor ? s.notifications.markRead(c.tenantId, c.actor.id, b) : Promise.resolve({ items: [], unread: 0 }));
+  }
+
   @Get("requests")
   requests(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Query("status") status?: string) { return this.run(r, a, (s, c) => s.requests.queue(c, { status })); }
   @Get("requests/:id")

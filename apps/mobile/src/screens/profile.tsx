@@ -12,6 +12,7 @@ import { Avatar, Balanced, Btn, BtnRow, Card, InfoRow, Note, Notice, Row, RowBtn
 import { Foot, TopBar, type ScreenSpec } from "../screen";
 import { useClock } from "../clock";
 import { REMOTE } from "../api/http";
+import type { NotificationKind } from "@kavor/contracts";
 import { dec, gh, hm } from "../data";
 import { ACT, S, go, jump, setBioPref, lvAvail, phase, shiftMinutes, toast, worked, type ErrKind, type Route } from "../store";
 
@@ -57,14 +58,57 @@ export function profileSpec(): ScreenSpec {
         <RowBtn icon={<Gi n="doc" s={24} />} title="Hợp đồng và quyết định" onPress={() => toast("P05–P06: hợp đồng, quyết định và trình xem PDF")} />
         <RowBtn icon={<Gi n="grid" s={24} />} title="Widget chấm công" onPress={() => go("widgetGuide")} />
         <RowBtn icon={<Gi n="shield" s={24} />} title="Bảo mật và thiết bị" onPress={() => go("security")} />
-        <RowBtn icon={<Gi n="bell" s={24} />} title="Thông báo" onPress={() => toast("U02: nhắc chấm công, hạn giải trình, kết quả duyệt, phiếu lương, bản tin.")} />
+        <RowBtn icon={<Gi n="bell" s={24} />} title="Thông báo" onPress={() => REMOTE ? go("notifications") : toast("U02: nhắc chấm công, hạn giải trình, kết quả duyệt, phiếu lương, bản tin.")} />
         <RowBtn icon={<Ic n="logout" s={24} w={1.7} color={C.bad} />} title="Đăng xuất" titleStyle={{ color: C.bad }} chev={false} onPress={ACT.logoutAsk} />
       </Card>,
     ],
   };
 }
 
+/* Thông báo thật: mới nhất trước; chấm xanh = chưa đọc lúc mở màn; bấm để mở đơn/màn liên quan */
+const NOTIF_ICON: Record<NotificationKind, IconName> = {
+  "approval.pending": "file", "approval.due": "hour", "request.approved": "checks", "request.rejected": "alert", "device.approved": "phone", "device.rejected": "phone",
+};
+function whenLabel(iso: string) {
+  const d = new Date(iso), now = new Date();
+  const day = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const diff = Math.round((day(now) - day(d)) / 86_400_000);
+  return diff === 0 ? hm((d.getHours() * 60 + d.getMinutes()) * 60) : diff === 1 ? "Hôm qua" : `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function remoteNotificationsSpec(): ScreenSpec {
+  const f = S.notifs;
+  return {
+    head: <TopBar title="Thông báo" right={null} />,
+    body: [
+      !f ? <Card key="l"><Row style={{ justifyContent: "center", paddingVertical: 28 }}><Spinner /></Row></Card>
+        : !f.items.length ? <Card key="e"><View style={{ alignItems: "center", gap: 10, paddingVertical: 36, paddingHorizontal: 20 }}>
+          <Gi n="bell" s={40} /><T style={{ fontFamily: F.bold, fontSize: 16 }}>Chưa có thông báo</T>
+          <T style={{ color: C.ink2, textAlign: "center" }}>Kết quả duyệt đơn, đơn cần bạn duyệt và thay đổi về thiết bị sẽ hiện ở đây.</T>
+        </View></Card>
+        : <Card key="c">{f.items.map((n) => {
+          const fresh = S.notifFresh.has(n.id);
+          return (
+            <Pressable key={n.id} onPress={() => ACT.notifOpen(n)} disabled={!n.link} style={({ pressed }) => pressed && n.link ? { backgroundColor: C.soft } : null}>
+              <Row style={{ alignItems: "flex-start" }}>
+                <Gi n={NOTIF_ICON[n.kind]} s={24} />
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <T style={{ fontFamily: F.semibold }}>{n.title}{fresh ? <T>{"  "}</T> : null}{fresh ? <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: C.emerald, marginBottom: 1 }} /> : null}</T>
+                  <T style={{ color: C.ink2, fontSize: 12.5, marginTop: 2 }}>{n.body}</T>
+                  {n.actionable ? <T style={{ color: C.emerald, fontSize: 12.5, fontFamily: F.semibold, marginTop: 4 }}>Xem & duyệt</T> : null}
+                </View>
+                <T style={{ color: C.ink3, fontSize: 12 }}>{whenLabel(n.createdAt)}</T>
+              </Row>
+            </Pressable>
+          );
+        })}</Card>,
+      f ? <T key="note" style={{ color: C.ink3, fontSize: 12, textAlign: "center", paddingHorizontal: 12 }}>Thông báo mới hiện khi bạn mở app. Nhắc hạn giải trình đến cả khi app đang tắt.</T> : null,
+    ],
+  };
+}
+
 export function notificationsSpec(): ScreenSpec {
+  if (REMOTE) return remoteNotificationsSpec();
   const items: Array<[number, IconName, string, string, string]> = [[1, "hour", "Còn 6 ngày để giải trình công tháng 10", "Ngày 15/10 thiếu giờ vào. Hạn 22/10.", "08:00"], [1, "checks", "Đơn OT-0418 đã được duyệt", "Lê Quang Huy duyệt làm thêm ngày 14/10.", "Hôm qua"],
     [0, "news", "Bản tin mới: chấm công GPS", "Phòng Nhân sự vừa đăng một chính sách.", "15/10"], [0, "receipt", "Phiếu lương 09/2026 đã công bố", "Xác thực để xem chi tiết.", "05/10"], [0, "cash", "Tạm ứng TU-0912 đã chi", "3.000.000 ₫ vào Vietcombank •6789.", "12/09"]];
   return {

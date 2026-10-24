@@ -7,9 +7,10 @@ import { invalid } from "../admin/context.js";
 import type { Body as Json } from "../admin/validate.js";
 import { MONTH, type TimesheetService } from "./timesheet.service.js";
 import type { RequestsService, Viewer } from "./requests.service.js";
+import type { NotificationsService } from "../notifications/notifications.service.js";
 
 export const TIMESHEET_SERVICES = Symbol("TIMESHEET_SERVICES");
-export type TimesheetServices = { timesheets: TimesheetService; requests: RequestsService };
+export type TimesheetServices = { timesheets: TimesheetService; requests: RequestsService; notifications: NotificationsService };
 
 function bearer(header?: string): string {
   const m = /^Bearer\s+(.+)$/i.exec(header ?? "");
@@ -17,7 +18,7 @@ function bearer(header?: string): string {
   return m[1];
 }
 
-/* App nhân viên: bảng công tháng, giải trình, đơn của tôi, duyệt (quản lý/HR) */
+/* App nhân viên: bảng công tháng, giải trình, đơn của tôi, duyệt (quản lý/HR), thông báo */
 @Controller("me")
 export class TimesheetController {
   constructor(
@@ -53,6 +54,11 @@ export class TimesheetController {
   explain(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Body() b: Json) { return this.run(r, a, (s, emp, v) => s.requests.createExplanation(emp, b, v.correlationId)); }
   @Post("requests/:id/cancel") @HttpCode(200)
   cancel(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string) { return this.run(r, a, (s, emp, v) => s.requests.cancel(emp, id, v.correlationId)); }
+
+  @Get("notifications")
+  notifications(@Req() r: CorrelatedRequest, @Headers("authorization") a?: string) { return this.run(r, a, (s, emp) => s.notifications.feed(emp.tenant_id, emp.id)); }
+  @Post("notifications/read") @HttpCode(200)
+  notificationsRead(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Body() b: Json) { return this.run(r, a, (s, emp) => s.notifications.markRead(emp.tenant_id, emp.id, b)); }
 
   @Get("approvals")
   approvals(@Req() r: CorrelatedRequest, @Headers("authorization") a?: string) { return this.run(r, a, (s, _e, v) => s.requests.approvals(v)); }

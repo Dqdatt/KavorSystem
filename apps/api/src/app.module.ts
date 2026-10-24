@@ -25,6 +25,7 @@ import { TimesheetController, TIMESHEET_SERVICES } from "./timesheet/timesheet.c
 import { TimesheetService } from "./timesheet/timesheet.service.js";
 import { RequestsService } from "./timesheet/requests.service.js";
 import { TimesheetAdmin } from "./timesheet/timesheet-admin.service.js";
+import { NotificationsService } from "./notifications/notifications.service.js";
 
 @Module({
   controllers: [AppController, AuthController, AttendanceController, CompanyController, TimesheetController, AdminController, ConsoleController],
@@ -39,7 +40,9 @@ import { TimesheetAdmin } from "./timesheet/timesheet-admin.service.js";
       useFactory: (sb: SupabaseGateway | null) => {
         if (!sb) return null;
         const timesheets = new TimesheetService(sb);
-        return { timesheets, requests: new RequestsService(sb, timesheets) };
+        const notifications = new NotificationsService(sb);
+        notifications.startDueSweep();
+        return { timesheets, requests: new RequestsService(sb, timesheets), notifications };
       },
     },
     {
@@ -54,7 +57,7 @@ import { TimesheetAdmin } from "./timesheet/timesheet-admin.service.js";
     { provide: COMPANY_SERVICE, inject: [SupabaseGateway, BrandingStore], useFactory: (sb: SupabaseGateway | null, b: BrandingStore | null) => (sb && b ? new CompanyService(sb, b) : null) },
     {
       provide: ADMIN_SERVICES, inject: [SupabaseGateway, BrandingStore, COMPANY_SERVICE, TIMESHEET_SERVICES],
-      useFactory: (sb: SupabaseGateway | null, branding: BrandingStore | null, company: CompanyService | null, ts: { timesheets: TimesheetService; requests: RequestsService } | null) => {
+      useFactory: (sb: SupabaseGateway | null, branding: BrandingStore | null, company: CompanyService | null, ts: { timesheets: TimesheetService; requests: RequestsService; notifications: NotificationsService } | null) => {
         if (!sb || !branding || !company || !ts) return null;
         const attendance = new AttendanceAdmin(sb);
         const schedule = new ScheduleAdmin(sb);
@@ -62,7 +65,7 @@ import { TimesheetAdmin } from "./timesheet/timesheet-admin.service.js";
           attendance, schedule, company,
           employees: new EmployeesAdmin(sb, new Mailer(loadConfig().mail), attendance),
           settings: new SettingsAdmin(sb, branding, schedule), rules: new RulesAdmin(schedule), mfa: new MfaAdmin(sb),
-          timesheets: new TimesheetAdmin(ts.timesheets, ts.requests), requests: ts.requests,
+          timesheets: new TimesheetAdmin(ts.timesheets, ts.requests), requests: ts.requests, notifications: ts.notifications,
         };
       },
     },

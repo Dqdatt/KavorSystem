@@ -587,6 +587,18 @@ export type RequestItem = {
 export type MyApprovals = { canApprove: boolean; items: RequestItem[] };
 export type ApprovalDecision = { comment?: string | null };
 
+/* ---------- Thông báo trong app ---------- */
+export type NotificationKind = "approval.pending" | "approval.due" | "request.approved" | "request.rejected" | "device.approved" | "device.rejected";
+export type AppNotification = {
+  id: string; kind: NotificationKind; title: string; body: string; createdAt: string; readAt: string | null;
+  link: { type: "request" | "device"; id: string; no: string | null } | null;
+  /* Thông báo "cần bạn duyệt" mà bước duyệt vẫn đang chờ (bấm vào để duyệt) */
+  actionable: boolean;
+};
+export type NotificationFeed = { items: AppNotification[]; unread: number };
+/* ids rỗng/không có: đánh dấu tất cả đã đọc */
+export type NotificationRead = { ids?: string[] };
+
 export type TimesheetRow = {
   employee: { id: string; code: string; fullName: string; department: string | null };
   summary: TimesheetSummary;

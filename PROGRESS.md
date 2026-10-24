@@ -2,9 +2,15 @@
 _Cập nhật: 2026-10-24 — bởi Claude (Opus 5.5)_
 
 ## Mục tiêu đang làm
-Công tháng + giải trình + luồng duyệt đã xong và đã thử đầu-cuối trên iPhone (24/10, xem "Đã xong"). Bước kế tiếp: thông báo trong app.
+Thông báo trong app đã xong phần code và kiểm thử tự động (24/10, xem "Đã xong"); chờ thử trên iPhone. Bước kế tiếp: Nghỉ phép/OT.
 
 ## Đã xong
+- Thông báo trong app (24/10, phạm vi gọn — không cần dịch vụ trả phí):
+  - DB `202610260001_notifications.sql`: bảng `notifications` (người nhận là hồ sơ nhân viên, chỉ thêm + đánh dấu đã đọc một lần, chống trùng theo `dedupe_key`); tạo bằng trigger ngay trong transaction gốc: bước duyệt tới lượt → báo quản lý được giao hoặc mọi người có `request.hr_review` với người gửi (`hr_reviewers`, không gồm người gửi); đơn được duyệt/từ chối → báo người gửi (kèm người duyệt cuối, lý do từ chối); máy mới được duyệt/từ chối → báo nhân viên. `notify_due_approvals()` nhắc bước duyệt còn dưới 4 giờ hoặc đã quá hạn, mỗi bước tối đa 2 lần — API gọi lúc khởi động và mỗi 10 phút. RLS chỉ người nhận đọc; Realtime cho web. pgTAP `notifications.test.sql` 16 test (tổng 140).
+  - API: `/me/notifications` + `/me/notifications/read`, `/admin/notifications` + `/admin/notifications/read` (đánh dấu một/nhiều/tất cả; `actionable` = thông báo "cần duyệt" mà bước còn chờ).
+  - Mobile (bản dùng API): màn Thông báo thật (chấm xanh = chưa đọc lúc mở, mở màn là đánh dấu đã đọc, bấm → màn duyệt/chi tiết đơn/Bảo mật và thiết bị), chuông chỉ có chấm khi còn chưa đọc, Hồ sơ → Thông báo mở màn này; tải khi mở app/quay lại app/về trang chủ. Nhắc hạn giải trình bằng thông báo cục bộ (`expo-notifications`, `src/notify.ts`): 09:00 ngày trước hạn và ngày hạn, tính lại mỗi lần tải bảng công, bấm vào mở form giải trình ngày đó; hỏi quyền thông báo lần đầu có lịch nhắc; đăng xuất thì xóa lịch nhắc.
+  - Web HR: chuông trên thanh trên (bám `icon-btn` + `ping` của prototype) với bảng thả xuống (thiết kế bổ sung), cập nhật trực tiếp; bấm mở đơn (`/requests?open=<id>`).
+  - Smoke `tools/notifications-smoke.sh` 20 bước; 6 smoke cũ vẫn đạt. Đã thử trên trình duyệt: nhân viên không có quản lý gửi giải trình → chuông web HR hiện "Đơn GT-0001 cần bạn duyệt" ngay (Realtime) → bấm mở modal duyệt.
 - Công tháng + giải trình + luồng duyệt (24/10), theo `PILOT_RULEBOOK` và ADR 0001:
   - DB `202610250001_timesheet_requests.sql`: permission `timesheet.lock`/`timesheet.unlock`/`request.self.create`/`request.read`/`request.hr_review`/`workflow.manage`; ca có ngày làm việc trong tuần (`shift_versions.work_days`, mặc định T2–T6); luồng duyệt có phiên bản (`workflow_definitions`/`workflow_versions`, mặc định Quản lý trực tiếp → Phòng Nhân sự, SLA 24 giờ mỗi bước, có trong bộ mẫu tenant mới); đơn `requests` + `request_versions` (bất biến, lưu quy định lúc gửi) + `approval_tasks`; số đơn theo tenant (`GT-0001`); duyệt/từ chối/hủy là hàm SQL nguyên tử (`decide_approval`, `create_request`, `cancel_request`); giải trình được duyệt tạo `attendance_adjustments` (bất biến, bản ghi chấm công gốc giữ nguyên); khóa kỳ `timesheet_locks` có snapshot, mở lại phải có quyền + lý do, kỳ đã khóa chặn điều chỉnh/duyệt. RLS đọc đơn qua `can_read_request()` (tránh policy đệ quy). pgTAP `timesheet_requests.test.sql` 24 test (tổng 124). Seed: kỳ công Hải Đăng bắt đầu ngày 26, chấm công mẫu cho kỳ hiện tại (HD0142 có ngày thiếu giờ ra/đi muộn còn hạn giải trình).
   - API `apps/api/src/timesheet`: tính công theo ngày (`compute.ts`, unit test: kỳ 26→25, ân hạn muộn, thiếu giờ, vắng, ngày nghỉ/lễ, điều chỉnh ghi đè, hạn giải trình theo ngày làm việc); mobile `/me/timesheet?month=`, `/me/requests` (+ gửi giải trình, hủy), `/me/approvals` (+ duyệt/từ chối); web `/admin/timesheets` (+ chi tiết nhân viên, khóa/mở kỳ, xuất CSV), `/admin/requests`, `/admin/approvals/:task/:action`, `/admin/workflows`. Kiểm tra: lượt giải trình/kỳ và hạn N ngày làm việc lấy từ quy định `explanation` theo tầng; ngày không có bất thường, chưa tới ngày, trùng ngày, kỳ đã khóa bị chặn; không ai tự duyệt đơn của mình; HR không duyệt thay bước Quản lý; từ chối phải có lý do; bị từ chối không tốn lượt và được giải trình lại. Cài đặt công ty thêm "Kỳ công bắt đầu ngày" (1–28).
@@ -84,7 +90,8 @@ Công tháng + giải trình + luồng duyệt đã xong và đã thử đầu-c
 - Console chưa có: khóa/đóng tenant, gói dịch vụ + giới hạn (mới lưu `plan_code`/`employee_limit`, chưa chặn khi vượt), support access có thời hạn (`support_access_sessions`), màn quản lý nhân viên Kavor; nhân viên Kavor mất điện thoại phải nhờ người có service role xóa factor. Bộ kit giao diện console-web là bản sao từ admin-web (chuyển chung vào `@kavor/web-ui` khi ổn định); `DashboardShell` của web-ui không còn ai dùng.
 - Cấp Tenant Admin cho người có tài khoản đang bị khóa thì role được gán nhưng vẫn không đăng nhập được cho tới khi mở khóa.
 - Ca qua đêm, tầng "loại hợp đồng", lịch xếp ca theo ngày, bản đồ chọn vị trí chưa có. Trình duyệt nhúng trong app Claude không cấp quyền vị trí; nút "Dùng vị trí hiện tại của trình duyệt" cần Chrome/Safari thật.
-- Giải trình chưa có đính kèm minh chứng (cần Storage + quét file); chưa có thông báo khi đơn được duyệt/từ chối (app tải lại khi mở/quay lại tab). Bảng công chưa tính nghỉ phép/OT/ca qua đêm; thiếu cả ngày chỉ giải trình theo giờ ca. Snapshot khóa kỳ chưa có trang xem lịch sử khóa/mở.
+- Giải trình chưa có đính kèm minh chứng (cần Storage + quét file); Bảng công chưa tính nghỉ phép/OT/ca qua đêm; thiếu cả ngày chỉ giải trình theo giờ ca. Snapshot khóa kỳ chưa có trang xem lịch sử khóa/mở.
+- Thông báo trên mobile không đến ngay khi app đang mở (iPhone trong LAN không nối Realtime của Supabase local; chưa có push) — hiện khi mở/quay lại app hoặc về trang chủ. E19 vẫn hỏi lại 8 giây/lần. Ngưỡng "sắp quá hạn" 4 giờ và chu kỳ quét 10 phút là hằng số của hệ thống, chưa cấu hình theo tenant. Chưa có nhắc chấm công, thông báo phiếu lương/bản tin (chờ module tương ứng), chưa có dọn thông báo cũ.
 - Đơn nghỉ phép/OT/tạm ứng/sửa hồ sơ trên mobile bản dùng API vẫn là dữ liệu cục bộ trong phiên (đơn mẫu bị ẩn) cho tới khi làm module tương ứng.
 - Phạm vi/tầng dùng phân công tổ chức hiện tại; danh sách nhân viên/chấm công lọc trong bộ nhớ API — đủ cho vài nghìn nhân viên, cần phân trang ở SQL khi lớn hơn. RLS `employees` gọi hàm phạm vi theo từng dòng (chậm nếu client đọc trực tiếp nhiều dòng; hiện client không đọc trực tiếp).
 - Khi máy Mac quá tải (build Xcode), GoTrue chậm → web báo "Máy chủ xác thực đang bận" (không còn tự đăng xuất).
@@ -95,8 +102,9 @@ Công tháng + giải trình + luồng duyệt đã xong và đã thử đầu-c
 - Trên bản dev, gõ phím "r" khi không focus ô nhập sẽ làm Metro reload (chỉ ảnh hưởng dev).
 
 ## Bước tiếp theo
-1. Thông báo (gồm báo khi đơn được duyệt/từ chối): lưu, hiển thị trong app, nhắc nhở bằng thông báo cục bộ trên máy, báo nhân viên khi máy được duyệt/từ chối thay cho polling E19. Push từ máy chủ (APNs/FCM) cần tài khoản trả phí → để tới khi mua (xem "Quyết định đã chốt").
+1. Thử thông báo trên iPhone (đơn mới → chuông web HR, duyệt → thông báo trên app, nhắc hạn giải trình cục bộ).
 2. Nghỉ phép/OT → tạm ứng → payroll → bản tin/tài liệu.
+- Push từ máy chủ khi app tắt (APNs/FCM) cần tài khoản Apple Developer trả phí → làm khi mua (xem "Quyết định đã chốt"); lúc đó thay luôn việc E19 hỏi lại 8 giây/lần.
 - Staging: **hoãn tới khi hệ thống hoàn thiện** (quyết định 24/10). Phương án đã phân tích sẵn: Render Singapore cho API + 2 web (~$21/tháng, địa chỉ onrender.com, chưa cần domain), Gmail SMTP như CarRental cho OTP và thư mời, project Supabase `KavorSystem` (Singapore) làm staging, chỉ dùng dữ liệu mẫu; cần đổi các giá trị localhost trong `supabase/config.toml` sang biến môi trường trước khi `config push`.
 - Ngoài luồng chính: test component cho admin-web; Sentry; số liệu luật cần HR/Payroll SME xác nhận trước pilot; pháp lý chuyển dữ liệu ra nước ngoài (Nghị định 13/2023, dữ liệu ở Singapore) trước khi có dữ liệu thật.
 
@@ -104,6 +112,7 @@ Công tháng + giải trình + luồng duyệt đã xong và đã thử đầu-c
 - Không có.
 
 ## Nhật ký
+- 2026-10-24 — Thông báo trong app: trigger SQL tạo thông báo (cần duyệt, kết quả đơn, máy được duyệt), nhắc hạn duyệt định kỳ, màn Thông báo mobile + nhắc hạn giải trình cục bộ, chuông web HR.
 - 2026-10-24 — Công tháng + giải trình + luồng duyệt: kỳ công theo công ty, tính công từ chấm công, giải trình theo lượt/hạn, Quản lý → HR duyệt tạo điều chỉnh, khóa/mở kỳ, xuất CSV; web HR Bảng công + Đơn & phê duyệt; mobile đọc từ API; thử đầu-cuối trên iPhone (gửi → Quản lý → HR duyệt → bảng công cập nhật).
 - 2026-10-24 — Phân tích phương án staging (Render/Fly/Vercel, Supabase, email, domain; so với cách CarRental deploy); người dùng quyết định hoãn staging, chưa mua dịch vụ trả phí.
 - 2026-10-23 — Kavor Console tối thiểu: tạo tenant + mời Tenant Admin, khôi phục chủ sở hữu hai người, audit nền tảng; sửa lỗi chỉ tạo được một nhân viên/công ty và lỗi kích hoạt khi trùng mã giữa công ty.

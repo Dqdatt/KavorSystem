@@ -2,7 +2,7 @@
    Bật khi build có EXPO_PUBLIC_API_URL (và không ở chế độ QA chụp ảnh dùng dữ liệu mẫu). */
 import type {
   AttendanceEvent, AttendanceEventRequest, AttendanceToday, DeviceInfo, DeviceRegisterRequest,
-  ActivationStartRequest, ActivationVerifyRequest, ApiEnvelope, AuthResult, BrandingKind, ExplanationInput, LoginRequest, MeProfile, MyApprovals, MyCompany, MyTimesheet, RequestItem,
+  ActivationStartRequest, ActivationVerifyRequest, ApiEnvelope, AuthResult, BrandingKind, ExplanationInput, LoginRequest, MeProfile, MyApprovals, MyCompany, MyTimesheet, NotificationFeed, RequestItem,
   OtpSentResponse, PasswordForgotRequest, PasswordResetRequest, PrivacyConsentRequest, RefreshRequest,
 } from "@kavor/contracts";
 import { QA_ENABLED } from "../qa";
@@ -83,6 +83,11 @@ export const timesheetApi = {
   cancel: async (id: string) => call<RequestItem>("POST", `/me/requests/${id}/cancel`, {}, await token()),
   approvals: async () => call<MyApprovals>("GET", "/me/approvals", undefined, await token()),
   decide: async (taskId: string, approve: boolean, comment?: string) => call<RequestItem>("POST", `/me/approvals/${taskId}/${approve ? "approve" : "reject"}`, { comment: comment ?? null }, await token()),
+};
+
+export const notificationsApi = {
+  feed: async () => call<NotificationFeed>("GET", "/me/notifications", undefined, await token()),
+  read: async (ids?: string[]) => call<NotificationFeed>("POST", "/me/notifications/read", ids ? { ids } : {}, await token()),
 };
 
 export const isNetworkError = (e: unknown) => e instanceof ApiError && (e.code === "NETWORK" || e.status >= 500);

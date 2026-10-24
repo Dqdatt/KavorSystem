@@ -60,7 +60,7 @@ function startRealtime(tenantId: string) {
       await client.realtime.setAuth(t.token);
       scheduleTokenRefresh(t.expiresAt);
       channel = client.channel(`hr-${tenantId}`);
-      for (const table of ["attendance_events", "employee_devices", "employees", "requests", "approval_tasks"]) {
+      for (const table of ["attendance_events", "employee_devices", "employees", "requests", "approval_tasks", "notifications"]) {
         channel.on("postgres_changes", { event: "*", schema: "public", table, filter: `tenant_id=eq.${tenantId}` }, () => listeners.forEach((l) => l(table)));
       }
       channel.subscribe((status) => setConnected(status === "SUBSCRIBED"));

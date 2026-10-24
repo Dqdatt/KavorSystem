@@ -6,7 +6,7 @@ import { C, EASE, F } from "./theme";
 import { Ic } from "./icons";
 import { Rise, useReducedMotion } from "./motion";
 import { Avatar, T, TbBtn } from "./ui";
-import { ACT, back, go, scrollRequests, scrollTopRequests } from "./store";
+import { ACT, back, go, scrollRequests, scrollTopRequests, unreadCount } from "./store";
 
 /* ---------- Dock tuck (navbar ẩn/hiện khi cuộn) ---------- */
 export const dockTuck = new Animated.Value(0);
@@ -70,7 +70,7 @@ function Bar({ left, title, right, kind }: { left: ReactNode; title: ReactNode; 
 
 export const BackBtn = () => <TbBtn label="Quay lại" onPress={back}><Ic n="chevL" s={20} w={2} /></TbBtn>;
 export const HelpBtn = () => <TbBtn label="Ghi chú màn hình" onPress={ACT.help}><Ic n="help" s={20} /></TbBtn>;
-export const BellBtn = () => <TbBtn label="Thông báo" dot onPress={() => go("notifications")}><Ic n="bell" s={20} /></TbBtn>;
+export const BellBtn = () => <TbBtn label={unreadCount() ? `Thông báo, ${unreadCount()} chưa đọc` : "Thông báo"} dot={unreadCount() > 0} onPress={() => go("notifications")}><Ic n="bell" s={20} /></TbBtn>;
 export const AvaBtn = () => <Avatar ini="TH" onPress={() => go("profile")} />;
 
 /* topbar(t, right): right undefined → nút help; null → trống */
