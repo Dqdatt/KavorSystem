@@ -2,7 +2,7 @@
 _Cập nhật: 2026-10-24 — bởi Claude (Opus 5.5)_
 
 ## Mục tiêu đang làm
-Làm thêm giờ (OT) đã xong phần code và kiểm thử tự động (25/10, xem "Đã xong"); chờ thử trên iPhone. Bước kế tiếp: tạm ứng lương.
+Làm thêm giờ (OT) đã xong và đã thử trên iPhone (25/10, xem "Đã xong"). Bước kế tiếp: sửa lỗi lệch múi giờ trong hàm phân quyền SQL, rồi tạm ứng lương.
 
 ## Đã xong
 - Làm thêm giờ — OT (25/10), theo PILOT_RULEBOOK §8, US-043, BLLĐ 2019 Điều 98, 107 và NĐ 145/2020:
@@ -10,6 +10,7 @@ Làm thêm giờ (OT) đã xong phần code và kiểm thử tự động (25/10
   - API `apps/api/src/overtime`: `/me/overtime` (quy định, lịch 1 ngày trước → 30 ngày sau với loại ngày + ca chính + giờ đã đăng ký, mức dùng tháng/năm, người duyệt), `/me/requests/overtime` (không trùng ca chính, ngày nghỉ tối đa 12 giờ, giới hạn ngày/tháng/năm tính cả đơn đang chờ; hệ số và giới hạn theo quy định hiệu lực **vào ngày làm thêm**, chưa có phiên bản thì dùng bản hiện hành), `/admin/overtime?month=` (tổng hợp theo tháng dương lịch trong phạm vi: giờ đã duyệt theo loại ngày, đang chờ, so với giới hạn tháng, cả năm; danh sách đơn). Bảng công: ngày có OT đã duyệt hiện số phút + hệ số, tổng kỳ `overtimeMinutes`.
   - Web HR: Chấm công → tab **Làm thêm giờ** (thiết kế bổ sung — prototype HR chưa có trang OT), modal đơn OT, Cấu hình workflow có luồng Làm thêm giờ, drawer bảng công hiện thẻ "OT x giờ · hệ số". Đã thử trên trình duyệt.
   - Mobile (bản dùng API): màn Làm thêm giờ (ngày từ lịch thật, giờ mặc định sau ca chính, hệ số theo loại ngày, đã đăng ký x/40 giờ tháng này, chặn trùng ca/đơn/vượt giới hạn trước khi gửi), đơn OT trong Đơn từ/Cần duyệt/chi tiết, bảng công + sheet ngày hiện giờ OT, menu tạo đơn hiện mức dùng tháng.
+  - Đầu-cuối trên iPhone 11 thật "Dqdatt": HD0142 gửi OT-0001 (T2 26/10 17:00–19:00, ngày thường 150%) và OT-0002 (T7 31/10 08:00–10:00, ngày nghỉ 200%) → quản lý + HR duyệt → app hiện thông báo, đơn đã duyệt, "Đã đăng ký tháng 10: 4/40 giờ"; web HR tab Làm thêm giờ 4 giờ (2 ngày thường + 2 ngày nghỉ).
   - Smoke `tools/overtime-smoke.sh` 28 bước; unit test API 28; pgTAP 172 (test giờ đọc phiên bản mẫu v1 nên đạt cả trên DB đã chạy smoke); build 6/6. Smoke leave/notifications/timesheet/settings/attendance/auth đạt; console và hr lỗi do lệch múi giờ có từ trước (xem "Vấn đề/bug còn tồn tại").
   - Sửa kèm: khóa kỳ công được phép ngay trong ngày cuối kỳ (`end > today` → `end >= today`); modal khóa kỳ trên web tính "đã kết thúc" theo ngày UTC của trình duyệt → theo ngày giờ công ty.
 - Nghỉ phép (24/10), theo PILOT_RULEBOOK §7, §9 và ADR 0001:
@@ -71,7 +72,7 @@ Làm thêm giờ (OT) đã xong phần code và kiểm thử tự động (25/10
 - Kiểm tra ngày 22/10: `pnpm turbo run typecheck test build --force` pass 18/18 task (test thật chỉ có contracts 2 + api 2)
 
 ## Đang dở (QUAN TRỌNG NHẤT)
-- Chưa thử OT trên iPhone. DB local vừa reset về dữ liệu mẫu (iPhone phải kích hoạt lại HD0142). Chưa thử từ chối/hủy đơn và duyệt trên app bằng tài khoản quản lý trên máy thật (smoke đã kiểm). Thử duyệt trên app: kích hoạt quản lý HDG0003 (huy.le@example.test) ở máy khác/simulator. Thử Console: `OPERATOR_PASSWORD='…' bash tools/create-operator.sh <email> "<Họ tên>"` (tạo 2 người để thử duyệt khôi phục), `pnpm dev:console` → http://localhost:3001, lần đầu liên kết ứng dụng xác thực.
+- Không có việc dở. DB local đang có dữ liệu thử trên iPhone (HD0142 đã kích hoạt, OT-0001/OT-0002 đã duyệt); chạy smoke thì reset trước và iPhone phải kích hoạt lại. Chưa thử từ chối/hủy đơn và duyệt trên app bằng tài khoản quản lý trên máy thật (smoke đã kiểm). Thử duyệt trên app: kích hoạt quản lý HDG0003 (huy.le@example.test) ở máy khác/simulator. Thử Console: `OPERATOR_PASSWORD='…' bash tools/create-operator.sh <email> "<Họ tên>"` (tạo 2 người để thử duyệt khôi phục), `pnpm dev:console` → http://localhost:3001, lần đầu liên kết ứng dụng xác thực.
 - Cài bản mới lên iPhone: build `xcodebuild -workspace ios/Kavor.xcworkspace -scheme Kavor -configuration Release -destination 'generic/platform=iOS' -derivedDataPath ios/build-device -allowProvisioningUpdates build` (trong `apps/mobile`, có `EXPO_PUBLIC_API_URL`, xóa `$TMPDIR/metro-cache` trước) rồi `xcrun devicectl device install app --device 36F8CE4A-8C04-5232-AB9D-0041A426F6A0 ios/build-device/Build/Products/Release-iphoneos/Kavor.app`. Nếu devicectl báo "unavailable": mở khóa iPhone, bấm Tin cậy, cắm cáp dữ liệu.
 - Reset DB local: dùng `bash tools/db-reset.sh` (sau `supabase db reset` Kong giữ IP cũ của Auth → 502).
 - Bản trên iPhone trỏ tới API `http://192.168.1.22:4000/api/v1` (IP LAN của Mac ngày 24/10; trước là 192.168.1.25, 172.17.91.14): Mac phải chạy `pnpm dev:backend`, cùng Wi-Fi. IP Mac đổi thì phải build lại app.
@@ -121,7 +122,7 @@ Làm thêm giờ (OT) đã xong phần code và kiểm thử tự động (25/10
 - Trên bản dev, gõ phím "r" khi không focus ô nhập sẽ làm Metro reload (chỉ ảnh hưởng dev).
 
 ## Bước tiếp theo
-1. Thử OT trên iPhone (đăng ký ngày thường + ngày nghỉ, quản lý/HR duyệt).
+1. Sửa lỗi lệch múi giờ (hàm phân quyền/phạm vi SQL dùng ngày UTC) — xem "Vấn đề/bug còn tồn tại".
 2. Tạm ứng → payroll → bản tin/tài liệu.
 - Push từ máy chủ khi app tắt (APNs/FCM) cần tài khoản Apple Developer trả phí → làm khi mua (xem "Quyết định đã chốt"); lúc đó thay luôn việc E19 hỏi lại 8 giây/lần.
 - Staging: **hoãn tới khi hệ thống hoàn thiện** (quyết định 24/10). Phương án đã phân tích sẵn: Render Singapore cho API + 2 web (~$21/tháng, địa chỉ onrender.com, chưa cần domain), Gmail SMTP như CarRental cho OTP và thư mời, project Supabase `KavorSystem` (Singapore) làm staging, chỉ dùng dữ liệu mẫu; cần đổi các giá trị localhost trong `supabase/config.toml` sang biến môi trường trước khi `config push`.
