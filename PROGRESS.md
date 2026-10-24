@@ -1,5 +1,5 @@
 # PROGRESS
-_Cập nhật: 2026-10-23 19:30 +07 — bởi Claude (Opus 5.5)_
+_Cập nhật: 2026-10-24 — bởi Claude (Opus 5.5)_
 
 ## Mục tiêu đang làm
 Kavor Console tối thiểu đã xong (23/10, xem "Đã xong"). Bước kế tiếp: thông báo (lưu, push APNs/FCM, nhắc nhở).
@@ -50,6 +50,7 @@ Kavor Console tối thiểu đã xong (23/10, xem "Đã xong"). Bước kế ti�
 - Người dùng cần tự đổi publishable key trên Supabase Dashboard (Settings → API Keys: tạo publishable key mới, xóa key `default` cũ).
 
 ## Quyết định đã chốt
+- Chưa mua dịch vụ trả phí nào (hosting, domain, Resend, Supabase Pro, Apple Developer) cho tới khi hệ thống hoàn thiện; tiếp tục dev và test trên máy local + iPhone qua cáp. Staging làm sau — vì người dùng đang trong giai đoạn dev (người dùng quyết định 24/10).
 - Kavor Console (23/10, Claude quyết định kỹ thuật theo ADR 0001): nhân viên Kavor là bảng riêng, đăng nhập riêng, luôn bắt buộc MFA; chỉ thấy số liệu vận hành và danh sách Tenant Admin, không đọc dữ liệu HR. Console không tự thêm/bớt admin ngoài luồng khôi phục; khôi phục cần ghi cách xác minh, người thứ hai duyệt, hết hạn 24 giờ, công ty thấy trong audit. Nhân viên Kavor đầu tiên tạo bằng dòng lệnh.
 - MFA bắt buộc với **mọi** tài khoản dùng web HR/Admin (không chỉ Tenant Admin), tenant không tắt được — vì HR/quản lý/kiểm soát đều xem dữ liệu cá nhân của nhiều người (Claude quyết định kỹ thuật, 23/10).
 - Logo/ảnh bìa: một bucket riêng tư, thư mục theo tenant, chỉ API đọc/ghi; app và web lấy ảnh qua API (iPhone trong LAN không tới được địa chỉ Supabase local, và không lộ đường dẫn tenant khác) (23/10).
@@ -86,15 +87,17 @@ Kavor Console tối thiểu đã xong (23/10, xem "Đã xong"). Bước kế ti�
 - Trên bản dev, gõ phím "r" khi không focus ô nhập sẽ làm Metro reload (chỉ ảnh hưởng dev).
 
 ## Bước tiếp theo
-1. Thông báo (lưu, push APNs/FCM, nhắc nhở) — gồm báo nhân viên khi máy được duyệt/từ chối thay cho polling E19.
-2. Công tháng + giải trình + workflow → nghỉ phép/OT → tạm ứng → payroll → bản tin/tài liệu.
-- Staging (nên làm trước pilot, có thể xen trước bước 1): push migration 23/10 + 24/10 lên project thật, deploy API + 2 web, SMTP, Realtime — iPhone không còn phụ thuộc IP LAN của Mac.
-- Ngoài luồng chính: push migration lên project thật khi có staging (SMTP, deploy API, Realtime); test component cho admin-web; Sentry; số liệu luật cần HR/Payroll SME xác nhận trước pilot.
+1. Công tháng + giải trình + luồng duyệt (kèm thông báo trong app khi đơn được duyệt/từ chối).
+2. Thông báo: lưu, hiển thị trong app, nhắc nhở bằng thông báo cục bộ trên máy, báo nhân viên khi máy được duyệt/từ chối thay cho polling E19. Push từ máy chủ (APNs/FCM) cần tài khoản trả phí → để tới khi mua (xem "Quyết định đã chốt").
+3. Nghỉ phép/OT → tạm ứng → payroll → bản tin/tài liệu.
+- Staging: **hoãn tới khi hệ thống hoàn thiện** (quyết định 24/10). Phương án đã phân tích sẵn: Render Singapore cho API + 2 web (~$21/tháng, địa chỉ onrender.com, chưa cần domain), Gmail SMTP như CarRental cho OTP và thư mời, project Supabase `KavorSystem` (Singapore) làm staging, chỉ dùng dữ liệu mẫu; cần đổi các giá trị localhost trong `supabase/config.toml` sang biến môi trường trước khi `config push`.
+- Ngoài luồng chính: test component cho admin-web; Sentry; số liệu luật cần HR/Payroll SME xác nhận trước pilot; pháp lý chuyển dữ liệu ra nước ngoài (Nghị định 13/2023, dữ liệu ở Singapore) trước khi có dữ liệu thật.
 
 ## Câu hỏi đang chờ người dùng trả lời
 - Không có.
 
 ## Nhật ký
+- 2026-10-24 — Phân tích phương án staging (Render/Fly/Vercel, Supabase, email, domain; so với cách CarRental deploy); người dùng quyết định hoãn staging, chưa mua dịch vụ trả phí.
 - 2026-10-23 — Kavor Console tối thiểu: tạo tenant + mời Tenant Admin, khôi phục chủ sở hữu hai người, audit nền tảng; sửa lỗi chỉ tạo được một nhân viên/công ty và lỗi kích hoạt khi trùng mã giữa công ty.
 - 2026-10-23 — Thử đầu-cuối cài đặt công ty trên iPhone thật (ảnh bìa, liên hệ HR, đồng ý điều khoản v1→v3, khóa/mở khóa); sửa E16 khi bị khóa, lưu liên hệ HR, giao diện màn điều khoản và thông báo liên hệ.
 - 2026-10-23 — Cài đặt công ty + quy định có tầng/phiên bản (thương hiệu Storage, liên hệ HR, lịch lễ, bộ mẫu tenant mới, checklist, điều khoản dữ liệu cá nhân) + MFA TOTP cho web HR/Admin; mobile đọc ảnh bìa/liên hệ/điều khoản từ API.
