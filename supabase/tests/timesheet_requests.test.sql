@@ -5,7 +5,7 @@ create extension if not exists pgtap with schema extensions;
 select plan(24);
 
 select set_config('test.wv', (select v.id::text from public.workflow_versions v join public.workflow_definitions d on d.id = v.workflow_id
-  where d.tenant_id = '10000000-0000-4000-8000-000000000001' and d.request_type = 'explanation' order by v.version_no desc limit 1), true);
+  where d.tenant_id = '10000000-0000-4000-8000-000000000001' and d.request_type = 'explanation' order by v.version_no limit 1), true);
 select ok(current_setting('test.wv') <> '', 'Tenant mẫu có sẵn luồng duyệt giải trình');
 select is((select jsonb_array_length(steps) from public.workflow_versions where id = current_setting('test.wv')::uuid), 2, 'Mặc định: Quản lý → HR');
 

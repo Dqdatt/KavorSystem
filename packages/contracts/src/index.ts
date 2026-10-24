@@ -374,7 +374,7 @@ export type CompanySettingsUpdate = {
 export type BrandingUpload = { contentType: string; dataBase64: string };
 
 /* Quy định nghiệp vụ có tầng/phiên bản. Mô tả trường dùng chung: web dựng form, API kiểm tra. */
-export type RuleKind = "explanation" | "salary_advance" | "reminder" | "leave";
+export type RuleKind = "explanation" | "salary_advance" | "reminder" | "leave" | "overtime";
 export type RuleField = { key: string; label: string; type: "int" | "bool"; min?: number; max?: number; unit?: string };
 export const RULE_KINDS: Record<RuleKind, { label: string; description: string; fields: RuleField[] }> = {
   explanation: {
@@ -407,6 +407,19 @@ export const RULE_KINDS: Record<RuleKind, { label: string; description: string; 
       { key: "carryOverExpiryMonth", label: "Phép tồn dùng đến hết tháng", type: "int", min: 1, max: 12, unit: "của năm sau" },
       { key: "allowNegativeDays", label: "Cho nghỉ trước phép (âm) tối đa", type: "int", min: 0, max: 5, unit: "ngày, cần HR duyệt" },
       { key: "probationAccrues", label: "Nhân viên thử việc được tích lũy phép", type: "bool" },
+    ],
+  },
+  overtime: {
+    label: "Làm thêm giờ",
+    description: "Hệ số trả lương làm thêm (không thấp hơn mức luật: 150% ngày thường, 200% ngày nghỉ hằng tuần, 300% ngày lễ), giới hạn giờ và hạn đăng ký.",
+    fields: [
+      { key: "weekdayRate", label: "Hệ số ngày thường", type: "int", min: 150, max: 400, unit: "%" },
+      { key: "weekendRate", label: "Hệ số ngày nghỉ hằng tuần", type: "int", min: 200, max: 500, unit: "%" },
+      { key: "holidayRate", label: "Hệ số ngày lễ, Tết", type: "int", min: 300, max: 600, unit: "%" },
+      { key: "dailyLimitHours", label: "Tối đa mỗi ngày làm việc", type: "int", min: 0, max: 4, unit: "giờ (ngày nghỉ: tối đa 12 giờ)" },
+      { key: "monthlyLimitHours", label: "Tối đa mỗi tháng", type: "int", min: 0, max: 40, unit: "giờ" },
+      { key: "yearlyLimitHours", label: "Tối đa mỗi năm", type: "int", min: 0, max: 300, unit: "giờ" },
+      { key: "submitAfterDays", label: "Được đăng ký sau khi làm tối đa", type: "int", min: 0, max: 7, unit: "ngày" },
     ],
   },
   reminder: {
@@ -558,6 +571,8 @@ export type TimesheetDay = {
   workday: boolean;
   /* Nghỉ phép đã duyệt: cả ngày → kind "leave"; nửa ngày vẫn là ngày làm việc, nửa còn lại phải chấm công */
   leave: { typeName: string; half: LeaveHalf; paid: boolean; requestNo: string } | null;
+  /* Làm thêm giờ đã duyệt của ngày (cộng các đơn) */
+  overtime: { minutes: number; ratePercent: number; requestNos: string[] } | null;
   canExplain: boolean;
   explainDeadline: string | null;
 };
@@ -568,6 +583,8 @@ export type TimesheetSummary = {
   pendingRequests: number;
   /* Số ngày nghỉ phép đã duyệt trong kỳ (nửa ngày = 0,5); ngày nghỉ có lương đã tính vào credited */
   leaveDays: number;
+  /* Phút làm thêm đã duyệt trong kỳ */
+  overtimeMinutes: number;
 };
 export type ExplanationQuota = { limit: number; used: number; left: number; deadlineDays: number };
 export type MyTimesheet = {
@@ -592,12 +609,15 @@ export type RequestStep = {
   taskId: string; stepNo: number; resolver: StepResolver; assignee: string | null; status: StepStatus;
   dueAt: string | null; actedAt: string | null; actedBy: string | null; comment: string | null;
 };
-export type RequestType = "explanation" | "leave";
-export const REQUEST_TYPES: Record<RequestType, string> = { explanation: "Giải trình công", leave: "Nghỉ phép" };
+export type RequestType = "explanation" | "leave" | "overtime";
+export const REQUEST_TYPES: Record<RequestType, string> = { explanation: "Giải trình công", leave: "Nghỉ phép", overtime: "Làm thêm giờ" };
 export type ExplanationPayload = { kind: ExplanationKind; clockIn: string | null; clockOut: string | null; reason: string };
 export type LeaveHalf = "full" | "am" | "pm";
 export type LeavePayload = { leaveType: string; leaveTypeName: string; from: string; to: string; half: LeaveHalf; days: number; reason: string };
-export type RequestItem = RequestItemBase & ({ type: "explanation"; payload: ExplanationPayload } | { type: "leave"; payload: LeavePayload });
+export type OvertimeDayKind = "workday" | "weekend" | "holiday";
+export const OVERTIME_DAY_KINDS: Record<OvertimeDayKind, string> = { workday: "ngày thường", weekend: "ngày nghỉ", holiday: "ngày lễ" };
+export type OvertimePayload = { date: string; start: string; end: string; hours: number; dayKind: OvertimeDayKind; ratePercent: number; reason: string };
+export type RequestItem = RequestItemBase & ({ type: "explanation"; payload: ExplanationPayload } | { type: "leave"; payload: LeavePayload } | { type: "overtime"; payload: OvertimePayload });
 type RequestItemBase = {
   id: string; no: string; status: RequestStatus; submittedAt: string; completedAt: string | null;
   workDate: string | null;
@@ -611,6 +631,32 @@ type RequestItemBase = {
 };
 export type MyApprovals = { canApprove: boolean; items: RequestItem[] };
 export type ApprovalDecision = { comment?: string | null };
+
+/* ---------- Làm thêm giờ ---------- */
+export type OvertimePolicy = {
+  name: string; versionNo: number;
+  weekdayRate: number; weekendRate: number; holidayRate: number;
+  dailyLimitHours: number; monthlyLimitHours: number; yearlyLimitHours: number; submitAfterDays: number;
+};
+export type OvertimeDay = {
+  date: string; weekday: number; dayKind: OvertimeDayKind; holiday: string | null;
+  /* Giờ ca chính (ngày thường) để không đăng ký trùng */
+  shift: { name: string; start: string; end: string } | null;
+  booked: Array<{ start: string; end: string; status: RequestStatus; no: string }>;
+};
+/* used*: giờ đã duyệt + đang chờ (tính vào giới hạn) */
+export type OvertimeUsage = { month: string; monthHours: number; monthApproved: number; year: number; yearHours: number };
+export type MyOvertime = { today: string; policy: OvertimePolicy | null; days: OvertimeDay[]; usage: OvertimeUsage; approver: string | null };
+export type OvertimeInput = { date: string; start: string; end: string; reason: string };
+export type OvertimeRow = {
+  employee: { id: string; code: string; fullName: string; department: string | null };
+  approvedHours: number; pendingHours: number; yearHours: number; monthLimit: number | null;
+  byKind: Record<OvertimeDayKind, number>;
+};
+export type OvertimeBoard = {
+  month: string; rows: OvertimeRow[]; requests: RequestItem[];
+  metrics: { approvedHours: number; pendingHours: number; employees: number; nearLimit: number };
+};
 
 /* ---------- Nghỉ phép ---------- */
 export type LeaveType = {

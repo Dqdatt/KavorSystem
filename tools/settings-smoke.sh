@@ -99,7 +99,7 @@ check "Xóa ngày nghỉ sắp tới" "$(call POST admin/holidays/$HID/remove "$
 
 echo "— Quy định có tầng/phiên bản"
 r=$(call GET admin/rules "$HR")
-check "Bộ mẫu: 4 quy định áp dụng toàn công ty" "$(echo "$r" | py "sorted((x['kind'], x['assignments'][0]['scopeType']) for x in d)")" "[('explanation', 'tenant'), ('leave', 'tenant'), ('reminder', 'tenant'), ('salary_advance', 'tenant')]"
+check "Bộ mẫu: 5 quy định áp dụng toàn công ty" "$(echo "$r" | py "sorted((x['kind'], x['assignments'][0]['scopeType']) for x in d)")" "[('explanation', 'tenant'), ('leave', 'tenant'), ('overtime', 'tenant'), ('reminder', 'tenant'), ('salary_advance', 'tenant')]"
 EXP=$(echo "$r" | py "[x['id'] for x in d if x['kind']=='explanation'][0]")
 ADV=$(echo "$r" | py "[x['id'] for x in d if x['kind']=='salary_advance'][0]")
 check "Nhân viên tra quy định: 3 lượt giải trình, nguồn công ty" "$(call GET me/policies "$EMP" | py "(d['rules']['explanation']['config']['monthlyLimit'], d['rules']['explanation']['source']['scopeType'], d['rules']['salary_advance']['config']['maxPercent'])")" "(3, 'tenant', 30)"

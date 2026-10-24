@@ -7,7 +7,7 @@ import { Illus } from "../illus";
 import { Avatar, Balanced, Btn, BtnRow, Card, Chip, Chips, Empty, InfoRow, LinkBtn, Seg, St, T, Tag, Timeline } from "../ui";
 import { Foot, TabHead, TopBar, type ScreenSpec } from "../screen";
 import { TYPE_ICON, type Approval, type MyReq } from "../data";
-import { EXPLANATION_KINDS, STEP_RESOLVERS, type RequestItem } from "@kavor/contracts";
+import { EXPLANATION_KINDS, OVERTIME_DAY_KINDS, STEP_RESOLVERS, type RequestItem } from "@kavor/contracts";
 import { ACT, S, dayCount, go, leaveRange, reqSub, stamp } from "../store";
 
 /* Luồng duyệt của đơn thật: "Đã gửi" + từng bước theo phiên bản workflow lúc gửi */
@@ -28,6 +28,12 @@ function ReqRows({ r, approver }: { r: RequestItem; approver?: boolean }) {
   if (r.type === "leave") return <>
     <InfoRow k="Loại nghỉ" v={r.payload.leaveTypeName} strong />
     <InfoRow k="Thời gian" v={`${leaveRange(r.payload)} · ${dayCount(r.payload.days)} làm việc`} strong />
+  </>;
+  if (r.type === "overtime") return <>
+    {approver ? <InfoRow k="Loại đơn" v="Làm thêm giờ" strong /> : null}
+    <InfoRow k="Ngày" v={`${reqSub(r).split(" · ")[0]} · ${OVERTIME_DAY_KINDS[r.payload.dayKind]}`} strong />
+    <InfoRow k="Giờ làm thêm" v={`${r.payload.start}–${r.payload.end} · ${r.payload.hours.toLocaleString("vi-VN")} giờ`} strong />
+    <InfoRow k="Hệ số" v={`${r.payload.ratePercent}%`} strong />
   </>;
   return <>
     {approver ? <InfoRow k="Loại đơn" v={`Giải trình · ${EXPLANATION_KINDS[r.payload.kind].toLowerCase()}`} strong /> : null}
@@ -188,8 +194,8 @@ function remoteReqDetail(r: RequestItem): ScreenSpec {
     head: <TopBar title={r.no} />,
     body: [
       <View key="c" style={{ alignItems: "center", gap: 6, paddingTop: 6 }}>
-        <Gi n={TYPE_ICON[r.type === "leave" ? "leave" : "explain"]} s={44} w={1.5} />
-        <T style={{ color: C.ink2, fontFamily: F.medium, textAlign: "center" }}>{r.type === "leave" ? r.payload.leaveTypeName : "Giải trình công"}</T>
+        <Gi n={TYPE_ICON[r.type === "leave" ? "leave" : r.type === "overtime" ? "ot" : "explain"]} s={44} w={1.5} />
+        <T style={{ color: C.ink2, fontFamily: F.medium, textAlign: "center" }}>{r.type === "leave" ? r.payload.leaveTypeName : r.type === "overtime" ? "Làm thêm giờ" : "Giải trình công"}</T>
         <Balanced style={{ fontSize: 20, fontFamily: F.bold, textAlign: "center" }}>{reqSub(r)}</Balanced>
         <Tag st={r.status} />
       </View>,

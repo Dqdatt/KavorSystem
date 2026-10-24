@@ -8,13 +8,13 @@ import { conflict, forbidden, invalid, notFound, type AdminContext } from "./con
 import { addDays, date, nullableText, number, oneOf, req, text, time, uuid, type Body } from "./validate.js";
 
 const SCOPES: readonly PolicyScopeType[] = ["tenant", "legal_entity", "branch", "department", "employee"];
-const KINDS: readonly PolicyKind[] = ["shift", "work_location", "explanation", "salary_advance", "reminder", "leave"];
+const KINDS: readonly PolicyKind[] = ["shift", "work_location", "explanation", "salary_advance", "reminder", "leave", "overtime"];
 /* Ca/địa điểm thuộc quyền xếp lịch; quy định nghiệp vụ (giải trình, tạm ứng, nhắc nhở, phép năm) thuộc quyền quản lý quy định */
 const managePerm = (kind: PolicyKind) => (kind === "shift" || kind === "work_location" ? "schedule.manage" : "policy.manage");
 const TARGET: Record<PolicyKind, [string, string]> = {
   shift: ["shift_definitions", "ca"], work_location: ["work_locations", "địa điểm"],
   explanation: ["policy_definitions", "quy định"], salary_advance: ["policy_definitions", "quy định"], reminder: ["policy_definitions", "quy định"],
-  leave: ["policy_definitions", "quy định"],
+  leave: ["policy_definitions", "quy định"], overtime: ["policy_definitions", "quy định"],
 };
 const CODE = /^[A-Za-z0-9._-]{1,20}$/;
 

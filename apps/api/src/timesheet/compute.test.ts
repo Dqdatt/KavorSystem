@@ -83,3 +83,12 @@ test("công chuẩn chỉ đếm ngày làm việc, kể cả ngày chưa tới 
   assert.deepEqual(days.map((d) => d.kind), ["today", "future", "future", "future"]);
   assert.equal(s.standard, 2); // T6 23 + T2 26; T7, CN không tính
 });
+
+test("làm thêm giờ đã duyệt: hiện trên ngày (kể cả ngày nghỉ) và cộng vào tổng kỳ", () => {
+  const ot = { minutes: 120, ratePercent: 200, requestNos: ["OT-0001"] };
+  const off = day("2026-10-18", [["in", "08:00"], ["out", "10:00"]], { overtime: ot });
+  assert.equal(off.kind, "off");
+  assert.deepEqual(off.overtime, ot);
+  const s = summarize([{ ...off, canExplain: false, explainDeadline: null }, { ...day("2026-10-19", [["in", "08:00"], ["out", "17:00"]], { overtime: { ...ot, minutes: 90, ratePercent: 150 } }), canExplain: false, explainDeadline: null }]);
+  assert.equal(s.overtimeMinutes, 210);
+});

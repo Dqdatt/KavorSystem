@@ -4,7 +4,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import type { EmployeeTimesheet, RequestItem, TimesheetBoard, TimesheetDay, TimesheetRow } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
-import { Drawer, Empty, Field, Icon, LoadError, Modal, Person, Status, dur, fmtDate, fmtDateTime, num, useAction, useMe } from "../../_ui/kit";
+import { Drawer, Empty, Field, Icon, LoadError, Modal, Person, Status, dur, fmtDate, fmtDateTime, num, tenantToday, useAction, useMe } from "../../_ui/kit";
 import { ReasonModal } from "../../_ui/reason-modal";
 import { REQUEST_STATUS, RequestModal, requestSummary } from "../../_ui/request";
 
@@ -88,7 +88,9 @@ function LockModal({ b, onClose, onDone }: { b: TimesheetBoard; onClose: () => v
   const [note, setNote] = useState("");
   const { busy, run } = useAction();
   const m = b.metrics;
-  const ended = b.period.end < new Date().toISOString().slice(0, 10);
+  const me = useMe();
+  /* Theo ngày giờ công ty (không theo UTC của trình duyệt) */
+  const ended = b.period.end < tenantToday(me.tenant.timezone);
   return (
     <Modal title={`Khóa kỳ công ${monthLabel(b.period.month).toLowerCase()}?`} sub="Nhân viên và quản lý sẽ không thể gửi thêm điều chỉnh." onClose={onClose}
       foot={<><button className="btn" onClick={onClose}>Để sau</button><button className="btn danger" disabled={!!busy} onClick={() => run("lock", async () => { onDone(await call<TimesheetBoard>("POST", "timesheets/lock", { month: b.period.month, reason: note || null })); onClose(); }, "Kỳ công đã khóa")}>{busy ? "Đang khóa…" : "Vẫn khóa kỳ"}</button></>}>
@@ -144,7 +146,7 @@ function DayRow({ d, onRequest }: { d: TimesheetDay; onRequest: () => void }) {
       <td>{d.kind === "off" && !d.clockIn ? "" : t(d.clockIn, d.rawIn)}{d.lateMinutes ? <small className="text-red"> +{d.lateMinutes}′</small> : null}</td>
       <td>{d.kind === "off" && !d.clockOut ? "" : t(d.clockOut, d.rawOut)}{d.earlyMinutes ? <small className="text-red"> −{d.earlyMinutes}′</small> : null}</td>
       <td className="num">{d.workedMinutes ? `${Math.floor(d.workedMinutes / 60)}:${String(d.workedMinutes % 60).padStart(2, "0")}` : "—"}</td>
-      <td>{note}</td>
+      <td>{note}{d.overtime ? <span className="source-tag" title={d.overtime.requestNos.join(", ")}>OT {(d.overtime.minutes / 60).toLocaleString("vi-VN")} giờ · {d.overtime.ratePercent}%</span> : null}</td>
     </tr>
   );
 }

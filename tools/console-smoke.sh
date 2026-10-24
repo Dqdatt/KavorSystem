@@ -56,7 +56,7 @@ for n in 1 2; do
   B="{\"employeeCode\":\"AP00$n\",\"fullName\":\"Nhân viên $n\",\"workEmail\":\"nv$n@anphu.test\",\"hireDate\":\"$TODAY\",\"employmentType\":\"official\",\"departmentId\":\"$DEP\",\"positionId\":\"$POS\"}"
   check "Tạo nhân viên thứ $n trên web (trước đây nhân viên thứ hai bị chặn nhầm)" "$(call POST admin/employees "$LAN" "$B" | field data.code)" "AP00$n"
 done
-check "Bộ mẫu có ca HC + 4 quy định (giải trình, tạm ứng, nhắc nhở, phép năm)" "$(call GET admin/rules "$LAN" | py "len(d)") $(call GET admin/shifts "$LAN" | py "d[0]['code']")" "4 HC"
+check "Bộ mẫu có ca HC + 5 quy định (giải trình, tạm ứng, nhắc nhở, phép năm, làm thêm giờ)" "$(call GET admin/rules "$LAN" | py "len(d)") $(call GET admin/shifts "$LAN" | py "d[0]['code']")" "5 HC"
 check "Tenant mới không thấy dữ liệu tenant khác" "$(status GET admin/employees/60000000-0000-4000-8000-000000000142 "$LAN")" 404
 r=$(call GET console/tenants/$TID "$A")
 check "Console thấy admin đã kích hoạt + đã có MFA" "$(echo "$r" | py "(d['tenantAdmins'][0]['account'], d['tenantAdmins'][0]['mfaEnrolled'], d['admins']['active'], d['employees'])")" "('active', True, 1, 3)"

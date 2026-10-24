@@ -5,7 +5,7 @@
      của mình. Chuyển bước nguyên tử bằng decide_approval; duyệt hết thì tạo điều chỉnh giờ công. */
 import {
   EXPLANATION_KINDS, REQUEST_TYPES, STEP_RESOLVERS,
-  type ExplanationKind, type ExplanationPayload, type LeavePayload, type MyApprovals, type MyTimesheet, type RequestItem, type RequestQueue, type RequestStatus, type RequestStep, type StepResolver, type StepStatus,
+  type ExplanationKind, type ExplanationPayload, type LeavePayload, type MyApprovals, type OvertimePayload, type MyTimesheet, type RequestItem, type RequestQueue, type RequestStatus, type RequestStep, type StepResolver, type StepStatus,
   type WorkflowDef, type WorkflowStepInput,
 } from "@kavor/contracts";
 import type { EmployeeRow } from "../auth/auth.service.js";
@@ -278,7 +278,7 @@ export class RequestsService {
     const actor = new Map(((actors ?? []) as Array<{ user_id: string; full_name: string }>).map((e) => [e.user_id, e.full_name]));
     const dept = new Map<string, string>();
     for (const d of (deps ?? []) as unknown as Array<{ employee_id: string; effective_to: string | null; departments: { name: string } | null }>) if (!d.effective_to && !dept.has(d.employee_id)) dept.set(d.employee_id, d.departments?.name ?? "");
-    const ver = new Map(((vs ?? []) as Array<{ request_id: string; version_no: number; payload: ExplanationPayload | LeavePayload; policy_snapshot: { day?: { rawIn: string | null; rawOut: string | null; shift: { name: string; start: string; end: string } | null } } }>)
+    const ver = new Map(((vs ?? []) as Array<{ request_id: string; version_no: number; payload: ExplanationPayload | LeavePayload | OvertimePayload; policy_snapshot: { day?: { rawIn: string | null; rawOut: string | null; shift: { name: string; start: string; end: string } | null } } }>)
       .map((x) => [`${x.request_id}|${x.version_no}`, x]));
     const hr = hrPre ?? (tasks.some((t) => t.resolver === "hr" && t.status === "pending") ? await this.hrScope(db, v) : new Set<string>());
     const order = new Map(ids.map((id, i) => [id, i]));
@@ -295,6 +295,8 @@ export class RequestsService {
       const mine = rt.find((t) => this.actionable(v, t, r.requester_employee_id, hr));
       const typed = r.request_type === "leave"
         ? { type: "leave" as const, payload: (x?.payload ?? { leaveType: "", leaveTypeName: "Nghỉ phép", from: r.work_date ?? "", to: r.work_date ?? "", half: "full", days: 0, reason: "" }) as LeavePayload }
+        : r.request_type === "overtime"
+        ? { type: "overtime" as const, payload: (x?.payload ?? { date: r.work_date ?? "", start: "", end: "", hours: 0, dayKind: "workday", ratePercent: 150, reason: "" }) as OvertimePayload }
         : { type: "explanation" as const, payload: (x?.payload ?? { kind: "other", clockIn: null, clockOut: null, reason: "" }) as ExplanationPayload };
       return {
         id: r.id, no: r.request_no, ...typed, status: r.status, submittedAt: r.submitted_at, completedAt: r.completed_at, workDate: r.work_date,

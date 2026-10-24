@@ -73,7 +73,8 @@ function tsModel(d: TimesheetDay, filtered?: boolean): RowModel {
     : req && req.status === "pending" ? ["Giải trình đang chờ duyệt", "warn"]
     : d.issue === "missing_in" ? ["Thiếu giờ vào", "bad"] : d.issue === "missing_out" ? ["Thiếu giờ ra", "bad"] : d.issue === "absent" ? ["Không chấm công", "bad"]
     : d.issue === "late" || d.issue === "late_early" ? [`Muộn ${d.lateMinutes} phút`, "bad"] : d.issue === "early" ? [`Về sớm ${d.earlyMinutes} phút`, "bad"]
-    : d.leave && d.kind !== "leave" ? [`${d.leave.typeName} buổi ${d.leave.half === "am" ? "sáng" : "chiều"}`, "mute"] : null;
+    : d.leave && d.kind !== "leave" ? [`${d.leave.typeName} buổi ${d.leave.half === "am" ? "sáng" : "chiều"}`, "mute"]
+    : d.overtime ? [`Làm thêm ${String(Math.round(d.overtime.minutes / 6) / 10).replace(".", ",")} giờ · ${d.overtime.ratePercent}%`, "ok"] : null;
   return {
     dayNum: d.date.slice(8, 10), wd: WD_ISO[d.weekday]!, today: d.kind === "today", leave: d.kind === "holiday" || d.kind === "leave",
     leaveLabel: d.kind === "leave" ? d.leave?.typeName ?? "Nghỉ phép" : d.holidayName ?? "Nghỉ lễ",

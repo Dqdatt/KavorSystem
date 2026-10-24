@@ -35,6 +35,8 @@ export type DayAdjustment = { clockIn: string | null; clockOut: string | null };
 export type DayRequest = { id: string; no: string; status: RequestStatus };
 /* Nghỉ phép đã duyệt của ngày */
 export type DayLeave = { typeName: string; half: LeaveHalf; paid: boolean; requestNo: string };
+/* Làm thêm giờ đã duyệt của ngày */
+export type DayOvertime = { minutes: number; ratePercent: number; requestNos: string[] };
 export type DayInput = {
   date: string;
   today: string;
@@ -45,6 +47,7 @@ export type DayInput = {
   adjustment: DayAdjustment | null;
   request: DayRequest | null;
   leave?: DayLeave | null;
+  overtime?: DayOvertime | null;
 };
 
 export function computeDay(i: DayInput): Omit<TimesheetDay, "canExplain" | "explainDeadline"> {
@@ -60,7 +63,7 @@ export function computeDay(i: DayInput): Omit<TimesheetDay, "canExplain" | "expl
     date: i.date, weekday, holidayName: i.holiday, shift: shift ? { name: shift.name, start: shift.start, end: shift.end } : null,
     clockIn: inMin == null ? null : hm(inMin), clockOut: outMin == null ? null : hm(outMin),
     rawIn: rawIn == null ? null : hm(rawIn), rawOut: rawOut == null ? null : hm(rawOut), adjusted: !!i.adjustment,
-    request: i.request,
+    request: i.request, overtime: i.overtime ?? null,
   };
   const workday = !!shift && shift.workDays.includes(weekday) && !i.holiday;
   const leave = workday ? i.leave ?? null : null;
@@ -120,6 +123,7 @@ export function summarize(days: TimesheetDay[]): TimesheetSummary {
     missingDays: work.filter((d) => (d.issue === "missing_in" || d.issue === "missing_out" || d.issue === "absent") && open(d)).length,
     pendingRequests: days.filter((d) => d.request?.status === "pending").length,
     leaveDays: days.reduce((n, d) => n + (d.leave ? (d.leave.half === "full" ? 1 : 0.5) : 0), 0),
+    overtimeMinutes: days.reduce((n, d) => n + (d.overtime?.minutes ?? 0), 0),
   };
 }
 

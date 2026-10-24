@@ -76,7 +76,8 @@ export class TimesheetAdmin {
     const reason = nullableText(b, "reason", 500) ?? null;
     const clock = await this.timesheets.tenantClock(ctx.db, ctx.tenantId);
     const p = periodOf(month, clock.periodStartDay);
-    if (p.end > clock.today) throw conflict(`Kỳ công ${month} chưa kết thúc (tới ${p.end}).`);
+    /* Ngày cuối kỳ chưa qua thì chưa khóa (nhân viên vẫn chấm công, gửi giải trình trong ngày) */
+    if (p.end >= clock.today) throw conflict(`Kỳ công ${month} chưa kết thúc (tới hết ngày ${p.end}).`);
     if (await this.timesheets.activeLock(ctx.db, ctx.tenantId, p.start)) throw conflict("Kỳ công này đã khóa.");
     const { data, error } = await ctx.db.from("employees").select(EMP_LITE).eq("tenant_id", ctx.tenantId);
     if (error) throw error;

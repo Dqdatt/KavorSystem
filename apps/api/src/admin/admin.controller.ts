@@ -16,6 +16,7 @@ import type { RequestsService } from "../timesheet/requests.service.js";
 import { viewerOf } from "../timesheet/requests.service.js";
 import type { NotificationsService } from "../notifications/notifications.service.js";
 import type { LeaveService } from "../leave/leave.service.js";
+import type { OvertimeService } from "../overtime/overtime.service.js";
 import type { TimesheetAdmin } from "../timesheet/timesheet-admin.service.js";
 import { date, nullableText, oneOf, type Body as Json } from "./validate.js";
 
@@ -23,7 +24,7 @@ export const ADMIN_SERVICES = Symbol("ADMIN_SERVICES");
 export type AdminServices = {
   employees: EmployeesAdmin; attendance: AttendanceAdmin; schedule: ScheduleAdmin;
   settings: SettingsAdmin; rules: RulesAdmin; mfa: MfaAdmin; company: CompanyService;
-  timesheets: TimesheetAdmin; requests: RequestsService; notifications: NotificationsService; leave: LeaveService;
+  timesheets: TimesheetAdmin; requests: RequestsService; notifications: NotificationsService; leave: LeaveService; overtime: OvertimeService;
 };
 
 function bearer(header?: string): string {
@@ -211,6 +212,10 @@ export class AdminController {
   leaveEmployee(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("employeeId") id: string, @Query("year") year?: string) { return this.run(r, a, (s, c) => s.leave.employee(c, id, year)); }
   @Post("leave/:employeeId/adjust") @HttpCode(200)
   leaveAdjust(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("employeeId") id: string, @Body() b: Json) { return this.run(r, a, (s, c) => s.leave.adjust(c, id, b)); }
+
+  /* Làm thêm giờ: tổng hợp theo tháng trong phạm vi */
+  @Get("overtime")
+  overtimeBoard(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Query("month") month?: string) { return this.run(r, a, (s, c) => s.overtime.board(c, month)); }
 
   /* Thông báo của chính người đăng nhập web (hồ sơ nhân viên gắn với tài khoản) */
   @Get("notifications")

@@ -2,7 +2,7 @@
    Bật khi build có EXPO_PUBLIC_API_URL (và không ở chế độ QA chụp ảnh dùng dữ liệu mẫu). */
 import type {
   AttendanceEvent, AttendanceEventRequest, AttendanceToday, DeviceInfo, DeviceRegisterRequest,
-  ActivationStartRequest, ActivationVerifyRequest, ApiEnvelope, AuthResult, BrandingKind, ExplanationInput, LoginRequest, MeProfile, LeaveInput, MyApprovals, MyCompany, MyLeave, MyTimesheet, NotificationFeed, RequestItem,
+  ActivationStartRequest, ActivationVerifyRequest, ApiEnvelope, AuthResult, BrandingKind, ExplanationInput, LoginRequest, MeProfile, LeaveInput, MyApprovals, MyCompany, MyLeave, MyOvertime, MyTimesheet, NotificationFeed, OvertimeInput, RequestItem,
   OtpSentResponse, PasswordForgotRequest, PasswordResetRequest, PrivacyConsentRequest, RefreshRequest,
 } from "@kavor/contracts";
 import { QA_ENABLED } from "../qa";
@@ -88,6 +88,11 @@ export const timesheetApi = {
 export const leaveApi = {
   get: async () => call<MyLeave>("GET", "/me/leave", undefined, await token()),
   create: async (b: LeaveInput) => call<RequestItem>("POST", "/me/requests/leave", b, await token()),
+};
+
+export const overtimeApi = {
+  get: async () => call<MyOvertime>("GET", "/me/overtime", undefined, await token()),
+  create: async (b: OvertimeInput) => call<RequestItem>("POST", "/me/requests/overtime", b, await token()),
 };
 
 export const notificationsApi = {

@@ -9,12 +9,12 @@ import {
 import type { IllusKind } from "./illus";
 import { api, type Snapshot } from "./api";
 import { authenticate, biometricLabel, clearQuickLogin, clearSession, loadBioPrefs, loadSession, loadSupport, quickLoginEmployee, quickRefreshToken, saveBioPrefs, saveSession, saveSupport, type BioPrefs } from "./auth";
-import { ApiError, REMOTE, attendanceApi, authApi, companyApi, isNetworkError, leaveApi, notificationsApi, setTokenSource, timesheetApi } from "./api/http";
+import { ApiError, REMOTE, attendanceApi, authApi, companyApi, isNetworkError, leaveApi, notificationsApi, overtimeApi, setTokenSource, timesheetApi } from "./api/http";
 import { clearExplainReminders, onReminderTap, scheduleExplainReminders } from "./notify";
 import { MY_REQ_INIT, SUPPORT_SAMPLE } from "./api/mock-data";
 import {
   EXPLANATION_KINDS, distanceMeters, passwordProblems,
-  type AttendanceEvent, type AttendanceToday, type AuthResult, type ExplanationKind, type AppNotification, type MyCompany, type MyLeave, type MyTimesheet, type NotificationFeed, type RequestItem, type SupportContact, type TimesheetDay, type WorkLocation,
+  type AttendanceEvent, type AttendanceToday, type AuthResult, type ExplanationKind, type AppNotification, type MyCompany, type MyLeave, type MyOvertime, type MyTimesheet, type NotificationFeed, type RequestItem, type SupportContact, type TimesheetDay, type WorkLocation,
 } from "@kavor/contracts";
 import { currentFix, deviceRegistration, deviceSummary, enqueue, flushQueue, installationId, LocationError, newEventId, quietFix, readQueue, type Fix } from "./attendance";
 
@@ -55,6 +55,24 @@ const fromSnapshot = (d: Snapshot) => ({
   payslips: d.payslips,
   news: d.news,
 });
+
+/* Gửi đơn OT thật: máy chủ kiểm tra trùng ca/đơn khác, giới hạn ngày/tháng/năm và chụp hệ số */
+function otSubmitRemote() {
+  const o = S.ot, d = S.otDay;
+  if (!d) { toast("Chọn ngày làm thêm"); return; }
+  if (o.reason.trim().length < 3) { toast("Ghi công việc làm thêm"); return; }
+  if (!needNet(() => ACT.otSubmit())) return;
+  remote("otSubmit", async () => {
+    const r = await overtimeApi.create({ date: d, start: hm(o.from * 60), end: hm(o.to * 60), reason: o.reason.trim() });
+    const step = r.steps.find((x) => x.status === "pending");
+    S.ot = { ...S.ot, reason: "" };
+    await Promise.all([loadOvertime(), loadRequests()]);
+    const p = r.type === "overtime" ? r.payload : null;
+    S.done = { illus: "ot", title: "Đã gửi đăng ký làm thêm", text: `${dec(p?.hours ?? 0)} giờ ngày ${ddmm(d)} (hệ số ${p?.ratePercent ?? "—"}%) đang chờ ${step?.resolver === "hr" ? "Phòng Nhân sự" : step?.assignee ?? "người duyệt"} duyệt.`,
+      rows: [["Mã đơn", r.no]], primary: ["Xem đơn của tôi", "requests"] };
+    S.stack = ["done"]; render("push");
+  });
+}
 
 /* Gửi đơn nghỉ thật: máy chủ tính lại số ngày, kiểm tra số dư/trùng ngày, giữ chỗ phép và chọn luồng duyệt */
 function lvSubmitRemote() {
@@ -136,6 +154,9 @@ const makeState = () => ({
   /* Nghỉ phép (bản dùng API): sổ phép, loại nghỉ, lịch làm việc; lvr = lựa chọn trên form tạo đơn (ngày dạng YYYY-MM-DD) */
   lvData: null as MyLeave | null,
   lvr: { type: null as string | null, from: null as string | null, to: null as string | null },
+  /* Làm thêm giờ (bản dùng API): ngày chọn trên form; giờ từ/đến dùng chung S.ot.from/to (phút) */
+  otData: null as MyOvertime | null,
+  otDay: null as string | null,
   /* Thông báo trong app (bản dùng API) */
   notifs: null as NotificationFeed | null,
   /* Thông báo chưa đọc lúc mở màn Thông báo: vẫn hiện chấm xanh trong lần xem đó dù đã đánh dấu đọc trên máy chủ */
@@ -220,8 +241,10 @@ const initialsOf = (name: string) => { const p = name.trim().split(/\s+/); retur
 export const leaveRange = (p: { from: string; to: string; half: string }) => `${ddmm(p.from)}${p.to !== p.from ? `–${ddmm(p.to)}` : ""}${p.half === "am" ? " (sáng)" : p.half === "pm" ? " (chiều)" : ""}`;
 export const dayCount = (n: number) => `${dec(n)} ngày`;
 export const reqSub = (r: RequestItem) => r.type === "leave" ? `${leaveRange(r.payload)} · ${dayCount(r.payload.days)}`
+  : r.type === "overtime" ? `${WD_ISO[isoWeekday(r.payload.date)]} ${ddmm(r.payload.date)} · ${r.payload.start}–${r.payload.end} · ${dec(r.payload.hours)} giờ`
   : `${r.workDate ? `${WD_ISO[isoWeekday(r.workDate)]} ${ddmm(r.workDate)} · ` : ""}${EXPLANATION_KINDS[r.payload.kind].toLowerCase()}`;
-const reqTitle = (r: RequestItem) => r.type === "leave" ? r.payload.leaveTypeName : "Giải trình công";
+const reqTitle = (r: RequestItem) => r.type === "leave" ? r.payload.leaveTypeName : r.type === "overtime" ? "Làm thêm giờ" : "Giải trình công";
+const reqKind = (r: RequestItem) => (r.type === "leave" ? "leave" as const : r.type === "overtime" ? "ot" as const : "explain" as const);
 export const tsDay = (date: string) => S.ts?.days.find((d) => d.date === date);
 /* Ngày còn giải trình được có hạn gần nhất (bản dùng API) — cho thông báo ở Trang chủ và menu tạo đơn */
 export function explainDue(): { date: string; deadline: string; daysLeft: number; issue: string } | null {
@@ -256,14 +279,14 @@ export async function loadRequests() {
   try {
     const [mine, ap] = await Promise.all([timesheetApi.mine(), timesheetApi.approvals()]);
     S.reqItems = new Map([...mine, ...ap.items].map((r) => [r.no, r]));
-    /* Đơn giải trình + nghỉ phép lấy từ máy chủ; OT/tạm ứng/sửa hồ sơ chưa có máy chủ nên giữ đơn tạo trong phiên */
-    const local = S.myReq.filter((r) => r.type !== "explain" && r.type !== "leave" && !MOCK_REQ_IDS.has(r.id));
+    /* Đơn giải trình, nghỉ phép, OT lấy từ máy chủ; tạm ứng/sửa hồ sơ chưa có máy chủ nên giữ đơn tạo trong phiên */
+    const local = S.myReq.filter((r) => r.type !== "explain" && r.type !== "leave" && r.type !== "ot" && !MOCK_REQ_IDS.has(r.id));
     S.myReq = [...mine.map((r) => ({
-      id: r.no, type: r.type === "leave" ? "leave" as const : "explain" as const, title: reqTitle(r), sub: reqSub(r), status: r.status, created: stamp(r.submittedAt), reason: r.payload.reason,
+      id: r.no, type: reqKind(r), title: reqTitle(r), sub: reqSub(r), status: r.status, created: stamp(r.submittedAt), reason: r.payload.reason,
       note: r.steps.find((x) => x.status === "rejected")?.comment ?? undefined,
     })), ...local];
     S.approvals = ap.items.map((r) => ({
-      id: r.no, who: r.requester.fullName, ini: initialsOf(r.requester.fullName), role: r.requester.department ?? "", type: r.type === "leave" ? "leave" as const : "explain" as const, title: reqTitle(r),
+      id: r.no, who: r.requester.fullName, ini: initialsOf(r.requester.fullName), role: r.requester.department ?? "", type: reqKind(r), title: reqTitle(r),
       sub: reqSub(r), reason: r.payload.reason, created: stamp(r.submittedAt),
       ctx: r.type === "explanation" && r.day ? `Chấm công gốc: vào ${r.day.rawIn ?? "--:--"} · ra ${r.day.rawOut ?? "--:--"}` : "",
     }));
@@ -287,7 +310,24 @@ export async function loadLeave(manual = false) {
     else if (manual) toast(e instanceof ApiError ? e.message : "Chưa tải được sổ phép.");
   }
 }
-const refreshWork = () => { void loadTimesheet(S.ts?.period.month); void loadRequests(); void loadNotifications(); void loadLeave(); };
+/* Mặc định form OT: ngày đầu tiên còn đăng ký được (từ hôm nay), bắt đầu ngay sau ca chính, 2 giờ */
+function otDefaults(d?: string) {
+  const days = S.otData?.days ?? [];
+  const day = days.find((x) => x.date === d) ?? days.find((x) => x.date >= (S.otData?.today ?? "")) ?? days[0];
+  if (!day) return;
+  S.otDay = day.date;
+  const start = day.shift ? Math.ceil(toMin(day.shift.end) / 30) * 30 : 8 * 60;
+  S.ot.from = start; S.ot.to = Math.min(start + 120, 23 * 60 + 30);
+}
+export async function loadOvertime(manual = false) {
+  if (!REMOTE || !isLoggedIn() || S.stack[0] === "consent") return;
+  try { S.otData = await overtimeApi.get(); if (!S.otDay || !S.otData.days.some((x) => x.date === S.otDay)) otDefaults(); emit(); }
+  catch (e) {
+    if (e instanceof ApiError && e.status === 401) showErr("session");
+    else if (manual) toast(e instanceof ApiError ? e.message : "Chưa tải được dữ liệu làm thêm.");
+  }
+}
+const refreshWork = () => { void loadTimesheet(S.ts?.period.month); void loadRequests(); void loadNotifications(); void loadLeave(); void loadOvertime(); };
 export const unreadCount = () => (REMOTE ? S.notifs?.unread ?? 0 : 2);
 
 /* Bấm nhắc hạn giải trình → mở form giải trình ngày đó (đăng nhập xong mới mở; khi app vừa khởi động thì đợi khôi phục phiên) */
@@ -356,6 +396,7 @@ function openNotifications() {
 export function go(r: Route) {
   if (r === "notifications" && REMOTE) openNotifications();
   if ((r === "leave" || r === "leaveNew") && REMOTE) void loadLeave(true);
+  if (r === "ot" && REMOTE) void loadOvertime(true);
   closeSheet();
   if (S.net === "offline" && NEEDNET[r]) { S.err = { kind: "offline", retry: r, over: { t: "Cần kết nối để xem", p: "Phiếu lương và tạm ứng không lưu trên máy vì lý do bảo mật. Kết nối mạng rồi thử lại." } }; S.stack.push("err"); render("push"); return; }
   if (GATED[r] && Date.now() > S.pinUntil) { openPin(() => { S.stack.push(r); render("push"); }); return; }
@@ -1023,8 +1064,11 @@ export const ACT = {
   },
   bulkReject: () => { if (S.sel.size === 1) { ACT.rejectAsk([...S.sel][0]!); return; } toast("Từ chối hàng loạt cần một lý do chung (R08) · chưa dựng trong prototype"); },
   otDate: (a: number) => { S.ot.date = a; emit(); },
+  /* Bản dùng API: chọn ngày (YYYY-MM-DD) → đặt lại giờ mặc định theo ca của ngày đó */
+  otDay: (d: string) => { otDefaults(d); emit(); },
   otT: (k: "from" | "to", v: number) => { S.ot[k] = Math.max(0, Math.min(1440, S.ot[k] + v)); emit(); },
   otSubmit: () => {
+    if (REMOTE) { otSubmitRemote(); return; }
     if (!needNet(() => ACT.otSubmit())) return; const o = S.ot, h = (o.to - o.from) / 60;
     const req: MyReq = { id: "OT-" + pad(o.date) + "10", type: "ot", title: "Làm thêm giờ", sub: `${WD[wdOct(o.date)]} ${pad(o.date)}/10 · ${hm(o.from * 60)}–${hm(o.to * 60)} · ${dec(h)} giờ`, status: "pending", created: "16/10 " + hm(simNow()), reason: o.reason || "—" };
     S.myReq.unshift(req); sync(api.submitRequest(req));
@@ -1100,7 +1144,7 @@ export function quickItems(): Array<[string, "tap" | "plane" | "clock" | "moon" 
     ["clock", "tap", "Chấm công", phase() === "out" ? "Giữ để ra ca" : phase() === "done" ? "Đã xong ca hôm nay" : "Giữ để vào ca"],
     ["leaveNew", "plane", "Xin nghỉ phép", `Còn ${dec(lvAvail())} ngày phép`],
     ["explain", "clock", "Giải trình công", REMOTE ? (S.ts?.explanation ? `Còn ${explainLeft()}/${S.explainLimit} lượt${explainDue() ? ` · hạn ${ddmm(explainDue()!.deadline)}` : ""}` : "Theo bảng công") : `Còn ${explainLeft()}/3 lượt · hạn 22/10`],
-    ["ot", "moon", "Làm thêm giờ", "Đăng ký OT"],
+    ["ot", "moon", "Làm thêm giờ", REMOTE && S.otData?.policy ? `Tháng này ${dec(S.otData.usage.monthHours)}/${dec(S.otData.policy.monthlyLimitHours)} giờ` : "Đăng ký OT"],
     ["advance", "cash", "Tạm ứng lương", advEligible() ? "Chưa áp dụng" : S.advance ? "Đã dùng lượt tháng này" : "Hạn mức 4,5 triệu"],
     ["payslips", "receipt", "Phiếu lương", "Tháng 09/2026"],
     ["_edit", "user", "Sửa hồ sơ", "Gửi HR duyệt"],

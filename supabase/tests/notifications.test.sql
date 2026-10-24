@@ -5,7 +5,7 @@ create extension if not exists pgtap with schema extensions;
 select plan(16);
 
 select set_config('test.wv', (select v.id::text from public.workflow_versions v join public.workflow_definitions d on d.id = v.workflow_id
-  where d.tenant_id = '10000000-0000-4000-8000-000000000001' and d.request_type = 'explanation' order by v.version_no desc limit 1), true);
+  where d.tenant_id = '10000000-0000-4000-8000-000000000001' and d.request_type = 'explanation' order by v.version_no limit 1), true);
 -- HR Admin mẫu (HD0007, hr_ops toàn công ty) cần có tài khoản thì mới là người duyệt bước HR
 insert into auth.users (id, email) values ('a4000000-0000-4000-8000-000000000007', 'thao.notif@example.test');
 update public.memberships set user_id = coalesce(user_id, 'a4000000-0000-4000-8000-000000000007'), status = 'active' where id = '80000000-0000-4000-8000-000000000007';

@@ -8,7 +8,7 @@ import { Foot, TopBar, type ScreenSpec } from "../screen";
 import { LV_DAYS, WD, dec, hm, lvKey, pad, wdOct } from "../data";
 import { REMOTE } from "../api/http";
 import { ACT, S, WD_ISO, day, dayCount, ddmm, emit, exPick, explainLeft, go, issueText, leaveRange, lvAvail, lvCount, lvrCount, monthTitle, tsDay } from "../store";
-import type { LeaveCalendarDay } from "@kavor/contracts";
+import { OVERTIME_DAY_KINDS, type LeaveCalendarDay } from "@kavor/contracts";
 
 const Spacer = () => <View style={{ height: 76 }} />;
 
@@ -326,7 +326,56 @@ export function leaveNewSpec(): ScreenSpec {
   };
 }
 
+/* Làm thêm giờ (bản dùng API): ngày còn đăng ký được, giờ ngoài ca chính, hệ số theo loại ngày, mức dùng so với giới hạn */
+function remoteOtSpec(): ScreenSpec {
+  const D = S.otData, o = S.ot;
+  const head = <TopBar title="Làm thêm giờ" />;
+  if (!D) return { head, body: [<Empty key="l" icon={<Gi n="moon" s={44} />} title="Đang tải…" text="Cần kết nối mạng để đăng ký làm thêm." />] };
+  const p = D.policy;
+  if (!p) return { head, body: [<Empty key="e" icon={<Gi n="moon" s={44} />} title="Chưa áp dụng quy định làm thêm giờ" text="Liên hệ phòng Nhân sự để được hướng dẫn." />] };
+  const day = D.days.find((x) => x.date === S.otDay) ?? D.days[0]!;
+  const chips = D.days.filter((x) => x.date <= addDaysStr(D.today, 13));
+  const h = (o.to - o.from) / 60;
+  const rate = day.dayKind === "holiday" ? p.holidayRate : day.dayKind === "weekend" ? p.weekendRate : p.weekdayRate;
+  const toM = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
+  const clash = !!day.shift && o.from < toM(day.shift.end) && o.to > toM(day.shift.start);
+  const active = day.booked.filter((b) => b.status === "pending" || b.status === "approved");
+  const overlap = active.some((b) => o.from < toM(b.end) && o.to > toM(b.start));
+  const dayUsed = active.reduce((n, b) => n + (toM(b.end) - toM(b.start)) / 60, 0);
+  const dayLimit = day.dayKind === "workday" ? p.dailyLimitHours : 12;
+  const sameMonth = day.date.slice(0, 7) === D.usage.month;
+  const overDay = dayUsed + h > dayLimit, overMonth = sameMonth && D.usage.monthHours + h > p.monthlyLimitHours;
+  const err = h <= 0 ? "Giờ kết thúc phải sau giờ bắt đầu." : clash ? `Trùng giờ ca chính. ${day.shift!.name} ${day.shift!.start}–${day.shift!.end}.`
+    : overlap ? "Trùng giờ với đơn làm thêm đã đăng ký ngày này." : overDay ? `Tối đa ${dec(dayLimit)} giờ làm thêm ${day.dayKind === "workday" ? "mỗi ngày làm việc" : "mỗi ngày nghỉ"}${dayUsed ? ` (đã đăng ký ${dec(dayUsed)} giờ)` : ""}.`
+    : overMonth ? `Vượt giới hạn ${dec(p.monthlyLimitHours)} giờ/tháng (đã đăng ký ${dec(D.usage.monthHours)} giờ).` : null;
+  return {
+    head,
+    body: [
+      <Form key="f">
+        <Field label="Ngày"><Chips>{chips.map((x) => <Chip key={x.date} on={S.otDay === x.date} label={`${x.date === D.today ? "Hôm nay" : WD_ISO[x.weekday]} ${ddmm(x.date)}`} onPress={() => ACT.otDay(x.date)} />)}</Chips></Field>
+        {day.holiday ? <T style={{ fontSize: 12.5, color: C.ink2, marginTop: -8 }}>{day.holiday} · ngày lễ</T> : null}
+        <View style={{ flexDirection: "row", gap: 12 }}>
+          <View style={{ flex: 1 }}><Field label="Từ"><Stepper value={hm(o.from * 60)} minusLabel="Lùi 30 phút" plusLabel="Thêm 30 phút" onMinus={() => ACT.otT("from", -30)} onPlus={() => ACT.otT("from", 30)} /></Field></View>
+          <View style={{ flex: 1 }}><Field label="Đến"><Stepper value={hm(o.to * 60)} minusLabel="Lùi 30 phút" plusLabel="Thêm 30 phút" onMinus={() => ACT.otT("to", -30)} onPlus={() => ACT.otT("to", 30)} /></Field></View>
+        </View>
+        {err ? <ErrLine>{err}</ErrLine> : null}
+        <Card>
+          <InfoRow k="Tổng giờ" v={h > 0 ? `${dec(h)} giờ` : "—"} strong />
+          <InfoRow k="Hệ số" v={`${rate}% · ${OVERTIME_DAY_KINDS[day.dayKind]}`} strong />
+          <InfoRow k={`Đã đăng ký tháng ${Number(D.usage.month.slice(5))}`} v={`${dec(D.usage.monthHours)}/${dec(p.monthlyLimitHours)} giờ`} strong />
+          <InfoRow k="Người duyệt" v={D.approver ?? "—"} strong />
+        </Card>
+        <Field label="Công việc"><TextArea accessibilityLabel="Công việc" defaultValue={o.reason} placeholder="Ví dụ: Hoàn thiện key visual chiến dịch" onChangeText={(t) => { S.ot.reason = t; }} /></Field>
+      </Form>,
+      <Spacer key="sp" />,
+    ],
+    foot: <Foot><Btn block spinKey="otSubmit" disabled={!!err} onPress={ACT.otSubmit}>Gửi đăng ký</Btn></Foot>,
+  };
+}
+const addDaysStr = (d: string, n: number) => new Date(Date.parse(`${d}T00:00:00Z`) + n * 86400_000).toISOString().slice(0, 10);
+
 export function otSpec(): ScreenSpec {
+  if (REMOTE) return remoteOtSpec();
   const o = S.ot, h = (o.to - o.from) / 60, dates = [16, 19, 20, 21, 22];
   const clash = S.shift === "fixed" && S.sh.assigned && o.from < S.sh.end;
   return {

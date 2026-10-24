@@ -6,9 +6,10 @@ import { call, useApi } from "../../_lib/client";
 import { DEVICE, Empty, Icon, LoadError, Person, REJECT_REASON, Status, can, dur, fmtDate, fmtDateTime, fmtTime, longDate, meters, tenantToday, useAction, useMe } from "../../_ui/kit";
 import { ReasonModal } from "../../_ui/reason-modal";
 import { MonthTab } from "./month";
+import { OvertimeTab } from "./overtime";
 
-type Tab = "month" | "today" | "rejected" | "devices";
-const TABS: Array<[Tab, string]> = [["month", "Bảng công"], ["today", "Hôm nay"], ["rejected", "Bị từ chối"], ["devices", "Thiết bị"]];
+type Tab = "month" | "today" | "rejected" | "devices" | "overtime";
+const TABS: Array<[Tab, string, string?]> = [["month", "Bảng công"], ["today", "Hôm nay"], ["overtime", "Làm thêm giờ", "overtime.read"], ["rejected", "Bị từ chối"], ["devices", "Thiết bị"]];
 
 function AttendancePage() {
   const me = useMe();
@@ -20,12 +21,12 @@ function AttendancePage() {
   return (
     <section className="page active">
       <div className="page-head">
-        <div><h2>{tab === "month" ? "Bảng công tháng" : tab === "today" ? "Chấm công hôm nay" : tab === "rejected" ? "Bản ghi bị từ chối" : "Thiết bị chấm công"}</h2>
-          <p>{tab === "month" ? "Tổng hợp bản ghi, bất thường và điều chỉnh trước khi khóa kỳ." : tab === "today" ? "Giờ vào/ra hợp lệ theo ca áp dụng cho từng người; cập nhật trực tiếp khi nhân viên chấm công." : tab === "rejected" ? "Lần chấm công bị máy chủ từ chối: ngoài vùng, GPS kém chính xác." : "Mỗi nhân viên chấm công trên một máy; máy mới chờ HR duyệt."}</p></div>
+        <div><h2>{tab === "month" ? "Bảng công tháng" : tab === "today" ? "Chấm công hôm nay" : tab === "overtime" ? "Làm thêm giờ" : tab === "rejected" ? "Bản ghi bị từ chối" : "Thiết bị chấm công"}</h2>
+          <p>{tab === "month" ? "Tổng hợp bản ghi, bất thường và điều chỉnh trước khi khóa kỳ." : tab === "overtime" ? "Giờ làm thêm theo tháng, hệ số theo loại ngày và mức dùng so với giới hạn luật/công ty." : tab === "today" ? "Giờ vào/ra hợp lệ theo ca áp dụng cho từng người; cập nhật trực tiếp khi nhân viên chấm công." : tab === "rejected" ? "Lần chấm công bị máy chủ từ chối: ngoài vùng, GPS kém chính xác." : "Mỗi nhân viên chấm công trên một máy; máy mới chờ HR duyệt."}</p></div>
         <div className="head-actions">{tab === "month" ? action : null}
-          <div className="segmented" role="tablist">{TABS.map(([k, label]) => <button key={k} role="tab" aria-selected={tab === k} className={tab === k ? "active" : ""} onClick={() => go(k)}>{label}</button>)}</div></div>
+          <div className="segmented" role="tablist">{TABS.filter(([, , perm]) => !perm || can(me, perm)).map(([k, label]) => <button key={k} role="tab" aria-selected={tab === k} className={tab === k ? "active" : ""} onClick={() => go(k)}>{label}</button>)}</div></div>
       </div>
-      {tab === "month" ? <MonthTab setAction={setAction} /> : tab === "today" ? <Today tz={me.tenant.timezone} tenantId={me.tenant.id} /> : tab === "rejected" ? <Rejected tz={me.tenant.timezone} tenantId={me.tenant.id} /> : <Devices tz={me.tenant.timezone} tenantId={me.tenant.id} />}
+      {tab === "month" ? <MonthTab setAction={setAction} /> : tab === "overtime" ? <OvertimeTab /> : tab === "today" ? <Today tz={me.tenant.timezone} tenantId={me.tenant.id} /> : tab === "rejected" ? <Rejected tz={me.tenant.timezone} tenantId={me.tenant.id} /> : <Devices tz={me.tenant.timezone} tenantId={me.tenant.id} />}
     </section>
   );
 }

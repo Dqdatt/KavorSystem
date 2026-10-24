@@ -9,12 +9,12 @@ select is((select string_agg(code, ',' order by sort) from public.leave_types wh
   'AL,UL,SL,WED,BRV', 'Tenant có đủ loại nghỉ mẫu');
 select is((select deducts_balance from public.leave_types where tenant_id = '10000000-0000-4000-8000-000000000001' and code = 'AL'), true, 'Chỉ phép năm trừ sổ phép');
 select is((select (v.config->>'annualDays')::int from public.policy_versions v join public.policy_definitions d on d.id = v.policy_id
-  where d.tenant_id = '10000000-0000-4000-8000-000000000001' and d.kind = 'leave' order by v.version_no desc limit 1), 12, 'Quy định phép năm mẫu 12 ngày');
+  where d.tenant_id = '10000000-0000-4000-8000-000000000001' and d.kind = 'leave' order by v.version_no limit 1), 12, 'Quy định phép năm mẫu 12 ngày');
 select is((select v.steps->1->>'daysOver' from public.workflow_versions v join public.workflow_definitions d on d.id = v.workflow_id
-  where d.tenant_id = '10000000-0000-4000-8000-000000000001' and d.request_type = 'leave' order by v.version_no desc limit 1), '2', 'Bước HR chỉ khi nghỉ trên 2 ngày');
+  where d.tenant_id = '10000000-0000-4000-8000-000000000001' and d.request_type = 'leave' order by v.version_no limit 1), '2', 'Bước HR chỉ khi nghỉ trên 2 ngày');
 
 select set_config('test.wv', (select v.id::text from public.workflow_versions v join public.workflow_definitions d on d.id = v.workflow_id
-  where d.tenant_id = '10000000-0000-4000-8000-000000000001' and d.request_type = 'leave' order by v.version_no desc limit 1), true);
+  where d.tenant_id = '10000000-0000-4000-8000-000000000001' and d.request_type = 'leave' order by v.version_no limit 1), true);
 select set_config('test.al', (select id::text from public.leave_types where tenant_id = '10000000-0000-4000-8000-000000000001' and code = 'AL'), true);
 
 -- ---------- Sổ phép ----------

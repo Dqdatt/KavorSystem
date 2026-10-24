@@ -27,6 +27,7 @@ import { RequestsService } from "./timesheet/requests.service.js";
 import { TimesheetAdmin } from "./timesheet/timesheet-admin.service.js";
 import { NotificationsService } from "./notifications/notifications.service.js";
 import { LeaveService } from "./leave/leave.service.js";
+import { OvertimeService } from "./overtime/overtime.service.js";
 
 @Module({
   controllers: [AppController, AuthController, AttendanceController, CompanyController, TimesheetController, AdminController, ConsoleController],
@@ -44,7 +45,7 @@ import { LeaveService } from "./leave/leave.service.js";
         const notifications = new NotificationsService(sb);
         notifications.startDueSweep();
         const requests = new RequestsService(sb, timesheets);
-        return { timesheets, requests, notifications, leave: new LeaveService(sb, timesheets, requests) };
+        return { timesheets, requests, notifications, leave: new LeaveService(sb, timesheets, requests), overtime: new OvertimeService(sb, timesheets, requests) };
       },
     },
     {
@@ -59,7 +60,7 @@ import { LeaveService } from "./leave/leave.service.js";
     { provide: COMPANY_SERVICE, inject: [SupabaseGateway, BrandingStore], useFactory: (sb: SupabaseGateway | null, b: BrandingStore | null) => (sb && b ? new CompanyService(sb, b) : null) },
     {
       provide: ADMIN_SERVICES, inject: [SupabaseGateway, BrandingStore, COMPANY_SERVICE, TIMESHEET_SERVICES],
-      useFactory: (sb: SupabaseGateway | null, branding: BrandingStore | null, company: CompanyService | null, ts: { timesheets: TimesheetService; requests: RequestsService; notifications: NotificationsService; leave: LeaveService } | null) => {
+      useFactory: (sb: SupabaseGateway | null, branding: BrandingStore | null, company: CompanyService | null, ts: { timesheets: TimesheetService; requests: RequestsService; notifications: NotificationsService; leave: LeaveService; overtime: OvertimeService } | null) => {
         if (!sb || !branding || !company || !ts) return null;
         const attendance = new AttendanceAdmin(sb);
         const schedule = new ScheduleAdmin(sb);
@@ -67,7 +68,7 @@ import { LeaveService } from "./leave/leave.service.js";
           attendance, schedule, company,
           employees: new EmployeesAdmin(sb, new Mailer(loadConfig().mail), attendance),
           settings: new SettingsAdmin(sb, branding, schedule), rules: new RulesAdmin(schedule), mfa: new MfaAdmin(sb),
-          timesheets: new TimesheetAdmin(ts.timesheets, ts.requests), requests: ts.requests, notifications: ts.notifications, leave: ts.leave,
+          timesheets: new TimesheetAdmin(ts.timesheets, ts.requests), requests: ts.requests, notifications: ts.notifications, leave: ts.leave, overtime: ts.overtime,
         };
       },
     },
