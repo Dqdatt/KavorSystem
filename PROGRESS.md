@@ -2,7 +2,7 @@
 _Cập nhật: 2026-10-24 — bởi Claude (Opus 5.5)_
 
 ## Mục tiêu đang làm
-Công tháng + giải trình + luồng duyệt đã xong phần code và kiểm thử tự động (24/10, xem "Đã xong"); chờ thử đầu-cuối trên iPhone. Bước kế tiếp: thông báo trong app.
+Công tháng + giải trình + luồng duyệt đã xong và đã thử đầu-cuối trên iPhone (24/10, xem "Đã xong"). Bước kế tiếp: thông báo trong app.
 
 ## Đã xong
 - Công tháng + giải trình + luồng duyệt (24/10), theo `PILOT_RULEBOOK` và ADR 0001:
@@ -11,6 +11,7 @@ Công tháng + giải trình + luồng duyệt đã xong phần code và kiểm 
   - Web HR: Chấm công → tab **Bảng công** (chỉ số, bảng theo nhân viên, drawer từng ngày, khóa/mở kỳ, xuất CSV); **Đơn & phê duyệt** bám page-requests của prototype (hàng đợi theo SLA, modal xem & duyệt) + "Cấu hình workflow" (thiết kế bổ sung); Ca & địa điểm chọn ngày làm việc trong tuần. Realtime cho `requests`/`approval_tasks`. Đã thử trên trình duyệt: HR duyệt GT-0001, drawer hiện "điều chỉnh".
   - Mobile (bản dùng API; bản QA/mẫu giữ nguyên prototype): Bảng công theo kỳ thật (chuyển kỳ, lọc đi muộn/thiếu công, ngày nghỉ gộp dải, sheet ngày có giờ gốc + giờ sau điều chỉnh), form giải trình (ngày còn hạn, lý do theo bất thường, giờ đề nghị, người duyệt theo luồng), Đơn từ/Cần duyệt/chi tiết đơn với luồng duyệt thật, hủy đơn, duyệt/từ chối; Trang chủ/Hồ sơ/menu tạo đơn lấy lượt, hạn và ngày công thật. Đính kèm minh chứng hiện "sẽ có ở bản sau".
   - Smoke `tools/timesheet-smoke.sh` 47 bước; 5 smoke cũ vẫn đạt; unit test API 25.
+  - Đầu-cuối trên iPhone 11 thật "Dqdatt" (Release, API `http://192.168.1.22:4000/api/v1`): kích hoạt HD0142 → Bảng công kỳ 26/09–25/10 (16/21 công) → gửi giải trình 23/10 quên chấm ra, đề nghị 17:00 → GT-0001 → quản lý HDG0003 duyệt, HR HD0007 duyệt (qua API) → app hiện 17/21, dòng 23/10 "Đã điều chỉnh theo GT-0001", chi tiết đơn có đủ hai bước duyệt.
 - Kavor Console tối thiểu (23/10), theo ADR 0001 §1:
   - DB `202610240002_platform_console.sql`: `platform_operators` (nhân viên Kavor, tách khỏi nhân viên tenant); `owner_recovery_requests` (đặt lại MFA / cấp Tenant Admin mới: bắt buộc ghi cách xác minh + lý do, người duyệt ≠ người tạo — chặn ở DB, hết hạn 24 giờ, mỗi tenant một yêu cầu cùng loại đang chờ, không sửa/xóa sau khi quyết định); `create_tenant_with_admin()` tạo tenant + bộ mẫu + Tenant Admin đầu tiên trong một transaction; `grant_tenant_admin()` idempotent (tìm theo email, chưa có thì tạo hồ sơ ADMINnn); bộ mẫu thêm cơ cấu tổ chức tối thiểu (pháp nhân, Trụ sở chính, Ban Giám đốc + Hành chính – Nhân sự, 3 chức danh) vì web HR chưa có trang Tổ chức; audit `actor_type 'platform'` (tenant cũng thấy). pgTAP `platform_console.test.sql` 21 test (tổng 100).
   - API `/console/*`: đăng nhập riêng (tài khoản tenant đúng mật khẩu vẫn báo sai chung chung), refresh, MFA TOTP bắt buộc (dùng chung `MfaAdmin` với web HR); tổng quan, danh sách/chi tiết tenant (số nhân sự, tài khoản, Tenant Admin + đã bật MFA chưa — không đọc hồ sơ/chấm công), tạo tenant + gửi thư mời Tenant Admin (thư riêng chỉ web HR `ADMIN_WEB_URL`), gửi lại lời mời, yêu cầu/duyệt/từ chối/hủy khôi phục, audit nền tảng. Nhân viên Kavor tạo bằng `tools/create-operator.sh` (không có màn hình).
@@ -48,7 +49,7 @@ Công tháng + giải trình + luồng duyệt đã xong phần code và kiểm 
 - Kiểm tra ngày 22/10: `pnpm turbo run typecheck test build --force` pass 18/18 task (test thật chỉ có contracts 2 + api 2)
 
 ## Đang dở (QUAN TRỌNG NHẤT)
-- Chưa thử đầu-cuối công tháng/giải trình trên iPhone thật (bản Release mới đã cài, API `http://192.168.1.22:4000/api/v1`). DB local đã reset về dữ liệu mẫu sau khi chạy smoke (iPhone cần kích hoạt lại HD0142; chưa có nhân viên Kavor nào). Thử duyệt trên app: kích hoạt quản lý HDG0003 (huy.le@example.test) ở máy khác/simulator. Thử Console: `OPERATOR_PASSWORD='…' bash tools/create-operator.sh <email> "<Họ tên>"` (tạo 2 người để thử duyệt khôi phục), `pnpm dev:console` → http://localhost:3001, lần đầu liên kết ứng dụng xác thực.
+- Không có việc dở. DB local đang có dữ liệu thử trên iPhone (HD0142 đã kích hoạt, GT-0001 đã duyệt); chạy smoke thì reset trước và iPhone phải kích hoạt lại. Chưa thử từ chối/hủy đơn và duyệt trên app bằng tài khoản quản lý trên máy thật (smoke đã kiểm). Thử duyệt trên app: kích hoạt quản lý HDG0003 (huy.le@example.test) ở máy khác/simulator. Thử Console: `OPERATOR_PASSWORD='…' bash tools/create-operator.sh <email> "<Họ tên>"` (tạo 2 người để thử duyệt khôi phục), `pnpm dev:console` → http://localhost:3001, lần đầu liên kết ứng dụng xác thực.
 - Cài bản mới lên iPhone: build `xcodebuild -workspace ios/Kavor.xcworkspace -scheme Kavor -configuration Release -destination 'generic/platform=iOS' -derivedDataPath ios/build-device -allowProvisioningUpdates build` (trong `apps/mobile`, có `EXPO_PUBLIC_API_URL`, xóa `$TMPDIR/metro-cache` trước) rồi `xcrun devicectl device install app --device 36F8CE4A-8C04-5232-AB9D-0041A426F6A0 ios/build-device/Build/Products/Release-iphoneos/Kavor.app`. Nếu devicectl báo "unavailable": mở khóa iPhone, bấm Tin cậy, cắm cáp dữ liệu.
 - Reset DB local: dùng `bash tools/db-reset.sh` (sau `supabase db reset` Kong giữ IP cũ của Auth → 502).
 - Bản trên iPhone trỏ tới API `http://192.168.1.22:4000/api/v1` (IP LAN của Mac ngày 24/10; trước là 192.168.1.25, 172.17.91.14): Mac phải chạy `pnpm dev:backend`, cùng Wi-Fi. IP Mac đổi thì phải build lại app.
@@ -94,9 +95,8 @@ Công tháng + giải trình + luồng duyệt đã xong phần code và kiểm 
 - Trên bản dev, gõ phím "r" khi không focus ô nhập sẽ làm Metro reload (chỉ ảnh hưởng dev).
 
 ## Bước tiếp theo
-1. Thử đầu-cuối công tháng + giải trình trên iPhone (nhân viên gửi → quản lý/HR duyệt trên web → bảng công cập nhật).
-2. Thông báo (gồm báo khi đơn được duyệt/từ chối): lưu, hiển thị trong app, nhắc nhở bằng thông báo cục bộ trên máy, báo nhân viên khi máy được duyệt/từ chối thay cho polling E19. Push từ máy chủ (APNs/FCM) cần tài khoản trả phí → để tới khi mua (xem "Quyết định đã chốt").
-3. Nghỉ phép/OT → tạm ứng → payroll → bản tin/tài liệu.
+1. Thông báo (gồm báo khi đơn được duyệt/từ chối): lưu, hiển thị trong app, nhắc nhở bằng thông báo cục bộ trên máy, báo nhân viên khi máy được duyệt/từ chối thay cho polling E19. Push từ máy chủ (APNs/FCM) cần tài khoản trả phí → để tới khi mua (xem "Quyết định đã chốt").
+2. Nghỉ phép/OT → tạm ứng → payroll → bản tin/tài liệu.
 - Staging: **hoãn tới khi hệ thống hoàn thiện** (quyết định 24/10). Phương án đã phân tích sẵn: Render Singapore cho API + 2 web (~$21/tháng, địa chỉ onrender.com, chưa cần domain), Gmail SMTP như CarRental cho OTP và thư mời, project Supabase `KavorSystem` (Singapore) làm staging, chỉ dùng dữ liệu mẫu; cần đổi các giá trị localhost trong `supabase/config.toml` sang biến môi trường trước khi `config push`.
 - Ngoài luồng chính: test component cho admin-web; Sentry; số liệu luật cần HR/Payroll SME xác nhận trước pilot; pháp lý chuyển dữ liệu ra nước ngoài (Nghị định 13/2023, dữ liệu ở Singapore) trước khi có dữ liệu thật.
 
@@ -104,7 +104,7 @@ Công tháng + giải trình + luồng duyệt đã xong phần code và kiểm 
 - Không có.
 
 ## Nhật ký
-- 2026-10-24 — Công tháng + giải trình + luồng duyệt: kỳ công theo công ty, tính công từ chấm công, giải trình theo lượt/hạn, Quản lý → HR duyệt tạo điều chỉnh, khóa/mở kỳ, xuất CSV; web HR Bảng công + Đơn & phê duyệt; mobile đọc từ API.
+- 2026-10-24 — Công tháng + giải trình + luồng duyệt: kỳ công theo công ty, tính công từ chấm công, giải trình theo lượt/hạn, Quản lý → HR duyệt tạo điều chỉnh, khóa/mở kỳ, xuất CSV; web HR Bảng công + Đơn & phê duyệt; mobile đọc từ API; thử đầu-cuối trên iPhone (gửi → Quản lý → HR duyệt → bảng công cập nhật).
 - 2026-10-24 — Phân tích phương án staging (Render/Fly/Vercel, Supabase, email, domain; so với cách CarRental deploy); người dùng quyết định hoãn staging, chưa mua dịch vụ trả phí.
 - 2026-10-23 — Kavor Console tối thiểu: tạo tenant + mời Tenant Admin, khôi phục chủ sở hữu hai người, audit nền tảng; sửa lỗi chỉ tạo được một nhân viên/công ty và lỗi kích hoạt khi trùng mã giữa công ty.
 - 2026-10-23 — Thử đầu-cuối cài đặt công ty trên iPhone thật (ảnh bìa, liên hệ HR, đồng ý điều khoản v1→v3, khóa/mở khóa); sửa E16 khi bị khóa, lưu liên hệ HR, giao diện màn điều khoản và thông báo liên hệ.
