@@ -5,8 +5,8 @@ import { FaceId, Gi, Ic } from "./icons";
 import { Illus } from "./illus";
 import { Appear } from "./motion";
 import { Btn, BtnRow, Chip, Chips, ErrLine, Field, Inp, Ln, Note, SecT, T, TextArea } from "./ui";
-import { WDF, dur, hm, hms, pad, wdOct } from "./data";
-import { ACT, ADV_DAY, S, closeSheet, day, dayInfo, emit, explainLeft, fmtM, go, shiftLabel, shiftTime, simNow, verdict, type SheetKind } from "./store";
+import { WDF, dur, gh, hm, hms, pad, wdOct } from "./data";
+import { ACT, ADV_DAY, S, WD_ISO_FULL, closeSheet, day, dayInfo, ddmm, emit, explainLeft, fmtM, go, issueText, shiftLabel, shiftTime, simNow, tsDay, verdict, type SheetKind } from "./store";
 import { REMOTE } from "./api/http";
 
 const H3 = ({ children, center }: { children: ReactNode; center?: boolean }) => <T style={{ fontSize: 19, fontFamily: F.bold, textAlign: center ? "center" : "left" }}>{children}</T>;
@@ -129,6 +129,32 @@ export function SheetContent({ kind, arg }: { kind: SheetKind; arg?: string }) {
       </BtnRow>
     </>;
     case "day": {
+      if (arg?.includes("-")) {
+        /* Bảng công thật: giờ gốc, giờ ghi nhận sau điều chỉnh, kết quả công và đơn giải trình của ngày */
+        const x = tsDay(arg);
+        if (!x) return <><H3>Ngày {ddmm(arg)}</H3><Muted>Ngày này không thuộc kỳ công đang xem.</Muted><Close /></>;
+        const req = x.request;
+        const result = x.kind === "holiday" ? `Nghỉ lễ${x.holidayName ? ` · ${x.holidayName}` : ""}` : x.kind === "off" ? "Ngày nghỉ" : x.kind === "today" ? "Đang tính"
+          : `${x.credit ? "1 công" : "0 công"}${x.adjusted && req ? ` · đã điều chỉnh theo ${req.no}` : req?.status === "pending" ? ` · chờ duyệt ${req.no}` : x.issue ? ` · ${issueText(x)}` : ""}`;
+        const miss = (v: string | null) => v ? null : <T style={{ color: x.kind === "work" ? C.bad : C.ink3, fontFamily: F.medium }}>--:--</T>;
+        return <>
+          <H3>{WD_ISO_FULL[x.weekday]}, {ddmm(x.date)}</H3><Sub>{x.shift ? `${x.shift.name} · ${x.shift.start} – ${x.shift.end}` : "Không có ca làm việc"}</Sub>
+          {x.kind === "work" || x.kind === "today" ? <Box>
+            <SecT style={{ marginTop: 10 }}>Bản ghi gốc</SecT>
+            <Ln k="Vào ca" v={miss(x.rawIn) ?? x.rawIn!} />
+            <Ln k="Ra ca" v={miss(x.rawOut) ?? x.rawOut!} />
+            {x.adjusted ? <><SecT style={{ marginTop: 10 }}>Ghi nhận sau điều chỉnh</SecT><Ln k="Vào ca" v={x.clockIn ?? "--:--"} /><Ln k="Ra ca" v={x.clockOut ?? "--:--"} /></> : null}
+          </Box> : null}
+          <Box>
+            {x.workedMinutes ? <Ln k="Giờ làm" v={gh(x.workedMinutes)} /> : null}
+            <Ln k="Kết quả công" v={<T style={{ fontFamily: F.bold }}>{result}</T>} />
+          </Box>
+          {x.canExplain ? <Btn block onPress={() => ACT.exFromDay(x.date)}>Giải trình ngày này</Btn>
+            : req ? <Btn kind="ghost" block onPress={() => { S.param = req.no; go("reqDetail"); }}>Xem đơn {req.no}</Btn>
+            : x.issue && x.kind === "work" ? <><ErrLine>{S.ts?.period.locked ? "Kỳ công đã khóa." : S.ts?.explanation && S.ts.explanation.left <= 0 ? "Đã hết lượt giải trình. Liên hệ phòng Nhân sự." : "Đã quá hạn giải trình. Liên hệ phòng Nhân sự."}</ErrLine><Close /></>
+            : <Close />}
+        </>;
+      }
       const d = +(arg ?? 16), o = day(d) || { d }, i = dayInfo(o);
       const raw = (o.today ? [S.clockIn && ["Vào ca", hm(S.clockIn)], S.clockOut && ["Ra ca", hm(S.clockOut)]] : o.leave ? [] : [o.in && ["Vào ca", o.in], o.out && ["Ra ca", o.out]]).filter(Boolean) as Array<[string, string]>;
       const result = o.leave ? "1 công · nghỉ phép có lương" : o.explained ? `1 công · đã điều chỉnh theo ${o.explained}` : o.pendingEx ? "Chờ duyệt giải trình" : i.issue ? "0,5 công · thiếu bản ghi" : o.today ? "Đang tính" : "1 công";

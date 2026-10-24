@@ -11,6 +11,7 @@ import { Rise, useShake } from "../motion";
 import { Avatar, Balanced, Btn, BtnRow, Card, InfoRow, Note, Notice, Row, RowBtn, SectionHead, Spinner, T, Timeline } from "../ui";
 import { Foot, TopBar, type ScreenSpec } from "../screen";
 import { useClock } from "../clock";
+import { REMOTE } from "../api/http";
 import { dec, gh, hm } from "../data";
 import { ACT, S, go, jump, setBioPref, lvAvail, phase, shiftMinutes, toast, worked, type ErrKind, type Route } from "../store";
 
@@ -30,7 +31,7 @@ function PfCard() {
       </View>
       <T style={{ fontSize: 13, color: C.ink2, fontFamily: F.medium }}>Senior Designer · Marketing · HD0142</T>
       <View style={{ flexDirection: "row", width: "100%", marginTop: 18, marginBottom: 16 }}>
-        {([["star", "5 năm", "Thâm niên"], ["plane", dec(lvAvail()), "Ngày phép"], ["cal", "10/22", "Ngày công"]] as Array<[IconName, string, string]>).map(([icon, b, s], i) => (
+        {([["star", "5 năm", "Thâm niên"], ["plane", dec(lvAvail()), "Ngày phép"], ["cal", REMOTE ? (S.ts ? `${S.ts.summary.credited}/${S.ts.summary.standard}` : "—") : "10/22", "Ngày công"]] as Array<[IconName, string, string]>).map(([icon, b, s], i) => (
           <View key={s} style={[{ flex: 1, alignItems: "center", gap: 3 }, i > 0 && { borderLeftWidth: 1, borderLeftColor: "rgba(6,95,70,0.12)" }]}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}><Gi n={icon} s={16} w={2} /><T style={{ fontSize: 17, fontFamily: F.bold }}>{b}</T></View>
             <T style={{ fontSize: 12, color: C.ink3, fontFamily: F.medium }}>{s}</T>

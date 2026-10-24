@@ -7,7 +7,22 @@ import { Illus } from "../illus";
 import { Avatar, Balanced, Btn, BtnRow, Card, Chip, Chips, Empty, InfoRow, LinkBtn, Seg, St, T, Tag, Timeline } from "../ui";
 import { Foot, TabHead, TopBar, type ScreenSpec } from "../screen";
 import { TYPE_ICON, type Approval, type MyReq } from "../data";
-import { ACT, S, go } from "../store";
+import { EXPLANATION_KINDS, STEP_RESOLVERS, type RequestItem } from "@kavor/contracts";
+import { ACT, S, go, stamp } from "../store";
+
+/* Luồng duyệt của đơn thật: "Đã gửi" + từng bước theo phiên bản workflow lúc gửi */
+function flowOf(r: RequestItem): { steps: Array<[string, string]>; cur: number } {
+  const steps: Array<[string, string]> = [["Đã gửi", stamp(r.submittedAt)], ...r.steps.map((s): [string, string] => {
+    const who = s.resolver === "hr" ? STEP_RESOLVERS.hr : s.assignee ?? STEP_RESOLVERS.direct_manager;
+    const sub = s.actedAt ? `${s.actedBy ?? who} · ${stamp(s.actedAt)}${s.comment ? ` · “${s.comment}”` : ""}`
+      : s.status === "pending" ? `${who}${s.dueAt ? ` · hạn ${stamp(s.dueAt)}` : ""}`
+      : s.status === "skipped" ? "Bỏ qua · không có người duyệt" : s.status === "cancelled" ? "Đã dừng" : who;
+    return [s.resolver === "hr" ? "HR duyệt" : "Quản lý duyệt", sub];
+  })];
+  const k = r.steps.findIndex((s) => s.status === "pending" || s.status === "rejected" || (r.status === "cancelled" && s.status !== "approved" && s.status !== "skipped"));
+  return { steps, cur: k < 0 ? steps.length - 1 : k + 1 };
+}
+const proposed = (r: RequestItem) => [r.payload.clockIn ? `vào ${r.payload.clockIn}` : null, r.payload.clockOut ? `ra ${r.payload.clockOut}` : null].filter(Boolean).join(" · ") || "—";
 
 const Spacer = ({ h = 76 }: { h?: number }) => <View style={{ height: h }} />;
 
@@ -125,6 +140,8 @@ function approvalsSpec(): ScreenSpec {
 }
 
 export function reqDetailSpec(): ScreenSpec {
+  const it = S.reqItems.get(S.param ?? "");
+  if (it) return remoteReqDetail(it);
   const r = S.myReq.find((x) => x.id === S.param) || S.myReq[0]!;
   const flow: Array<[string, string]> = r.type === "profile" ? [["Đã gửi", r.created], ["HR duyệt", "Mai Phương Thảo"]] : [["Đã gửi", r.created], ["Quản lý duyệt", "Lê Quang Huy"]];
   if (r.status === "rejected") flow[1]![1] = "Lý do: " + (r.note || "—");
@@ -152,7 +169,54 @@ export function reqDetailSpec(): ScreenSpec {
   };
 }
 
+function remoteReqDetail(r: RequestItem): ScreenSpec {
+  const f = flowOf(r), stopped = r.status === "rejected" || r.status === "cancelled";
+  return {
+    head: <TopBar title={r.no} />,
+    body: [
+      <View key="c" style={{ alignItems: "center", gap: 6, paddingTop: 6 }}>
+        <Gi n={TYPE_ICON.explain} s={44} w={1.5} />
+        <T style={{ color: C.ink2, fontFamily: F.medium, textAlign: "center" }}>Giải trình công</T>
+        <Balanced style={{ fontSize: 20, fontFamily: F.bold, textAlign: "center" }}>{S.myReq.find((x) => x.id === r.no)?.sub ?? EXPLANATION_KINDS[r.payload.kind]}</Balanced>
+        <Tag st={r.status} />
+      </View>,
+      <Card key="info">
+        <InfoRow k="Đề nghị ghi nhận" v={proposed(r)} strong />
+        {r.day ? <InfoRow k="Chấm công gốc" v={`vào ${r.day.rawIn ?? "--:--"} · ra ${r.day.rawOut ?? "--:--"}`} strong /> : null}
+        <InfoRow k="Lý do" v={r.payload.reason} strong /><InfoRow k="Gửi lúc" v={stamp(r.submittedAt)} strong />
+      </Card>,
+      <Card key="tl" pad><Timeline steps={f.steps} cur={f.cur} allDone={r.status === "approved"} fail={stopped} /></Card>,
+      r.canCancel ? <Btn key="x" kind="danger" block onPress={() => ACT.cancelAsk(r.no)}>Hủy đơn</Btn> : null,
+    ],
+  };
+}
+
 export function approvalDetailSpec(): ScreenSpec {
+  const it = S.reqItems.get(S.param ?? "");
+  if (it?.myTaskId && S.approvals.some((x) => x.id === it.no)) {
+    const f = flowOf(it);
+    return {
+      head: <TopBar title={it.no} />,
+      body: [
+        <View key="c" style={{ alignItems: "center", gap: 6, paddingTop: 6 }}>
+          <Avatar ini={S.approvals.find((x) => x.id === it.no)!.ini} size="lg" />
+          <T style={{ fontSize: 20, fontFamily: F.bold, marginTop: 6 }}>{it.requester.fullName}</T>
+          <T style={{ color: C.ink2 }}>{it.requester.code}{it.requester.department ? ` · ${it.requester.department}` : ""}</T>
+          <St s="warn">Chờ bạn duyệt</St>
+        </View>,
+        <Card key="info">
+          <InfoRow k="Loại đơn" v={`Giải trình · ${EXPLANATION_KINDS[it.payload.kind].toLowerCase()}`} strong />
+          <InfoRow k="Ngày" v={S.approvals.find((x) => x.id === it.no)!.sub.split(" · ")[0]!} strong />
+          <InfoRow k="Đề nghị ghi nhận" v={proposed(it)} strong />
+          {it.day ? <InfoRow k="Chấm công gốc" v={`${it.day.shift ? `${it.day.shift} · ` : ""}vào ${it.day.rawIn ?? "--:--"} · ra ${it.day.rawOut ?? "--:--"}`} strong /> : null}
+          <InfoRow k="Lý do" v={it.payload.reason} strong /><InfoRow k="Gửi lúc" v={stamp(it.submittedAt)} strong />
+        </Card>,
+        <Card key="tl" pad><Timeline steps={f.steps} cur={f.cur} /></Card>,
+        <Spacer key="sp" />,
+      ],
+      foot: <Foot><BtnRow><Btn kind="ghost" onPress={() => ACT.rejectAsk(it.no)}>Từ chối</Btn><Btn spinKey="approve" onPress={() => ACT.approve(it.no)}>Duyệt</Btn></BtnRow></Foot>,
+    };
+  }
   const r = S.approvals.find((x) => x.id === S.param);
   if (!r) return { head: <TopBar title="Chi tiết đơn" />, body: [<Empty key="e" icon={<Illus kind="approved" />} title="Đơn này đã được xử lý" text="Bạn không cần duyệt lại." />] };
   return {

@@ -92,7 +92,9 @@ export class EmployeesAdmin {
     }
     let audit: AuditEntry[] = [];
     if (ctx.can("audit.read")) {
-      const ids = [id, ...devices.map((d) => d.id)];
+      /* Nhật ký của hồ sơ, thiết bị và đơn từ của nhân viên */
+      const { data: reqs } = await ctx.db.from("requests").select("id").eq("tenant_id", ctx.tenantId).eq("requester_employee_id", id).order("submitted_at", { ascending: false }).limit(50);
+      const ids = [id, ...devices.map((d) => d.id), ...((reqs ?? []) as Array<{ id: string }>).map((r) => r.id)];
       const { data: logs } = await ctx.db.from("audit_logs").select("id, action, actor_user_id, created_at, reason, before_data, after_data")
         .eq("tenant_id", ctx.tenantId).in("resource_id", ids).order("created_at", { ascending: false }).limit(40);
       const actors = await this.userNames(ctx, ((logs ?? []) as Array<{ actor_user_id: string | null }>).map((l) => l.actor_user_id));

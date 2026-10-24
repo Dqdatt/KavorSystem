@@ -156,6 +156,8 @@ export type ShiftInfo = {
   breakEnd: string | null;
   lateGraceMinutes: number;
   earlyGraceMinutes: number;
+  /* Ngày làm việc trong tuần theo ISO: 1 = Thứ Hai … 7 = Chủ Nhật */
+  workDays: number[];
 };
 export type AttendanceToday = {
   date: string;
@@ -283,10 +285,10 @@ export type EmployeeUpsert = {
 
 export type ShiftVersion = {
   id: string; versionNo: number; start: string; end: string; breakStart: string | null; breakEnd: string | null;
-  lateGraceMinutes: number; earlyGraceMinutes: number; effectiveFrom: string; note: string | null; createdAt: string;
+  lateGraceMinutes: number; earlyGraceMinutes: number; workDays: number[]; effectiveFrom: string; note: string | null; createdAt: string;
 };
 export type ShiftDef = { id: string; code: string; name: string; active: boolean; current: ShiftVersion | null; next: ShiftVersion | null; versions: ShiftVersion[] };
-export type ShiftVersionInput = { start: string; end: string; breakStart?: string | null; breakEnd?: string | null; lateGraceMinutes?: number; earlyGraceMinutes?: number; effectiveFrom: string; note?: string | null };
+export type ShiftVersionInput = { start: string; end: string; breakStart?: string | null; breakEnd?: string | null; lateGraceMinutes?: number; earlyGraceMinutes?: number; workDays?: number[]; effectiveFrom: string; note?: string | null };
 
 export type LocationVersion = { id: string; versionNo: number; latitude: number; longitude: number; radiusM: number; maxAccuracyM: number; effectiveFrom: string; note: string | null; createdAt: string };
 export type LocationDef = { id: string; code: string; name: string; address: string | null; branch: Ref | null; active: boolean; current: LocationVersion | null; next: LocationVersion | null; versions: LocationVersion[] };
@@ -358,13 +360,16 @@ export type Branding = { logoVersion: string | null; coverVersion: string | null
 /* MFA luôn bật cho web HR/Admin; Employee Web và đồng bộ Google Sheets theo gói dịch vụ (Kavor Console) */
 export type PlatformPolicy = { mfaRequired: true; employeeWeb: boolean; sheetsAutoSync: boolean; newsReadReceipt: boolean };
 export type TenantProfile = { code: string; displayName: string; legalName: string | null; taxCode: string | null; timezone: string; currency: string };
-export type CompanySettings = { tenant: TenantProfile; branding: Branding; support: SupportContact; platform: PlatformPolicy; updatedAt: string; canManage: boolean };
+/* Kỳ công: từ ngày periodStartDay tháng trước tới ngày trước đó của tháng này (1 = tháng dương lịch) */
+export type AttendanceConfig = { periodStartDay: number };
+export type CompanySettings = { tenant: TenantProfile; branding: Branding; support: SupportContact; platform: PlatformPolicy; attendance: AttendanceConfig; updatedAt: string; canManage: boolean };
 export type CompanySettingsUpdate = {
   displayName?: string;
   legalName?: string | null;
   taxCode?: string | null;
   support?: Partial<SupportContact>;
   platform?: { newsReadReceipt?: boolean };
+  attendance?: { periodStartDay?: number };
 };
 export type BrandingUpload = { contentType: string; dataBase64: string };
 
@@ -508,4 +513,100 @@ export type TenantCreateResult = { tenant: ConsoleTenantDetail; invite: { sent: 
 export type RecoveryInput = {
   tenantId: string; kind: RecoveryKind; targetEmployeeId?: string | null; newAdminName?: string | null; newAdminEmail?: string | null;
   verification: string; reason: string;
+};
+
+/* ---------- Bảng công tháng, giải trình, luồng duyệt ---------- */
+/* Kỳ công gọi theo tháng kết thúc: "2026-10" với ngày bắt đầu 26 là 26/09–25/10 */
+export type TimesheetPeriod = { month: string; start: string; end: string; locked: boolean; lockedAt: string | null };
+export type DayKind = "work" | "off" | "holiday" | "today" | "future" | "not_employed";
+export type DayIssue = "missing_in" | "missing_out" | "absent" | "late" | "early" | "late_early";
+export type TimesheetDay = {
+  date: string;
+  /* ISO 1 = Thứ Hai … 7 = Chủ Nhật */
+  weekday: number;
+  kind: DayKind;
+  holidayName: string | null;
+  shift: { name: string; start: string; end: string } | null;
+  /* Giờ ghi nhận (HH:MM giờ công ty) sau điều chỉnh; raw* là giờ chấm công gốc */
+  clockIn: string | null;
+  clockOut: string | null;
+  rawIn: string | null;
+  rawOut: string | null;
+  adjusted: boolean;
+  lateMinutes: number;
+  earlyMinutes: number;
+  workedMinutes: number;
+  /* Ngày công: 1 khi có đủ giờ vào và ra trong ngày làm việc */
+  credit: number;
+  issue: DayIssue | null;
+  request: { id: string; no: string; status: RequestStatus } | null;
+  canExplain: boolean;
+  explainDeadline: string | null;
+};
+export type TimesheetSummary = {
+  credited: number; standard: number; lateDays: number; lateMinutes: number; earlyDays: number;
+  /* Ngày thiếu dữ liệu chưa có giải trình đang chờ/đã duyệt */
+  missingDays: number;
+  pendingRequests: number;
+};
+export type ExplanationQuota = { limit: number; used: number; left: number; deadlineDays: number };
+export type MyTimesheet = {
+  period: TimesheetPeriod; timezone: string; days: TimesheetDay[]; summary: TimesheetSummary;
+  /* null: chưa áp dụng quy định giải trình */
+  explanation: ExplanationQuota | null;
+  /* Người duyệt bước đầu (để hiển thị trên form) */
+  approver: string | null;
+};
+
+export type ExplanationKind = "missing_in" | "missing_out" | "late" | "early" | "trip" | "device" | "other";
+export const EXPLANATION_KINDS: Record<ExplanationKind, string> = {
+  missing_in: "Quên chấm vào", missing_out: "Quên chấm ra", late: "Đến muộn có lý do", early: "Về sớm có lý do",
+  trip: "Đi công tác", device: "Lỗi thiết bị/GPS", other: "Khác",
+};
+export type ExplanationInput = { workDate: string; kind: ExplanationKind; clockIn?: string | null; clockOut?: string | null; reason: string };
+export type RequestStatus = "pending" | "approved" | "rejected" | "cancelled";
+export type StepResolver = "direct_manager" | "hr";
+export const STEP_RESOLVERS: Record<StepResolver, string> = { direct_manager: "Quản lý trực tiếp", hr: "Phòng Nhân sự" };
+export type StepStatus = "waiting" | "pending" | "approved" | "rejected" | "skipped" | "cancelled";
+export type RequestStep = {
+  taskId: string; stepNo: number; resolver: StepResolver; assignee: string | null; status: StepStatus;
+  dueAt: string | null; actedAt: string | null; actedBy: string | null; comment: string | null;
+};
+export type RequestItem = {
+  id: string; no: string; type: "explanation"; status: RequestStatus; submittedAt: string; completedAt: string | null;
+  workDate: string | null;
+  payload: { kind: ExplanationKind; clockIn: string | null; clockOut: string | null; reason: string };
+  requester: { id: string; code: string; fullName: string; department: string | null };
+  steps: RequestStep[];
+  /* Giờ chấm công gốc của ngày được giải trình, để người duyệt so sánh */
+  day: { rawIn: string | null; rawOut: string | null; shift: string | null } | null;
+  /* Bước đang chờ mà người xem được duyệt (null nếu không) */
+  myTaskId: string | null;
+  canCancel: boolean;
+};
+export type MyApprovals = { canApprove: boolean; items: RequestItem[] };
+export type ApprovalDecision = { comment?: string | null };
+
+export type TimesheetRow = {
+  employee: { id: string; code: string; fullName: string; department: string | null };
+  summary: TimesheetSummary;
+  status: "ok" | "needs_action" | "short";
+};
+export type TimesheetBoard = {
+  period: TimesheetPeriod; timezone: string; periodStartDay: number; rows: TimesheetRow[];
+  metrics: { employees: number; full: number; short: number; unexplained: number; lateEmployees: number; lateTimes: number; pendingRequests: number };
+  lock: { lockedAt: string; lockedBy: string | null; reason: string | null } | null;
+  /* Các kỳ khóa trước đây (để mở lại/đối chiếu) */
+  canLock: boolean; canUnlock: boolean;
+};
+export type EmployeeTimesheet = { period: TimesheetPeriod; timezone: string; employee: TimesheetRow["employee"]; days: TimesheetDay[]; summary: TimesheetSummary; requests: RequestItem[] };
+export type RequestQueue = {
+  items: Array<RequestItem & { dueAt: string | null; overdue: boolean }>;
+  counts: { pending: number; mine: number; overdue: number };
+};
+export type WorkflowStepInput = { resolver: StepResolver; slaHours: number };
+export type WorkflowDef = {
+  requestType: "explanation"; name: string;
+  current: { versionNo: number; steps: WorkflowStepInput[]; effectiveFrom: string } | null;
+  versions: Array<{ versionNo: number; steps: WorkflowStepInput[]; effectiveFrom: string; note: string | null; createdAt: string }>;
 };

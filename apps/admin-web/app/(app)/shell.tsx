@@ -7,8 +7,8 @@ import { useRealtimeStatus } from "../_lib/client";
 import { Icon, MeContext, ToastProvider, can, initials, longDate } from "../_ui/kit";
 
 type NavItem = { href: string; label: string; icon: string; perm?: string };
-/* Chỉ hiện trang của module đã làm (chấm công, cài đặt doanh nghiệp). Các mục khác của prototype (Tổ chức, Nghỉ phép,
-   Đơn & phê duyệt, Lương, Tài liệu, Bản tin, Tích hợp, Báo cáo, Phân quyền) sẽ thêm khi module tương ứng tới lượt. */
+/* Chỉ hiện trang của module đã làm (chấm công, đơn & phê duyệt, cài đặt doanh nghiệp). Các mục khác của prototype (Tổ chức,
+   Nghỉ phép, Lương, Tài liệu, Bản tin, Tích hợp, Báo cáo, Phân quyền) sẽ thêm khi module tương ứng tới lượt. */
 const NAV: Array<{ label?: string; items: NavItem[] }> = [
   { items: [{ href: "/", label: "Tổng quan", icon: "home" }] },
   { label: "Nhân sự", items: [{ href: "/employees", label: "Nhân viên", icon: "users", perm: "employee.read" }] },
@@ -16,8 +16,9 @@ const NAV: Array<{ label?: string; items: NavItem[] }> = [
     { href: "/attendance", label: "Chấm công", icon: "clock", perm: "attendance.read" },
     { href: "/schedules", label: "Ca & địa điểm", icon: "calendar", perm: "schedule.read" },
   ] },
+  { label: "Vận hành", items: [{ href: "/requests", label: "Đơn & phê duyệt", icon: "checks", perm: "request.read" }] },
 ];
-const TITLES: Record<string, string> = { "/": "Tổng quan", "/employees": "Nhân viên", "/attendance": "Chấm công", "/schedules": "Ca & địa điểm", "/settings": "Cài đặt doanh nghiệp" };
+const TITLES: Record<string, string> = { "/": "Tổng quan", "/employees": "Nhân viên", "/attendance": "Chấm công", "/schedules": "Ca & địa điểm", "/settings": "Cài đặt doanh nghiệp", "/requests": "Đơn & phê duyệt" };
 
 function today(tz: string) {
   return new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());

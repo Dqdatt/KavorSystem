@@ -59,7 +59,7 @@ export class ScheduleAdmin {
     const today = await this.today(ctx);
     const v = parseShiftVersion(b);
     this.notPast(v.effective_from, today);
-    const { data: vs } = await ctx.db.from("shift_versions").select("version_no, effective_from, start_time, end_time, break_start, break_end, late_grace_minutes, early_grace_minutes")
+    const { data: vs } = await ctx.db.from("shift_versions").select("version_no, effective_from, start_time, end_time, break_start, break_end, late_grace_minutes, early_grace_minutes, work_days")
       .eq("shift_id", shiftId).eq("tenant_id", ctx.tenantId).order("version_no", { ascending: false });
     const list = (vs ?? []) as Array<ShiftVersionRow>;
     if (!list.length) throw notFound("ca");
@@ -273,8 +273,17 @@ function parseShiftVersion(b: Body) {
     start_time: start, end_time: end, break_start: breakStart, break_end: breakEnd,
     late_grace_minutes: number(b, "lateGraceMinutes", 0, 120, { optional: true, integer: true }) ?? 0,
     early_grace_minutes: number(b, "earlyGraceMinutes", 0, 120, { optional: true, integer: true }) ?? 0,
+    work_days: workDays(b),
     effective_from: date(b, "effectiveFrom")!, note: nullableText(b, "note", 300) ?? null,
   };
+}
+
+/* Ngày làm việc trong tuần (ISO 1–7); bỏ trống = Thứ Hai–Thứ Sáu */
+function workDays(b: Body): number[] {
+  const v = b?.workDays;
+  if (v === undefined || v === null) return [1, 2, 3, 4, 5];
+  if (!Array.isArray(v) || !v.length || v.some((d) => !Number.isInteger(d) || d < 1 || d > 7)) throw invalid("Ngày làm việc phải chọn ít nhất một ngày (Thứ Hai–Chủ Nhật).");
+  return [...new Set(v as number[])].sort();
 }
 
 function parseLocationVersion(b: Body) {
@@ -289,7 +298,7 @@ const shiftError = (e: { code?: string; message: string }) => (e.code === "23514
 
 const toShiftVersion = (v: ShiftVersionRow): ShiftVersion => ({
   id: v.id, versionNo: v.version_no, start: hhmm(v.start_time)!, end: hhmm(v.end_time)!, breakStart: hhmm(v.break_start), breakEnd: hhmm(v.break_end),
-  lateGraceMinutes: v.late_grace_minutes, earlyGraceMinutes: v.early_grace_minutes, effectiveFrom: v.effective_from, note: v.note, createdAt: v.created_at,
+  lateGraceMinutes: v.late_grace_minutes, earlyGraceMinutes: v.early_grace_minutes, workDays: v.work_days ?? [1, 2, 3, 4, 5], effectiveFrom: v.effective_from, note: v.note, createdAt: v.created_at,
 });
 const toLocationVersion = (v: LocationVersionRow): LocationVersion => ({
   id: v.id, versionNo: v.version_no, latitude: v.latitude, longitude: v.longitude, radiusM: v.radius_m, maxAccuracyM: v.max_accuracy_m, effectiveFrom: v.effective_from, note: v.note, createdAt: v.created_at,

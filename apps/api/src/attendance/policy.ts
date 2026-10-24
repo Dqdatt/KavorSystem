@@ -12,7 +12,7 @@ export type AssignmentRow = {
 export type Placement = { legal_entity_id: string; branch_id: string; department_id: string; position_id: string; manager_employee_id: string | null; effective_from: string };
 export type ShiftVersionRow = {
   id: string; shift_id: string; version_no: number; start_time: string; end_time: string; break_start: string | null; break_end: string | null;
-  late_grace_minutes: number; early_grace_minutes: number; effective_from: string; note: string | null; created_at: string;
+  late_grace_minutes: number; early_grace_minutes: number; work_days: number[]; effective_from: string; note: string | null; created_at: string;
 };
 export type ShiftRow = { id: string; code: string; name: string; active: boolean };
 export type LocationVersionRow = { id: string; location_id: string; version_no: number; latitude: number; longitude: number; radius_m: number; max_accuracy_m: number; effective_from: string; note: string | null; created_at: string };
@@ -60,6 +60,7 @@ export const minutesOf = (t: string) => { const [h = 0, m = 0] = t.split(":").ma
 export const toShiftInfo = (s: ShiftRow, v: ShiftVersionRow): ShiftInfo => ({
   id: s.id, code: s.code, name: s.name, versionNo: v.version_no, start: hhmm(v.start_time)!, end: hhmm(v.end_time)!,
   breakStart: hhmm(v.break_start), breakEnd: hhmm(v.break_end), lateGraceMinutes: v.late_grace_minutes, earlyGraceMinutes: v.early_grace_minutes,
+  workDays: v.work_days ?? [1, 2, 3, 4, 5],
 });
 export const toWorkLocation = (l: LocationRow, v: LocationVersionRow): WorkLocation => ({
   id: l.id, name: l.name, address: l.address, latitude: v.latitude, longitude: v.longitude, radiusM: v.radius_m, maxAccuracyM: v.max_accuracy_m,
@@ -82,7 +83,7 @@ export class PolicyIndex {
     const [as, sh, sv, lo, lv, ru, rv, de, br, le, em] = await Promise.all([
       db.from("policy_assignments").select("id, kind, target_id, scope_type, scope_id, effective_from, effective_to, reason, created_at, created_by").eq("tenant_id", tenantId),
       db.from("shift_definitions").select("id, code, name, active").eq("tenant_id", tenantId),
-      db.from("shift_versions").select("id, shift_id, version_no, start_time, end_time, break_start, break_end, late_grace_minutes, early_grace_minutes, effective_from, note, created_at").eq("tenant_id", tenantId),
+      db.from("shift_versions").select("id, shift_id, version_no, start_time, end_time, break_start, break_end, late_grace_minutes, early_grace_minutes, work_days, effective_from, note, created_at").eq("tenant_id", tenantId),
       db.from("work_locations").select("id, code, name, address, branch_id, active").eq("tenant_id", tenantId),
       db.from("work_location_versions").select("id, location_id, version_no, latitude, longitude, radius_m, max_accuracy_m, effective_from, note, created_at").eq("tenant_id", tenantId),
       db.from("policy_definitions").select("id, kind, code, name, active").eq("tenant_id", tenantId),

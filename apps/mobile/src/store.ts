@@ -9,9 +9,12 @@ import {
 import type { IllusKind } from "./illus";
 import { api, type Snapshot } from "./api";
 import { authenticate, biometricLabel, clearQuickLogin, clearSession, loadBioPrefs, loadSession, loadSupport, quickLoginEmployee, quickRefreshToken, saveBioPrefs, saveSession, saveSupport, type BioPrefs } from "./auth";
-import { ApiError, REMOTE, attendanceApi, authApi, companyApi, isNetworkError, setTokenSource } from "./api/http";
-import { SUPPORT_SAMPLE } from "./api/mock-data";
-import { distanceMeters, passwordProblems, type AttendanceEvent, type AttendanceToday, type AuthResult, type MyCompany, type SupportContact, type WorkLocation } from "@kavor/contracts";
+import { ApiError, REMOTE, attendanceApi, authApi, companyApi, isNetworkError, setTokenSource, timesheetApi } from "./api/http";
+import { MY_REQ_INIT, SUPPORT_SAMPLE } from "./api/mock-data";
+import {
+  EXPLANATION_KINDS, distanceMeters, passwordProblems,
+  type AttendanceEvent, type AttendanceToday, type AuthResult, type ExplanationKind, type MyCompany, type MyTimesheet, type RequestItem, type SupportContact, type TimesheetDay, type WorkLocation,
+} from "@kavor/contracts";
 import { currentFix, deviceRegistration, deviceSummary, enqueue, flushQueue, installationId, LocationError, newEventId, quietFix, readQueue, type Fix } from "./attendance";
 
 export type Anim = "push" | "pop" | "fade";
@@ -52,6 +55,28 @@ const fromSnapshot = (d: Snapshot) => ({
   news: d.news,
 });
 
+/* Gửi giải trình thật: loại theo bất thường của ngày, giờ đề nghị gắn vào giờ vào hoặc giờ ra tương ứng */
+function exSubmitRemote() {
+  const date = S.exDay, d = date ? tsDay(date) : undefined;
+  if (!date || !d) { toast("Chọn ngày cần giải trình"); return; }
+  const t = S.ex.type;
+  const kind: ExplanationKind = t === "in" ? (d.issue === "late" || d.issue === "late_early" ? "late" : "missing_in") : t === "out" ? (d.issue === "early" || d.issue === "late_early" ? "early" : "missing_out") : (t as ExplanationKind);
+  const time = hm(S.ex.time * 60);
+  const outSide = t === "out" || (t !== "in" && (d.issue === "missing_out" || d.issue === "early"));
+  const both = t !== "in" && t !== "out" && d.issue === "absent" && d.shift;
+  const body = { workDate: date, kind, reason: S.ex.reason.trim(),
+    clockIn: both ? d.shift!.start : outSide ? null : time, clockOut: both ? d.shift!.end : outSide ? time : null };
+  remote("exSubmit", async () => {
+    const r = await timesheetApi.explain(body);
+    const step = r.steps.find((x) => x.status === "pending");
+    S.ex = { ...S.ex, reason: "", file: null, err: false }; S.exDay = null;
+    await Promise.all([loadTimesheet(S.ts?.period.month), loadRequests()]);
+    S.done = { illus: "explain", title: "Đã gửi yêu cầu giải trình", text: `${step?.resolver === "hr" ? "Phòng Nhân sự" : step?.assignee ?? "Người duyệt"} sẽ nhận thông báo để duyệt. Bạn còn ${explainLeft()}/${S.explainLimit} lượt trong kỳ này.`,
+      rows: [["Mã đơn", r.no], ["Hạn duyệt", step?.dueAt ? stamp(step.dueAt) : "—"]], primary: ["Xem đơn của tôi", "requests"] };
+    S.stack = ["done"]; render("push");
+  });
+}
+
 /* Gửi thay đổi lên lớp dữ liệu; giao diện đã cập nhật lạc quan nên chỉ báo khi lỗi */
 function sync(p: Promise<void>) {
   p.catch(() => toast("Chưa đồng bộ được với máy chủ. Kavor sẽ thử lại khi có mạng."));
@@ -82,6 +107,10 @@ const makeState = () => ({
   supportCache: null as SupportContact | null,
   coverSrc: null as null | { uri: string; headers: Record<string, string> },
   afterConsent: null as Route | null,
+  /* Bảng công + đơn giải trình (bản dùng API). reqItems: đơn thật theo số đơn (GT-0001) để màn chi tiết/duyệt dùng */
+  ts: null as MyTimesheet | null,
+  reqItems: new Map<string, RequestItem>(),
+  exDay: null as string | null,
   f: freshForms(),
   /* UI */
   nav: { seq: 0, anim: null as Anim | null },
@@ -140,6 +169,74 @@ export function verdict(kind: "in" | "out", t: number): [string, "ok" | "warn"] 
   const e = S.sh.end - m; return e > S.sh.earlyGrace ? [`Về sớm ${dur(e)}`, "warn"] : ["Đủ giờ", "ok"];
 }
 export const explainLeft = () => S.explainLimit - S.explainUsed;
+
+/* Bản dùng API: chọn ngày theo bất thường thật; vắng cả ngày chỉ giải trình theo lý do (ghi nhận giờ ca), giờ đề nghị mặc định là giờ ca */
+export function exPick(date: string) {
+  const d = tsDay(date); S.exDay = date;
+  const out = d?.issue === "missing_out" || d?.issue === "early";
+  S.ex.type = d?.issue === "absent" ? "other" : out ? "out" : "in";
+  S.ex.time = d?.shift ? toMin(out ? d.shift.end : d.shift.start) : out ? S.sh.end : S.sh.start;
+}
+
+/* ---------- bảng công + giải trình thật (REMOTE) ---------- */
+export const WD_ISO = ["", "T2", "T3", "T4", "T5", "T6", "T7", "CN"];
+export const WD_ISO_FULL = ["", "Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy", "Chủ Nhật"];
+export const ddmm = (date: string) => `${date.slice(8, 10)}/${date.slice(5, 7)}`;
+export const issueText = (d: TimesheetDay) => d.issue === "missing_in" ? "thiếu giờ vào" : d.issue === "missing_out" ? "thiếu giờ ra" : d.issue === "absent" ? "không chấm công"
+  : d.issue === "late" ? `muộn ${d.lateMinutes} phút` : d.issue === "early" ? `về sớm ${d.earlyMinutes} phút` : d.issue === "late_early" ? `muộn ${d.lateMinutes}, sớm ${d.earlyMinutes} phút` : "";
+const isoWeekday = (date: string) => { const w = new Date(`${date}T12:00:00Z`).getUTCDay(); return w === 0 ? 7 : w; };
+export const stamp = (iso: string) => { const d = new Date(iso); return `${pad(d.getDate())}/${pad(d.getMonth() + 1)} ${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+const initialsOf = (name: string) => { const p = name.trim().split(/\s+/); return ((p.length > 1 ? p[0]![0]! : "") + p[p.length - 1]![0]!).toUpperCase(); };
+export const reqSub = (r: RequestItem) => `${r.workDate ? `${WD_ISO[isoWeekday(r.workDate)]} ${ddmm(r.workDate)} · ` : ""}${EXPLANATION_KINDS[r.payload.kind].toLowerCase()}`;
+export const tsDay = (date: string) => S.ts?.days.find((d) => d.date === date);
+/* Ngày còn giải trình được có hạn gần nhất (bản dùng API) — cho thông báo ở Trang chủ và menu tạo đơn */
+export function explainDue(): { date: string; deadline: string; daysLeft: number; issue: string } | null {
+  const t = S.ts; if (!t?.explanation || t.period.locked) return null;
+  const d = t.days.filter((x) => x.canExplain && x.explainDeadline).sort((a, b) => a.explainDeadline!.localeCompare(b.explainDeadline!))[0];
+  if (!d) return null;
+  const now = new Date(), today = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+  return { date: d.date, deadline: d.explainDeadline!, daysLeft: Math.max(0, Math.round((Date.parse(`${d.explainDeadline}T00:00:00Z`) - today) / 86_400_000)), issue: issueText(d) };
+}
+/* Tháng kỳ công: "2026-10" → "Tháng 10, 2026" */
+export const monthTitle = (m: string) => `Tháng ${Number(m.slice(5))}, ${m.slice(0, 4)}`;
+const MOCK_REQ_IDS = new Set(MY_REQ_INIT.map((r) => r.id));
+
+export async function loadTimesheet(month?: string, manual = false) {
+  if (!REMOTE || !isLoggedIn() || S.stack[0] === "consent") return;
+  try {
+    const t = await timesheetApi.get(month);
+    S.ts = t;
+    if (t.explanation) { S.explainLimit = t.explanation.limit; S.explainUsed = t.explanation.used; }
+    emit();
+  } catch (e) {
+    if (e instanceof ApiError && e.status === 401) showErr("session");
+    else if (manual) toast(e instanceof ApiError ? e.message : "Chưa tải được bảng công.");
+  }
+}
+
+/* Đơn của tôi + đơn cần tôi duyệt. Đơn nghỉ/OT/tạm ứng của prototype chưa có máy chủ: giữ đơn tạo trong phiên, bỏ đơn mẫu. */
+export async function loadRequests() {
+  if (!REMOTE || !isLoggedIn() || S.stack[0] === "consent") return;
+  try {
+    const [mine, ap] = await Promise.all([timesheetApi.mine(), timesheetApi.approvals()]);
+    S.reqItems = new Map([...mine, ...ap.items].map((r) => [r.no, r]));
+    const local = S.myReq.filter((r) => r.type !== "explain" && !MOCK_REQ_IDS.has(r.id));
+    S.myReq = [...mine.map((r) => ({
+      id: r.no, type: "explain" as const, title: "Giải trình công", sub: reqSub(r), status: r.status, created: stamp(r.submittedAt), reason: r.payload.reason,
+      note: r.steps.find((x) => x.status === "rejected")?.comment ?? undefined,
+    })), ...local];
+    S.approvals = ap.items.map((r) => ({
+      id: r.no, who: r.requester.fullName, ini: initialsOf(r.requester.fullName), role: r.requester.department ?? "", type: "explain" as const, title: "Giải trình công",
+      sub: reqSub(r), reason: r.payload.reason, created: stamp(r.submittedAt),
+      ctx: r.day ? `Chấm công gốc: vào ${r.day.rawIn ?? "--:--"} · ra ${r.day.rawOut ?? "--:--"}` : "",
+    }));
+    S.role = ap.canApprove ? "manager" : "staff";
+    emit();
+  } catch (e) {
+    if (e instanceof ApiError && e.status === 401) showErr("session");
+  }
+}
+const refreshWork = () => { void loadTimesheet(S.ts?.period.month); void loadRequests(); };
 export const lvAvail = () => S.leave.granted + S.leave.carry - S.leave.used - S.leave.pending;
 export const pendingCount = () => (S.role === "manager" ? S.approvals.length : 0);
 export function advEligible(): [string, string] | null {
@@ -193,6 +290,8 @@ export function tab(r: Route) {
   closeSheet(); S.selectMode = false; S.sel.clear();
   if (cur() === r && S.stack.length === 1) { scrollTopRequests.forEach((f) => f()); return; }
   S.stack = [r]; render("fade");
+  if (r === "attendance") void loadTimesheet(S.ts?.period.month);
+  if (r === "requests") void loadRequests();
 }
 export function jump(r: string) {
   closeSheet(true); quickClose();
@@ -231,7 +330,7 @@ async function signIn(employeeId: string, result?: AuthResult) {
   if ((await loadCompany())?.privacy.required) { askConsent(target); return; }
   S.stack = [target];
   render(session.deviceRegistered ? "fade" : "push");
-  if (session.deviceRegistered) void loadToday();
+  if (session.deviceRegistered) { void loadToday(); refreshWork(); }
 }
 
 /* ---------- thông tin công ty (chỉ khi REMOTE; bản mẫu dùng liên hệ mẫu và ảnh bìa mặc định) ---------- */
@@ -368,6 +467,7 @@ async function checkPending(manual: boolean) {
 if (REMOTE) AppState.addEventListener("change", (st) => {
   if (st !== "active") return;
   void loadToday();
+  if (isLoggedIn()) refreshWork();
   /* HR công bố điều khoản mới trong lúc app chạy nền → hỏi đồng ý ở lần mở kế tiếp */
   if (isLoggedIn()) void loadCompany().then((c) => { if (c?.privacy.required) askConsent(cur() === "device" ? "device" : "home"); });
 });
@@ -460,7 +560,7 @@ export async function restoreSession() {
   const target: Route = session.deviceRegistered ? "home" : "device";
   if ((await loadCompany())?.privacy.required) { askConsent(target); return; }
   S.stack = [target]; render();
-  if (session.deviceRegistered) void loadToday();
+  if (session.deviceRegistered) { void loadToday(); refreshWork(); }
 }
 
 function pinSuccess() { S.pinUntil = Date.now() + 5 * 60 * 1000; const f = S.pinOk; S.pinOk = null; closeSheet(); f && f(); }
@@ -533,7 +633,7 @@ export const ACT = {
       if (S.company) S.company = { ...S.company, privacy: { ...S.company.privacy, required: false, acceptedVersionNo: terms.versionNo } };
       const next = S.afterConsent ?? "home"; S.afterConsent = null;
       S.stack = [next]; render("fade"); toast(`Đã đồng ý điều khoản phiên bản ${terms.versionNo}`);
-      if (next === "home") void loadToday();
+      if (next === "home") { void loadToday(); refreshWork(); }
     }, (e) => { if (e.code === "PRIVACY_TERMS_CHANGED") { toast(e.message); void loadCompany(); return true; } return false; });
   },
   errLogin: () => { void clearSession(); S.err = null; S.stack = ["login"]; render("fade"); },
@@ -681,15 +781,37 @@ export const ACT = {
     S.spin = "relocate"; emit(); setTimeout(() => { S.spin = null; closeSheet(); toast("Vẫn ngoài vùng (±2 m). Đổi “Vị trí” ở bảng bên phải để thử trong vùng."); }, 800);
   },
   day: (a: string) => openSheet("day", a),
-  exFromDay: (a: string) => { closeSheet(true); S.ex.date = +a; const o = day(+a)!; const late = !!o.in && toMin(o.in) > S.sh.start; S.ex.type = (!o.in || late) ? "in" : "out"; S.ex.time = late ? S.sh.start : !o.in ? S.sh.start - 2 : S.sh.end; go("explain"); },
+  exFromDay: (a: string) => {
+    if (REMOTE) { closeSheet(true); ACT.exDate(a); go("explain"); return; }
+    closeSheet(true); S.ex.date = +a; const o = day(+a)!; const late = !!o.in && toMin(o.in) > S.sh.start; S.ex.type = (!o.in || late) ? "in" : "out"; S.ex.time = late ? S.sh.start : !o.in ? S.sh.start - 2 : S.sh.end; go("explain"); },
   attFilter: (a: "all" | "late" | "miss") => { S.attFilter = a; emit(); },
-  exDate: (a: number) => { S.ex.date = a; const o = day(a)!; if (!o.in) { S.ex.type = "in"; S.ex.time = S.sh.start - 2; } emit(); },
-  exType: (a: string) => { S.ex.type = a; S.ex.time = a === "out" ? S.sh.end : S.sh.start - 2; emit(); },
+  /* Chuyển kỳ công (bản dùng API) */
+  tsMonth: (delta: number) => {
+    const m = S.ts?.period.month; if (!m) return;
+    const [y, mo] = m.split("-").map(Number) as [number, number];
+    const d = new Date(Date.UTC(y, mo - 1 + delta, 1));
+    remote("tsMonth", () => loadTimesheet(`${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}`, true));
+  },
+  exDate: (a: number | string) => {
+    if (typeof a === "string") {
+      exPick(a); emit(); return;
+    }
+    S.ex.date = a; const o = day(a)!; if (!o.in) { S.ex.type = "in"; S.ex.time = S.sh.start - 2; } emit();
+  },
+  exType: (a: string) => {
+    if (REMOTE) {
+      const d = S.exDay ? tsDay(S.exDay) : undefined;
+      const out = a === "out" || (a !== "in" && (d?.issue === "missing_out" || d?.issue === "early"));
+      S.ex.type = a; S.ex.time = d?.shift ? toMin(out ? d.shift.end : d.shift.start) : out ? S.sh.end : S.sh.start; emit(); return;
+    }
+    S.ex.type = a; S.ex.time = a === "out" ? S.sh.end : S.sh.start - 2; emit();
+  },
   exTime: (a: number) => { S.ex.time = Math.max(360, Math.min(1320, S.ex.time + a)); emit(); },
   exFile: () => { S.ex.file = S.ex.file ? null : "Xac-nhan-bao-ve-15-10.jpg · 1,2 MB"; emit(); },
   exSubmit: () => {
     if (!S.ex.reason.trim()) { S.ex.err = true; emit(); return; }
     if (!needNet(() => ACT.exSubmit())) return;
+    if (REMOTE) { exSubmitRemote(); return; }
     const o = day(S.ex.date)!; o.pendingEx = true; S.explainUsed++;
     const id = "GT-" + pad(S.ex.date) + "10";
     const tn = ({ in: "quên chấm vào", out: "quên chấm ra", trip: "đi công tác", device: "lỗi thiết bị/GPS", other: "khác" } as Record<string, string>)[S.ex.type];
@@ -745,6 +867,11 @@ export const ACT = {
   newsCat: (a: string) => { S.newsCat = a; emit(); },
   cancelAsk: (a: string) => openSheet("cancelAsk", a),
   cancelGo: (a: string) => {
+    const item = REMOTE ? S.reqItems.get(a) : undefined;
+    if (item) {
+      remote("cancelGo", async () => { await timesheetApi.cancel(item.id); closeSheet(); toast("Đã hủy đơn " + a); refreshWork(); });
+      return;
+    }
     const r = S.myReq.find((x) => x.id === a)!; r.status = "cancelled"; sync(api.cancelRequest(a));
     if (r.title === "Nghỉ phép năm") { const m = r.sub.match(/([\d,]+) ngày/); if (m) S.leave.pending = Math.max(0, S.leave.pending - parseFloat((m[1] ?? "0").replace(",", "."))); }
     if (r.adv) S.advance = null; closeSheet(); emit(); toast("Đã hủy đơn " + a);
@@ -753,6 +880,15 @@ export const ACT = {
   selToggle: (a: string) => { S.sel.has(a) ? S.sel.delete(a) : S.sel.add(a); emit(); },
   approve: (a: string, fromCard = false) => {
     if (!needNet(() => ACT.approve(a, fromCard))) return;
+    const item = REMOTE ? S.reqItems.get(a) : undefined;
+    if (item?.myTaskId) {
+      remote(fromCard ? `approve:${a}` : "approve", async () => {
+        await timesheetApi.decide(item.myTaskId!, true);
+        const finish = () => { S.leavingCard = null; S.approvals = S.approvals.filter((x) => x.id !== a); if (cur() === "approvalDetail") { S.stack.pop(); render("pop"); } else emit(); toast("Đã duyệt đơn " + a); void loadRequests(); };
+        if (fromCard) { S.leavingCard = a; emit(); setTimeout(finish, 260); } else finish();
+      }, (e) => { toast(e.message); void loadRequests(); return true; });
+      return;
+    }
     sync(api.decide({ ids: [a], approve: true }));
     const finish = () => { S.leavingCard = null; S.approvals = S.approvals.filter((x) => x.id !== a); if (cur() === "approvalDetail") { S.stack.pop(); render("pop"); } else emit(); toast("Đã duyệt đơn " + a); };
     if (fromCard) { S.leavingCard = a; emit(); setTimeout(finish, 260); } else finish();
@@ -761,11 +897,32 @@ export const ACT = {
   rejectGo: (a: string) => {
     if (!S.f.rej.trim()) { S.f.rejErr = true; emit(); return; }
     if (!needNet(() => ACT.rejectGo(a))) return;
+    const item = REMOTE ? S.reqItems.get(a) : undefined;
+    if (item?.myTaskId) {
+      if (S.f.rej.trim().length < 5) { S.f.rejErr = true; emit(); return; }
+      remote("rejectGo", async () => {
+        await timesheetApi.decide(item.myTaskId!, false, S.f.rej.trim());
+        S.approvals = S.approvals.filter((x) => x.id !== a); closeSheet(); if (cur() === "approvalDetail") { S.stack.pop(); render("pop"); } else emit(); toast("Đã từ chối đơn " + a); void loadRequests();
+      });
+      return;
+    }
     sync(api.decide({ ids: [a], approve: false, reason: S.f.rej.trim() }));
     S.approvals = S.approvals.filter((x) => x.id !== a); closeSheet(); if (cur() === "approvalDetail") { S.stack.pop(); render("pop"); } else emit(); toast("Đã từ chối đơn " + a);
   },
   bulkApprove: () => {
     if (!needNet(() => ACT.bulkApprove())) return;
+    if (REMOTE) {
+      remote("bulkApprove", async () => {
+        const res: Array<{ id: string; who: string; fail: boolean }> = [];
+        for (const id of S.sel) {
+          const item = S.reqItems.get(id), who = S.approvals.find((x) => x.id === id)?.who ?? "";
+          try { if (!item?.myTaskId) throw new Error(); await timesheetApi.decide(item.myTaskId, true); res.push({ id, who, fail: false }); } catch { res.push({ id, who, fail: true }); }
+        }
+        S.sel.clear(); S.selectMode = false; await loadRequests();
+        openSheet("bulkResult", JSON.stringify(res));
+      });
+      return;
+    }
     const res = [...S.sel].map((id) => { const r = S.approvals.find((x) => x.id === id)!; return { r, fail: r.type === "advance" }; });
     sync(api.decide({ ids: res.filter((z) => !z.fail).map((z) => z.r.id), approve: true }));
     S.approvals = S.approvals.filter((x) => !res.some((z) => z.r.id === x.id && !z.fail));
@@ -835,7 +992,7 @@ export function quickItems(): Array<[string, "tap" | "plane" | "clock" | "moon" 
   return [
     ["clock", "tap", "Chấm công", phase() === "out" ? "Giữ để ra ca" : phase() === "done" ? "Đã xong ca hôm nay" : "Giữ để vào ca"],
     ["leaveNew", "plane", "Xin nghỉ phép", `Còn ${dec(lvAvail())} ngày phép`],
-    ["explain", "clock", "Giải trình công", `Còn ${explainLeft()}/3 lượt · hạn 22/10`],
+    ["explain", "clock", "Giải trình công", REMOTE ? (S.ts?.explanation ? `Còn ${explainLeft()}/${S.explainLimit} lượt${explainDue() ? ` · hạn ${ddmm(explainDue()!.deadline)}` : ""}` : "Theo bảng công") : `Còn ${explainLeft()}/3 lượt · hạn 22/10`],
     ["ot", "moon", "Làm thêm giờ", "Đăng ký OT"],
     ["advance", "cash", "Tạm ứng lương", advEligible() ? "Chưa áp dụng" : S.advance ? "Đã dùng lượt tháng này" : "Hạn mức 4,5 triệu"],
     ["payslips", "receipt", "Phiếu lương", "Tháng 09/2026"],

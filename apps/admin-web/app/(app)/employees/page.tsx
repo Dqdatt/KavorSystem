@@ -14,6 +14,7 @@ const AUDIT: Record<string, string> = {
   "auth.activated": "Nhân viên kích hoạt tài khoản", "auth.activation.otp_sent": "Gửi OTP kích hoạt", "auth.login": "Đăng nhập", "auth.login_failed": "Đăng nhập sai mật khẩu", "auth.password_reset": "Đặt lại mật khẩu",
   "auth.mfa_enrolled": "Bật xác thực hai lớp", "auth.mfa_verified": "Xác thực hai lớp khi đăng nhập web", "auth.mfa_reset": "Đặt lại xác thực hai lớp",
   "privacy.consented": "Đồng ý điều khoản dữ liệu cá nhân",
+  "request.submitted": "Gửi đơn", "request.cancelled": "Hủy đơn", "approval.approved": "Duyệt đơn", "approval.rejected": "Từ chối đơn",
   "device.registered": "Đăng ký thiết bị", "device.change_requested": "Yêu cầu dùng máy mới", "device.approved": "Duyệt thiết bị", "device.rejected": "Từ chối thiết bị", "device.revoked": "Thu hồi thiết bị",
 };
 

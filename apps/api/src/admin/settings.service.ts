@@ -10,14 +10,20 @@ import { calendarsOf, holidaysOf, supportOf } from "../company/company.service.j
 import { currentTerms, toTerms, type TermsRow } from "../company/privacy.js";
 import { MFA_REQUIRED_FOR_WEB, conflict, invalid, notFound, type AdminContext } from "./context.js";
 import type { ScheduleAdmin } from "./schedule.service.js";
-import { EMAIL, date, nullableText, oneOf, req, text, uuid, type Body } from "./validate.js";
+import { EMAIL, date, nullableText, number, oneOf, req, text, uuid, type Body } from "./validate.js";
 
 const KINDS: readonly BrandingKind[] = ["logo", "cover"];
 const PHONE = /^[0-9+ ().-]{6,20}$/;
 const TAX = /^\d{10}(-\d{3})?$/;
 
 type TenantRow = { code: string; display_name: string; legal_name: string | null; tax_code: string | null; timezone: string; currency: string };
-type SettingsRow = { branding: Record<string, string>; support_contact: unknown; platform_policy: Record<string, unknown>; updated_at: string };
+type SettingsRow = { branding: Record<string, string>; support_contact: unknown; platform_policy: Record<string, unknown>; attendance_settings: Record<string, unknown>; updated_at: string };
+/* Kỳ công mặc định 26 tháng trước → 25 tháng này (PILOT_RULEBOOK §1) */
+export const DEFAULT_PERIOD_START_DAY = 26;
+export const periodStartDayOf = (attendance: unknown) => {
+  const v = (attendance as { periodStartDay?: unknown } | null)?.periodStartDay;
+  return typeof v === "number" && Number.isInteger(v) && v >= 1 && v <= 28 ? v : DEFAULT_PERIOD_START_DAY;
+};
 
 export class SettingsAdmin {
   constructor(private readonly sb: SupabaseGateway, private readonly store: BrandingStore, private readonly schedule: ScheduleAdmin) {}
@@ -25,10 +31,10 @@ export class SettingsAdmin {
   private async load(ctx: AdminContext): Promise<{ t: TenantRow; s: SettingsRow }> {
     const [{ data: t, error }, { data: s }] = await Promise.all([
       ctx.db.from("tenants").select("code, display_name, legal_name, tax_code, timezone, currency").eq("id", ctx.tenantId).single(),
-      ctx.db.from("tenant_settings").select("branding, support_contact, platform_policy, updated_at").eq("tenant_id", ctx.tenantId).maybeSingle(),
+      ctx.db.from("tenant_settings").select("branding, support_contact, platform_policy, attendance_settings, updated_at").eq("tenant_id", ctx.tenantId).maybeSingle(),
     ]);
     if (error) throw error;
-    return { t: t as TenantRow, s: (s as SettingsRow | null) ?? { branding: {}, support_contact: {}, platform_policy: {}, updated_at: new Date().toISOString() } };
+    return { t: t as TenantRow, s: (s as SettingsRow | null) ?? { branding: {}, support_contact: {}, platform_policy: {}, attendance_settings: {}, updated_at: new Date().toISOString() } };
   }
 
   /* ---------- Thông tin, thương hiệu, liên hệ, chính sách nền tảng ---------- */
@@ -42,7 +48,8 @@ export class SettingsAdmin {
     return {
       tenant: { code: t.code, displayName: t.display_name, legalName: t.legal_name, taxCode: t.tax_code, timezone: t.timezone, currency: t.currency },
       branding: { logoVersion: brandingVersion(s.branding.logoPath), coverVersion: brandingVersion(s.branding.coverPath) },
-      support: supportOf(s.support_contact), platform, updatedAt: s.updated_at, canManage: ctx.tenantWide("tenant.settings.manage"),
+      support: supportOf(s.support_contact), platform, attendance: { periodStartDay: periodStartDayOf(s.attendance_settings) },
+      updatedAt: s.updated_at, canManage: ctx.tenantWide("tenant.settings.manage"),
     };
   }
 
@@ -75,6 +82,14 @@ export class SettingsAdmin {
       const p = (b.platform ?? {}) as Body;
       if (typeof p.newsReadReceipt === "boolean") settings.platform_policy = { newsReadReceipt: p.newsReadReceipt };
     }
+    if (b?.attendance !== undefined) {
+      const a = (b.attendance ?? {}) as Body;
+      if (a.periodStartDay !== undefined) {
+        const day = number(a, "periodStartDay", 1, 28, { integer: true })!;
+        const { s: cur } = await this.load(ctx);
+        settings.attendance_settings = { ...cur.attendance_settings, periodStartDay: day };
+      }
+    }
     if (Object.keys(tenant).length) {
       const { error } = await ctx.db.from("tenants").update(tenant).eq("id", ctx.tenantId);
       if (error) throw error;
@@ -85,7 +100,7 @@ export class SettingsAdmin {
     }
     const after = await this.get(ctx);
     if (Object.keys(tenant).length || Object.keys(settings).length) {
-      await ctx.audit("tenant.settings_updated", "tenant", ctx.tenantId, { tenant: before.tenant, support: before.support, platform: before.platform }, { tenant: after.tenant, support: after.support, platform: after.platform });
+      await ctx.audit("tenant.settings_updated", "tenant", ctx.tenantId, { tenant: before.tenant, support: before.support, platform: before.platform, attendance: before.attendance }, { tenant: after.tenant, support: after.support, platform: after.platform, attendance: after.attendance });
     }
     return after;
   }

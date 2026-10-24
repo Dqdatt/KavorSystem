@@ -170,3 +170,45 @@ insert into public.holidays (calendar_id, holiday_date, name, kind) values
 
 -- Bộ mẫu mặc định (quy định giải trình/tạm ứng/nhắc nhở, điều khoản dữ liệu cá nhân v1; ca HC đã có ở trên)
 select public.provision_tenant(id) from public.tenants order by code;
+select public.provision_workflows(id) from public.tenants order by code;
+
+-- Kỳ công 26 tháng trước → 25 tháng này (PILOT_RULEBOOK §1)
+update public.tenant_settings set attendance_settings = attendance_settings || '{"periodStartDay":26}' where tenant_id = '10000000-0000-4000-8000-000000000001';
+
+-- Chấm công mẫu cho các ngày làm việc đã qua của kỳ hiện tại (không gồm hôm nay), để bảng công/giải trình có dữ liệu khi dev.
+-- Hà (HD0142) theo kiểu prototype: thường đúng giờ, có ngày đi muộn, quên chấm vào, quên chấm ra (ngày gần nhất quên chấm ra,
+-- ngày trước đó đi muộn). Nhân viên khác đều đặn.
+with period as (
+  select case when extract(day from current_date) >= 26 then date_trunc('month', current_date)::date + 25
+              else (date_trunc('month', current_date) - interval '1 month')::date + 25 end as start_on
+), days as (
+  select d::date as d from period, generate_series((select start_on from period), current_date - 1, interval '1 day') d
+  where extract(isodow from d) between 1 and 5
+), people as (
+  select * from (values
+    ('60000000-0000-4000-8000-000000000142'::uuid, true),
+    ('60000000-0000-4000-8000-000000000003'::uuid, false),
+    ('60000000-0000-4000-8000-000000000004'::uuid, false),
+    ('60000000-0000-4000-8000-000000000005'::uuid, false)) v(emp, varied)
+), recent as (
+  -- Hai ngày làm việc gần nhất của Hà: luôn còn trong hạn giải trình → thử được giải trình bất cứ hôm nào
+  select d, row_number() over (order by d desc) as n from days
+), plan as (
+  select p.emp, days.d,
+    case when p.varied and r.n = 2 then time '08:21'
+         when p.varied and extract(day from days.d)::int % 7 = 3 then time '08:14'
+         when p.varied and extract(day from days.d)::int % 13 = 2 then null
+         else time '07:52' + make_interval(mins => (extract(day from days.d)::int * 3) % 8) end as t_in,
+    case when p.varied and r.n = 1 then null
+         when p.varied and extract(day from days.d)::int % 11 = 4 then null
+         else time '17:05' + make_interval(mins => (extract(day from days.d)::int * 5) % 25) end as t_out
+  from people p cross join days join recent r on r.d = days.d
+  where not exists (select 1 from public.holidays h join public.holiday_calendars c on c.id = h.calendar_id
+                    where h.holiday_date = days.d and (c.tenant_id is null or c.tenant_id = '10000000-0000-4000-8000-000000000001'))
+)
+insert into public.attendance_events (tenant_id, employee_id, kind, client_event_id, occurred_at, received_at, status, location_id, latitude, longitude, accuracy_m, distance_m)
+select '10000000-0000-4000-8000-000000000001', emp, k.kind, 'seed-' || left(emp::text, 8) || right(emp::text, 4) || '-' || d || '-' || k.kind,
+  ((d + k.t) at time zone 'Asia/Ho_Chi_Minh'), ((d + k.t) at time zone 'Asia/Ho_Chi_Minh'), 'accepted',
+  '70000000-0000-4000-8000-000000000001', 10.774390, 106.703940, 8, 4
+from plan cross join lateral (values ('in', plan.t_in), ('out', plan.t_out)) k(kind, t)
+where k.t is not null;

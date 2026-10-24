@@ -29,7 +29,7 @@ select is((select count(*)::int from public.attendance_events where client_event
 select is((select count(*)::int from public.attendance_events where employee_id <> '60000000-0000-4000-8000-000000000142'), 0, 'Hà chỉ thấy bản ghi của chính mình');
 select ok((select count(*) from public.work_locations) > 0 and (select count(*) from public.work_locations where tenant_id <> '10000000-0000-4000-8000-000000000001') = 0, 'Hà thấy địa điểm làm việc của công ty mình');
 select set_config('request.jwt.claims', '{"sub":"c0000000-0000-4000-8000-00000000000c","role":"authenticated"}', true);
-select is((select count(*)::int from public.attendance_events), 0, 'Linh không thấy chấm công của Hà');
+select is((select count(*)::int from public.attendance_events where employee_id = '60000000-0000-4000-8000-000000000142'), 0, 'Linh không thấy chấm công của Hà');
 select is((select count(*)::int from public.employee_devices), 0, 'Linh không thấy thiết bị của Hà');
 reset role;
 

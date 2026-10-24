@@ -24,7 +24,10 @@ function SchedulesPage() {
   );
 }
 
-const shiftText = (v: ShiftVersion) => `${v.start}–${v.end}${v.breakStart ? ` · nghỉ ${v.breakStart}–${v.breakEnd}` : ""}${v.lateGraceMinutes ? ` · ân hạn muộn ${v.lateGraceMinutes}′` : ""}${v.earlyGraceMinutes ? ` · ân hạn sớm ${v.earlyGraceMinutes}′` : ""}`;
+const DAYS = ["", "T2", "T3", "T4", "T5", "T6", "T7", "CN"];
+/* "T2–T6", "T2–T7", hoặc liệt kê khi không liên tục */
+const daysText = (d: number[]) => { const s = [...d].sort(); return s.length > 2 && s.every((x, i) => i === 0 || x === s[i - 1]! + 1) ? `${DAYS[s[0]!]}–${DAYS[s[s.length - 1]!]}` : s.map((x) => DAYS[x]).join(", "); };
+const shiftText = (v: ShiftVersion) => `${daysText(v.workDays ?? [1, 2, 3, 4, 5])} · ${v.start}–${v.end}${v.breakStart ? ` · nghỉ ${v.breakStart}–${v.breakEnd}` : ""}${v.lateGraceMinutes ? ` · ân hạn muộn ${v.lateGraceMinutes}′` : ""}${v.earlyGraceMinutes ? ` · ân hạn sớm ${v.earlyGraceMinutes}′` : ""}`;
 
 function Shifts() {
   const me = useMe();
@@ -63,13 +66,14 @@ function ShiftForm({ shift, onClose, onSaved }: { shift: ShiftDef | null; onClos
   const me = useMe();
   const base = shift?.next ?? shift?.current;
   const [f, setF] = useState({ code: "", name: "", start: base?.start ?? "08:00", end: base?.end ?? "17:00", breakStart: base?.breakStart ?? "12:00", breakEnd: base?.breakEnd ?? "13:00",
-    lateGraceMinutes: String(base?.lateGraceMinutes ?? 0), earlyGraceMinutes: String(base?.earlyGraceMinutes ?? 0), effectiveFrom: tenantToday(me.tenant.timezone), note: "" });
+    lateGraceMinutes: String(base?.lateGraceMinutes ?? 0), earlyGraceMinutes: String(base?.earlyGraceMinutes ?? 0), workDays: base?.workDays ?? [1, 2, 3, 4, 5], effectiveFrom: tenantToday(me.tenant.timezone), note: "" });
   const [err, setErr] = useState<string | null>(null);
   const { busy, run } = useAction();
   const set = (k: keyof typeof f) => (e: { target: { value: string } }) => { setF({ ...f, [k]: e.target.value }); setErr(null); };
   async function save() {
     if (f.end <= f.start) { setErr("Giờ kết thúc phải sau giờ bắt đầu (chưa hỗ trợ ca qua đêm)."); return; }
-    const v = { start: f.start, end: f.end, breakStart: f.breakStart || null, breakEnd: f.breakEnd || null, lateGraceMinutes: Number(f.lateGraceMinutes) || 0, earlyGraceMinutes: Number(f.earlyGraceMinutes) || 0, effectiveFrom: f.effectiveFrom, note: f.note || null };
+    if (!f.workDays.length) { setErr("Chọn ít nhất một ngày làm việc."); return; }
+    const v = { start: f.start, end: f.end, breakStart: f.breakStart || null, breakEnd: f.breakEnd || null, lateGraceMinutes: Number(f.lateGraceMinutes) || 0, earlyGraceMinutes: Number(f.earlyGraceMinutes) || 0, workDays: f.workDays, effectiveFrom: f.effectiveFrom, note: f.note || null };
     const ok = await run("save", () => (shift ? call("POST", `shifts/${shift.id}/versions`, v) : call("POST", "shifts", { ...v, code: f.code, name: f.name })), shift ? "Đã thêm phiên bản ca" : "Đã tạo ca");
     if (ok) onSaved();
   }
@@ -82,6 +86,11 @@ function ShiftForm({ shift, onClose, onSaved }: { shift: ShiftDef | null; onClos
         <Field label="Giờ ra"><input type="time" value={f.end} onChange={set("end")} /></Field>
         <Field label="Nghỉ giữa ca từ"><input type="time" value={f.breakStart} onChange={set("breakStart")} /></Field>
         <Field label="đến"><input type="time" value={f.breakEnd} onChange={set("breakEnd")} /></Field>
+        <Field label="Ngày làm việc trong tuần" full>
+          <span style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>{[1, 2, 3, 4, 5, 6, 7].map((d) => (
+            <label key={d} className="check-row"><input type="checkbox" checked={f.workDays.includes(d)} onChange={(e) => setF({ ...f, workDays: e.target.checked ? [...f.workDays, d].sort() : f.workDays.filter((x) => x !== d) })} /> {DAYS[d]}</label>
+          ))}</span>
+        </Field>
         <Field label="Ân hạn đi muộn (phút)"><input type="number" min={0} max={120} value={f.lateGraceMinutes} onChange={set("lateGraceMinutes")} /></Field>
         <Field label="Ân hạn về sớm (phút)"><input type="number" min={0} max={120} value={f.earlyGraceMinutes} onChange={set("earlyGraceMinutes")} /></Field>
         <Field label="Hiệu lực từ ngày"><input type="date" min={tenantToday(me.tenant.timezone)} value={f.effectiveFrom} onChange={set("effectiveFrom")} /></Field>

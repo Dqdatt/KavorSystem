@@ -6,11 +6,64 @@ import { Appear } from "../motion";
 import { Btn, Card, Chip, Chips, Empty, ErrLine, Field, Form, InfoRow, Note, Num, RowBtn, SectionHead, Seg, Stepper, T, Tag, TextArea } from "../ui";
 import { Foot, TopBar, type ScreenSpec } from "../screen";
 import { LV_DAYS, WD, dec, hm, lvKey, pad, wdOct } from "../data";
-import { ACT, S, day, emit, explainLeft, go, lvAvail, lvCount } from "../store";
+import { REMOTE } from "../api/http";
+import { ACT, S, WD_ISO, day, ddmm, emit, exPick, explainLeft, go, issueText, lvAvail, lvCount, monthTitle, tsDay } from "../store";
 
 const Spacer = () => <View style={{ height: 76 }} />;
 
+/* Giải trình từ bảng công thật: ngày còn hạn, lý do theo bất thường của ngày, người duyệt theo luồng của công ty */
+function remoteExplainSpec(): ScreenSpec {
+  const t = S.ts, q = t?.explanation, e = S.ex;
+  const head = <TopBar title="Giải trình công" />;
+  if (!t || !q) return { head, body: [<Empty key="e" icon={<Gi n="hour" s={44} />} title={t ? "Chưa áp dụng quy định giải trình" : "Chưa tải được bảng công"} text={t ? "Liên hệ phòng Nhân sự để được hướng dẫn." : "Kiểm tra kết nối mạng rồi mở lại Bảng công."} />] };
+  if (t.period.locked) return { head, body: [<Empty key="e" icon={<Gi n="hour" s={44} />} title={`Kỳ công ${monthTitle(t.period.month).toLowerCase()} đã khóa`} text="Liên hệ phòng Nhân sự nếu còn ngày công cần điều chỉnh." />] };
+  if (q.left <= 0) return { head, body: [<Empty key="e" icon={<Gi n="hour" s={44} />} title={`Đã dùng hết ${q.limit} lượt kỳ này`} text="Liên hệ phòng Nhân sự nếu còn ngày công cần điều chỉnh." />] };
+  const opts = t.days.filter((d) => d.canExplain).slice().reverse();
+  if (opts.length && !opts.find((d) => d.date === S.exDay)) exPick(opts[0]!.date);
+  const d = S.exDay ? tsDay(S.exDay) : undefined;
+  const iss = d?.issue;
+  /* Quên chấm/đến muộn/về sớm sửa một giờ; vắng cả ngày ghi nhận theo giờ ca */
+  const types: Array<[string, string]> = [
+    ...(iss === "missing_in" || iss === "late" || iss === "late_early" ? [["in", iss === "missing_in" ? "Quên chấm vào" : "Đến muộn có lý do"] as [string, string]] : []),
+    ...(iss === "missing_out" || iss === "early" || iss === "late_early" ? [["out", iss === "missing_out" ? "Quên chấm ra" : "Về sớm có lý do"] as [string, string]] : []),
+    ["trip", "Đi công tác"], ["device", "Lỗi thiết bị/GPS"], ["other", "Khác"],
+  ];
+  const outSide = e.type === "out" || (e.type !== "in" && (iss === "missing_out" || iss === "early"));
+  const whole = iss === "absent" && e.type !== "in" && e.type !== "out";
+  const dl = d?.explainDeadline;
+  return {
+    head,
+    body: [
+      <Note key="n" icon="hour" warn><T style={{ fontSize: 13, color: C.ink2 }}><T style={{ fontSize: 13, fontFamily: F.bold, color: C.ink }}>Lượt {q.used + 1}/{q.limit}{dl ? ` · hạn ${ddmm(dl)}` : ""}</T>{"\n"}Sau khi gửi còn {q.left - 1} lượt trong kỳ công {ddmm(t.period.start)}–{ddmm(t.period.end)}.</T></Note>,
+      <Form key="f">
+        <Field label="Ngày cần giải trình">
+          <Chips wrap>{opts.length ? opts.map((x) => <Chip key={x.date} on={S.exDay === x.date} label={`${WD_ISO[x.weekday]} ${ddmm(x.date)} · ${issueText(x)}`} onPress={() => ACT.exDate(x.date)} />) : <T style={{ color: C.ink2 }}>Không còn ngày nào cần giải trình.</T>}</Chips>
+        </Field>
+        {d ? <Field label="Lý do">
+          <Chips wrap>{types.map((x) => <Chip key={x[0]} on={e.type === x[0]} label={x[1]} onPress={() => ACT.exType(x[0])} />)}</Chips>
+        </Field> : null}
+        {d ? <Field label={whole ? "Giờ đề nghị ghi nhận" : `Giờ đề nghị ghi nhận ${outSide ? "ra ca" : "vào ca"}`}>
+          {whole ? <Card><InfoRow k={d.shift?.name ?? "Theo ca"} v={d.shift ? `${d.shift.start} – ${d.shift.end}` : "—"} strong /></Card>
+            : <Stepper value={hm(e.time * 60)} minusLabel="Giảm 5 phút" plusLabel="Tăng 5 phút" onMinus={() => ACT.exTime(-5)} onPlus={() => ACT.exTime(5)} />}
+        </Field> : null}
+        <Field label="Mô tả">
+          <TextArea accessibilityLabel="Mô tả" defaultValue={e.reason} placeholder="Ví dụ: Điện thoại hết pin lúc đến công ty, bảo vệ đã xác nhận giờ vào."
+            onChangeText={(v) => { S.ex.reason = v; if (S.ex.err && v.trim()) { S.ex.err = false; emit(); } }} />
+          {e.err ? <ErrLine>Nhập mô tả để người duyệt có đủ thông tin xét duyệt.</ErrLine> : null}
+        </Field>
+        <Field label="Minh chứng (không bắt buộc)">
+          <View style={[styles.upload, { opacity: 0.55 }]}><Gi n="clip" s={20} /><T style={{ fontSize: 13.5, color: C.ink2, flex: 1 }}>Đính kèm ảnh/PDF sẽ có ở bản sau</T></View>
+        </Field>
+        <Card><InfoRow k="Người duyệt" v={t.approver ?? "Phòng Nhân sự"} strong /></Card>
+      </Form>,
+      <Spacer key="sp" />,
+    ],
+    foot: <Foot><Btn block disabled={!opts.length} spinKey="exSubmit" onPress={ACT.exSubmit}>Gửi giải trình</Btn></Foot>,
+  };
+}
+
 export function explainSpec(): ScreenSpec {
+  if (REMOTE) return remoteExplainSpec();
   const left = explainLeft(), e = S.ex;
   const opts = ([[15, "thiếu giờ vào"], [12, "muộn 14 phút"], [5, "muộn 21 phút"]] as Array<[number, string]>).filter((x) => !day(x[0])?.pendingEx);
   if (!opts.find((x) => x[0] === e.date) && opts.length) e.date = opts[0]![0];

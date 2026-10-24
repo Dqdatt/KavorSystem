@@ -9,7 +9,7 @@ import { BrandHead, TopBar, type ScreenSpec } from "../screen";
 import { useClock } from "../clock";
 import { CAT, dec, gh, hm, recentNews, relDay, vnd, advLimit } from "../data";
 import { REMOTE } from "../api/http";
-import { ACT, S, advEligible, fmtM, loadToday, explainLeft, go, holdDone, jump, lvAvail, pendingCount, phase, shiftLabel, shiftTime, tab, toast, worked } from "../store";
+import { ACT, S, advEligible, ddmm, explainDue, fmtM, loadToday, explainLeft, go, holdDone, jump, lvAvail, pendingCount, phase, shiftLabel, shiftTime, tab, toast, worked } from "../store";
 
 /* ================= Punch hero ================= */
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
@@ -262,7 +262,7 @@ export const ImpTag = ({ shrink }: { shrink?: boolean }) => (
 
 /* ================= Screens ================= */
 export function homeSpec(): ScreenSpec {
-  const n = pendingCount();
+  const n = pendingCount(), due = REMOTE ? explainDue() : null;
   const advR = advEligible() ? "Không áp dụng" : S.advance ? "Đã dùng" : vnd(advLimit());
   const shorts: Array<[string, IconName, string]> = [["leaveNew", "plane", "Xin nghỉ"], ["explain", "clock", "Giải trình"], ["ot", "moon", "Làm thêm"], ["advance", "cash", "Tạm ứng"], ["payslips", "receipt", "Phiếu lương"], ["profile", "user", "Hồ sơ"], ["widgetGuide", "grid", "Widget"], ["notifications", "bell", "Thông báo"]];
   return {
@@ -271,8 +271,9 @@ export function homeSpec(): ScreenSpec {
     body: [
       <NewsCarousel key="nc" />,
       <Hero key="hero" compact />,
-      n ? <Notice key="ap" icon={<Gi n="checks" s={26} />} title="Cần bạn duyệt" sub="Nghỉ phép, tạm ứng, giải trình công" right={<Count n={n} />} onPress={() => jump("approve")} /> : null,
-      <Notice key="ex" icon={<Gi n="hour" s={26} />} title="Hạn giải trình công: 22/10" sub="Ngày 15/10 thiếu giờ vào · còn 6 ngày" right={<St s="warn">{explainLeft()}/3 lượt</St>} onPress={() => go("explain")} />,
+      n ? <Notice key="ap" icon={<Gi n="checks" s={26} />} title="Cần bạn duyệt" sub={REMOTE ? "Giải trình công" : "Nghỉ phép, tạm ứng, giải trình công"} right={<Count n={n} />} onPress={() => jump("approve")} /> : null,
+      REMOTE ? (due ? <Notice key="ex" icon={<Gi n="hour" s={26} />} title={`Hạn giải trình công: ${ddmm(due.deadline)}`} sub={`Ngày ${ddmm(due.date)} ${due.issue} · ${due.daysLeft ? `còn ${due.daysLeft} ngày` : "hạn hôm nay"}`} right={<St s="warn">{explainLeft()}/{S.explainLimit} lượt</St>} onPress={() => go("explain")} /> : null)
+        : <Notice key="ex" icon={<Gi n="hour" s={26} />} title="Hạn giải trình công: 22/10" sub="Ngày 15/10 thiếu giờ vào · còn 6 ngày" right={<St s="warn">{explainLeft()}/3 lượt</St>} onPress={() => go("explain")} />,
       <SectionHead key="sh" title="Của bạn" />,
       <Card key="mine">
         <RowBtn icon={<Gi n="plane" s={24} />} title="Phép năm còn lại" right={<RowStrong>{dec(lvAvail())} ngày</RowStrong>} onPress={() => go("leave")} />

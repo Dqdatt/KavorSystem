@@ -12,12 +12,16 @@ import type { MfaAdmin } from "./mfa.service.js";
 import type { RulesAdmin } from "./rules.service.js";
 import { yearParam, type SettingsAdmin } from "./settings.service.js";
 import type { CompanyService } from "../company/company.service.js";
+import type { RequestsService } from "../timesheet/requests.service.js";
+import { viewerOf } from "../timesheet/requests.service.js";
+import type { TimesheetAdmin } from "../timesheet/timesheet-admin.service.js";
 import { date, nullableText, oneOf, type Body as Json } from "./validate.js";
 
 export const ADMIN_SERVICES = Symbol("ADMIN_SERVICES");
 export type AdminServices = {
   employees: EmployeesAdmin; attendance: AttendanceAdmin; schedule: ScheduleAdmin;
   settings: SettingsAdmin; rules: RulesAdmin; mfa: MfaAdmin; company: CompanyService;
+  timesheets: TimesheetAdmin; requests: RequestsService;
 };
 
 function bearer(header?: string): string {
@@ -179,4 +183,38 @@ export class AdminController {
   updateRule(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string, @Body() b: Json) { return this.run(r, a, (s, c) => s.rules.update(c, id, b)); }
   @Post("rules/:id/versions") @HttpCode(201)
   ruleVersion(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string, @Body() b: Json) { return this.run(r, a, (s, c) => s.rules.addVersion(c, id, b)); }
+
+  /* ---------- Bảng công tháng ---------- */
+  @Get("timesheets")
+  timesheets(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Query("month") month?: string) { return this.run(r, a, (s, c) => s.timesheets.board(c, month)); }
+  @Get("timesheets/export")
+  async exportTimesheet(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Query("month") month: string | undefined, @Res({ passthrough: true }) res: Response) {
+    const env = await this.run(r, a, (s, c) => s.timesheets.exportCsv(c, month));
+    res.setHeader("content-type", "text/csv; charset=utf-8");
+    res.setHeader("content-disposition", `attachment; filename="${env.data!.filename}"`);
+    return env.data!.body;
+  }
+  @Get("timesheets/:employeeId")
+  employeeTimesheet(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("employeeId") id: string, @Query("month") month?: string) { return this.run(r, a, (s, c) => s.timesheets.employee(c, id, month)); }
+  @Post("timesheets/lock") @HttpCode(200)
+  lockTimesheet(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Body() b: Json) { return this.run(r, a, (s, c) => s.timesheets.lock(c, b)); }
+  @Post("timesheets/unlock") @HttpCode(200)
+  unlockTimesheet(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Body() b: Json) { return this.run(r, a, (s, c) => s.timesheets.unlock(c, b)); }
+
+  /* ---------- Đơn & phê duyệt ---------- */
+  @Get("requests")
+  requests(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Query("status") status?: string) { return this.run(r, a, (s, c) => s.requests.queue(c, { status })); }
+  @Get("requests/:id")
+  request(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string) { return this.run(r, a, (s, c) => s.requests.detail(c, id)); }
+  @Post("approvals/:taskId/:action") @HttpCode(200)
+  decideApproval(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("taskId") taskId: string, @Param("action") action: string, @Body() b: Json) {
+    return this.run(r, a, (s, c) => {
+      if (action !== "approve" && action !== "reject") throw new AuthError("NOT_FOUND", "Không tìm thấy.", 404);
+      return s.requests.decide(viewerOf(c), taskId, action === "approve", b);
+    });
+  }
+  @Get("workflows")
+  workflows(@Req() r: CorrelatedRequest, @Headers("authorization") a?: string) { return this.run(r, a, (s, c) => s.requests.workflows(c)); }
+  @Post("workflows/:type/versions") @HttpCode(201)
+  workflowVersion(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("type") type: string, @Body() b: Json) { return this.run(r, a, (s, c) => s.requests.addWorkflowVersion(c, type, b)); }
 }

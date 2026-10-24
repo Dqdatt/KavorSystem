@@ -51,22 +51,25 @@ type SetAction = (n: ReactNode) => void;
 /* ---------- Doanh nghiệp ---------- */
 function Company({ setAction }: { setAction: SetAction }) {
   const { data, error, reload, setData } = useApi<CompanySettings>("settings");
-  const [f, setF] = useState<{ displayName: string; legalName: string; taxCode: string; phone: string; email: string; hours: string; note: string; newsReadReceipt: boolean } | null>(null);
+  const [f, setF] = useState<{ displayName: string; legalName: string; taxCode: string; phone: string; email: string; hours: string; note: string; newsReadReceipt: boolean; periodStartDay: string } | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const { busy, run } = useAction();
   useEffect(() => {
     if (!data || f) return;
     setF({ displayName: data.tenant.displayName, legalName: data.tenant.legalName ?? "", taxCode: data.tenant.taxCode ?? "", phone: data.support.phone ?? "", email: data.support.email ?? "",
-      hours: data.support.hours ?? "", note: data.support.note ?? "", newsReadReceipt: data.platform.newsReadReceipt });
+      hours: data.support.hours ?? "", note: data.support.note ?? "", newsReadReceipt: data.platform.newsReadReceipt, periodStartDay: String(data.attendance.periodStartDay) });
   }, [data, f]);
   const manage = !!data?.canManage;
   const save = async () => {
     if (!f) return;
     if (f.displayName.trim().length < 2) { setErr("Tên hiển thị cần ít nhất 2 ký tự."); return; }
+    const day = Number(f.periodStartDay);
+    if (!Number.isInteger(day) || day < 1 || day > 28) { setErr("Ngày bắt đầu kỳ công từ 1 đến 28."); return; }
     const ok = await run("save", async () => {
       const d = await call<CompanySettings>("PATCH", "settings", {
         displayName: f.displayName, legalName: f.legalName || null, taxCode: f.taxCode || null,
         support: { phone: f.phone || null, email: f.email || null, hours: f.hours || null, note: f.note || null }, platform: { newsReadReceipt: f.newsReadReceipt },
+        attendance: { periodStartDay: day },
       });
       setData(d);
     }, "Đã lưu cấu hình doanh nghiệp");
@@ -97,7 +100,11 @@ function Company({ setAction }: { setAction: SetAction }) {
           <SwitchRow label="Yêu cầu MFA cho admin" note="Luôn bật với mọi tài khoản HR/Admin" checked={p.mfaRequired} locked />
           <SwitchRow label="Google Sheets auto sync" note="Có khi bật module Tích hợp dữ liệu" checked={p.sheetsAutoSync} locked />
           <SwitchRow label="Xác nhận đã đọc bản tin quan trọng" note="Áp dụng khi bật module Bản tin" checked={f.newsReadReceipt} locked={!manage} onChange={(v) => setF({ ...f, newsReadReceipt: v })} />
-        </div></article>
+        </div>
+        <div className="card-head" style={{ borderTop: "1px solid var(--line)" }}><h3>Kỳ công</h3></div>
+        <div className="card-body"><Field label="Kỳ công bắt đầu ngày" hint={(() => { const d = Number(f.periodStartDay); return d > 1 && d <= 28 ? `Ví dụ kỳ tháng 10: ${d}/09 – ${d - 1}/10. Kỳ đã khóa giữ nguyên.` : d === 1 ? "Theo tháng dương lịch." : "Từ 1 đến 28."; })()}>
+          <input type="number" min={1} max={28} value={f.periodStartDay} onChange={set("periodStartDay")} disabled={!manage} />
+        </Field></div></article>
       </div>
       <div className="split-panel" style={{ marginTop: 14 }}>
         <article className="card"><div className="card-head"><div><h3>Thương hiệu</h3><p>Hiển thị trên app nhân viên. PNG, JPEG hoặc WebP, tối đa 2 MB.</p></div></div><div className="card-body">
