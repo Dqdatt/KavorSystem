@@ -9,7 +9,7 @@ export type Grant = { permission: string; role_code: string; role_name: string; 
 export type ActorEmployee = { id: string; full_name: string; employee_code: string; work_email: string | null };
 
 /* Permission mở được web HR/Admin (có ít nhất một trong số này) */
-export const WEB_PERMISSIONS = ["employee.read", "attendance.read", "schedule.read", "attendance.device.manage", "audit.read", "role.read", "policy.read", "tenant.settings.manage", "request.read"];
+export const WEB_PERMISSIONS = ["employee.read", "attendance.read", "schedule.read", "attendance.device.manage", "audit.read", "role.read", "policy.read", "tenant.settings.manage", "request.read", "leave.read"];
 
 /* Mọi tài khoản dùng web HR/Admin phải xác thực hai lớp (ADR 0001: admin bắt buộc MFA; HR/quản lý/kiểm soát cũng xem
    dữ liệu cá nhân của nhiều người nên áp chung). Không cho tenant tắt. */

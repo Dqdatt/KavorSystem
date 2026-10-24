@@ -99,7 +99,7 @@ check "Xóa ngày nghỉ sắp tới" "$(call POST admin/holidays/$HID/remove "$
 
 echo "— Quy định có tầng/phiên bản"
 r=$(call GET admin/rules "$HR")
-check "Bộ mẫu: 3 quy định áp dụng toàn công ty" "$(echo "$r" | py "[(x['kind'], x['assignments'][0]['scopeType']) for x in d]")" "[('explanation', 'tenant'), ('salary_advance', 'tenant'), ('reminder', 'tenant')]"
+check "Bộ mẫu: 4 quy định áp dụng toàn công ty" "$(echo "$r" | py "sorted((x['kind'], x['assignments'][0]['scopeType']) for x in d)")" "[('explanation', 'tenant'), ('leave', 'tenant'), ('reminder', 'tenant'), ('salary_advance', 'tenant')]"
 EXP=$(echo "$r" | py "[x['id'] for x in d if x['kind']=='explanation'][0]")
 ADV=$(echo "$r" | py "[x['id'] for x in d if x['kind']=='salary_advance'][0]")
 check "Nhân viên tra quy định: 3 lượt giải trình, nguồn công ty" "$(call GET me/policies "$EMP" | py "(d['rules']['explanation']['config']['monthlyLimit'], d['rules']['explanation']['source']['scopeType'], d['rules']['salary_advance']['config']['maxPercent'])")" "(3, 'tenant', 30)"
@@ -129,7 +129,7 @@ echo "— Checklist thiết lập, đặt lại MFA"
 r=$(call GET admin/settings/checklist "$HR")
 check "Bước thông tin công ty đã xong (tên pháp lý + logo + liên hệ)" "$(echo "$r" | py "[s['state'] for s in d['steps'] if s['key']=='company'][0]")" done
 check "Cảnh báo chỉ có 1 Tenant Admin" "$(echo "$r" | py "[s['state'] for s in d['steps'] if s['key']=='admins'][0]")" warn
-check "Nghỉ phép/workflow chưa có module" "$(echo "$r" | py "sorted(s['key'] for s in d['steps'] if s['state']=='unavailable')")" "['leave', 'workflow']"
+check "Phép năm + luồng duyệt có sẵn từ mẫu" "$(echo "$r" | py "([s['state'] for s in d['steps'] if s['key'] in ('leave','workflow')], [s['key'] for s in d['steps'] if s['state']=='unavailable'])")" "(['done', 'done'], [])"
 check "Không tự đặt lại MFA của mình" "$(status POST admin/employees/$THAO/mfa-reset "$HR" '{"reason":"Mất điện thoại"}')" 403
 check "Đặt lại MFA phải có lý do" "$(status POST admin/employees/$HUY/mfa-reset "$HR" '{}')" 400
 check "HR đặt lại MFA cho quản lý mất máy" "$(call POST admin/employees/$HUY/mfa-reset "$HR" '{"reason":"Quản lý báo mất điện thoại"}' | field data.removed)" 1

@@ -171,6 +171,15 @@ insert into public.holidays (calendar_id, holiday_date, name, kind) values
 -- Bộ mẫu mặc định (quy định giải trình/tạm ứng/nhắc nhở, điều khoản dữ liệu cá nhân v1; ca HC đã có ở trên)
 select public.provision_tenant(id) from public.tenants order by code;
 select public.provision_workflows(id) from public.tenants order by code;
+select public.provision_leave_types(id) from public.tenants order by code;
+
+-- Sổ phép năm của Hà: đã nghỉ 2 ngày trước khi chuyển sang Kavor (nhập số dư đầu kỳ từ bảng tính). Cấp/tích lũy do API tạo khi đọc sổ.
+insert into public.leave_accounts (id, tenant_id, employee_id, leave_type_id, year)
+select 'a5000000-0000-4000-8000-000000000142', t.tenant_id, '60000000-0000-4000-8000-000000000142', t.id, extract(year from current_date)::smallint
+from public.leave_types t where t.tenant_id = '10000000-0000-4000-8000-000000000001' and t.code = 'AL';
+insert into public.leave_transactions (tenant_id, account_id, kind, amount, effective_on, source_key, reason)
+values ('10000000-0000-4000-8000-000000000001', 'a5000000-0000-4000-8000-000000000142', 'adjust', -2, date_trunc('year', current_date)::date + 40,
+  'opening:import', 'Đã nghỉ 2 ngày trước khi chuyển sang Kavor (nhập từ bảng tính)');
 
 -- Kỳ công 26 tháng trước → 25 tháng này (PILOT_RULEBOOK §1)
 update public.tenant_settings set attendance_settings = attendance_settings || '{"periodStartDay":26}' where tenant_id = '10000000-0000-4000-8000-000000000001';

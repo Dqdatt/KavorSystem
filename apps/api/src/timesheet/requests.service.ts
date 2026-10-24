@@ -4,8 +4,8 @@
    - Duyệt: người được giao (bước quản lý) hoặc người có request.hr_review với người gửi (bước HR); không ai tự duyệt đơn
      của mình. Chuyển bước nguyên tử bằng decide_approval; duyệt hết thì tạo điều chỉnh giờ công. */
 import {
-  EXPLANATION_KINDS, STEP_RESOLVERS,
-  type ExplanationKind, type MyApprovals, type MyTimesheet, type RequestItem, type RequestQueue, type RequestStatus, type RequestStep, type StepResolver, type StepStatus,
+  EXPLANATION_KINDS, REQUEST_TYPES, STEP_RESOLVERS,
+  type ExplanationKind, type ExplanationPayload, type LeavePayload, type MyApprovals, type MyTimesheet, type RequestItem, type RequestQueue, type RequestStatus, type RequestStep, type StepResolver, type StepStatus,
   type WorkflowDef, type WorkflowStepInput,
 } from "@kavor/contracts";
 import type { EmployeeRow } from "../auth/auth.service.js";
@@ -18,12 +18,13 @@ import { EMP_LITE, type EmployeeLite, type TimesheetService } from "./timesheet.
 type Db = SupabaseGateway["admin"];
 /* Người xem/thao tác: nhân viên trên mobile hoặc HR/quản lý trên web — đều là một tài khoản gắn hồ sơ nhân viên */
 export type Viewer = { userId: string; employeeId: string | null; tenantId: string; correlationId: string };
-type RequestRow = { id: string; tenant_id: string; request_no: string; request_type: "explanation"; requester_employee_id: string; status: RequestStatus; work_date: string | null; submitted_at: string; completed_at: string | null; current_version: number; workflow_version_id: string };
+type RequestRow = { id: string; tenant_id: string; request_no: string; request_type: RequestItem["type"]; requester_employee_id: string; status: RequestStatus; work_date: string | null; submitted_at: string; completed_at: string | null; current_version: number; workflow_version_id: string };
 type TaskRow = { id: string; request_id: string; step_no: number; resolver: StepResolver; assignee_employee_id: string | null; status: StepStatus; due_at: string | null; acted_by: string | null; acted_at: string | null; comment: string | null };
 const REQ_COLS = "id, tenant_id, request_no, request_type, requester_employee_id, status, work_date, submitted_at, completed_at, current_version, workflow_version_id";
 const TASK_COLS = "id, request_id, step_no, resolver, assignee_employee_id, status, due_at, acted_by, acted_at, comment";
 const KINDS = Object.keys(EXPLANATION_KINDS) as ExplanationKind[];
 const RESOLVERS = Object.keys(STEP_RESOLVERS) as StepResolver[];
+const TYPES = Object.keys(REQUEST_TYPES) as Array<RequestItem["type"]>;
 
 export class RequestsService {
   constructor(private readonly sb: SupabaseGateway, private readonly timesheets: TimesheetService) {}
@@ -40,12 +41,14 @@ export class RequestsService {
   }
 
   /* Người duyệt từng bước. Bước quản lý không có người (không có quản lý, hoặc người gửi tự là người duyệt) thì bỏ qua;
-     không còn bước nào thì chuyển cho HR. */
-  planSteps(steps: WorkflowStepInput[], requesterId: string, managerId: string | null) {
+     bước có daysOver chỉ áp dụng khi đơn nghỉ dài hơn (hoặc khi forceHr: nghỉ trước phép); không còn bước nào thì chuyển cho HR. */
+  planSteps(steps: WorkflowStepInput[], requesterId: string, managerId: string | null, opts: { days?: number; forceHr?: boolean } = {}) {
     const out = steps.map((s, i) => {
       const assignee = s.resolver === "direct_manager" ? (managerId && managerId !== requesterId ? managerId : null) : null;
-      return { stepNo: i + 1, resolver: s.resolver, assigneeEmployeeId: assignee, slaHours: s.slaHours, status: s.resolver === "direct_manager" && !assignee ? "skipped" : "waiting" };
+      const applies = s.daysOver == null || (opts.days ?? 0) > s.daysOver || (s.resolver === "hr" && !!opts.forceHr);
+      return { stepNo: i + 1, resolver: s.resolver, assigneeEmployeeId: assignee, slaHours: s.slaHours, status: !applies || (s.resolver === "direct_manager" && !assignee) ? "skipped" : "waiting" };
     });
+    if (opts.forceHr && !out.some((t) => t.resolver === "hr" && t.status !== "skipped")) out.push({ stepNo: out.length + 1, resolver: "hr", assigneeEmployeeId: null, slaHours: 24, status: "waiting" });
     if (!out.some((t) => t.status !== "skipped")) out.push({ stepNo: out.length + 1, resolver: "hr", assigneeEmployeeId: null, slaHours: 24, status: "waiting" });
     const first = out.find((t) => t.status === "waiting");
     if (first) first.status = "pending";
@@ -214,7 +217,7 @@ export class RequestsService {
     ctx.require("request.read");
     const { data } = await ctx.db.from("workflow_definitions").select("request_type, name, workflow_versions(version_no, steps, effective_from, note, created_at)").eq("tenant_id", ctx.tenantId);
     const today = (await this.timesheets.tenantClock(ctx.db, ctx.tenantId)).today;
-    return ((data ?? []) as unknown as Array<{ request_type: "explanation"; name: string; workflow_versions: Array<{ version_no: number; steps: WorkflowStepInput[]; effective_from: string; note: string | null; created_at: string }> }>).map((w) => {
+    return ((data ?? []) as unknown as Array<{ request_type: RequestItem["type"]; name: string; workflow_versions: Array<{ version_no: number; steps: WorkflowStepInput[]; effective_from: string; note: string | null; created_at: string }> }>).map((w) => {
       const vs = [...w.workflow_versions].sort((a, b) => b.version_no - a.version_no);
       const cur = vs.filter((x) => x.effective_from <= today).sort((a, b) => b.effective_from.localeCompare(a.effective_from))[0];
       return {
@@ -228,13 +231,16 @@ export class RequestsService {
   /* Đổi luồng duyệt = phiên bản mới từ hôm nay trở đi; đơn đã gửi giữ luồng lúc gửi */
   async addWorkflowVersion(ctx: AdminContext, type: string, b: Body): Promise<WorkflowDef[]> {
     ctx.requireTenantWide("workflow.manage");
-    if (type !== "explanation") throw notFound("luồng duyệt");
+    if (!TYPES.includes(type as RequestItem["type"])) throw notFound("luồng duyệt");
     const raw = b?.steps;
     if (!Array.isArray(raw) || raw.length < 1 || raw.length > 5) throw invalid("Luồng duyệt có từ 1 đến 5 bước.");
     const steps: WorkflowStepInput[] = raw.map((s, i) => ({
       resolver: oneOf(s as Body, "resolver", RESOLVERS)!,
       slaHours: number(s as Body, "slaHours", 1, 240, { integer: true }) ?? (() => { throw invalid(`Bước ${i + 1}: SLA phải từ 1 đến 240 giờ.`); })(),
+      /* Chỉ đơn nghỉ có số ngày để đặt điều kiện */
+      ...(type === "leave" && (s as Body)?.daysOver != null ? { daysOver: number(s as Body, "daysOver", 0, 30, { integer: true })! } : {}),
     }));
+    if (steps.every((s) => s.daysOver != null)) throw invalid("Cần ít nhất một bước luôn áp dụng (không đặt điều kiện số ngày).");
     if (steps.filter((s) => s.resolver === "direct_manager").length > 1 || steps.filter((s) => s.resolver === "hr").length > 1) throw invalid("Mỗi loại người duyệt chỉ xuất hiện một lần.");
     const today = (await this.timesheets.tenantClock(ctx.db, ctx.tenantId)).today;
     const effectiveFrom = date(b, "effectiveFrom", true) ?? today;
@@ -272,7 +278,7 @@ export class RequestsService {
     const actor = new Map(((actors ?? []) as Array<{ user_id: string; full_name: string }>).map((e) => [e.user_id, e.full_name]));
     const dept = new Map<string, string>();
     for (const d of (deps ?? []) as unknown as Array<{ employee_id: string; effective_to: string | null; departments: { name: string } | null }>) if (!d.effective_to && !dept.has(d.employee_id)) dept.set(d.employee_id, d.departments?.name ?? "");
-    const ver = new Map(((vs ?? []) as Array<{ request_id: string; version_no: number; payload: RequestItem["payload"]; policy_snapshot: { day?: { rawIn: string | null; rawOut: string | null; shift: { name: string; start: string; end: string } | null } } }>)
+    const ver = new Map(((vs ?? []) as Array<{ request_id: string; version_no: number; payload: ExplanationPayload | LeavePayload; policy_snapshot: { day?: { rawIn: string | null; rawOut: string | null; shift: { name: string; start: string; end: string } | null } } }>)
       .map((x) => [`${x.request_id}|${x.version_no}`, x]));
     const hr = hrPre ?? (tasks.some((t) => t.resolver === "hr" && t.status === "pending") ? await this.hrScope(db, v) : new Set<string>());
     const order = new Map(ids.map((id, i) => [id, i]));
@@ -287,9 +293,11 @@ export class RequestsService {
         actedBy: t.acted_by ? actor.get(t.acted_by) ?? "—" : null,
       }));
       const mine = rt.find((t) => this.actionable(v, t, r.requester_employee_id, hr));
+      const typed = r.request_type === "leave"
+        ? { type: "leave" as const, payload: (x?.payload ?? { leaveType: "", leaveTypeName: "Nghỉ phép", from: r.work_date ?? "", to: r.work_date ?? "", half: "full", days: 0, reason: "" }) as LeavePayload }
+        : { type: "explanation" as const, payload: (x?.payload ?? { kind: "other", clockIn: null, clockOut: null, reason: "" }) as ExplanationPayload };
       return {
-        id: r.id, no: r.request_no, type: r.request_type, status: r.status, submittedAt: r.submitted_at, completedAt: r.completed_at, workDate: r.work_date,
-        payload: x?.payload ?? { kind: "other", clockIn: null, clockOut: null, reason: "" },
+        id: r.id, no: r.request_no, ...typed, status: r.status, submittedAt: r.submitted_at, completedAt: r.completed_at, workDate: r.work_date,
         requester: { id: r.requester_employee_id, code: e?.employee_code ?? "", fullName: e?.full_name ?? "—", department: dept.get(r.requester_employee_id) || null },
         steps, day: day ? { rawIn: day.rawIn, rawOut: day.rawOut, shift: day.shift ? `${day.shift.name} ${day.shift.start}–${day.shift.end}` : null } : null,
         myTaskId: mine?.id ?? null, canCancel: r.status === "pending" && r.requester_employee_id === v.employeeId,

@@ -8,12 +8,12 @@ select plan(25);
 insert into public.tenants (id, code, display_name, status) values ('10000000-0000-4000-8000-0000000000c1', 'TEST-C', 'Công ty Thử C', 'provisioning');
 select is(
   (select jsonb_array_length(public.provision_tenant('10000000-0000-4000-8000-0000000000c1') -> 'created')),
-  7, 'Tenant mới nhận đủ bộ mẫu: cài đặt, tổ chức, ca, 3 quy định, điều khoản');
+  8, 'Tenant mới nhận đủ bộ mẫu: cài đặt, tổ chức, ca, 4 quy định, điều khoản');
 select is(
   (select jsonb_array_length(public.provision_tenant('10000000-0000-4000-8000-0000000000c1') -> 'created')),
   0, 'Gọi lại provision_tenant không tạo trùng');
 select is((select count(*)::int from public.policy_assignments where tenant_id = '10000000-0000-4000-8000-0000000000c1' and scope_type = 'tenant'),
-  4, 'Ca + 3 quy định áp dụng ở tầng công ty');
+  5, 'Ca + 4 quy định áp dụng ở tầng công ty');
 select is((select (v.config ->> 'monthlyLimit')::int from public.policy_versions v join public.policy_definitions d on d.id = v.policy_id
   where d.tenant_id = '10000000-0000-4000-8000-0000000000c1' and d.kind = 'explanation'), 3, 'Mẫu giải trình: 3 lượt/tháng');
 select throws_ok($$ select public.provision_tenant('10000000-0000-4000-8000-0000000000c1', 'khong-co') $$, 'P0001', 'TEMPLATE_NOT_FOUND', 'Mẫu không tồn tại bị từ chối');

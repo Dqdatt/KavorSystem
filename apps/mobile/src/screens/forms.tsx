@@ -7,7 +7,8 @@ import { Btn, Card, Chip, Chips, Empty, ErrLine, Field, Form, InfoRow, Note, Num
 import { Foot, TopBar, type ScreenSpec } from "../screen";
 import { LV_DAYS, WD, dec, hm, lvKey, pad, wdOct } from "../data";
 import { REMOTE } from "../api/http";
-import { ACT, S, WD_ISO, day, ddmm, emit, exPick, explainLeft, go, issueText, lvAvail, lvCount, monthTitle, tsDay } from "../store";
+import { ACT, S, WD_ISO, day, dayCount, ddmm, emit, exPick, explainLeft, go, issueText, leaveRange, lvAvail, lvCount, lvrCount, monthTitle, tsDay } from "../store";
+import type { LeaveCalendarDay } from "@kavor/contracts";
 
 const Spacer = () => <View style={{ height: 76 }} />;
 
@@ -119,7 +120,129 @@ function Meter({ pct }: { pct: number }) {
   );
 }
 
+/* ---------- Nghỉ phép (bản dùng API) ---------- */
+function remoteLeaveSpec(): ScreenSpec {
+  const L = S.lvData, b = L?.balance;
+  const mine = S.myReq.filter((r) => r.type === "leave");
+  const head = <TopBar title="Nghỉ phép" />;
+  const foot = <Foot><Btn block onPress={() => go("leaveNew")}>Tạo đơn nghỉ</Btn></Foot>;
+  const list = [
+    <SectionHead key="sh" title="Đơn nghỉ của tôi" />,
+    mine.length ? <Card key="list">{mine.map((r) => <RowBtn key={r.id} chev={false} title={r.title} sub={`${r.sub} · ${r.id}`} right={<Tag st={r.status} />} onPress={() => { S.param = r.id; go("reqDetail"); }} />)}</Card>
+      : <Card key="list"><View style={{ padding: 18 }}><T style={{ color: C.ink2, textAlign: "center" }}>Chưa có đơn nghỉ nào.</T></View></Card>,
+    <Spacer key="sp" />,
+  ];
+  if (!L) return { head, body: [<Empty key="l" icon={<Gi n="plane" s={44} />} title="Đang tải sổ phép…" text="Cần kết nối mạng để xem số dư phép." />, ...list], foot };
+  if (!b) return { head, body: [<Note key="n" icon="info">Công ty chưa áp dụng quy định phép năm cho bạn. Bạn vẫn tạo được đơn nghỉ không trừ phép (không lương, ốm đau, việc riêng có lương).</Note>, ...list], foot };
+  const total = b.granted + b.carry - b.expired + b.adjusted, remain = total > 0 ? Math.max(0, Math.min(100, Math.round((b.available / total) * 100))) : 0;
+  return {
+    head,
+    body: [
+      <View key="b" style={styles.balance} accessibilityLabel={`Số dư phép năm ${b.year}`}>
+        <View pointerEvents="none" style={{ position: "absolute", width: 120, height: 120, borderRadius: 60, right: -48, top: -58, backgroundColor: "rgba(167,243,208,0.24)" }} />
+        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}><Gi n="plane" s={18} w={1.8} /><T style={{ fontSize: 12, fontFamily: F.bold, color: C.emerald }}>Phép năm {b.year}</T></View>
+          <View style={{ paddingVertical: 5, paddingHorizontal: 8, borderRadius: 12, backgroundColor: "rgba(255,255,255,0.72)" }}><T style={{ fontSize: 10.5, lineHeight: 13, fontFamily: F.semibold, color: C.ink2 }}>Cập nhật hôm nay</T></View>
+        </View>
+        <View style={{ flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", gap: 14, marginTop: 15, marginBottom: 12 }}>
+          <View style={{ flexDirection: "row", alignItems: "baseline", gap: 7 }}>
+            <Num style={{ fontSize: 43, lineHeight: 43, fontFamily: F.medium, letterSpacing: -1.72, color: b.available < 0 ? C.bad : "#123D30" }}>{dec(b.available)}</Num>
+            <T style={{ fontSize: 13, fontFamily: F.semibold, color: C.ink2 }}>ngày còn lại</T>
+          </View>
+          <View style={{ alignItems: "flex-end" }}>
+            <Num style={{ fontSize: 16, lineHeight: 21.6, fontFamily: F.bold }}>{dec(total)}</Num>
+            <T style={{ fontSize: 11, lineHeight: 14.9, color: C.ink3 }}>ngày khả dụng</T>
+          </View>
+        </View>
+        <Meter pct={remain} />
+        <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 6 }}>
+          <T style={{ fontSize: 10.5, color: C.ink3 }}>Đã sử dụng và đang chờ: {dec(b.used + b.pending)} ngày</T>
+          <T style={{ fontSize: 10.5, color: C.ink3, fontFamily: F.bold }}>{remain}% còn lại</T>
+        </View>
+        <View style={{ flexDirection: "row", gap: 7, marginTop: 14 }}>
+          {([[dec(b.used), "Đã sử dụng"], [dec(b.pending), "Đang chờ duyệt"], [dec(total), "Tổng khả dụng"]] as Array<[string, string]>).map(([v, k]) => (
+            <View key={k} style={styles.stat}><Num style={{ fontSize: 13, fontFamily: F.bold }}>{v}</Num><T numberOfLines={1} style={{ fontSize: 9.5, color: C.ink3 }}>{k}</T></View>
+          ))}
+        </View>
+      </View>,
+      <Card key="c">
+        <InfoRow k={b.accrualMonthly ? `Đã tích lũy năm ${b.year}` : `Được cấp năm ${b.year}`} v={`${dec(b.granted)}/${dec(b.yearEntitlement)} ngày`} strong />
+        {b.carry ? <InfoRow k={`Tồn từ ${b.year - 1}`} v={`${dec(b.carry)} ngày${b.carryExpiresOn ? ` · đến ${ddmm(b.carryExpiresOn)}/${b.carryExpiresOn.slice(0, 4)}` : ""}${b.expired ? ` · hết hạn ${dec(b.expired)}` : ""}`} strong /> : null}
+        {b.adjusted ? <InfoRow k="HR điều chỉnh" v={`${b.adjusted > 0 ? "+" : ""}${dec(b.adjusted)} ngày`} strong /> : null}
+      </Card>,
+      <Note key="n" icon="info">{b.accrualMonthly ? "Phép năm tích lũy đầu mỗi tháng. " : ""}{b.carryExpiresOn ? `Phép tồn dùng đến ${ddmm(b.carryExpiresOn)}. ` : ""}Ngày giữ chỗ được trả lại nếu đơn bị từ chối hoặc hủy.</Note>,
+      ...list,
+    ],
+    foot,
+  };
+}
+
+/* Dải ngày để chọn: cuộn tới hôm nay khi mở */
+function DateStrip({ days, today, from, to, onPick }: { days: LeaveCalendarDay[]; today: string; from: string | null; to: string | null; onPick: (d: string) => void }) {
+  const ref = useRef<ScrollView>(null);
+  const idx = Math.max(0, days.findIndex((d) => d.date >= today));
+  return (
+    <ScrollView ref={ref} horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -20, overflow: "visible" }} contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 4, paddingBottom: 12, gap: 8 }}
+      onLayout={() => ref.current?.scrollTo({ x: Math.max(0, idx * 60 - 8), animated: false })}>
+      {days.map((x) => {
+        const end = to ?? from, off = !x.workday, full = x.taken === "full";
+        const st = from == null ? "" : (x.date === from || x.date === end) ? "edge" : (x.date > from && x.date < (end ?? "")) ? "in" : "";
+        return (
+          <Pressable key={x.date} disabled={off || full} accessibilityLabel={`${WD_ISO[x.weekday]} ${ddmm(x.date)}${x.holiday ? ` · ${x.holiday}` : ""}${x.taken ? " · đã có đơn nghỉ" : ""}`} onPress={() => onPick(x.date)}
+            style={[styles.dp, (off || full) && styles.dpOff, st === "in" && { backgroundColor: C.soft2, experimental_backgroundImage: undefined }, st === "edge" && styles.dpEdge]}>
+            <T style={{ fontSize: 11, fontFamily: F.semibold, color: st === "edge" ? "rgba(255,255,255,0.85)" : C.ink3 }}>{x.date === today ? "Nay" : WD_ISO[x.weekday]}</T>
+            <Num style={{ fontSize: 19, fontFamily: F.semibold, color: st === "edge" ? "#fff" : C.ink }}>{x.date.slice(8, 10)}</Num>
+            {x.taken && !full ? <View style={{ position: "absolute", bottom: 6, width: 5, height: 5, borderRadius: 3, backgroundColor: C.violet }} /> : null}
+          </Pressable>
+        );
+      })}
+    </ScrollView>
+  );
+}
+
+function remoteLeaveNewSpec(): ScreenSpec {
+  const L = S.lvData, v = S.lv, r = S.lvr;
+  const head = <TopBar title="Tạo đơn nghỉ" />;
+  if (!L) return { head, body: [<Empty key="l" icon={<Gi n="plane" s={44} />} title="Đang tải…" text="Cần kết nối mạng để tạo đơn nghỉ." />] };
+  if (!r.type || !L.types.some((t) => t.code === r.type)) r.type = L.types[0]?.code ?? null;
+  const type = L.types.find((t) => t.code === r.type);
+  const n = lvrCount(), single = r.from != null && (r.to == null || r.to === r.from);
+  const b = L.balance, deduct = !!type?.deductsBalance;
+  const after = b ? b.available - n : 0;
+  const over = deduct && (!b || after < -b.allowNegative);
+  const tooLong = !!type?.maxDays && n > type.maxDays;
+  const needHr = n > 0 && ((L.hrOverDays != null && n > L.hrOverDays) || (deduct && after < 0));
+  const proof = !!type?.attachmentFromDays && n >= type.attachmentFromDays;
+  return {
+    head,
+    body: [
+      <Form key="f">
+        <Field label="Loại nghỉ"><Chips wrap>{L.types.map((t) => <Chip key={t.code} on={r.type === t.code} label={t.name} onPress={() => ACT.lvrType(t.code)} />)}</Chips></Field>
+        {type?.description ? <T style={{ fontSize: 12.5, color: C.ink2, marginTop: -8 }}>{type.description}</T> : null}
+        <Field label="Chạm ngày bắt đầu, rồi ngày kết thúc">
+          <DateStrip days={L.calendar} today={L.today} from={r.from} to={r.to} onPick={ACT.lvrPick} />
+        </Field>
+        {single ? <Appear><Field label="Buổi"><Seg items={[["full", "Cả ngày"], ["am", "Sáng"], ["pm", "Chiều"]]} value={v.half} onChange={ACT.lvHalf} /></Field></Appear> : null}
+        <Field label="Lý do"><TextArea accessibilityLabel="Lý do" defaultValue={v.reason} placeholder="Ví dụ: Việc gia đình" onChangeText={(t) => { S.lv.reason = t; }} /></Field>
+        {deduct && !b ? <ErrLine>Công ty chưa áp dụng quy định phép năm cho bạn. Chọn loại nghỉ khác hoặc liên hệ phòng Nhân sự.</ErrLine>
+          : over ? <ErrLine>Không đủ phép: còn {dec(b!.available)} ngày, đơn cần {dec(n)} ngày{b!.allowNegative ? ` (được nghỉ trước tối đa ${dec(b!.allowNegative)} ngày)` : ""}.</ErrLine> : null}
+        {tooLong ? <ErrLine>{type!.name} tối đa {dec(type!.maxDays!)} ngày mỗi đơn.</ErrLine> : null}
+        {proof ? <Note icon="clip">Nghỉ từ {dec(type!.attachmentFromDays!)} ngày cần minh chứng — nộp cho phòng Nhân sự (đính kèm trên app sẽ có ở bản sau).</Note> : null}
+        <Card>
+          <InfoRow k="Số ngày nghỉ" v={n ? `${dayCount(n)}${r.from ? ` · ${leaveRange({ from: r.from, to: r.to ?? r.from, half: single ? v.half : "full" })}` : ""}` : "Chưa chọn"} strong />
+          <InfoRow k={deduct ? "Còn lại sau đơn" : "Trừ phép năm"} v={deduct ? (n && b ? `${dec(after)} ngày${after < 0 ? " (nghỉ trước)" : ""}` : "—") : "Không trừ"} strong />
+          <InfoRow k="Người duyệt" v={`${L.approver ?? "—"}${needHr && L.approver !== "Phòng Nhân sự" ? " → Phòng Nhân sự" : ""}`} strong />
+        </Card>
+        {v.err ? <ErrLine>{v.err}</ErrLine> : null}
+      </Form>,
+      <Spacer key="sp" />,
+    ],
+    foot: <Foot><Btn block spinKey="lvSubmit" disabled={over || tooLong || !n} onPress={ACT.lvSubmit}>Gửi đơn nghỉ</Btn></Foot>,
+  };
+}
+
 export function leaveSpec(): ScreenSpec {
+  if (REMOTE) return remoteLeaveSpec();
   const L = S.leave, total = L.granted + L.carry, av = lvAvail(), remain = Math.round((av / total) * 100);
   const mine = S.myReq.filter((r) => r.type === "leave");
   return {
@@ -163,6 +286,7 @@ export function leaveSpec(): ScreenSpec {
 }
 
 export function leaveNewSpec(): ScreenSpec {
+  if (REMOTE) return remoteLeaveNewSpec();
   const v = S.lv, n = lvCount(), av = lvAvail(), deduct = v.type === "annual";
   const single = v.from != null && (v.to == null || v.to === v.from);
   const over = deduct && n > av;

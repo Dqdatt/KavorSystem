@@ -15,6 +15,7 @@ import type { CompanyService } from "../company/company.service.js";
 import type { RequestsService } from "../timesheet/requests.service.js";
 import { viewerOf } from "../timesheet/requests.service.js";
 import type { NotificationsService } from "../notifications/notifications.service.js";
+import type { LeaveService } from "../leave/leave.service.js";
 import type { TimesheetAdmin } from "../timesheet/timesheet-admin.service.js";
 import { date, nullableText, oneOf, type Body as Json } from "./validate.js";
 
@@ -22,7 +23,7 @@ export const ADMIN_SERVICES = Symbol("ADMIN_SERVICES");
 export type AdminServices = {
   employees: EmployeesAdmin; attendance: AttendanceAdmin; schedule: ScheduleAdmin;
   settings: SettingsAdmin; rules: RulesAdmin; mfa: MfaAdmin; company: CompanyService;
-  timesheets: TimesheetAdmin; requests: RequestsService; notifications: NotificationsService;
+  timesheets: TimesheetAdmin; requests: RequestsService; notifications: NotificationsService; leave: LeaveService;
 };
 
 function bearer(header?: string): string {
@@ -203,6 +204,14 @@ export class AdminController {
   unlockTimesheet(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Body() b: Json) { return this.run(r, a, (s, c) => s.timesheets.unlock(c, b)); }
 
   /* ---------- Đơn & phê duyệt ---------- */
+  /* Nghỉ phép: bảng số dư theo phạm vi, sổ phép từng người, HR điều chỉnh / nhập phép tồn */
+  @Get("leave")
+  leaveBoard(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Query("year") year?: string) { return this.run(r, a, (s, c) => s.leave.board(c, year)); }
+  @Get("leave/:employeeId")
+  leaveEmployee(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("employeeId") id: string, @Query("year") year?: string) { return this.run(r, a, (s, c) => s.leave.employee(c, id, year)); }
+  @Post("leave/:employeeId/adjust") @HttpCode(200)
+  leaveAdjust(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("employeeId") id: string, @Body() b: Json) { return this.run(r, a, (s, c) => s.leave.adjust(c, id, b)); }
+
   /* Thông báo của chính người đăng nhập web (hồ sơ nhân viên gắn với tài khoản) */
   @Get("notifications")
   notifications(@Req() r: CorrelatedRequest, @Headers("authorization") a?: string) {

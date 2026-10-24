@@ -135,6 +135,7 @@ export function SheetContent({ kind, arg }: { kind: SheetKind; arg?: string }) {
         if (!x) return <><H3>Ngày {ddmm(arg)}</H3><Muted>Ngày này không thuộc kỳ công đang xem.</Muted><Close /></>;
         const req = x.request;
         const result = x.kind === "holiday" ? `Nghỉ lễ${x.holidayName ? ` · ${x.holidayName}` : ""}` : x.kind === "off" ? "Ngày nghỉ" : x.kind === "today" ? "Đang tính"
+          : x.kind === "leave" ? `${x.credit ? "1 công" : "0 công"} · ${x.leave?.typeName ?? "nghỉ phép"} theo ${x.leave?.requestNo ?? "đơn"}`
           : `${x.credit ? "1 công" : "0 công"}${x.adjusted && req ? ` · đã điều chỉnh theo ${req.no}` : req?.status === "pending" ? ` · chờ duyệt ${req.no}` : x.issue ? ` · ${issueText(x)}` : ""}`;
         const miss = (v: string | null) => v ? null : <T style={{ color: x.kind === "work" ? C.bad : C.ink3, fontFamily: F.medium }}>--:--</T>;
         return <>

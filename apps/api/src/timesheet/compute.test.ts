@@ -60,3 +60,26 @@ test("tổng hợp: ngày thiếu đã có giải trình đang chờ không tín
   assert.equal(s.missingDays, 1);
   assert.equal(s.pendingRequests, 1);
 });
+
+test("nghỉ phép: cả ngày có lương = 1 công, không cần chấm công; nửa ngày còn nửa phải chấm", () => {
+  const al = { typeName: "Phép năm", paid: true, requestNo: "NP-0001" };
+  const full = day("2026-10-20", [], { leave: { ...al, half: "full" } });
+  assert.equal(full.kind, "leave");
+  assert.equal(full.credit, 1);
+  assert.equal(full.issue, null);
+  assert.equal(day("2026-10-20", [], { leave: { ...al, paid: false, half: "full" } }).credit, 0);
+  const pm = day("2026-10-20", [["in", "08:30"], ["out", "12:00"]], { leave: { ...al, half: "pm" } });
+  assert.equal(pm.kind, "work");
+  assert.equal(pm.credit, 1);
+  assert.equal(pm.lateMinutes, 0);
+  assert.equal(day("2026-10-20", [], { leave: { ...al, half: "am" } }).issue, "absent");
+  /* Ngày nghỉ theo ca thì đơn nghỉ không có tác dụng */
+  assert.equal(day("2026-10-18", [], { leave: { ...al, half: "full" } }).kind, "off");
+});
+
+test("công chuẩn chỉ đếm ngày làm việc, kể cả ngày chưa tới (không đếm cuối tuần tương lai)", () => {
+  const days = ["2026-10-23", "2026-10-24", "2026-10-25", "2026-10-26"].map((d) => ({ ...day(d, [["in", "08:00"], ["out", "17:00"]], { today: "2026-10-23" }), canExplain: false, explainDeadline: null }));
+  const s = summarize(days);
+  assert.deepEqual(days.map((d) => d.kind), ["today", "future", "future", "future"]);
+  assert.equal(s.standard, 2); // T6 23 + T2 26; T7, CN không tính
+});

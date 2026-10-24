@@ -1,18 +1,26 @@
 "use client";
 /* Đơn từ trên web HR: nhãn, tóm tắt nội dung, các bước duyệt và modal "Chi tiết đơn" (bám modal approve của prototype HR) */
 import { useState } from "react";
-import { EXPLANATION_KINDS, STEP_RESOLVERS, type RequestItem, type RequestStatus, type StepStatus } from "@kavor/contracts";
+import { EXPLANATION_KINDS, REQUEST_TYPES, STEP_RESOLVERS, type RequestItem, type RequestStatus, type StepStatus } from "@kavor/contracts";
 import { call } from "../_lib/client";
 import { ErrorLine, Field, Modal, Person, Status, fmtDate, fmtDateTime, useAction, useMe } from "./kit";
 
-export const REQUEST_TYPE: Record<RequestItem["type"], string> = { explanation: "Giải trình công" };
+export const REQUEST_TYPE = REQUEST_TYPES;
 export const REQUEST_STATUS: Record<RequestStatus, [string, string]> = { pending: ["Chờ duyệt", "warn"], approved: ["Đã duyệt", ""], rejected: ["Từ chối", "bad"], cancelled: ["Đã hủy", "muted"] };
 const STEP_STATUS: Record<StepStatus, [string, string]> = { waiting: ["Chưa tới lượt", "muted"], pending: ["Đang chờ", "warn"], approved: ["Đã duyệt", ""], rejected: ["Từ chối", "bad"], skipped: ["Bỏ qua", "muted"], cancelled: ["Đã hủy", "muted"] };
 const WD = ["", "T2", "T3", "T4", "T5", "T6", "T7", "CN"];
 const wd = (date: string) => { const w = new Date(`${date}T12:00:00Z`).getUTCDay(); return WD[w === 0 ? 7 : w]; };
 
-/* "T5 22/10 · Quên chấm ra · ra 17:00" */
+const HALF = { full: "", am: " (sáng)", pm: " (chiều)" } as const;
+export const days = (n: number) => `${n.toLocaleString("vi-VN")} ngày`;
+/* Khoảng nghỉ: "T2 26/10–T4 28/10" / "T2 26/10 (chiều)" */
+export function leaveRange(p: Extract<RequestItem, { type: "leave" }>["payload"]) {
+  return `${wd(p.from)} ${fmtDate(p.from).slice(0, 5)}${p.to !== p.from ? `–${wd(p.to)} ${fmtDate(p.to).slice(0, 5)}` : ""}${HALF[p.half]}`;
+}
+
+/* "T5 22/10 · Quên chấm ra · ra 17:00" / "Phép năm · T2 26/10–T4 28/10 · 3 ngày" */
 export function requestSummary(r: RequestItem) {
+  if (r.type === "leave") return `${r.payload.leaveTypeName} · ${leaveRange(r.payload)} · ${days(r.payload.days)}`;
   const p = r.payload;
   const times = [p.clockIn ? `vào ${p.clockIn}` : null, p.clockOut ? `ra ${p.clockOut}` : null].filter(Boolean).join(", ");
   return `${r.workDate ? `${wd(r.workDate)} ${fmtDate(r.workDate).slice(0, 5)} · ` : ""}${EXPLANATION_KINDS[p.kind]}${times ? ` · ${times}` : ""}`;
@@ -61,8 +69,11 @@ export function RequestModal({ r, onClose, onDone }: { r: RequestItem; onClose: 
       <div className="profile-hero" style={{ paddingBottom: 12 }}><Person name={r.requester.fullName} seed={r.requester.code} sub={`${r.requester.department ?? "—"} · ${r.requester.code} · gửi từ Mobile App`} /></div>
       <div className="card detail-list">
         <div className="detail-row"><span>Loại đơn</span><b>{REQUEST_TYPE[r.type]}</b></div>
-        <div className="detail-row"><span>Nội dung</span><b>{requestSummary(r)}</b></div>
-        {r.day ? <div className="detail-row"><span>Chấm công gốc</span><b>{r.day.shift ?? "—"} · vào {r.day.rawIn ?? "--:--"} · ra {r.day.rawOut ?? "--:--"}</b></div> : null}
+        {r.type === "leave" ? <>
+          <div className="detail-row"><span>Loại nghỉ</span><b>{r.payload.leaveTypeName}</b></div>
+          <div className="detail-row"><span>Thời gian</span><b>{leaveRange(r.payload)} · {days(r.payload.days)} làm việc</b></div>
+        </> : <div className="detail-row"><span>Nội dung</span><b>{requestSummary(r)}</b></div>}
+        {r.type === "explanation" && r.day ? <div className="detail-row"><span>Chấm công gốc</span><b>{r.day.shift ?? "—"} · vào {r.day.rawIn ?? "--:--"} · ra {r.day.rawOut ?? "--:--"}</b></div> : null}
         <div className="detail-row"><span>Lý do</span><b style={{ whiteSpace: "normal", maxWidth: 420 }}>{r.payload.reason}</b></div>
         <div className="detail-row"><span>Gửi lúc</span><b>{fmtDateTime(r.submittedAt, tz)}</b></div>
         <div className="detail-row"><span>Trạng thái</span><b><Status v={REQUEST_STATUS[r.status]} /></b></div>

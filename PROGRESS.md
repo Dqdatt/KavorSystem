@@ -2,9 +2,16 @@
 _Cập nhật: 2026-10-24 — bởi Claude (Opus 5.5)_
 
 ## Mục tiêu đang làm
-Thông báo trong app đã xong và đã thử trên iPhone (24/10, xem "Đã xong"). Bước kế tiếp: Nghỉ phép/OT.
+Nghỉ phép đã xong phần code và kiểm thử tự động (24/10, xem "Đã xong"); chờ thử trên iPhone. Bước kế tiếp: OT (làm thêm giờ).
 
 ## Đã xong
+- Nghỉ phép (24/10), theo PILOT_RULEBOOK §7, §9 và ADR 0001:
+  - DB `202610270001_leave.sql`: permission `leave.read`/`leave.manage`; quy định phép năm là kind `leave` trong khung quy định có tầng/phiên bản (định mức ≥ 12 ngày, tích lũy theo tháng hoặc cấp đầu năm, +1 ngày mỗi 5 năm thâm niên, chuyển tối đa N ngày sang năm sau dùng tới hết tháng quy định, cho nghỉ trước tối đa N ngày, thử việc có tích lũy hay không); loại nghỉ theo tenant `leave_types` (mẫu: Phép năm trừ sổ, Không lương, Ốm đau BHXH cần minh chứng từ 2 ngày, Kết hôn 3 ngày, Tang chế 3 ngày — số ngày luật định cần chuyên gia xác nhận); sổ phép dạng ledger `leave_accounts` + `leave_transactions` (cấp, tích lũy, phép tồn, giữ chỗ, trả giữ chỗ, đã nghỉ, điều chỉnh, hết hạn; bất biến, chống ghi trùng bằng `source_key`; số dư = tổng giao dịch); đơn nghỉ `request_type 'leave'` tạo nguyên tử bằng `create_leave_request` (đơn + bước duyệt + `leave_days` + giữ chỗ), trigger trả giữ chỗ/trừ phép khi duyệt/từ chối/hủy; `leave_days` chặn trùng buổi và kỳ công đã khóa; luồng duyệt đơn nghỉ mặc định Quản lý → HR khi nghỉ trên 2 ngày (bước có `daysOver`); thông báo hiện loại nghỉ/ngày/số ngày. pgTAP `leave.test.sql` 21 test (tổng 161).
+  - API `apps/api/src/leave`: sổ phép bổ sung giao dịch cấp/tích lũy/thâm niên/phép tồn/hết hạn khi đọc (idempotent; thâm niên tính tại 01/01); mobile `/me/leave` (sổ phép, loại nghỉ, lịch làm việc từ đầu kỳ công tới 60 ngày sau, người duyệt, ngưỡng HR), `/me/requests/leave` (đếm ngày làm việc theo ca + lịch lễ, nửa ngày, tối đa theo loại, không vượt năm, không đủ phép, trùng ngày, kỳ đã khóa; dùng phép âm thì thêm HR); web `/admin/leave` (bảng số dư theo phạm vi), `/admin/leave/:id` (biến động + đơn), `/admin/leave/:id/adjust` (điều chỉnh ±0,5 ngày hoặc nhập phép tồn kèm hạn dùng, có lý do, ghi nhật ký vào hồ sơ nhân viên). Luồng duyệt cấu hình được theo loại đơn. Checklist thiết lập: phép năm + luồng duyệt không còn "Sắp có".
+  - Bảng công: ngày nghỉ phép đã duyệt hiện "nghỉ phép" (có lương = 1 công), nửa ngày còn nửa phải chấm; sửa lỗi công chuẩn đếm cả cuối tuần ở tương lai (kỳ 26/09–25/10 hiện 21 thay vì 20); thêm `workday`, `leave`, `leaveDays`.
+  - Web HR: trang **Nghỉ phép** (bám page-leave: 4 chỉ số; bảng số dư theo nhân viên, drawer sổ phép + điều chỉnh, danh sách loại nghỉ là thiết kế bổ sung), modal đơn nghỉ trong Đơn & phê duyệt, Cấu hình workflow chọn loại đơn + "chỉ khi nghỉ trên N ngày", bảng công drawer hiện ngày nghỉ. Đã thử trên trình duyệt.
+  - Mobile (bản dùng API): màn Nghỉ phép (số dư thật, đã tích lũy x/12, phép tồn, đơn của tôi), Tạo đơn nghỉ (loại nghỉ từ công ty, dải ngày theo lịch làm việc thật — ngày nghỉ/đã xin bị khóa, nửa ngày, còn lại sau đơn, người duyệt + "→ Phòng Nhân sự" khi cần, nhắc nộp minh chứng), đơn nghỉ trong Đơn từ/Cần duyệt/chi tiết, bảng công hiện ngày nghỉ; Trang chủ/Hồ sơ/menu tạo đơn lấy số phép thật.
+  - Smoke `tools/leave-smoke.sh` 39 bước; 7 smoke cũ vẫn đạt (console, settings sửa kỳ vọng bộ mẫu có 4 quy định); unit test API 27; pgTAP 161; build 6/6.
 - Thông báo trong app (24/10, phạm vi gọn — không cần dịch vụ trả phí):
   - DB `202610260001_notifications.sql`: bảng `notifications` (người nhận là hồ sơ nhân viên, chỉ thêm + đánh dấu đã đọc một lần, chống trùng theo `dedupe_key`); tạo bằng trigger ngay trong transaction gốc: bước duyệt tới lượt → báo quản lý được giao hoặc mọi người có `request.hr_review` với người gửi (`hr_reviewers`, không gồm người gửi); đơn được duyệt/từ chối → báo người gửi (kèm người duyệt cuối, lý do từ chối); máy mới được duyệt/từ chối → báo nhân viên. `notify_due_approvals()` nhắc bước duyệt còn dưới 4 giờ hoặc đã quá hạn, mỗi bước tối đa 2 lần — API gọi lúc khởi động và mỗi 10 phút. RLS chỉ người nhận đọc; Realtime cho web. pgTAP `notifications.test.sql` 16 test (tổng 140).
   - API: `/me/notifications` + `/me/notifications/read`, `/admin/notifications` + `/admin/notifications/read` (đánh dấu một/nhiều/tất cả; `actionable` = thông báo "cần duyệt" mà bước còn chờ).
@@ -56,7 +63,7 @@ Thông báo trong app đã xong và đã thử trên iPhone (24/10, xem "Đã xo
 - Kiểm tra ngày 22/10: `pnpm turbo run typecheck test build --force` pass 18/18 task (test thật chỉ có contracts 2 + api 2)
 
 ## Đang dở (QUAN TRỌNG NHẤT)
-- Không có việc dở. DB local đang có dữ liệu thử trên iPhone (HD0142 đã kích hoạt, GT-0001 đã duyệt); chạy smoke thì reset trước và iPhone phải kích hoạt lại. Chưa thử từ chối/hủy đơn và duyệt trên app bằng tài khoản quản lý trên máy thật (smoke đã kiểm). Thử duyệt trên app: kích hoạt quản lý HDG0003 (huy.le@example.test) ở máy khác/simulator. Thử Console: `OPERATOR_PASSWORD='…' bash tools/create-operator.sh <email> "<Họ tên>"` (tạo 2 người để thử duyệt khôi phục), `pnpm dev:console` → http://localhost:3001, lần đầu liên kết ứng dụng xác thực.
+- Chưa thử nghỉ phép trên iPhone. DB local vừa reset về dữ liệu mẫu (iPhone phải kích hoạt lại HD0142). Chưa thử từ chối/hủy đơn và duyệt trên app bằng tài khoản quản lý trên máy thật (smoke đã kiểm). Thử duyệt trên app: kích hoạt quản lý HDG0003 (huy.le@example.test) ở máy khác/simulator. Thử Console: `OPERATOR_PASSWORD='…' bash tools/create-operator.sh <email> "<Họ tên>"` (tạo 2 người để thử duyệt khôi phục), `pnpm dev:console` → http://localhost:3001, lần đầu liên kết ứng dụng xác thực.
 - Cài bản mới lên iPhone: build `xcodebuild -workspace ios/Kavor.xcworkspace -scheme Kavor -configuration Release -destination 'generic/platform=iOS' -derivedDataPath ios/build-device -allowProvisioningUpdates build` (trong `apps/mobile`, có `EXPO_PUBLIC_API_URL`, xóa `$TMPDIR/metro-cache` trước) rồi `xcrun devicectl device install app --device 36F8CE4A-8C04-5232-AB9D-0041A426F6A0 ios/build-device/Build/Products/Release-iphoneos/Kavor.app`. Nếu devicectl báo "unavailable": mở khóa iPhone, bấm Tin cậy, cắm cáp dữ liệu.
 - Reset DB local: dùng `bash tools/db-reset.sh` (sau `supabase db reset` Kong giữ IP cũ của Auth → 502).
 - Bản trên iPhone trỏ tới API `http://192.168.1.22:4000/api/v1` (IP LAN của Mac ngày 24/10; trước là 192.168.1.25, 172.17.91.14): Mac phải chạy `pnpm dev:backend`, cùng Wi-Fi. IP Mac đổi thì phải build lại app.
@@ -93,17 +100,19 @@ Thông báo trong app đã xong và đã thử trên iPhone (24/10, xem "Đã xo
 - Ca qua đêm, tầng "loại hợp đồng", lịch xếp ca theo ngày, bản đồ chọn vị trí chưa có. Trình duyệt nhúng trong app Claude không cấp quyền vị trí; nút "Dùng vị trí hiện tại của trình duyệt" cần Chrome/Safari thật.
 - Giải trình chưa có đính kèm minh chứng (cần Storage + quét file); Bảng công chưa tính nghỉ phép/OT/ca qua đêm; thiếu cả ngày chỉ giải trình theo giờ ca. Snapshot khóa kỳ chưa có trang xem lịch sử khóa/mở.
 - Thông báo trên mobile không đến tức thì (iPhone trong LAN không nối Realtime của Supabase local; chưa có push) — app hỏi lại mỗi 30 giây khi đang mở, và khi mở/quay lại app; app tắt thì không biết cho tới lần mở sau. E19 vẫn hỏi lại 8 giây/lần. Ngưỡng "sắp quá hạn" 4 giờ và chu kỳ quét 10 phút là hằng số của hệ thống, chưa cấu hình theo tenant. Chưa có nhắc chấm công, thông báo phiếu lương/bản tin (chờ module tương ứng), chưa có dọn thông báo cũ.
-- Đơn nghỉ phép/OT/tạm ứng/sửa hồ sơ trên mobile bản dùng API vẫn là dữ liệu cục bộ trong phiên (đơn mẫu bị ẩn) cho tới khi làm module tương ứng.
+- Đơn OT/tạm ứng/sửa hồ sơ trên mobile bản dùng API vẫn là dữ liệu cục bộ trong phiên (đơn mẫu bị ẩn) cho tới khi làm module tương ứng.
+- Nghỉ phép chưa có: đính kèm minh chứng, ủy quyền người duyệt khi vắng, nghỉ nửa ngày xét muộn/sớm theo nửa ca, đơn vượt năm (phải tách), sửa loại nghỉ trên web (đang dùng mẫu), tầng "loại hợp đồng"; thâm niên tính tại 01/01 (đủ năm giữa năm thì năm sau mới cộng); phép tồn tự chuyển chỉ khi sổ năm trước có trong Kavor (năm đầu nhập tay).
 - Phạm vi/tầng dùng phân công tổ chức hiện tại; danh sách nhân viên/chấm công lọc trong bộ nhớ API — đủ cho vài nghìn nhân viên, cần phân trang ở SQL khi lớn hơn. RLS `employees` gọi hàm phạm vi theo từng dòng (chậm nếu client đọc trực tiếp nhiều dòng; hiện client không đọc trực tiếp).
 - Khi máy Mac quá tải (build Xcode), GoTrue chậm → web báo "Máy chủ xác thực đang bận" (không còn tự đăng xuất).
 - Ảnh native lấy từ simulator; chưa có ảnh/video từ iPhone 11 thật.
-- Ngoài auth, chấm công, công tháng và giải trình, các màn (phép, OT, lương, tin tức) vẫn dùng dữ liệu mẫu.
+- Ngoài auth, chấm công, công tháng, giải trình và nghỉ phép, các màn (OT, tạm ứng, lương, tin tức) vẫn dùng dữ liệu mẫu.
 - Android chưa thử luồng chấm công thật (GPS/hàng đợi) trên emulator.
 - Test tự động của admin-web, console-web, mobile, web-ui vẫn là placeholder.
 - Trên bản dev, gõ phím "r" khi không focus ô nhập sẽ làm Metro reload (chỉ ảnh hưởng dev).
 
 ## Bước tiếp theo
-1. Nghỉ phép/OT → tạm ứng → payroll → bản tin/tài liệu.
+1. Thử nghỉ phép trên iPhone (xem số dư, tạo đơn 1 ngày và 3 ngày, quản lý/HR duyệt, bảng công).
+2. OT (làm thêm giờ) → tạm ứng → payroll → bản tin/tài liệu.
 - Push từ máy chủ khi app tắt (APNs/FCM) cần tài khoản Apple Developer trả phí → làm khi mua (xem "Quyết định đã chốt"); lúc đó thay luôn việc E19 hỏi lại 8 giây/lần.
 - Staging: **hoãn tới khi hệ thống hoàn thiện** (quyết định 24/10). Phương án đã phân tích sẵn: Render Singapore cho API + 2 web (~$21/tháng, địa chỉ onrender.com, chưa cần domain), Gmail SMTP như CarRental cho OTP và thư mời, project Supabase `KavorSystem` (Singapore) làm staging, chỉ dùng dữ liệu mẫu; cần đổi các giá trị localhost trong `supabase/config.toml` sang biến môi trường trước khi `config push`.
 - Ngoài luồng chính: test component cho admin-web; Sentry; số liệu luật cần HR/Payroll SME xác nhận trước pilot; pháp lý chuyển dữ liệu ra nước ngoài (Nghị định 13/2023, dữ liệu ở Singapore) trước khi có dữ liệu thật.
@@ -112,6 +121,7 @@ Thông báo trong app đã xong và đã thử trên iPhone (24/10, xem "Đã xo
 - Không có.
 
 ## Nhật ký
+- 2026-10-24 — Nghỉ phép: quy định phép năm có tầng, loại nghỉ, sổ phép ledger, đơn nghỉ giữ chỗ → duyệt trừ phép, luồng duyệt theo số ngày, bảng công hiện ngày nghỉ; web HR trang Nghỉ phép; mobile đọc từ API.
 - 2026-10-24 — Thông báo trong app: trigger SQL tạo thông báo (cần duyệt, kết quả đơn, máy được duyệt), nhắc hạn duyệt định kỳ, màn Thông báo mobile + nhắc hạn giải trình cục bộ, chuông web HR.
 - 2026-10-24 — Công tháng + giải trình + luồng duyệt: kỳ công theo công ty, tính công từ chấm công, giải trình theo lượt/hạn, Quản lý → HR duyệt tạo điều chỉnh, khóa/mở kỳ, xuất CSV; web HR Bảng công + Đơn & phê duyệt; mobile đọc từ API; thử đầu-cuối trên iPhone (gửi → Quản lý → HR duyệt → bảng công cập nhật).
 - 2026-10-24 — Phân tích phương án staging (Render/Fly/Vercel, Supabase, email, domain; so với cách CarRental deploy); người dùng quyết định hoãn staging, chưa mua dịch vụ trả phí.

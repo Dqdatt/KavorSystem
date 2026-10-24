@@ -1,13 +1,13 @@
-/* Bảng công tháng: nạp chấm công, điều chỉnh, lịch lễ, ca theo tầng, giải trình của kỳ rồi tính bằng compute.ts.
+/* Bảng công tháng: nạp chấm công, điều chỉnh, lịch lễ, ca theo tầng, giải trình, nghỉ phép đã duyệt của kỳ rồi tính bằng compute.ts.
    Kỳ đã khóa thì đọc ảnh chụp lúc khóa (không tính lại), để payroll và báo cáo khớp với thứ HR đã chốt. */
-import type { ExplanationQuota, RequestStatus, TimesheetDay, TimesheetPeriod, TimesheetSummary } from "@kavor/contracts";
+import type { ExplanationQuota, LeaveHalf, RequestStatus, TimesheetDay, TimesheetPeriod, TimesheetSummary } from "@kavor/contracts";
 import type { SupabaseGateway } from "../auth/supabase.js";
 import { localParts } from "../attendance/attendance.service.js";
 import { PolicyIndex, loadPlacements, type Placement } from "../attendance/policy.js";
 import { addDays } from "../admin/validate.js";
 import { periodStartDayOf } from "../admin/settings.service.js";
 import { holidaysOf } from "../company/company.service.js";
-import { computeDay, datesBetween, explainDeadline, isoWeekday, monthOf, periodOf, periodView, summarize, type DayEvent } from "./compute.js";
+import { computeDay, datesBetween, explainDeadline, isoWeekday, monthOf, periodOf, periodView, summarize, type DayEvent, type DayLeave } from "./compute.js";
 
 type Db = SupabaseGateway["admin"];
 export type EmployeeLite = { id: string; employee_code: string; full_name: string; hire_date: string; termination_date: string | null; user_id: string | null };
@@ -52,12 +52,18 @@ export class TimesheetService {
     const sheets = new Map<string, EmployeeSheet>();
     if (!ids.length) return { ...clock, period, sheets, index, lock };
 
-    const [events, adjustments, requests, holidayList] = await Promise.all([
+    const [events, adjustments, requests, holidayList, leaveDays] = await Promise.all([
       this.events(db, tenantId, ids, start, end, clock.timezone),
       db.from("attendance_adjustments").select("employee_id, work_date, clock_in, clock_out, created_at").eq("tenant_id", tenantId).in("employee_id", ids).gte("work_date", start).lte("work_date", end).order("created_at"),
       db.from("requests").select("id, request_no, requester_employee_id, work_date, status, submitted_at").eq("tenant_id", tenantId).eq("request_type", "explanation").in("requester_employee_id", ids).gte("work_date", start).lte("work_date", end).order("submitted_at"),
       Promise.all([...new Set([start.slice(0, 4), end.slice(0, 4)])].map((y) => holidaysOf(db, tenantId, Number(y)))).then((x) => x.flat()),
+      db.from("leave_days").select("employee_id, leave_date, half, requests!inner(request_no, status), leave_types(name, paid)").eq("tenant_id", tenantId)
+        .in("employee_id", ids).gte("leave_date", start).lte("leave_date", end).eq("requests.status", "approved"),
     ]);
+    const leaves = new Map<string, DayLeave>();
+    for (const l of (leaveDays.data ?? []) as unknown as Array<{ employee_id: string; leave_date: string; half: LeaveHalf; requests: { request_no: string }; leave_types: { name: string; paid: boolean } | null }>) {
+      leaves.set(`${l.employee_id}|${l.leave_date}`, { typeName: l.leave_types?.name ?? "Nghỉ phép", half: l.half, paid: !!l.leave_types?.paid, requestNo: l.requests.request_no });
+    }
     const holiday = new Map(holidayList.map((h) => [h.date, h.name]));
     const adj = new Map<string, { clockIn: string | null; clockOut: string | null }>();
     for (const a of (adjustments.data ?? []) as Array<{ employee_id: string; work_date: string; clock_in: string | null; clock_out: string | null }>) {
@@ -91,7 +97,7 @@ export class TimesheetService {
         const base = computeDay({
           date: d, today: clock.today, employed: d >= emp.hire_date && (!emp.termination_date || d <= emp.termination_date),
           holiday: holiday.get(d) ?? null, shift: shiftAt(d), events: events.get(`${emp.id}|${d}`) ?? [], adjustment: adj.get(`${emp.id}|${d}`) ?? null,
-          request: reqs.get(`${emp.id}|${d}`) ?? null,
+          request: reqs.get(`${emp.id}|${d}`) ?? null, leave: leaves.get(`${emp.id}|${d}`) ?? null,
         });
         const deadline = base.kind === "work" && base.issue ? explainDeadline(d, deadlineDays, isWorkday) : null;
         const open = !base.request || base.request.status === "rejected" || base.request.status === "cancelled";

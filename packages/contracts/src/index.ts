@@ -374,7 +374,7 @@ export type CompanySettingsUpdate = {
 export type BrandingUpload = { contentType: string; dataBase64: string };
 
 /* Quy định nghiệp vụ có tầng/phiên bản. Mô tả trường dùng chung: web dựng form, API kiểm tra. */
-export type RuleKind = "explanation" | "salary_advance" | "reminder";
+export type RuleKind = "explanation" | "salary_advance" | "reminder" | "leave";
 export type RuleField = { key: string; label: string; type: "int" | "bool"; min?: number; max?: number; unit?: string };
 export const RULE_KINDS: Record<RuleKind, { label: string; description: string; fields: RuleField[] }> = {
   explanation: {
@@ -393,6 +393,20 @@ export const RULE_KINDS: Record<RuleKind, { label: string; description: string; 
       { key: "maxPercent", label: "Hạn mức tối đa", type: "int", min: 0, max: 100, unit: "% lương cơ bản" },
       { key: "excludeProbation", label: "Không áp dụng cho nhân viên thử việc", type: "bool" },
       { key: "excludeNoticePeriod", label: "Không áp dụng trong thời gian báo trước nghỉ việc", type: "bool" },
+    ],
+  },
+  leave: {
+    label: "Phép năm",
+    description: "Định mức phép năm (không thấp hơn 12 ngày theo Bộ luật Lao động), cách tích lũy, phép thâm niên, phép tồn chuyển năm và hạn dùng.",
+    fields: [
+      { key: "annualDays", label: "Phép năm tiêu chuẩn", type: "int", min: 12, max: 30, unit: "ngày/năm" },
+      { key: "accrualMonthly", label: "Tích lũy theo tháng (tắt: cấp đủ đầu năm)", type: "bool" },
+      { key: "seniorityYears", label: "Cứ đủ số năm làm việc", type: "int", min: 0, max: 10, unit: "năm (0 = không áp dụng)" },
+      { key: "seniorityBonusDays", label: "Thì được thêm", type: "int", min: 0, max: 5, unit: "ngày" },
+      { key: "carryOverMaxDays", label: "Phép tồn được chuyển sang năm sau tối đa", type: "int", min: 0, max: 30, unit: "ngày" },
+      { key: "carryOverExpiryMonth", label: "Phép tồn dùng đến hết tháng", type: "int", min: 1, max: 12, unit: "của năm sau" },
+      { key: "allowNegativeDays", label: "Cho nghỉ trước phép (âm) tối đa", type: "int", min: 0, max: 5, unit: "ngày, cần HR duyệt" },
+      { key: "probationAccrues", label: "Nhân viên thử việc được tích lũy phép", type: "bool" },
     ],
   },
   reminder: {
@@ -518,7 +532,7 @@ export type RecoveryInput = {
 /* ---------- Bảng công tháng, giải trình, luồng duyệt ---------- */
 /* Kỳ công gọi theo tháng kết thúc: "2026-10" với ngày bắt đầu 26 là 26/09–25/10 */
 export type TimesheetPeriod = { month: string; start: string; end: string; locked: boolean; lockedAt: string | null };
-export type DayKind = "work" | "off" | "holiday" | "today" | "future" | "not_employed";
+export type DayKind = "work" | "off" | "holiday" | "today" | "future" | "not_employed" | "leave";
 export type DayIssue = "missing_in" | "missing_out" | "absent" | "late" | "early" | "late_early";
 export type TimesheetDay = {
   date: string;
@@ -540,6 +554,10 @@ export type TimesheetDay = {
   credit: number;
   issue: DayIssue | null;
   request: { id: string; no: string; status: RequestStatus } | null;
+  /* Ngày làm việc theo ca (không phải ngày nghỉ/lễ) — kể cả ngày tương lai */
+  workday: boolean;
+  /* Nghỉ phép đã duyệt: cả ngày → kind "leave"; nửa ngày vẫn là ngày làm việc, nửa còn lại phải chấm công */
+  leave: { typeName: string; half: LeaveHalf; paid: boolean; requestNo: string } | null;
   canExplain: boolean;
   explainDeadline: string | null;
 };
@@ -548,6 +566,8 @@ export type TimesheetSummary = {
   /* Ngày thiếu dữ liệu chưa có giải trình đang chờ/đã duyệt */
   missingDays: number;
   pendingRequests: number;
+  /* Số ngày nghỉ phép đã duyệt trong kỳ (nửa ngày = 0,5); ngày nghỉ có lương đã tính vào credited */
+  leaveDays: number;
 };
 export type ExplanationQuota = { limit: number; used: number; left: number; deadlineDays: number };
 export type MyTimesheet = {
@@ -572,10 +592,15 @@ export type RequestStep = {
   taskId: string; stepNo: number; resolver: StepResolver; assignee: string | null; status: StepStatus;
   dueAt: string | null; actedAt: string | null; actedBy: string | null; comment: string | null;
 };
-export type RequestItem = {
-  id: string; no: string; type: "explanation"; status: RequestStatus; submittedAt: string; completedAt: string | null;
+export type RequestType = "explanation" | "leave";
+export const REQUEST_TYPES: Record<RequestType, string> = { explanation: "Giải trình công", leave: "Nghỉ phép" };
+export type ExplanationPayload = { kind: ExplanationKind; clockIn: string | null; clockOut: string | null; reason: string };
+export type LeaveHalf = "full" | "am" | "pm";
+export type LeavePayload = { leaveType: string; leaveTypeName: string; from: string; to: string; half: LeaveHalf; days: number; reason: string };
+export type RequestItem = RequestItemBase & ({ type: "explanation"; payload: ExplanationPayload } | { type: "leave"; payload: LeavePayload });
+type RequestItemBase = {
+  id: string; no: string; status: RequestStatus; submittedAt: string; completedAt: string | null;
   workDate: string | null;
-  payload: { kind: ExplanationKind; clockIn: string | null; clockOut: string | null; reason: string };
   requester: { id: string; code: string; fullName: string; department: string | null };
   steps: RequestStep[];
   /* Giờ chấm công gốc của ngày được giải trình, để người duyệt so sánh */
@@ -586,6 +611,47 @@ export type RequestItem = {
 };
 export type MyApprovals = { canApprove: boolean; items: RequestItem[] };
 export type ApprovalDecision = { comment?: string | null };
+
+/* ---------- Nghỉ phép ---------- */
+export type LeaveType = {
+  id: string; code: string; name: string; paid: boolean; deductsBalance: boolean;
+  maxDays: number | null; attachmentFromDays: number | null; description: string | null;
+};
+/* Sổ phép năm: số dư = tổng giao dịch. granted gồm cấp/tích lũy + thâm niên; carry là phép tồn năm trước (hết hạn thì trừ ở expired) */
+export type LeaveBalance = {
+  year: number; typeName: string;
+  granted: number; carry: number; carryExpiresOn: string | null; expired: number; adjusted: number;
+  used: number; pending: number; available: number;
+  /* Định mức cả năm theo quy định (để hiển thị "x/12 ngày đã tích lũy") */
+  yearEntitlement: number; accrualMonthly: boolean; allowNegative: number;
+  policy: { name: string; versionNo: number } | null;
+};
+export type LeaveTxKind = "grant" | "accrual" | "carry" | "hold" | "release" | "consume" | "adjust" | "expire";
+export const LEAVE_TX_KINDS: Record<LeaveTxKind, string> = {
+  grant: "Cấp phép", accrual: "Tích lũy", carry: "Phép tồn năm trước", hold: "Giữ chỗ", release: "Trả giữ chỗ", consume: "Đã nghỉ", adjust: "Điều chỉnh", expire: "Hết hạn",
+};
+export type LeaveLedgerEntry = {
+  id: string; kind: LeaveTxKind; amount: number; effectiveOn: string; expiresOn: string | null;
+  requestNo: string | null; reason: string | null; createdBy: string | null; createdAt: string;
+};
+export type LeaveCalendarDay = { date: string; weekday: number; workday: boolean; holiday: string | null; taken: LeaveHalf | null };
+export type MyLeave = {
+  today: string; balance: LeaveBalance | null; types: LeaveType[];
+  /* Lịch để chọn ngày: từ đầu kỳ công đang mở tới 60 ngày sau hôm nay */
+  calendar: LeaveCalendarDay[];
+  /* Người duyệt bước đầu; HR thêm vào khi số ngày vượt hrOverDays (hoặc khi dùng phép âm) */
+  approver: string | null; hrOverDays: number | null;
+};
+export type LeaveInput = { leaveType: string; from: string; to: string; half?: LeaveHalf; reason: string };
+export type LeaveRow = { employee: { id: string; code: string; fullName: string; department: string | null; hireDate: string }; balance: LeaveBalance | null };
+export type LeaveBoard = {
+  year: number; rows: LeaveRow[]; types: LeaveType[];
+  metrics: { available: number; used: number; pending: number; expiringCarry: number; expiringOn: string | null };
+  canManage: boolean;
+};
+export type EmployeeLeave = { employee: LeaveRow["employee"]; year: number; balance: LeaveBalance | null; ledger: LeaveLedgerEntry[]; requests: RequestItem[] };
+/* HR điều chỉnh sổ phép: số ngày (+/−, bước 0,5) + lý do; carry = nhập phép tồn năm trước kèm hạn dùng */
+export type LeaveAdjustInput = { year: number; amount: number; reason: string; carry?: boolean; expiresOn?: string | null };
 
 /* ---------- Thông báo trong app ---------- */
 export type NotificationKind = "approval.pending" | "approval.due" | "request.approved" | "request.rejected" | "device.approved" | "device.rejected";
@@ -616,9 +682,10 @@ export type RequestQueue = {
   items: Array<RequestItem & { dueAt: string | null; overdue: boolean }>;
   counts: { pending: number; mine: number; overdue: number };
 };
-export type WorkflowStepInput = { resolver: StepResolver; slaHours: number };
+/* daysOver: bước chỉ áp dụng khi đơn nghỉ dài hơn số ngày này (null/không có: luôn áp dụng) */
+export type WorkflowStepInput = { resolver: StepResolver; slaHours: number; daysOver?: number | null };
 export type WorkflowDef = {
-  requestType: "explanation"; name: string;
+  requestType: RequestType; name: string;
   current: { versionNo: number; steps: WorkflowStepInput[]; effectiveFrom: string } | null;
   versions: Array<{ versionNo: number; steps: WorkflowStepInput[]; effectiveFrom: string; note: string | null; createdAt: string }>;
 };

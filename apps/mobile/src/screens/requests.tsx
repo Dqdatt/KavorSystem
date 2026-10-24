@@ -8,7 +8,7 @@ import { Avatar, Balanced, Btn, BtnRow, Card, Chip, Chips, Empty, InfoRow, LinkB
 import { Foot, TabHead, TopBar, type ScreenSpec } from "../screen";
 import { TYPE_ICON, type Approval, type MyReq } from "../data";
 import { EXPLANATION_KINDS, STEP_RESOLVERS, type RequestItem } from "@kavor/contracts";
-import { ACT, S, go, stamp } from "../store";
+import { ACT, S, dayCount, go, leaveRange, reqSub, stamp } from "../store";
 
 /* Luồng duyệt của đơn thật: "Đã gửi" + từng bước theo phiên bản workflow lúc gửi */
 function flowOf(r: RequestItem): { steps: Array<[string, string]>; cur: number } {
@@ -22,7 +22,20 @@ function flowOf(r: RequestItem): { steps: Array<[string, string]>; cur: number }
   const k = r.steps.findIndex((s) => s.status === "pending" || s.status === "rejected" || (r.status === "cancelled" && s.status !== "approved" && s.status !== "skipped"));
   return { steps, cur: k < 0 ? steps.length - 1 : k + 1 };
 }
-const proposed = (r: RequestItem) => [r.payload.clockIn ? `vào ${r.payload.clockIn}` : null, r.payload.clockOut ? `ra ${r.payload.clockOut}` : null].filter(Boolean).join(" · ") || "—";
+const proposed = (r: Extract<RequestItem, { type: "explanation" }>) => [r.payload.clockIn ? `vào ${r.payload.clockIn}` : null, r.payload.clockOut ? `ra ${r.payload.clockOut}` : null].filter(Boolean).join(" · ") || "—";
+/* Nội dung đơn theo loại: giải trình (giờ đề nghị, chấm công gốc) / nghỉ phép (loại, khoảng ngày, số ngày làm việc) */
+function ReqRows({ r, approver }: { r: RequestItem; approver?: boolean }) {
+  if (r.type === "leave") return <>
+    <InfoRow k="Loại nghỉ" v={r.payload.leaveTypeName} strong />
+    <InfoRow k="Thời gian" v={`${leaveRange(r.payload)} · ${dayCount(r.payload.days)} làm việc`} strong />
+  </>;
+  return <>
+    {approver ? <InfoRow k="Loại đơn" v={`Giải trình · ${EXPLANATION_KINDS[r.payload.kind].toLowerCase()}`} strong /> : null}
+    {approver ? <InfoRow k="Ngày" v={reqSub(r).split(" · ")[0]!} strong /> : null}
+    <InfoRow k="Đề nghị ghi nhận" v={proposed(r)} strong />
+    {r.day ? <InfoRow k="Chấm công gốc" v={`${approver && r.day.shift ? `${r.day.shift} · ` : ""}vào ${r.day.rawIn ?? "--:--"} · ra ${r.day.rawOut ?? "--:--"}`} strong /> : null}
+  </>;
+}
 
 const Spacer = ({ h = 76 }: { h?: number }) => <View style={{ height: h }} />;
 
@@ -175,14 +188,13 @@ function remoteReqDetail(r: RequestItem): ScreenSpec {
     head: <TopBar title={r.no} />,
     body: [
       <View key="c" style={{ alignItems: "center", gap: 6, paddingTop: 6 }}>
-        <Gi n={TYPE_ICON.explain} s={44} w={1.5} />
-        <T style={{ color: C.ink2, fontFamily: F.medium, textAlign: "center" }}>Giải trình công</T>
-        <Balanced style={{ fontSize: 20, fontFamily: F.bold, textAlign: "center" }}>{S.myReq.find((x) => x.id === r.no)?.sub ?? EXPLANATION_KINDS[r.payload.kind]}</Balanced>
+        <Gi n={TYPE_ICON[r.type === "leave" ? "leave" : "explain"]} s={44} w={1.5} />
+        <T style={{ color: C.ink2, fontFamily: F.medium, textAlign: "center" }}>{r.type === "leave" ? r.payload.leaveTypeName : "Giải trình công"}</T>
+        <Balanced style={{ fontSize: 20, fontFamily: F.bold, textAlign: "center" }}>{reqSub(r)}</Balanced>
         <Tag st={r.status} />
       </View>,
       <Card key="info">
-        <InfoRow k="Đề nghị ghi nhận" v={proposed(r)} strong />
-        {r.day ? <InfoRow k="Chấm công gốc" v={`vào ${r.day.rawIn ?? "--:--"} · ra ${r.day.rawOut ?? "--:--"}`} strong /> : null}
+        <ReqRows r={r} />
         <InfoRow k="Lý do" v={r.payload.reason} strong /><InfoRow k="Gửi lúc" v={stamp(r.submittedAt)} strong />
       </Card>,
       <Card key="tl" pad><Timeline steps={f.steps} cur={f.cur} allDone={r.status === "approved"} fail={stopped} /></Card>,
@@ -205,10 +217,7 @@ export function approvalDetailSpec(): ScreenSpec {
           <St s="warn">Chờ bạn duyệt</St>
         </View>,
         <Card key="info">
-          <InfoRow k="Loại đơn" v={`Giải trình · ${EXPLANATION_KINDS[it.payload.kind].toLowerCase()}`} strong />
-          <InfoRow k="Ngày" v={S.approvals.find((x) => x.id === it.no)!.sub.split(" · ")[0]!} strong />
-          <InfoRow k="Đề nghị ghi nhận" v={proposed(it)} strong />
-          {it.day ? <InfoRow k="Chấm công gốc" v={`${it.day.shift ? `${it.day.shift} · ` : ""}vào ${it.day.rawIn ?? "--:--"} · ra ${it.day.rawOut ?? "--:--"}`} strong /> : null}
+          <ReqRows r={it} approver />
           <InfoRow k="Lý do" v={it.payload.reason} strong /><InfoRow k="Gửi lúc" v={stamp(it.submittedAt)} strong />
         </Card>,
         <Card key="tl" pad><Timeline steps={f.steps} cur={f.cur} /></Card>,

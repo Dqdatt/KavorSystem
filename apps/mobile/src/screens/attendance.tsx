@@ -72,13 +72,15 @@ function tsModel(d: TimesheetDay, filtered?: boolean): RowModel {
     : req && req.status === "approved" ? [`Đã điều chỉnh theo ${req.no}`, "ok"]
     : req && req.status === "pending" ? ["Giải trình đang chờ duyệt", "warn"]
     : d.issue === "missing_in" ? ["Thiếu giờ vào", "bad"] : d.issue === "missing_out" ? ["Thiếu giờ ra", "bad"] : d.issue === "absent" ? ["Không chấm công", "bad"]
-    : d.issue === "late" || d.issue === "late_early" ? [`Muộn ${d.lateMinutes} phút`, "bad"] : d.issue === "early" ? [`Về sớm ${d.earlyMinutes} phút`, "bad"] : null;
+    : d.issue === "late" || d.issue === "late_early" ? [`Muộn ${d.lateMinutes} phút`, "bad"] : d.issue === "early" ? [`Về sớm ${d.earlyMinutes} phút`, "bad"]
+    : d.leave && d.kind !== "leave" ? [`${d.leave.typeName} buổi ${d.leave.half === "am" ? "sáng" : "chiều"}`, "mute"] : null;
   return {
-    dayNum: d.date.slice(8, 10), wd: WD_ISO[d.weekday]!, today: d.kind === "today", leave: d.kind === "holiday", leaveLabel: d.holidayName ?? "Nghỉ lễ",
+    dayNum: d.date.slice(8, 10), wd: WD_ISO[d.weekday]!, today: d.kind === "today", leave: d.kind === "holiday" || d.kind === "leave",
+    leaveLabel: d.kind === "leave" ? d.leave?.typeName ?? "Nghỉ phép" : d.holidayName ?? "Nghỉ lễ",
     inV: d.clockIn, outV: d.clockOut, inOk: !d.lateMinutes, outOk: !d.earlyMinutes,
     flagIn: d.kind === "work" && !d.clockIn, flagOut: d.kind === "work" && !d.clockOut,
-    hrs: d.workedMinutes ? gh(d.workedMinutes) : "--:--", hrsColor: !d.workedMinutes ? C.ink3 : d.workedMinutes >= shiftMin ? C.ok : C.bad,
-    note: d.kind === "holiday" ? null : note, canEx: !!filtered && d.canExplain, onPress: () => ACT.day(d.date), onExplain: () => ACT.exFromDay(d.date),
+    hrs: d.workedMinutes ? gh(d.workedMinutes) : d.kind === "leave" && d.leave?.paid ? gh(shiftMin) : "--:--", hrsColor: !d.workedMinutes ? C.ink3 : d.workedMinutes >= shiftMin ? C.ok : C.bad,
+    note: d.kind === "holiday" ? null : d.kind === "leave" ? [`Theo đơn ${d.leave?.requestNo ?? ""}`, "mute"] : note, canEx: !!filtered && d.canExplain, onPress: () => ACT.day(d.date), onExplain: () => ACT.exFromDay(d.date),
   };
 }
 

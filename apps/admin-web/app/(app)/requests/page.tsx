@@ -1,9 +1,9 @@
 "use client";
 /* Đơn & phê duyệt: bám page-requests của Kavor HR Admin Prototype.html (hàng đợi theo SLA, modal xem & duyệt).
-   "Cấu hình workflow" là thiết kế bổ sung: luồng duyệt theo loại đơn, có phiên bản theo ngày hiệu lực. */
+   "Cấu hình workflow" là thiết kế bổ sung: luồng duyệt theo loại đơn (giải trình, nghỉ phép), có phiên bản theo ngày hiệu lực. */
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { STEP_RESOLVERS, type RequestItem, type RequestQueue, type StepResolver, type WorkflowDef, type WorkflowStepInput } from "@kavor/contracts";
+import { STEP_RESOLVERS, type RequestItem, type RequestQueue, type RequestType, type StepResolver, type WorkflowDef, type WorkflowStepInput } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
 import { Empty, ErrorLine, Field, Icon, LoadError, Modal, Person, Status, can, fmtDate, fmtDateTime, tenantToday, useAction, useMe } from "../../_ui/kit";
 import { REQUEST_STATUS, REQUEST_TYPE, RequestModal, requestSummary, slaLabel } from "../../_ui/request";
@@ -67,49 +67,57 @@ function RequestsPage() {
   );
 }
 
-/* Luồng duyệt giải trình: các bước theo thứ tự, SLA; lưu = phiên bản mới từ ngày hiệu lực */
+/* Luồng duyệt theo loại đơn: các bước theo thứ tự, SLA; đơn nghỉ đặt được "chỉ khi nghỉ trên N ngày". Lưu = phiên bản mới từ ngày hiệu lực */
 function WorkflowModal({ onClose }: { onClose: () => void }) {
   const me = useMe();
   const { data, error, reload, setData } = useApi<WorkflowDef[]>("workflows");
-  const wf = data?.[0];
+  const [type, setType] = useState<RequestType>("explanation");
+  const wf = data?.find((w) => w.requestType === type);
   const [steps, setSteps] = useState<WorkflowStepInput[] | null>(null);
   const [from, setFrom] = useState(tenantToday(me.tenant.timezone));
   const [note, setNote] = useState("");
   const [err, setErr] = useState<string | null>(null);
   const { busy, run } = useAction();
   const manage = can(me, "workflow.manage");
-  useEffect(() => { if (wf?.current && !steps) setSteps(wf.current.steps); }, [wf, steps]);
+  useEffect(() => { setSteps(wf?.current ? wf.current.steps : null); setErr(null); }, [wf]);
   const list = steps ?? [];
   const set = (i: number, patch: Partial<WorkflowStepInput>) => setSteps(list.map((s, k) => (k === i ? { ...s, ...patch } : s)));
   async function save() {
     if (!list.length) { setErr("Cần ít nhất một bước duyệt."); return; }
     if (new Set(list.map((s) => s.resolver)).size !== list.length) { setErr("Mỗi loại người duyệt chỉ xuất hiện một lần."); return; }
-    await run("save", async () => setData(await call<WorkflowDef[]>("POST", "workflows/explanation/versions", { steps: list, effectiveFrom: from, note: note || null })), "Đã lưu luồng duyệt mới");
+    if (list.every((s) => s.daysOver != null)) { setErr("Cần ít nhất một bước luôn áp dụng."); return; }
+    await run("save", async () => setData(await call<WorkflowDef[]>("POST", `workflows/${type}/versions`, { steps: list, effectiveFrom: from, note: note || null })), "Đã lưu luồng duyệt mới");
   }
   return (
-    <Modal wide title="Cấu hình workflow · Giải trình công" sub="Đơn đã gửi giữ luồng lúc gửi; luồng mới áp dụng cho đơn gửi từ ngày hiệu lực." onClose={onClose}
+    <Modal wide title={`Cấu hình workflow · ${REQUEST_TYPE[type]}`} sub="Đơn đã gửi giữ luồng lúc gửi; luồng mới áp dụng cho đơn gửi từ ngày hiệu lực." onClose={onClose}
       foot={<><button className="btn" onClick={onClose}>Đóng</button>{manage ? <button className="btn primary" disabled={!!busy || !steps} onClick={save}>{busy ? "Đang lưu…" : "Lưu phiên bản mới"}</button> : null}</>}>
       {error ? <LoadError error={error} retry={reload} /> : null}
+      <div className="toolbar" style={{ padding: "0 0 10px" }}>
+        {(data ?? []).map((w) => <button key={w.requestType} className={`filter-chip ${type === w.requestType ? "active" : ""}`} onClick={() => setType(w.requestType)}>{REQUEST_TYPE[w.requestType]}</button>)}
+      </div>
       <div className="card detail-list">
         {list.map((s, i) => (
-          <div key={i} className="detail-row" style={{ gridTemplateColumns: "60px 1fr 130px auto", minHeight: 52 }}>
+          <div key={i} className="detail-row" style={{ gridTemplateColumns: type === "leave" ? "60px 1fr 130px 200px auto" : "60px 1fr 130px auto", minHeight: 52 }}>
             <span style={{ color: "var(--ink)", fontSize: 12, fontWeight: 700 }}>Bước {i + 1}</span>
             <select className="select" disabled={!manage} value={s.resolver} onChange={(e) => set(i, { resolver: e.target.value as StepResolver })}>
               {(Object.keys(STEP_RESOLVERS) as StepResolver[]).map((k) => <option key={k} value={k}>{STEP_RESOLVERS[k]}</option>)}
             </select>
             <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11.5 }}>SLA <input type="number" min={1} max={240} disabled={!manage} value={s.slaHours} onChange={(e) => set(i, { slaHours: Number(e.target.value) || 1 })} style={{ width: 64 }} /> giờ</label>
+            {type === "leave" ? <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11.5 }}>
+              <input type="checkbox" disabled={!manage} checked={s.daysOver != null} onChange={(e) => set(i, { daysOver: e.target.checked ? 2 : null })} />Chỉ khi nghỉ trên
+              <input type="number" min={0} max={30} disabled={!manage || s.daysOver == null} value={s.daysOver ?? ""} onChange={(e) => set(i, { daysOver: Number(e.target.value) || 0 })} style={{ width: 48 }} /> ngày</label> : null}
             {manage ? <button className="btn small" disabled={list.length <= 1} onClick={() => setSteps(list.filter((_, k) => k !== i))}>Bỏ</button> : <span />}
           </div>
         ))}
       </div>
-      {manage && list.length < 2 ? <button className="btn small" style={{ marginTop: 10 }} onClick={() => setSteps([...list, { resolver: list.some((s) => s.resolver === "hr") ? "direct_manager" : "hr", slaHours: 24 }])}><Icon name="plus" /> Thêm bước</button> : null}
-      <p className="muted" style={{ fontSize: 11.5, margin: "10px 0" }}>Không có quản lý trực tiếp (hoặc người gửi chính là quản lý) thì bước Quản lý được bỏ qua; không còn bước nào thì chuyển cho Phòng Nhân sự. Không ai tự duyệt đơn của mình.</p>
+      {manage && steps && list.length < 2 ? <button className="btn small" style={{ marginTop: 10 }} onClick={() => setSteps([...list, { resolver: list.some((s) => s.resolver === "hr") ? "direct_manager" : "hr", slaHours: 24 }])}><Icon name="plus" /> Thêm bước</button> : null}
+      <p className="muted" style={{ fontSize: 11.5, margin: "10px 0" }}>Không có quản lý trực tiếp (hoặc người gửi chính là quản lý) thì bước Quản lý được bỏ qua; không còn bước nào thì chuyển cho Phòng Nhân sự. Không ai tự duyệt đơn của mình.{type === "leave" ? " Đơn nghỉ trước phép (số dư âm) luôn cần Phòng Nhân sự duyệt." : ""}</p>
       {manage ? <div className="form-grid">
         <Field label="Hiệu lực từ"><input type="date" min={tenantToday(me.tenant.timezone)} value={from} onChange={(e) => setFrom(e.target.value)} /></Field>
         <Field label="Ghi chú"><input value={note} onChange={(e) => setNote(e.target.value)} /></Field>
       </div> : null}
       <ErrorLine text={err} />
-      <ul className="version-list">{(wf?.versions ?? []).map((v) => <li key={v.versionNo}>v{v.versionNo} · từ {fmtDate(v.effectiveFrom)} · {v.steps.map((s) => `${STEP_RESOLVERS[s.resolver]} (${s.slaHours} giờ)`).join(" → ")}{v.note ? ` — ${v.note}` : ""}</li>)}</ul>
+      <ul className="version-list">{(wf?.versions ?? []).map((v) => <li key={v.versionNo}>v{v.versionNo} · từ {fmtDate(v.effectiveFrom)} · {v.steps.map((s) => `${STEP_RESOLVERS[s.resolver]} (${s.slaHours} giờ${s.daysOver != null ? `, khi nghỉ trên ${s.daysOver} ngày` : ""})`).join(" → ")}{v.note ? ` — ${v.note}` : ""}</li>)}</ul>
     </Modal>
   );
 }

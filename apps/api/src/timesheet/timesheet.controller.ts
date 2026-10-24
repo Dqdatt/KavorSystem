@@ -8,9 +8,10 @@ import type { Body as Json } from "../admin/validate.js";
 import { MONTH, type TimesheetService } from "./timesheet.service.js";
 import type { RequestsService, Viewer } from "./requests.service.js";
 import type { NotificationsService } from "../notifications/notifications.service.js";
+import type { LeaveService } from "../leave/leave.service.js";
 
 export const TIMESHEET_SERVICES = Symbol("TIMESHEET_SERVICES");
-export type TimesheetServices = { timesheets: TimesheetService; requests: RequestsService; notifications: NotificationsService };
+export type TimesheetServices = { timesheets: TimesheetService; requests: RequestsService; notifications: NotificationsService; leave: LeaveService };
 
 function bearer(header?: string): string {
   const m = /^Bearer\s+(.+)$/i.exec(header ?? "");
@@ -18,7 +19,7 @@ function bearer(header?: string): string {
   return m[1];
 }
 
-/* App nhân viên: bảng công tháng, giải trình, đơn của tôi, duyệt (quản lý/HR), thông báo */
+/* App nhân viên: bảng công tháng, giải trình, nghỉ phép, đơn của tôi, duyệt (quản lý/HR), thông báo */
 @Controller("me")
 export class TimesheetController {
   constructor(
@@ -52,6 +53,10 @@ export class TimesheetController {
   mine(@Req() r: CorrelatedRequest, @Headers("authorization") a?: string) { return this.run(r, a, (s, emp, v) => s.requests.mine(emp, v.correlationId)); }
   @Post("requests/explanations") @HttpCode(201)
   explain(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Body() b: Json) { return this.run(r, a, (s, emp, v) => s.requests.createExplanation(emp, b, v.correlationId)); }
+  @Get("leave")
+  leave(@Req() r: CorrelatedRequest, @Headers("authorization") a?: string) { return this.run(r, a, (s, emp) => s.leave.myLeave(emp)); }
+  @Post("requests/leave") @HttpCode(201)
+  leaveRequest(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Body() b: Json) { return this.run(r, a, (s, emp, v) => s.leave.createLeave(emp, b, v.correlationId)); }
   @Post("requests/:id/cancel") @HttpCode(200)
   cancel(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string) { return this.run(r, a, (s, emp, v) => s.requests.cancel(emp, id, v.correlationId)); }
 

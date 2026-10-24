@@ -135,10 +135,11 @@ function EmployeeMonth({ id, month, onClose, onChanged }: { id: string; month: s
 function DayRow({ d, onRequest }: { d: TimesheetDay; onRequest: () => void }) {
   const t = (v: string | null, raw: string | null) => v ? <>{v}{d.adjusted && v !== raw ? <span className="source-tag" title={`Chấm công gốc: ${raw ?? "--:--"}`}>điều chỉnh</span> : null}</> : <span className="muted">--:--</span>;
   const note = d.kind === "holiday" ? <Status v={[d.holidayName ?? "Ngày lễ", "info"]} /> : d.kind === "off" ? <span className="muted">Ngày nghỉ</span>
+    : d.leave && !d.issue ? <Status v={[`${d.leave.typeName}${d.leave.half === "am" ? " · sáng" : d.leave.half === "pm" ? " · chiều" : ""} · ${d.leave.requestNo}`, "info"]} />
     : d.request ? <button className="btn small" title={REQUEST_STATUS[d.request.status][0]} onClick={onRequest}>{d.request.no}{d.request.status === "pending" ? " · chờ" : ""}</button>
     : d.issue ? <Status v={ISSUE[d.issue] ?? [d.issue, "warn"]} /> : d.kind === "today" ? <span className="muted">Hôm nay</span> : null;
   return (
-    <tr style={d.kind === "off" || d.kind === "holiday" ? { opacity: 0.6 } : undefined}>
+    <tr style={d.kind === "off" || d.kind === "holiday" || d.kind === "leave" ? { opacity: 0.6 } : undefined}>
       <td className="nowrap"><b>{fmtDate(d.date).slice(0, 5)}</b> <span className="muted">{WD[d.weekday]}</span></td>
       <td>{d.kind === "off" && !d.clockIn ? "" : t(d.clockIn, d.rawIn)}{d.lateMinutes ? <small className="text-red"> +{d.lateMinutes}′</small> : null}</td>
       <td>{d.kind === "off" && !d.clockOut ? "" : t(d.clockOut, d.rawOut)}{d.earlyMinutes ? <small className="text-red"> −{d.earlyMinutes}′</small> : null}</td>

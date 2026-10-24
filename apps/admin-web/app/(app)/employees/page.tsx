@@ -15,6 +15,7 @@ const AUDIT: Record<string, string> = {
   "auth.mfa_enrolled": "Bật xác thực hai lớp", "auth.mfa_verified": "Xác thực hai lớp khi đăng nhập web", "auth.mfa_reset": "Đặt lại xác thực hai lớp",
   "privacy.consented": "Đồng ý điều khoản dữ liệu cá nhân",
   "request.submitted": "Gửi đơn", "request.cancelled": "Hủy đơn", "approval.approved": "Duyệt đơn", "approval.rejected": "Từ chối đơn",
+  "leave.adjusted": "Điều chỉnh sổ phép", "leave.carry_imported": "Nhập phép tồn",
   "device.registered": "Đăng ký thiết bị", "device.change_requested": "Yêu cầu dùng máy mới", "device.approved": "Duyệt thiết bị", "device.rejected": "Từ chối thiết bị", "device.revoked": "Thu hồi thiết bị",
 };
 

@@ -9,12 +9,12 @@ import {
 import type { IllusKind } from "./illus";
 import { api, type Snapshot } from "./api";
 import { authenticate, biometricLabel, clearQuickLogin, clearSession, loadBioPrefs, loadSession, loadSupport, quickLoginEmployee, quickRefreshToken, saveBioPrefs, saveSession, saveSupport, type BioPrefs } from "./auth";
-import { ApiError, REMOTE, attendanceApi, authApi, companyApi, isNetworkError, notificationsApi, setTokenSource, timesheetApi } from "./api/http";
+import { ApiError, REMOTE, attendanceApi, authApi, companyApi, isNetworkError, leaveApi, notificationsApi, setTokenSource, timesheetApi } from "./api/http";
 import { clearExplainReminders, onReminderTap, scheduleExplainReminders } from "./notify";
 import { MY_REQ_INIT, SUPPORT_SAMPLE } from "./api/mock-data";
 import {
   EXPLANATION_KINDS, distanceMeters, passwordProblems,
-  type AttendanceEvent, type AttendanceToday, type AuthResult, type ExplanationKind, type AppNotification, type MyCompany, type MyTimesheet, type NotificationFeed, type RequestItem, type SupportContact, type TimesheetDay, type WorkLocation,
+  type AttendanceEvent, type AttendanceToday, type AuthResult, type ExplanationKind, type AppNotification, type MyCompany, type MyLeave, type MyTimesheet, type NotificationFeed, type RequestItem, type SupportContact, type TimesheetDay, type WorkLocation,
 } from "@kavor/contracts";
 import { currentFix, deviceRegistration, deviceSummary, enqueue, flushQueue, installationId, LocationError, newEventId, quietFix, readQueue, type Fix } from "./attendance";
 
@@ -55,6 +55,27 @@ const fromSnapshot = (d: Snapshot) => ({
   payslips: d.payslips,
   news: d.news,
 });
+
+/* Gửi đơn nghỉ thật: máy chủ tính lại số ngày, kiểm tra số dư/trùng ngày, giữ chỗ phép và chọn luồng duyệt */
+function lvSubmitRemote() {
+  const r = S.lvr, v = S.lv, type = S.lvData?.types.find((t) => t.code === r.type);
+  if (!type) { v.err = "Chọn loại nghỉ."; emit(); return; }
+  if (!r.from || !lvrCount()) { v.err = "Chọn ít nhất một ngày làm việc để nghỉ."; emit(); return; }
+  if (v.reason.trim().length < 3) { v.err = "Ghi lý do nghỉ."; emit(); return; }
+  if (!needNet(() => ACT.lvSubmit())) return;
+  remote("lvSubmit", async () => {
+    const res = await leaveApi.create({ leaveType: type.code, from: r.from!, to: r.to ?? r.from!, half: (r.to ?? r.from) === r.from ? v.half as "full" | "am" | "pm" : "full", reason: v.reason.trim() });
+    const step = res.steps.find((x) => x.status === "pending");
+    const days = res.type === "leave" ? res.payload.days : 0;
+    S.lvr = { type: null, from: null, to: null }; S.lv = { ...S.lv, half: "full", reason: "", err: "" };
+    await Promise.all([loadLeave(), loadRequests()]);
+    S.done = { illus: "leave", title: "Đã gửi đơn nghỉ",
+      text: type.deductsBalance ? `${dayCount(days)} phép được giữ chỗ đến khi đơn được duyệt. Còn ${dec(lvAvail())} ngày có thể xin thêm.` : "Loại nghỉ này không trừ phép năm.",
+      rows: [["Mã đơn", res.no], ["Người duyệt", step?.resolver === "hr" ? "Phòng Nhân sự" : step?.assignee ?? "—"], ...(res.steps.some((x) => x.resolver === "hr" && x.status === "waiting") ? [["Sau đó", "Phòng Nhân sự duyệt"] as [string, string]] : [])],
+      primary: ["Xem đơn của tôi", "requests"] };
+    S.stack = ["done"]; render("push");
+  }, (e) => { v.err = e.message; emit(); return true; });
+}
 
 /* Gửi giải trình thật: loại theo bất thường của ngày, giờ đề nghị gắn vào giờ vào hoặc giờ ra tương ứng */
 function exSubmitRemote() {
@@ -112,6 +133,9 @@ const makeState = () => ({
   ts: null as MyTimesheet | null,
   reqItems: new Map<string, RequestItem>(),
   exDay: null as string | null,
+  /* Nghỉ phép (bản dùng API): sổ phép, loại nghỉ, lịch làm việc; lvr = lựa chọn trên form tạo đơn (ngày dạng YYYY-MM-DD) */
+  lvData: null as MyLeave | null,
+  lvr: { type: null as string | null, from: null as string | null, to: null as string | null },
   /* Thông báo trong app (bản dùng API) */
   notifs: null as NotificationFeed | null,
   /* Thông báo chưa đọc lúc mở màn Thông báo: vẫn hiện chấm xanh trong lần xem đó dù đã đánh dấu đọc trên máy chủ */
@@ -192,7 +216,12 @@ export const issueText = (d: TimesheetDay) => d.issue === "missing_in" ? "thiế
 const isoWeekday = (date: string) => { const w = new Date(`${date}T12:00:00Z`).getUTCDay(); return w === 0 ? 7 : w; };
 export const stamp = (iso: string) => { const d = new Date(iso); return `${pad(d.getDate())}/${pad(d.getMonth() + 1)} ${pad(d.getHours())}:${pad(d.getMinutes())}`; };
 const initialsOf = (name: string) => { const p = name.trim().split(/\s+/); return ((p.length > 1 ? p[0]![0]! : "") + p[p.length - 1]![0]!).toUpperCase(); };
-export const reqSub = (r: RequestItem) => `${r.workDate ? `${WD_ISO[isoWeekday(r.workDate)]} ${ddmm(r.workDate)} · ` : ""}${EXPLANATION_KINDS[r.payload.kind].toLowerCase()}`;
+/* Khoảng nghỉ: "26/10–28/10" / "26/10 (chiều)" */
+export const leaveRange = (p: { from: string; to: string; half: string }) => `${ddmm(p.from)}${p.to !== p.from ? `–${ddmm(p.to)}` : ""}${p.half === "am" ? " (sáng)" : p.half === "pm" ? " (chiều)" : ""}`;
+export const dayCount = (n: number) => `${dec(n)} ngày`;
+export const reqSub = (r: RequestItem) => r.type === "leave" ? `${leaveRange(r.payload)} · ${dayCount(r.payload.days)}`
+  : `${r.workDate ? `${WD_ISO[isoWeekday(r.workDate)]} ${ddmm(r.workDate)} · ` : ""}${EXPLANATION_KINDS[r.payload.kind].toLowerCase()}`;
+const reqTitle = (r: RequestItem) => r.type === "leave" ? r.payload.leaveTypeName : "Giải trình công";
 export const tsDay = (date: string) => S.ts?.days.find((d) => d.date === date);
 /* Ngày còn giải trình được có hạn gần nhất (bản dùng API) — cho thông báo ở Trang chủ và menu tạo đơn */
 export function explainDue(): { date: string; deadline: string; daysLeft: number; issue: string } | null {
@@ -227,15 +256,16 @@ export async function loadRequests() {
   try {
     const [mine, ap] = await Promise.all([timesheetApi.mine(), timesheetApi.approvals()]);
     S.reqItems = new Map([...mine, ...ap.items].map((r) => [r.no, r]));
-    const local = S.myReq.filter((r) => r.type !== "explain" && !MOCK_REQ_IDS.has(r.id));
+    /* Đơn giải trình + nghỉ phép lấy từ máy chủ; OT/tạm ứng/sửa hồ sơ chưa có máy chủ nên giữ đơn tạo trong phiên */
+    const local = S.myReq.filter((r) => r.type !== "explain" && r.type !== "leave" && !MOCK_REQ_IDS.has(r.id));
     S.myReq = [...mine.map((r) => ({
-      id: r.no, type: "explain" as const, title: "Giải trình công", sub: reqSub(r), status: r.status, created: stamp(r.submittedAt), reason: r.payload.reason,
+      id: r.no, type: r.type === "leave" ? "leave" as const : "explain" as const, title: reqTitle(r), sub: reqSub(r), status: r.status, created: stamp(r.submittedAt), reason: r.payload.reason,
       note: r.steps.find((x) => x.status === "rejected")?.comment ?? undefined,
     })), ...local];
     S.approvals = ap.items.map((r) => ({
-      id: r.no, who: r.requester.fullName, ini: initialsOf(r.requester.fullName), role: r.requester.department ?? "", type: "explain" as const, title: "Giải trình công",
+      id: r.no, who: r.requester.fullName, ini: initialsOf(r.requester.fullName), role: r.requester.department ?? "", type: r.type === "leave" ? "leave" as const : "explain" as const, title: reqTitle(r),
       sub: reqSub(r), reason: r.payload.reason, created: stamp(r.submittedAt),
-      ctx: r.day ? `Chấm công gốc: vào ${r.day.rawIn ?? "--:--"} · ra ${r.day.rawOut ?? "--:--"}` : "",
+      ctx: r.type === "explanation" && r.day ? `Chấm công gốc: vào ${r.day.rawIn ?? "--:--"} · ra ${r.day.rawOut ?? "--:--"}` : "",
     }));
     S.role = ap.canApprove ? "manager" : "staff";
     emit();
@@ -249,7 +279,15 @@ export async function loadNotifications() {
   try { S.notifs = await notificationsApi.feed(); emit(); }
   catch (e) { if (e instanceof ApiError && e.status === 401) showErr("session"); }
 }
-const refreshWork = () => { void loadTimesheet(S.ts?.period.month); void loadRequests(); void loadNotifications(); };
+export async function loadLeave(manual = false) {
+  if (!REMOTE || !isLoggedIn() || S.stack[0] === "consent") return;
+  try { S.lvData = await leaveApi.get(); emit(); }
+  catch (e) {
+    if (e instanceof ApiError && e.status === 401) showErr("session");
+    else if (manual) toast(e instanceof ApiError ? e.message : "Chưa tải được sổ phép.");
+  }
+}
+const refreshWork = () => { void loadTimesheet(S.ts?.period.month); void loadRequests(); void loadNotifications(); void loadLeave(); };
 export const unreadCount = () => (REMOTE ? S.notifs?.unread ?? 0 : 2);
 
 /* Bấm nhắc hạn giải trình → mở form giải trình ngày đó (đăng nhập xong mới mở; khi app vừa khởi động thì đợi khôi phục phiên) */
@@ -257,7 +295,14 @@ const replayReminder = REMOTE ? onReminderTap((date) => {
   if (!isLoggedIn() || ["login", "consent", "device"].includes(S.stack[0]!)) return;
   void loadTimesheet(S.ts?.period.month).then(() => { if (tsDay(date)?.canExplain) ACT.exFromDay(date); else tab("attendance"); });
 }) : () => {};
-export const lvAvail = () => S.leave.granted + S.leave.carry - S.leave.used - S.leave.pending;
+export const lvAvail = () => (REMOTE ? S.lvData?.balance?.available ?? 0 : S.leave.granted + S.leave.carry - S.leave.used - S.leave.pending);
+/* Số ngày của đơn đang chọn (bản dùng API): ngày làm việc theo lịch công ty trong khoảng; một ngày nửa buổi = 0,5 */
+export function lvrCount() {
+  const r = S.lvr; if (!r.from || !S.lvData) return 0;
+  const to = r.to ?? r.from;
+  const n = S.lvData.calendar.filter((d) => d.workday && d.date >= r.from! && d.date <= to).length;
+  return to === r.from && S.lv.half !== "full" ? n * 0.5 : n;
+}
 export const pendingCount = () => (S.role === "manager" ? S.approvals.length : 0);
 export function advEligible(): [string, string] | null {
   if (S.contract === "probation") return ["Chưa áp dụng cho nhân viên thử việc", "Bạn có thể tạm ứng sau khi ký hợp đồng chính thức."];
@@ -310,6 +355,7 @@ function openNotifications() {
 
 export function go(r: Route) {
   if (r === "notifications" && REMOTE) openNotifications();
+  if ((r === "leave" || r === "leaveNew") && REMOTE) void loadLeave(true);
   closeSheet();
   if (S.net === "offline" && NEEDNET[r]) { S.err = { kind: "offline", retry: r, over: { t: "Cần kết nối để xem", p: "Phiếu lương và tạm ứng không lưu trên máy vì lý do bảo mật. Kết nối mạng rồi thử lại." } }; S.stack.push("err"); render("push"); return; }
   if (GATED[r] && Date.now() > S.pinUntil) { openPin(() => { S.stack.push(r); render("push"); }); return; }
@@ -866,7 +912,17 @@ export const ACT = {
     v.err = ""; emit();
   },
   lvHalf: (a: string) => { S.lv.half = a; emit(); },
+  /* Bản dùng API: chọn loại nghỉ theo mã, chạm ngày bắt đầu rồi ngày kết thúc (ngày dạng YYYY-MM-DD) */
+  lvrType: (code: string) => { S.lvr.type = code; S.lv.err = ""; emit(); },
+  lvrPick: (k: string) => {
+    const v = S.lvr;
+    if (v.from == null || (v.to != null && v.to !== v.from)) { v.from = k; v.to = null; }
+    else if (k > v.from) v.to = k; else if (k === v.from) { v.from = null; v.to = null; } else { v.from = k; v.to = null; }
+    if (!(v.from != null && (v.to == null || v.to === v.from))) S.lv.half = "full";
+    S.lv.err = ""; emit();
+  },
   lvSubmit: () => {
+    if (REMOTE) { lvSubmitRemote(); return; }
     const v = S.lv, n = lvCount(); if (!n) { v.err = "Chọn ít nhất một ngày nghỉ."; emit(); return; }
     if (!needNet(() => ACT.lvSubmit())) return;
     const fd = v.from! % 100, fm = Math.floor(v.from! / 100), to = v.to ?? v.from!, td = to % 100, tm = Math.floor(to / 100);
