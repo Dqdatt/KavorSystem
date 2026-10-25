@@ -2,7 +2,7 @@
 _Cập nhật: 2026-10-24 — bởi Claude (Opus 5.5)_
 
 ## Mục tiêu đang làm
-Tạm ứng lương đã xong phần code và kiểm thử tự động (25/10, xem "Đã xong"); chờ thử trên iPhone. Bước kế tiếp: payroll (nhập kết quả lương, phiếu lương).
+Tạm ứng lương đã xong và đã thử trên iPhone (25/10, xem "Đã xong"). Bước kế tiếp: payroll (nhập kết quả lương, phiếu lương).
 
 ## Đã xong
 - Tạm ứng lương (25/10), theo PILOT_RULEBOOK §9, PERMISSION_MATRIX (Payroll) và DATABASE_SCHEMA §11:
@@ -11,6 +11,7 @@ Tạm ứng lương đã xong phần code và kiểm thử tự động (25/10, 
   - Web: trang **Tạm ứng lương** (mục Tài chính, quyền `salary_advance.process`; thiết kế bổ sung — prototype HR chưa có): 4 chỉ số, đơn theo tháng khấu trừ, duyệt bước Kế toán, "Xác nhận đã chi" kèm ghi chú chuyển khoản; tab **Lương cơ bản** (nhập/đổi lương theo ngày hiệu lực). Modal đơn tạm ứng, Cấu hình workflow có bước Kế toán + "chỉ khi trên X ₫". Đã thử trên trình duyệt bằng tài khoản Kế toán.
   - Mobile (bản dùng API): màn Tạm ứng (hạn mức thật, cách tính theo lương của chính mình, hạn nhận đơn, đơn tháng này, lịch sử), Đề nghị tạm ứng (gợi ý số tiền theo hạn mức, kiểm tra trước khi gửi, xác nhận bằng PIN), chi tiết (luồng duyệt + đã chi + khấu trừ, hủy khi đang chờ); Trang chủ/menu tạo đơn hiện hạn mức thật; thông báo "đã chi".
   - Seed: Kế toán Đỗ Hồng Nhung (HD0215 · nhung.do@haidang.vn, vai trò Kế toán toàn công ty); lương cơ bản mẫu (HD0142 15 triệu như prototype).
+  - Đầu-cuối trên iPhone 11 thật "Dqdatt" (API `http://192.168.1.83:4000/api/v1`): HD0142 thấy hạn mức 4.500.000 (15 triệu × 30%) → gửi TU-0001 2.000.000 ₫ xác nhận PIN → Quản lý duyệt, HR bỏ qua, Kế toán HD0215 duyệt → Kế toán xác nhận đã chi → app hiện thông báo "đã được duyệt" + "đã chi", đơn "Đã chi", hết nút tạo đơn tháng này, dòng thời gian tới Khấu trừ. Trước đó app báo không kết nối máy chủ vì IP Mac đổi (.22 → .83), build lại là được.
   - Smoke `tools/advance-smoke.sh` 31 bước; cả 10 smoke đạt; pgTAP 192; unit test API 28; build 6/6.
 - Sửa lệch múi giờ (25/10): migration `202610290001_tenant_local_date.sql` thêm `tenant_today(tenant)` (ngày theo múi giờ công ty); `permission_scopes`, `scoped_employees`, `permission_grants` mặc định tính theo ngày của tenant (chữ ký giữ nguyên, `p_date` mặc định null), `active_tenant_admin_count`, trigger chặn gỡ Tenant Admin cuối cùng, trigger chặn sửa ngày lễ đã qua cũng vậy; Console API đếm/hiện Tenant Admin theo ngày của từng tenant (trước đây dùng ngày UTC). pgTAP `tenant_local_date.test.sql` 7 test chọn múi giờ test sao cho ngày tenant luôn khác ngày UTC (tổng 179). Đã chạy lại toàn bộ 9 smoke lúc 6:42–6:52 sáng giờ VN (khung giờ trước đây lỗi): đều đạt.
 - Làm thêm giờ — OT (25/10), theo PILOT_RULEBOOK §8, US-043, BLLĐ 2019 Điều 98, 107 và NĐ 145/2020:
@@ -80,10 +81,10 @@ Tạm ứng lương đã xong phần code và kiểm thử tự động (25/10, 
 - Kiểm tra ngày 22/10: `pnpm turbo run typecheck test build --force` pass 18/18 task (test thật chỉ có contracts 2 + api 2)
 
 ## Đang dở (QUAN TRỌNG NHẤT)
-- Chưa thử tạm ứng trên iPhone. DB local đã chuẩn bị: Kế toán HD0215 + quản lý HDG0003 đã kích hoạt, HD0142 có quy định tạm ứng riêng (hạn đến cuối tháng) để thử sau ngày 20; iPhone phải kích hoạt lại HD0142. Chưa thử từ chối/hủy đơn và duyệt trên app bằng tài khoản quản lý trên máy thật (smoke đã kiểm). Thử duyệt trên app: kích hoạt quản lý HDG0003 (huy.le@example.test) ở máy khác/simulator. Thử Console: `OPERATOR_PASSWORD='…' bash tools/create-operator.sh <email> "<Họ tên>"` (tạo 2 người để thử duyệt khôi phục), `pnpm dev:console` → http://localhost:3001, lần đầu liên kết ứng dụng xác thực.
+- Không có việc dở. DB local đang có dữ liệu thử trên iPhone (HD0142, HDG0003, Kế toán HD0215 đã kích hoạt; TU-0001 đã chi; HD0142 có quy định tạm ứng riêng hạn đến cuối tháng); chạy smoke thì reset trước và iPhone phải kích hoạt lại. Chưa thử từ chối/hủy đơn và duyệt trên app bằng tài khoản quản lý trên máy thật (smoke đã kiểm). Thử duyệt trên app: kích hoạt quản lý HDG0003 (huy.le@example.test) ở máy khác/simulator. Thử Console: `OPERATOR_PASSWORD='…' bash tools/create-operator.sh <email> "<Họ tên>"` (tạo 2 người để thử duyệt khôi phục), `pnpm dev:console` → http://localhost:3001, lần đầu liên kết ứng dụng xác thực.
 - Cài bản mới lên iPhone: build `xcodebuild -workspace ios/Kavor.xcworkspace -scheme Kavor -configuration Release -destination 'generic/platform=iOS' -derivedDataPath ios/build-device -allowProvisioningUpdates build` (trong `apps/mobile`, có `EXPO_PUBLIC_API_URL`, xóa `$TMPDIR/metro-cache` trước) rồi `xcrun devicectl device install app --device 36F8CE4A-8C04-5232-AB9D-0041A426F6A0 ios/build-device/Build/Products/Release-iphoneos/Kavor.app`. Nếu devicectl báo "unavailable": mở khóa iPhone, bấm Tin cậy, cắm cáp dữ liệu.
 - Reset DB local: dùng `bash tools/db-reset.sh` (sau `supabase db reset` Kong giữ IP cũ của Auth → 502).
-- Bản trên iPhone trỏ tới API `http://192.168.1.22:4000/api/v1` (IP LAN của Mac ngày 24/10; trước là 192.168.1.25, 172.17.91.14): Mac phải chạy `pnpm dev:backend`, cùng Wi-Fi. IP Mac đổi thì phải build lại app.
+- Bản trên iPhone trỏ tới API `http://192.168.1.83:4000/api/v1` (IP LAN của Mac ngày 25/10; trước là 192.168.1.22, 192.168.1.25, 172.17.91.14). App báo "không kết nối máy chủ" thì kiểm tra `ipconfig getifaddr en0` trước — IP đổi thì phải build lại: Mac phải chạy `pnpm dev:backend`, cùng Wi-Fi. IP Mac đổi thì phải build lại app.
 - Chưa có môi trường staging: migration 23/10 **chưa push** lên project Supabase thật; project thật chưa có dữ liệu nhân viên, SMTP riêng và Realtime chưa kiểm tra ở đó.
 - Người dùng cần tự đổi publishable key trên Supabase Dashboard (Settings → API Keys: tạo publishable key mới, xóa key `default` cũ).
 
@@ -130,8 +131,7 @@ Tạm ứng lương đã xong phần code và kiểm thử tự động (25/10, 
 - Trên bản dev, gõ phím "r" khi không focus ô nhập sẽ làm Metro reload (chỉ ảnh hưởng dev).
 
 ## Bước tiếp theo
-1. Thử tạm ứng trên iPhone (HD0142 gửi đơn → Quản lý → Kế toán duyệt → Kế toán xác nhận đã chi).
-2. Payroll (nhập kết quả lương từ Google Sheets, duyệt, phiếu lương) → bản tin/tài liệu.
+1. Payroll (nhập kết quả lương từ Google Sheets, duyệt, phiếu lương) → bản tin/tài liệu.
 - Push từ máy chủ khi app tắt (APNs/FCM) cần tài khoản Apple Developer trả phí → làm khi mua (xem "Quyết định đã chốt"); lúc đó thay luôn việc E19 hỏi lại 8 giây/lần.
 - Staging: **hoãn tới khi hệ thống hoàn thiện** (quyết định 24/10). Phương án đã phân tích sẵn: Render Singapore cho API + 2 web (~$21/tháng, địa chỉ onrender.com, chưa cần domain), Gmail SMTP như CarRental cho OTP và thư mời, project Supabase `KavorSystem` (Singapore) làm staging, chỉ dùng dữ liệu mẫu; cần đổi các giá trị localhost trong `supabase/config.toml` sang biến môi trường trước khi `config push`.
 - Ngoài luồng chính: test component cho admin-web; Sentry; số liệu luật cần HR/Payroll SME xác nhận trước pilot; pháp lý chuyển dữ liệu ra nước ngoài (Nghị định 13/2023, dữ liệu ở Singapore) trước khi có dữ liệu thật.
