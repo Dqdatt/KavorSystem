@@ -1,7 +1,8 @@
 # Kế hoạch module Payroll (nhập kết quả lương, duyệt, phiếu lương)
 
 > Viết bởi Claude ngày 25/10/2026 sau khi đọc PILOT_RULEBOOK §10, DATABASE_SCHEMA §11, PERMISSION_MATRIX (Payroll),
-> prototype HR `page-payroll` (modal `payrollImport`) và prototype mobile `payslips`/`payslip`. Chưa có dòng code nào.
+> prototype HR `page-payroll` (modal `payrollImport`) và prototype mobile `payslips`/`payslip`.
+> Cập nhật 25/10/2026: triển khai riêng phần DB bởi Codex; API/web/mobile còn ở bước sau.
 > Người làm tiếp: đọc `docs/AGENT_PLAYBOOK.md` mục 3 (khuôn module) và làm đúng thứ tự dưới đây.
 
 ## Chế độ
@@ -17,6 +18,40 @@ với Kavor), gửi kiểm tra → duyệt → công bố → đã trả → đ�
 
 **Để sau:** tính lương trong Kavor, kết nối Google Sheets, PDF phiếu lương có mật khẩu, tài khoản ngân hàng, "Hỏi HR về lương"
 (giữ dữ liệu cục bộ như hiện tại), xuất file ngân hàng.
+
+## Quyết định DB đã được người dùng duyệt (25/10/2026)
+
+- Phiên này chỉ DB: migration mới `202610310001_payroll.sql`, pgTAP, seed và tài liệu. Không sửa API/contracts/web/mobile.
+- Mở lại chỉ **approved → prepared**, có `payroll.cycle.reopen` cấp riêng và lý do tối thiểu 5 ký tự.
+  Chưa mở lại published/paid/closed: cần thiết kế phiên bản phiếu công bố trước khi cho sửa. Mở lại xóa dấu duyệt hiện hành;
+  lịch sử người duyệt/lý do vẫn ở `payroll_cycle_events` bất biến. Muốn duyệt lại vẫn phải submit và tách người nhập/người duyệt.
+- ADVANCE chỉ đánh dấu đã khấu trừ khi khớp đầy đủ tổng đã chi, đúng tenant/nhân viên/tháng và chưa khấu trừ.
+  Lệch hoặc thiếu nhân viên trong file: vẫn cho công bố, giữ `deducted_cycle_id` null, ghi sự kiện `advance_mismatch` không có số tiền.
+- `submit` dùng `payroll.import`; `paid/close` dùng `payroll.publish`. Thêm `payroll.config.manage` cho Kế toán;
+  cấu hình danh mục/mở kỳ cần phạm vi tenant, chuyển trạng thái/nhập lại cần quyền trên toàn bộ nhân viên trong kỳ.
+- Item lưu snapshot `component_code/name/kind/display_order`, thêm nhãn riêng nếu có. Đổi tên/thứ tự danh mục không đổi phiếu cũ;
+  mã/loại thành phần đã có là bất biến. Phiên bản công thức/cấu hình tính lương để sau.
+- Client chỉ SELECT qua RLS. Service role chỉ SELECT và gọi hàm SQL payroll với user đã được API xác thực;
+  không được DML/TRUNCATE trực tiếp bảng payroll. Hàm kiểm quyền bằng scope hiện hành theo ngày tenant và khóa dòng kỳ.
+- Lưu batch nhập bất biến, kể cả file lỗi. Nhập lại lúc under_review trả về prepared. Lần nhập mới có lỗi/chưa áp thành công
+  chặn submit; không âm thầm gửi lại kết quả cũ. `imported_by` chỉ đổi khi thay kết quả thành công.
+- Ghi lần xem đầu vào `payslip_views`, không sửa kết quả đã khóa. Nhân viên vẫn đọc được phiếu khi kỳ chuyển sang paid/closed.
+
+### Giao diện hàm DB cho bước API sau
+
+- `set_pay_component(tenant, user, code, name, kind, display_order smallint)` → component UUID (thêm hoặc đổi tên/thứ tự).
+- `create_payroll_cycle(tenant, user, month text, pay_date date)` → cycle UUID; chụp kỳ công từ `attendance_settings.periodStartDay`.
+- `record_payroll_import(cycle, user, file_name, total_rows, error_rows, warnings jsonb default '[]')` → batch UUID.
+- `replace_payroll_results(cycle, batch, rows jsonb, user)` → số nhân viên; batch phải là lần mới nhất, thuộc đúng người nhập,
+  không có lỗi, chưa áp lần nào. Mọi kết quả và item được thay trong một transaction.
+  `rows = [{employeeId, gross, deduction, net, workDays?, note?, items:[{componentId, amount, label?}]}]`.
+  VND nguyên; gross/deduction và các item earning/deduction không âm, NET có thể âm; kiểm tổng từng loại và NET ở SQL.
+- `transition_payroll_cycle(cycle, user, action, reason text default null)` → trạng thái mới;
+  action: submit/approve/publish/paid/close/reopen. Công bố tạo thông báo và đối chiếu tạm ứng trong cùng transaction.
+- `mark_payslip_viewed(result, user)` → thời điểm xem đầu; chỉ chính nhân viên có quyền self.read và phiếu đã công bố.
+- Các bảng dùng cột `tenant_id`, `cycle_id`, `batch_id`, `result_id`, `component_id` như migration;
+  bảng sự kiện chỉ metadata, không chứa kết quả/số tiền lương.
+- CSV parsing, danh sách lỗi chi tiết, cảnh báo đối chiếu OT/ngày công/kỳ công và audit khi đọc/export làm ở API sau.
 
 ## Quyền (PERMISSION_MATRIX — dữ liệu lương là quyền nhạy cảm)
 
@@ -77,5 +112,6 @@ Giữ cổng PIN hiện có (`GATED`). Nút "Tải PDF" hiện "sẽ có ở b�
 pgTAP `payroll.test.sql` (chuyển trạng thái hợp lệ/không hợp lệ, khóa sau approved, RLS nhân viên chỉ thấy khi published, tách
 nhiệm vụ, thay kết quả nguyên tử); `tools/payroll-smoke.sh` (mở kỳ → nhập CSV có lỗi → sửa → cảnh báo tạm ứng/OT/ngày công →
 gửi → người nhập không tự duyệt → duyệt → công bố → nhân viên thấy phiếu + thông báo không có số tiền → tạm ứng đánh dấu đã khấu trừ
-→ đã trả → đóng → mở lại cần quyền + lý do). Cần thêm một tài khoản Kế toán thứ hai trong seed để thử tách nhiệm vụ.
+→ đã trả → đóng; mở lại approved cần quyền + lý do, chặn mở published/paid/closed theo phạm vi đã duyệt).
+Cần thêm một tài khoản Kế toán thứ hai trong seed để thử tách nhiệm vụ.
 Cuối cùng `bash tools/verify-all.sh`, build iPhone, người dùng thử, PROGRESS, commit.

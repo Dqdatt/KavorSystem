@@ -1,10 +1,33 @@
 # PROGRESS
-_Cập nhật: 2026-10-24 — bởi Claude (Opus 5.5)_
+_Cập nhật: 2026-10-25 — bởi Codex_
 
 ## Mục tiêu đang làm
-Bàn giao (25/10): Claude dừng ở đây, dự án chuyển sang Codex. Bước kế tiếp: **Payroll** theo `docs/plans/payroll.md`. Mọi agent làm theo `docs/AGENT_PLAYBOOK.md`; kiểm tra toàn bộ bằng `bash tools/verify-all.sh`.
+Payroll theo `docs/plans/payroll.md`: phần DB đã kiểm tra (25/10); bước tiếp theo là contracts → API → smoke, rồi web/mobile ở phiên được người dùng giao tiếp. Mọi agent làm theo `docs/AGENT_PLAYBOOK.md`; kiểm tra toàn bộ bằng `bash tools/verify-all.sh`.
 
 ## Đã xong
+- Payroll — **chỉ phần DB** (25/10, Codex; phạm vi và bốn quyết định đã được người dùng duyệt trước khi code):
+  - Migration mới `202610310001_payroll.sql`: permission + gán vai trò Kế toán (không cấp mặc định reopen), `pay_components`,
+    `payroll_cycles`, `payroll_import_batches`, `payroll_results`, `payroll_result_items`, `payroll_cycle_events`, `payslip_views`.
+    Thành phần mẫu qua `tenant_policy_templates` + `provision_pay_components()` cho tenant đang có và luồng tạo tenant mới.
+  - Mở kỳ theo tháng kết thúc, chụp kỳ công tenant; ghi batch bất biến; thay toàn bộ kết quả/item trong hàm SQL nguyên tử.
+    File lỗi/chưa áp thành công chặn submit, nhập lại lúc under_review trả về prepared. SQL kiểm tổng earning/deduction/NET,
+    VND nguyên, tenant/phạm vi, đúng người nhập batch; người duyệt khác người nhập thành công lần cuối.
+  - Chuyển trạng thái bằng hàm SQL khóa dòng kỳ. Service role chỉ SELECT/gọi hàm, không DML/TRUNCATE bảng payroll.
+    Trigger khóa thêm/sửa/xóa kết quả và item từ approved. Mở lại chỉ approved → prepared, quyền riêng + lý do;
+    published/paid/closed chưa được mở lại. Sự kiện bất biến giữ actor/lý do, không chép số tiền lương vào audit.
+  - RLS: nhân viên có self.read chỉ thấy phiếu của mình khi published/paid/closed; payroll.read theo phạm vi;
+    batch/sự kiện cả kỳ chỉ đọc khi có phạm vi toàn bộ nhân viên. Item chụp mã/tên/loại/thứ tự nên đổi danh mục không đổi phiếu cũ.
+    Công bố tạo `payslip.published` không có số tiền; đánh dấu `salary_advances.deducted_cycle_id` khi ADVANCE khớp đầy đủ số đã chi;
+    lệch/thiếu dòng giữ null và ghi cảnh báo không có tiền. Ghi lần xem đầu ở bảng riêng, không sửa kết quả đã khóa.
+  - Seed thêm Kế toán thứ hai HD0216 (hư cấu, invited). Giữ nguyên dữ liệu và luồng tạm ứng cũ; không sửa migration cũ, API,
+    contracts, tools, web hay mobile. `docs/plans/payroll.md` ghi các quyết định đã duyệt và giao diện hàm SQL cho bước API sau.
+  - Kiểm tra: `bash tools/db-reset.sh` mã 0, Supabase sẵn sàng; `supabase test db`: `Files=12, Tests=301`, `Result: PASS`
+    (109 test payroll mới, 192 test cũ). Đã thử hai kết nối psql: duyệt trước chặn nhập lại bằng `PAYROLL_RESULTS_LOCKED`;
+    nhập lại trước hủy lượt xét cũ, duyệt trả `PAYROLL_TRANSITION_INVALID`; cả hai xác nhận kết nối sau chờ khóa dòng.
+  - `bash tools/verify-all.sh` đầy đủ: **TẤT CẢ ĐẠT**, mã 0; typecheck 6/6, unit thật contracts 6 + API 28,
+    pgTAP 301, 10 smoke (advance 31, attendance 19, auth 15, console 44, HR 64, leave 39, notifications 20, OT 28,
+    settings 74, timesheet 47), build 6/6, lint không có lỗi (chỉ cảnh báo cũ `grant_tenant_admin`: `p_actor` chưa dùng).
+    Test giao diện vẫn là placeholder; chưa có API/smoke/UI payroll, chưa kiểm payroll trên thiết bị thật.
 - Bàn giao cho agent khác (25/10): `docs/AGENT_PLAYBOOK.md` (nguyên tắc, cách port prototype → native có đối chiếu ảnh, khuôn module 11 bước,
   quy tắc nhiều agent: một agent một lúc, ghi "Đang làm", không force-push, không sửa migration đã push), mục bắt buộc ở đầu `AGENTS.md`,
   `tools/verify-all.sh` (typecheck + unit test + pgTAP + mọi smoke trên DB mới + build + lint, một lệnh), kế hoạch `docs/plans/payroll.md`.
@@ -85,7 +108,15 @@ Bàn giao (25/10): Claude dừng ở đây, dự án chuyển sang Codex. Bướ
 - Kiểm tra ngày 22/10: `pnpm turbo run typecheck test build --force` pass 18/18 task (test thật chỉ có contracts 2 + api 2)
 
 ## Đang dở (QUAN TRỌNG NHẤT)
-- Không có việc dở, không ai đang làm. DB local vừa reset về dữ liệu mẫu khi chạy `verify-all.sh` (iPhone phải kích hoạt lại HD0142; thử tạm ứng sau ngày 20 cần quy định riêng hạn 31 — xem smoke tạm ứng). Chưa thử từ chối/hủy đơn và duyệt trên app bằng tài khoản quản lý trên máy thật (smoke đã kiểm). Thử duyệt trên app: kích hoạt quản lý HDG0003 (huy.le@example.test) ở máy khác/simulator. Thử Console: `OPERATOR_PASSWORD='…' bash tools/create-operator.sh <email> "<Họ tên>"` (tạo 2 người để thử duyệt khôi phục), `pnpm dev:console` → http://localhost:3001, lần đầu liên kết ứng dụng xác thực.
+- Không có agent đang làm. Payroll đã có DB; contracts/API/CSV parsing/smoke/web/mobile chưa triển khai. Mở lại published/paid/closed
+  cần thiết kế phiên bản phiếu công bố ở phiên sau; cảnh báo OT/ngày công/kỳ công và audit khi đọc/export còn ở bước API.
+- DB local vừa reset về dữ liệu mẫu khi chạy `verify-all.sh` (không còn dữ liệu thử payroll/đồng thời; iPhone phải kích hoạt lại HD0142;
+  thử tạm ứng sau ngày 20 cần quy định riêng hạn 31 — xem smoke tạm ứng). API LAN Mac kiểm tra phiên này là
+  `http://192.168.1.22:4000/api/v1`; chưa build/cài lại app (bản trên iPhone bàn giao trước trỏ .83, xem dòng dưới).
+  Chưa thử từ chối/hủy đơn và duyệt trên app bằng tài khoản quản lý trên máy thật (smoke đã kiểm). Thử duyệt trên app:
+  kích hoạt quản lý HDG0003 (huy.le@example.test) ở máy khác/simulator. Thử Console:
+  `OPERATOR_PASSWORD='…' bash tools/create-operator.sh <email> "<Họ tên>"` (tạo 2 người để thử duyệt khôi phục),
+  `pnpm dev:console` → http://localhost:3001, lần đầu liên kết ứng dụng xác thực.
 - Cài bản mới lên iPhone: build `xcodebuild -workspace ios/Kavor.xcworkspace -scheme Kavor -configuration Release -destination 'generic/platform=iOS' -derivedDataPath ios/build-device -allowProvisioningUpdates build` (trong `apps/mobile`, có `EXPO_PUBLIC_API_URL`, xóa `$TMPDIR/metro-cache` trước) rồi `xcrun devicectl device install app --device 36F8CE4A-8C04-5232-AB9D-0041A426F6A0 ios/build-device/Build/Products/Release-iphoneos/Kavor.app`. Nếu devicectl báo "unavailable": mở khóa iPhone, bấm Tin cậy, cắm cáp dữ liệu.
 - Reset DB local: dùng `bash tools/db-reset.sh` (sau `supabase db reset` Kong giữ IP cũ của Auth → 502).
 - Bản trên iPhone trỏ tới API `http://192.168.1.83:4000/api/v1` (IP LAN của Mac ngày 25/10; trước là 192.168.1.22, 192.168.1.25, 172.17.91.14). App báo "không kết nối máy chủ" thì kiểm tra `ipconfig getifaddr en0` trước — IP đổi thì phải build lại: Mac phải chạy `pnpm dev:backend`, cùng Wi-Fi. IP Mac đổi thì phải build lại app.
@@ -128,14 +159,15 @@ Bàn giao (25/10): Claude dừng ở đây, dự án chuyển sang Codex. Bướ
 - Khi máy Mac quá tải (build Xcode), GoTrue chậm → web báo "Máy chủ xác thực đang bận" (không còn tự đăng xuất).
 - Ảnh native lấy từ simulator; chưa có ảnh/video từ iPhone 11 thật.
 - Ngoài auth, chấm công, công tháng, giải trình, nghỉ phép, OT và tạm ứng, các màn (phiếu lương, tin tức, tài liệu) vẫn dùng dữ liệu mẫu.
-- Tạm ứng chưa có: tài khoản ngân hàng nhận tiền (cần mã hóa — `employee_bank_accounts` trong schema), khấu trừ thực tế vào lương (module payroll đọc `salary_advances` đã chi), chặn khi kỳ lương đã chốt, nhiều lần/tháng. Quy định mẫu nhận đơn đến ngày 20 nên sau ngày 20 nhân viên không gửi được đơn tháng đó (đúng prototype); thử trên máy sau ngày 20 thì tạo quy định riêng hạn 31.
+- Tạm ứng: DB payroll đã có đánh dấu khấu trừ khi công bố và đối chiếu khớp số đã chi; chưa nối API/UI payroll. Chưa có tài khoản ngân hàng nhận tiền (cần mã hóa — `employee_bank_accounts` trong schema), chặn khi kỳ lương đã chốt, nhiều lần/tháng. Quy định mẫu nhận đơn đến ngày 20 nên sau ngày 20 nhân viên không gửi được đơn tháng đó (đúng prototype); thử trên máy sau ngày 20 thì tạo quy định riêng hạn 31.
 - OT chưa có: OT ban đêm (+30%/+20%), OT qua nửa đêm (phải tách hai đơn), đối chiếu giờ OT với chấm công thực tế, ngoại lệ 300 giờ/năm theo ngành (chỉnh trong quy định), payroll input (module payroll đọc `overtime_entries` đã duyệt).
 - Android chưa thử luồng chấm công thật (GPS/hàng đợi) trên emulator.
 - Test tự động của admin-web, console-web, mobile, web-ui vẫn là placeholder.
 - Trên bản dev, gõ phím "r" khi không focus ô nhập sẽ làm Metro reload (chỉ ảnh hưởng dev).
 
 ## Bước tiếp theo
-1. Payroll — làm theo `docs/plans/payroll.md` (đã chốt phạm vi, bảng, quyền, CSV, API, web, mobile, kiểm thử).
+1. Payroll — DB đã kiểm tra; phiên sau làm contracts → API (CSV parsing, lỗi/cảnh báo OT/công/tạm ứng, audit đọc/export) → smoke
+   trên DB mới, theo hàm SQL trong `docs/plans/payroll.md`; sau đó mới web/mobile và thử iPhone. Chưa làm phần này trong phiên DB.
 2. Bản tin / tài liệu.
 - Push từ máy chủ khi app tắt (APNs/FCM) cần tài khoản Apple Developer trả phí → làm khi mua (xem "Quyết định đã chốt"); lúc đó thay luôn việc E19 hỏi lại 8 giây/lần.
 - Staging: **hoãn tới khi hệ thống hoàn thiện** (quyết định 24/10). Phương án đã phân tích sẵn: Render Singapore cho API + 2 web (~$21/tháng, địa chỉ onrender.com, chưa cần domain), Gmail SMTP như CarRental cho OTP và thư mời, project Supabase `KavorSystem` (Singapore) làm staging, chỉ dùng dữ liệu mẫu; cần đổi các giá trị localhost trong `supabase/config.toml` sang biến môi trường trước khi `config push`.
@@ -145,6 +177,9 @@ Bàn giao (25/10): Claude dừng ở đây, dự án chuyển sang Codex. Bướ
 - Không có.
 
 ## Nhật ký
+- 2026-10-25 — Codex tiếp quản, Git ban đầu sạch, quick đạt 192 pgTAP; người dùng duyệt phạm vi DB trước khi code.
+  Thêm migration payroll mới, 109 pgTAP, Kế toán mẫu thứ hai và cập nhật kế hoạch. Reset + pgTAP 301 PASS;
+  thử tranh chấp nhập lại/duyệt bằng hai kết nối DB; verify-all đầy đủ TẤT CẢ ĐẠT. DB local về seed.
 - 2026-10-25 — Bàn giao sang Codex: playbook cách làm việc, `tools/verify-all.sh`, kế hoạch payroll; sửa test contracts hỏng.
 - 2026-10-25 — Tạm ứng lương: vai trò Kế toán, lương cơ bản có phiên bản, đơn tạm ứng mỗi tháng một lần theo hạn mức, Quản lý → HR (trên 5 triệu) → Kế toán, xác nhận đã chi + thông báo; web trang Tạm ứng lương + Lương cơ bản; mobile đọc từ API.
 - 2026-10-25 — Sửa lệch múi giờ: hàm phân quyền/phạm vi SQL và Console dùng ngày theo múi giờ công ty thay vì UTC (trước đây 0:00–7:00 vai trò/phân công mới chưa có hiệu lực).
