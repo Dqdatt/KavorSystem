@@ -393,6 +393,8 @@ export const RULE_KINDS: Record<RuleKind, { label: string; description: string; 
       { key: "maxPercent", label: "Hạn mức tối đa", type: "int", min: 0, max: 100, unit: "% lương cơ bản" },
       { key: "excludeProbation", label: "Không áp dụng cho nhân viên thử việc", type: "bool" },
       { key: "excludeNoticePeriod", label: "Không áp dụng trong thời gian báo trước nghỉ việc", type: "bool" },
+      { key: "deadlineDay", label: "Nhận đơn đến hết ngày", type: "int", min: 1, max: 31, unit: "hằng tháng (31 = cuối tháng)" },
+      { key: "minAmount", label: "Số tiền tối thiểu mỗi lần", type: "int", min: 100000, max: 50000000, unit: "₫" },
     ],
   },
   leave: {
@@ -602,22 +604,26 @@ export const EXPLANATION_KINDS: Record<ExplanationKind, string> = {
 };
 export type ExplanationInput = { workDate: string; kind: ExplanationKind; clockIn?: string | null; clockOut?: string | null; reason: string };
 export type RequestStatus = "pending" | "approved" | "rejected" | "cancelled";
-export type StepResolver = "direct_manager" | "hr";
-export const STEP_RESOLVERS: Record<StepResolver, string> = { direct_manager: "Quản lý trực tiếp", hr: "Phòng Nhân sự" };
+export type StepResolver = "direct_manager" | "hr" | "payroll";
+export const STEP_RESOLVERS: Record<StepResolver, string> = { direct_manager: "Quản lý trực tiếp", hr: "Phòng Nhân sự", payroll: "Kế toán" };
 export type StepStatus = "waiting" | "pending" | "approved" | "rejected" | "skipped" | "cancelled";
 export type RequestStep = {
   taskId: string; stepNo: number; resolver: StepResolver; assignee: string | null; status: StepStatus;
   dueAt: string | null; actedAt: string | null; actedBy: string | null; comment: string | null;
 };
-export type RequestType = "explanation" | "leave" | "overtime";
-export const REQUEST_TYPES: Record<RequestType, string> = { explanation: "Giải trình công", leave: "Nghỉ phép", overtime: "Làm thêm giờ" };
+export type RequestType = "explanation" | "leave" | "overtime" | "salary_advance";
+export const REQUEST_TYPES: Record<RequestType, string> = { explanation: "Giải trình công", leave: "Nghỉ phép", overtime: "Làm thêm giờ", salary_advance: "Tạm ứng lương" };
 export type ExplanationPayload = { kind: ExplanationKind; clockIn: string | null; clockOut: string | null; reason: string };
 export type LeaveHalf = "full" | "am" | "pm";
 export type LeavePayload = { leaveType: string; leaveTypeName: string; from: string; to: string; half: LeaveHalf; days: number; reason: string };
 export type OvertimeDayKind = "workday" | "weekend" | "holiday";
 export const OVERTIME_DAY_KINDS: Record<OvertimeDayKind, string> = { workday: "ngày thường", weekend: "ngày nghỉ", holiday: "ngày lễ" };
 export type OvertimePayload = { date: string; start: string; end: string; hours: number; dayKind: OvertimeDayKind; ratePercent: number; reason: string };
-export type RequestItem = RequestItemBase & ({ type: "explanation"; payload: ExplanationPayload } | { type: "leave"; payload: LeavePayload } | { type: "overtime"; payload: OvertimePayload });
+/* month: tháng khấu trừ YYYY-MM */
+export type AdvancePayload = { amount: number; month: string; reason: string };
+export type AdvancePayout = { paidAt: string; paidBy: string | null; note: string | null };
+export type RequestItem = RequestItemBase & ({ type: "explanation"; payload: ExplanationPayload } | { type: "leave"; payload: LeavePayload } | { type: "overtime"; payload: OvertimePayload }
+  | { type: "salary_advance"; payload: AdvancePayload; payout: AdvancePayout | null });
 type RequestItemBase = {
   id: string; no: string; status: RequestStatus; submittedAt: string; completedAt: string | null;
   workDate: string | null;
@@ -631,6 +637,35 @@ type RequestItemBase = {
 };
 export type MyApprovals = { canApprove: boolean; items: RequestItem[] };
 export type ApprovalDecision = { comment?: string | null };
+
+/* ---------- Tạm ứng lương ---------- */
+export type AdvancePolicy = { name: string; versionNo: number; enabled: boolean; maxPercent: number; minAmount: number; deadlineDay: number };
+export type MyAdvance = {
+  today: string; month: string; policy: AdvancePolicy | null;
+  /* Lương cơ bản của chính nhân viên (để hiện cách tính hạn mức) */
+  baseSalary: number | null; limit: number;
+  /* Không đủ điều kiện: [tiêu đề, giải thích] */
+  ineligible: [string, string] | null;
+  deadline: string | null; deadlinePassed: boolean;
+  /* Đơn của tháng này (đang chờ/đã duyệt) */
+  current: RequestItem | null; history: RequestItem[];
+  /* Luồng duyệt dự kiến: "Lê Quang Huy → Kế toán" (HR thêm khi trên ngưỡng) */
+  approvers: string[]; hrOverAmount: number | null;
+};
+export type AdvanceInput = { amount: number; reason?: string | null };
+export type AdvanceRow = { request: RequestItem; employee: { id: string; code: string; fullName: string; department: string | null } };
+export type AdvanceBoard = {
+  month: string; rows: AdvanceRow[];
+  metrics: { pending: number; toPay: number; paidCount: number; paidAmount: number };
+  canProcess: boolean;
+};
+export type CompensationRow = {
+  employee: { id: string; code: string; fullName: string; department: string | null };
+  baseSalary: number | null; effectiveFrom: string | null;
+  history: Array<{ baseSalary: number; effectiveFrom: string; note: string | null; createdAt: string }>;
+};
+export type CompensationBoard = { rows: CompensationRow[]; canManage: boolean };
+export type CompensationInput = { baseSalary: number; effectiveFrom: string; note?: string | null };
 
 /* ---------- Làm thêm giờ ---------- */
 export type OvertimePolicy = {
@@ -700,7 +735,7 @@ export type EmployeeLeave = { employee: LeaveRow["employee"]; year: number; bala
 export type LeaveAdjustInput = { year: number; amount: number; reason: string; carry?: boolean; expiresOn?: string | null };
 
 /* ---------- Thông báo trong app ---------- */
-export type NotificationKind = "approval.pending" | "approval.due" | "request.approved" | "request.rejected" | "device.approved" | "device.rejected";
+export type NotificationKind = "approval.pending" | "approval.due" | "request.approved" | "request.rejected" | "device.approved" | "device.rejected" | "advance.paid";
 export type AppNotification = {
   id: string; kind: NotificationKind; title: string; body: string; createdAt: string; readAt: string | null;
   link: { type: "request" | "device"; id: string; no: string | null } | null;
@@ -729,7 +764,8 @@ export type RequestQueue = {
   counts: { pending: number; mine: number; overdue: number };
 };
 /* daysOver: bước chỉ áp dụng khi đơn nghỉ dài hơn số ngày này (null/không có: luôn áp dụng) */
-export type WorkflowStepInput = { resolver: StepResolver; slaHours: number; daysOver?: number | null };
+/* amountOver: bước chỉ áp dụng khi số tiền tạm ứng lớn hơn (₫) */
+export type WorkflowStepInput = { resolver: StepResolver; slaHours: number; daysOver?: number | null; amountOver?: number | null };
 export type WorkflowDef = {
   requestType: RequestType; name: string;
   current: { versionNo: number; steps: WorkflowStepInput[]; effectiveFrom: string } | null;

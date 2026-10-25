@@ -13,6 +13,7 @@ const wd = (date: string) => { const w = new Date(`${date}T12:00:00Z`).getUTCDay
 
 const HALF = { full: "", am: " (sáng)", pm: " (chiều)" } as const;
 export const days = (n: number) => `${n.toLocaleString("vi-VN")} ngày`;
+export const money = (n: number) => `${n.toLocaleString("vi-VN")} ₫`;
 /* Khoảng nghỉ: "T2 26/10–T4 28/10" / "T2 26/10 (chiều)" */
 export function leaveRange(p: Extract<RequestItem, { type: "leave" }>["payload"]) {
   return `${wd(p.from)} ${fmtDate(p.from).slice(0, 5)}${p.to !== p.from ? `–${wd(p.to)} ${fmtDate(p.to).slice(0, 5)}` : ""}${HALF[p.half]}`;
@@ -21,6 +22,7 @@ export function leaveRange(p: Extract<RequestItem, { type: "leave" }>["payload"]
 /* "T5 22/10 · Quên chấm ra · ra 17:00" / "Phép năm · T2 26/10–T4 28/10 · 3 ngày" */
 export function requestSummary(r: RequestItem) {
   if (r.type === "leave") return `${r.payload.leaveTypeName} · ${leaveRange(r.payload)} · ${days(r.payload.days)}`;
+  if (r.type === "salary_advance") return `${money(r.payload.amount)} · trừ lương ${r.payload.month.slice(5)}/${r.payload.month.slice(0, 4)}`;
   if (r.type === "overtime") return `${wd(r.payload.date)} ${fmtDate(r.payload.date).slice(0, 5)} · ${r.payload.start}–${r.payload.end} · ${r.payload.hours.toLocaleString("vi-VN")} giờ (${r.payload.ratePercent}%)`;
   const p = r.payload;
   const times = [p.clockIn ? `vào ${p.clockIn}` : null, p.clockOut ? `ra ${p.clockOut}` : null].filter(Boolean).join(", ");
@@ -73,13 +75,17 @@ export function RequestModal({ r, onClose, onDone }: { r: RequestItem; onClose: 
         {r.type === "leave" ? <>
           <div className="detail-row"><span>Loại nghỉ</span><b>{r.payload.leaveTypeName}</b></div>
           <div className="detail-row"><span>Thời gian</span><b>{leaveRange(r.payload)} · {days(r.payload.days)} làm việc</b></div>
+        </> : r.type === "salary_advance" ? <>
+          <div className="detail-row"><span>Số tiền</span><b>{money(r.payload.amount)}</b></div>
+          <div className="detail-row"><span>Trừ vào lương</span><b>Tháng {r.payload.month.slice(5)}/{r.payload.month.slice(0, 4)}</b></div>
+          {r.payout ? <div className="detail-row"><span>Đã chi</span><b>{fmtDateTime(r.payout.paidAt, tz)}{r.payout.paidBy ? ` · ${r.payout.paidBy}` : ""}{r.payout.note ? ` · ${r.payout.note}` : ""}</b></div> : null}
         </> : r.type === "overtime" ? <>
           <div className="detail-row"><span>Ngày</span><b>{wd(r.payload.date)} {fmtDate(r.payload.date)} · {OVERTIME_DAY_KINDS[r.payload.dayKind]}</b></div>
           <div className="detail-row"><span>Giờ làm thêm</span><b>{r.payload.start}–{r.payload.end} · {r.payload.hours.toLocaleString("vi-VN")} giờ</b></div>
           <div className="detail-row"><span>Hệ số</span><b>{r.payload.ratePercent}%</b></div>
         </> : <div className="detail-row"><span>Nội dung</span><b>{requestSummary(r)}</b></div>}
         {r.type === "explanation" && r.day ? <div className="detail-row"><span>Chấm công gốc</span><b>{r.day.shift ?? "—"} · vào {r.day.rawIn ?? "--:--"} · ra {r.day.rawOut ?? "--:--"}</b></div> : null}
-        <div className="detail-row"><span>Lý do</span><b style={{ whiteSpace: "normal", maxWidth: 420 }}>{r.payload.reason}</b></div>
+        <div className="detail-row"><span>Lý do</span><b style={{ whiteSpace: "normal", maxWidth: 420 }}>{r.payload.reason || "—"}</b></div>
         <div className="detail-row"><span>Gửi lúc</span><b>{fmtDateTime(r.submittedAt, tz)}</b></div>
         <div className="detail-row"><span>Trạng thái</span><b><Status v={REQUEST_STATUS[r.status]} /></b></div>
       </div>

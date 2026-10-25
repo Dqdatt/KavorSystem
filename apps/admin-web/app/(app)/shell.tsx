@@ -19,8 +19,9 @@ const NAV: Array<{ label?: string; items: NavItem[] }> = [
     { href: "/leave", label: "Nghỉ phép", icon: "plane", perm: "leave.read" },
   ] },
   { label: "Vận hành", items: [{ href: "/requests", label: "Đơn & phê duyệt", icon: "checks", perm: "request.read" }] },
+  { label: "Tài chính", items: [{ href: "/advances", label: "Tạm ứng lương", icon: "pay", perm: "salary_advance.process" }] },
 ];
-const TITLES: Record<string, string> = { "/": "Tổng quan", "/employees": "Nhân viên", "/attendance": "Chấm công", "/schedules": "Ca & địa điểm", "/settings": "Cài đặt doanh nghiệp", "/requests": "Đơn & phê duyệt", "/leave": "Nghỉ phép" };
+const TITLES: Record<string, string> = { "/": "Tổng quan", "/employees": "Nhân viên", "/attendance": "Chấm công", "/schedules": "Ca & địa điểm", "/settings": "Cài đặt doanh nghiệp", "/requests": "Đơn & phê duyệt", "/leave": "Nghỉ phép", "/advances": "Tạm ứng lương" };
 
 function today(tz: string) {
   return new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());

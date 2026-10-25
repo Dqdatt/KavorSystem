@@ -29,6 +29,12 @@ function ReqRows({ r, approver }: { r: RequestItem; approver?: boolean }) {
     <InfoRow k="Loại nghỉ" v={r.payload.leaveTypeName} strong />
     <InfoRow k="Thời gian" v={`${leaveRange(r.payload)} · ${dayCount(r.payload.days)} làm việc`} strong />
   </>;
+  if (r.type === "salary_advance") return <>
+    {approver ? <InfoRow k="Loại đơn" v="Tạm ứng lương" strong /> : null}
+    <InfoRow k="Số tiền" v={`${r.payload.amount.toLocaleString("vi-VN")} ₫`} strong />
+    <InfoRow k="Trừ vào lương" v={`Tháng ${r.payload.month.slice(5)}/${r.payload.month.slice(0, 4)}`} strong />
+    {r.payout ? <InfoRow k="Đã chi" v={`${stamp(r.payout.paidAt)}${r.payout.note ? ` · ${r.payout.note}` : ""}`} strong /> : null}
+  </>;
   if (r.type === "overtime") return <>
     {approver ? <InfoRow k="Loại đơn" v="Làm thêm giờ" strong /> : null}
     <InfoRow k="Ngày" v={`${reqSub(r).split(" · ")[0]} · ${OVERTIME_DAY_KINDS[r.payload.dayKind]}`} strong />
@@ -194,8 +200,8 @@ function remoteReqDetail(r: RequestItem): ScreenSpec {
     head: <TopBar title={r.no} />,
     body: [
       <View key="c" style={{ alignItems: "center", gap: 6, paddingTop: 6 }}>
-        <Gi n={TYPE_ICON[r.type === "leave" ? "leave" : r.type === "overtime" ? "ot" : "explain"]} s={44} w={1.5} />
-        <T style={{ color: C.ink2, fontFamily: F.medium, textAlign: "center" }}>{r.type === "leave" ? r.payload.leaveTypeName : r.type === "overtime" ? "Làm thêm giờ" : "Giải trình công"}</T>
+        <Gi n={TYPE_ICON[r.type === "leave" ? "leave" : r.type === "overtime" ? "ot" : r.type === "salary_advance" ? "advance" : "explain"]} s={44} w={1.5} />
+        <T style={{ color: C.ink2, fontFamily: F.medium, textAlign: "center" }}>{r.type === "leave" ? r.payload.leaveTypeName : r.type === "overtime" ? "Làm thêm giờ" : r.type === "salary_advance" ? "Tạm ứng lương" : "Giải trình công"}</T>
         <Balanced style={{ fontSize: 20, fontFamily: F.bold, textAlign: "center" }}>{reqSub(r)}</Balanced>
         <Tag st={r.status} />
       </View>,

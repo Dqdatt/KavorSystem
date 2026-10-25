@@ -263,7 +263,8 @@ export const ImpTag = ({ shrink }: { shrink?: boolean }) => (
 /* ================= Screens ================= */
 export function homeSpec(): ScreenSpec {
   const n = pendingCount(), due = REMOTE ? explainDue() : null;
-  const advR = advEligible() ? "Không áp dụng" : S.advance ? "Đã dùng" : vnd(advLimit());
+  const advR = REMOTE ? (!S.advData ? "—" : S.advData.ineligible ? "Không áp dụng" : S.advData.current ? "Đã dùng" : vnd(S.advData.limit))
+    : advEligible() ? "Không áp dụng" : S.advance ? "Đã dùng" : vnd(advLimit());
   const shorts: Array<[string, IconName, string]> = [["leaveNew", "plane", "Xin nghỉ"], ["explain", "clock", "Giải trình"], ["ot", "moon", "Làm thêm"], ["advance", "cash", "Tạm ứng"], ["payslips", "receipt", "Phiếu lương"], ["profile", "user", "Hồ sơ"], ["widgetGuide", "grid", "Widget"], ["notifications", "bell", "Thông báo"]];
   return {
     nav: true,

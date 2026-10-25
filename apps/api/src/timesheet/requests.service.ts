@@ -5,7 +5,7 @@
      của mình. Chuyển bước nguyên tử bằng decide_approval; duyệt hết thì tạo điều chỉnh giờ công. */
 import {
   EXPLANATION_KINDS, REQUEST_TYPES, STEP_RESOLVERS,
-  type ExplanationKind, type ExplanationPayload, type LeavePayload, type MyApprovals, type OvertimePayload, type MyTimesheet, type RequestItem, type RequestQueue, type RequestStatus, type RequestStep, type StepResolver, type StepStatus,
+  type AdvancePayload, type ExplanationKind, type ExplanationPayload, type LeavePayload, type MyApprovals, type OvertimePayload, type MyTimesheet, type RequestItem, type RequestQueue, type RequestStatus, type RequestStep, type StepResolver, type StepStatus,
   type WorkflowDef, type WorkflowStepInput,
 } from "@kavor/contracts";
 import type { EmployeeRow } from "../auth/auth.service.js";
@@ -25,6 +25,9 @@ const TASK_COLS = "id, request_id, step_no, resolver, assignee_employee_id, stat
 const KINDS = Object.keys(EXPLANATION_KINDS) as ExplanationKind[];
 const RESOLVERS = Object.keys(STEP_RESOLVERS) as StepResolver[];
 const TYPES = Object.keys(REQUEST_TYPES) as Array<RequestItem["type"]>;
+/* Quyền xác định người duyệt các bước không chỉ định người (theo phạm vi người gửi) */
+const STEP_PERM = { hr: "request.hr_review", payroll: "salary_advance.process" } as const;
+type Scopes = Record<keyof typeof STEP_PERM, Set<string>>;
 
 export class RequestsService {
   constructor(private readonly sb: SupabaseGateway, private readonly timesheets: TimesheetService) {}
@@ -42,10 +45,10 @@ export class RequestsService {
 
   /* Người duyệt từng bước. Bước quản lý không có người (không có quản lý, hoặc người gửi tự là người duyệt) thì bỏ qua;
      bước có daysOver chỉ áp dụng khi đơn nghỉ dài hơn (hoặc khi forceHr: nghỉ trước phép); không còn bước nào thì chuyển cho HR. */
-  planSteps(steps: WorkflowStepInput[], requesterId: string, managerId: string | null, opts: { days?: number; forceHr?: boolean } = {}) {
+  planSteps(steps: WorkflowStepInput[], requesterId: string, managerId: string | null, opts: { days?: number; amount?: number; forceHr?: boolean } = {}) {
     const out = steps.map((s, i) => {
       const assignee = s.resolver === "direct_manager" ? (managerId && managerId !== requesterId ? managerId : null) : null;
-      const applies = s.daysOver == null || (opts.days ?? 0) > s.daysOver || (s.resolver === "hr" && !!opts.forceHr);
+      const applies = (s.daysOver == null || (opts.days ?? 0) > s.daysOver || (s.resolver === "hr" && !!opts.forceHr)) && (s.amountOver == null || (opts.amount ?? 0) > s.amountOver);
       return { stepNo: i + 1, resolver: s.resolver, assigneeEmployeeId: assignee, slaHours: s.slaHours, status: !applies || (s.resolver === "direct_manager" && !assignee) ? "skipped" : "waiting" };
     });
     if (opts.forceHr && !out.some((t) => t.resolver === "hr" && t.status !== "skipped")) out.push({ stepNo: out.length + 1, resolver: "hr", assigneeEmployeeId: null, slaHours: 24, status: "waiting" });
@@ -135,32 +138,37 @@ export class RequestsService {
   }
 
   /* ---------- Duyệt (mobile + web) ---------- */
-  /* Nhân viên mà người xem được duyệt bước HR (phạm vi request.hr_review) */
-  private async hrScope(db: Db, v: Viewer): Promise<Set<string>> {
-    const { data } = await db.rpc("scoped_employees", { p_user: v.userId, p_tenant: v.tenantId, p_perm: "request.hr_review" }).select("id");
-    return new Set(((data ?? []) as unknown as Array<{ id: string }>).map((e) => e.id));
+  /* Nhân viên mà người xem được duyệt ở các bước theo quyền: HR (request.hr_review), Kế toán (salary_advance.process) */
+  private async scopes(db: Db, v: Viewer): Promise<Scopes> {
+    const of = async (perm: string) => {
+      const { data } = await db.rpc("scoped_employees", { p_user: v.userId, p_tenant: v.tenantId, p_perm: perm }).select("id");
+      return new Set(((data ?? []) as unknown as Array<{ id: string }>).map((e) => e.id));
+    };
+    const [hr, payroll] = await Promise.all([of(STEP_PERM.hr), of(STEP_PERM.payroll)]);
+    return { hr, payroll };
   }
 
-  private actionable(v: Viewer, task: TaskRow, requesterId: string, hr: Set<string>) {
+  private actionable(v: Viewer, task: TaskRow, requesterId: string, sc: Scopes) {
     if (task.status !== "pending" || requesterId === v.employeeId) return false;
-    return task.resolver === "direct_manager" ? !!v.employeeId && task.assignee_employee_id === v.employeeId : hr.has(requesterId);
+    return task.resolver === "direct_manager" ? !!v.employeeId && task.assignee_employee_id === v.employeeId : sc[task.resolver].has(requesterId);
   }
 
   async approvals(v: Viewer): Promise<MyApprovals> {
     const db = this.sb.admin;
-    const hr = await this.hrScope(db, v);
+    const sc = await this.scopes(db, v);
     const [{ data: mgr }, { count: reports }] = await Promise.all([
       v.employeeId ? db.from("approval_tasks").select("request_id").eq("tenant_id", v.tenantId).eq("status", "pending").eq("resolver", "direct_manager").eq("assignee_employee_id", v.employeeId) : Promise.resolve({ data: [] }),
       v.employeeId ? db.from("employee_assignments").select("id", { count: "exact", head: true }).eq("tenant_id", v.tenantId).eq("manager_employee_id", v.employeeId).is("effective_to", null) : Promise.resolve({ count: 0 }),
     ]);
     let ids = ((mgr ?? []) as Array<{ request_id: string }>).map((t) => t.request_id);
-    if (hr.size) {
-      const { data: hrTasks } = await db.from("approval_tasks").select("request_id, requests!inner(requester_employee_id)").eq("tenant_id", v.tenantId).eq("status", "pending").eq("resolver", "hr");
-      ids = ids.concat(((hrTasks ?? []) as unknown as Array<{ request_id: string; requests: { requester_employee_id: string } }>)
-        .filter((t) => hr.has(t.requests.requester_employee_id) && t.requests.requester_employee_id !== v.employeeId).map((t) => t.request_id));
+    for (const resolver of ["hr", "payroll"] as const) {
+      if (!sc[resolver].size) continue;
+      const { data: tasks } = await db.from("approval_tasks").select("request_id, requests!inner(requester_employee_id)").eq("tenant_id", v.tenantId).eq("status", "pending").eq("resolver", resolver);
+      ids = ids.concat(((tasks ?? []) as unknown as Array<{ request_id: string; requests: { requester_employee_id: string } }>)
+        .filter((t) => sc[resolver].has(t.requests.requester_employee_id) && t.requests.requester_employee_id !== v.employeeId).map((t) => t.request_id));
     }
-    const items = (await this.items(db, v, [...new Set(ids)], hr)).filter((i) => i.myTaskId);
-    return { canApprove: hr.size > 0 || (reports ?? 0) > 0 || items.length > 0, items: items.sort((a, b) => a.submittedAt.localeCompare(b.submittedAt)) };
+    const items = (await this.items(db, v, [...new Set(ids)], sc)).filter((i) => i.myTaskId);
+    return { canApprove: sc.hr.size > 0 || sc.payroll.size > 0 || (reports ?? 0) > 0 || items.length > 0, items: items.sort((a, b) => a.submittedAt.localeCompare(b.submittedAt)) };
   }
 
   async decide(v: Viewer, taskId: string, approve: boolean, b: Body): Promise<RequestItem> {
@@ -172,8 +180,8 @@ export class RequestsService {
     const comment = typeof b?.comment === "string" ? b.comment.trim().slice(0, 1000) || null : null;
     if (!approve && (!comment || comment.length < 5)) throw invalid("Ghi lý do từ chối (ít nhất 5 ký tự).");
     if (task.requests.requester_employee_id === v.employeeId) throw forbidden("Không tự duyệt đơn của chính mình.");
-    const hr = task.resolver === "hr" ? await this.hrScope(db, v) : new Set<string>();
-    if (!this.actionable(v, task, task.requests.requester_employee_id, hr)) {
+    const sc = task.resolver === "direct_manager" ? { hr: new Set<string>(), payroll: new Set<string>() } : await this.scopes(db, v);
+    if (!this.actionable(v, task, task.requests.requester_employee_id, sc)) {
       if (task.status !== "pending") throw conflict("Bước này đã được xử lý hoặc chưa tới lượt.");
       throw forbidden("Bạn không phải người duyệt bước này.");
     }
@@ -239,9 +247,13 @@ export class RequestsService {
       slaHours: number(s as Body, "slaHours", 1, 240, { integer: true }) ?? (() => { throw invalid(`Bước ${i + 1}: SLA phải từ 1 đến 240 giờ.`); })(),
       /* Chỉ đơn nghỉ có số ngày để đặt điều kiện */
       ...(type === "leave" && (s as Body)?.daysOver != null ? { daysOver: number(s as Body, "daysOver", 0, 30, { integer: true })! } : {}),
+      /* Chỉ đơn tạm ứng có số tiền để đặt điều kiện */
+      ...(type === "salary_advance" && (s as Body)?.amountOver != null ? { amountOver: number(s as Body, "amountOver", 0, 1_000_000_000, { integer: true })! } : {}),
     }));
-    if (steps.every((s) => s.daysOver != null)) throw invalid("Cần ít nhất một bước luôn áp dụng (không đặt điều kiện số ngày).");
-    if (steps.filter((s) => s.resolver === "direct_manager").length > 1 || steps.filter((s) => s.resolver === "hr").length > 1) throw invalid("Mỗi loại người duyệt chỉ xuất hiện một lần.");
+    if (steps.every((s) => s.daysOver != null || s.amountOver != null)) throw invalid("Cần ít nhất một bước luôn áp dụng (không đặt điều kiện).");
+    if (type === "salary_advance" && !steps.some((s) => s.resolver === "payroll")) throw invalid("Luồng tạm ứng phải có bước Kế toán (người chi tiền).");
+    if (type !== "salary_advance" && steps.some((s) => s.resolver === "payroll")) throw invalid("Bước Kế toán chỉ dùng cho đơn tạm ứng.");
+    if (new Set(steps.map((s) => s.resolver)).size !== steps.length) throw invalid("Mỗi loại người duyệt chỉ xuất hiện một lần.");
     const today = (await this.timesheets.tenantClock(ctx.db, ctx.tenantId)).today;
     const effectiveFrom = date(b, "effectiveFrom", true) ?? today;
     if (effectiveFrom < today) throw invalid("Luồng mới chỉ áp dụng từ hôm nay trở đi.");
@@ -258,7 +270,7 @@ export class RequestsService {
   }
 
   /* ---------- Dựng RequestItem ---------- */
-  async items(db: Db, v: Viewer, ids: string[], hrPre?: Set<string>): Promise<RequestItem[]> {
+  async items(db: Db, v: Viewer, ids: string[], scPre?: Scopes): Promise<RequestItem[]> {
     if (!ids.length) return [];
     const [{ data: rs }, { data: ts }, { data: vs }] = await Promise.all([
       db.from("requests").select(REQ_COLS).eq("tenant_id", v.tenantId).in("id", ids),
@@ -278,9 +290,17 @@ export class RequestsService {
     const actor = new Map(((actors ?? []) as Array<{ user_id: string; full_name: string }>).map((e) => [e.user_id, e.full_name]));
     const dept = new Map<string, string>();
     for (const d of (deps ?? []) as unknown as Array<{ employee_id: string; effective_to: string | null; departments: { name: string } | null }>) if (!d.effective_to && !dept.has(d.employee_id)) dept.set(d.employee_id, d.departments?.name ?? "");
-    const ver = new Map(((vs ?? []) as Array<{ request_id: string; version_no: number; payload: ExplanationPayload | LeavePayload | OvertimePayload; policy_snapshot: { day?: { rawIn: string | null; rawOut: string | null; shift: { name: string; start: string; end: string } | null } } }>)
+    const ver = new Map(((vs ?? []) as Array<{ request_id: string; version_no: number; payload: ExplanationPayload | LeavePayload | OvertimePayload | AdvancePayload; policy_snapshot: { day?: { rawIn: string | null; rawOut: string | null; shift: { name: string; start: string; end: string } | null } } }>)
       .map((x) => [`${x.request_id}|${x.version_no}`, x]));
-    const hr = hrPre ?? (tasks.some((t) => t.resolver === "hr" && t.status === "pending") ? await this.hrScope(db, v) : new Set<string>());
+    const sc = scPre ?? (tasks.some((t) => t.resolver !== "direct_manager" && t.status === "pending") ? await this.scopes(db, v) : { hr: new Set<string>(), payroll: new Set<string>() });
+    const advIds = rows.filter((r) => r.request_type === "salary_advance").map((r) => r.id);
+    const { data: advs } = advIds.length ? await db.from("salary_advances").select("request_id, paid_at, paid_by, payout_note").in("request_id", advIds) : { data: [] };
+    const payout = new Map(((advs ?? []) as Array<{ request_id: string; paid_at: string | null; paid_by: string | null; payout_note: string | null }>).map((a) => [a.request_id, a]));
+    const payers = [...new Set([...payout.values()].map((a) => a.paid_by).filter((x): x is string => !!x && !actor.has(x)))];
+    if (payers.length) {
+      const { data: ps } = await db.from("employees").select("user_id, full_name").eq("tenant_id", v.tenantId).in("user_id", payers);
+      for (const e of (ps ?? []) as Array<{ user_id: string; full_name: string }>) actor.set(e.user_id, e.full_name);
+    }
     const order = new Map(ids.map((id, i) => [id, i]));
     return rows.sort((a, b) => order.get(a.id)! - order.get(b.id)!).map((r) => {
       const e = emp.get(r.requester_employee_id);
@@ -289,12 +309,15 @@ export class RequestsService {
       const day = x?.policy_snapshot?.day;
       const steps: RequestStep[] = rt.map((t) => ({
         taskId: t.id, stepNo: t.step_no, resolver: t.resolver, status: t.status, dueAt: t.due_at, actedAt: t.acted_at, comment: t.comment,
-        assignee: t.resolver === "direct_manager" ? (t.assignee_employee_id ? emp.get(t.assignee_employee_id)?.full_name ?? null : null) : STEP_RESOLVERS.hr,
+        assignee: t.resolver === "direct_manager" ? (t.assignee_employee_id ? emp.get(t.assignee_employee_id)?.full_name ?? null : null) : STEP_RESOLVERS[t.resolver],
         actedBy: t.acted_by ? actor.get(t.acted_by) ?? "—" : null,
       }));
-      const mine = rt.find((t) => this.actionable(v, t, r.requester_employee_id, hr));
+      const mine = rt.find((t) => this.actionable(v, t, r.requester_employee_id, sc));
       const typed = r.request_type === "leave"
         ? { type: "leave" as const, payload: (x?.payload ?? { leaveType: "", leaveTypeName: "Nghỉ phép", from: r.work_date ?? "", to: r.work_date ?? "", half: "full", days: 0, reason: "" }) as LeavePayload }
+        : r.request_type === "salary_advance"
+        ? { type: "salary_advance" as const, payload: (x?.payload ?? { amount: 0, month: "", reason: "" }) as AdvancePayload,
+            payout: ((a) => (a?.paid_at ? { paidAt: a.paid_at, paidBy: a.paid_by ? actor.get(a.paid_by) ?? "—" : null, note: a.payout_note } : null))(payout.get(r.id)) }
         : r.request_type === "overtime"
         ? { type: "overtime" as const, payload: (x?.payload ?? { date: r.work_date ?? "", start: "", end: "", hours: 0, dayKind: "workday", ratePercent: 150, reason: "" }) as OvertimePayload }
         : { type: "explanation" as const, payload: (x?.payload ?? { kind: "other", clockIn: null, clockOut: null, reason: "" }) as ExplanationPayload };

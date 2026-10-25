@@ -85,7 +85,8 @@ function WorkflowModal({ onClose }: { onClose: () => void }) {
   async function save() {
     if (!list.length) { setErr("Cần ít nhất một bước duyệt."); return; }
     if (new Set(list.map((s) => s.resolver)).size !== list.length) { setErr("Mỗi loại người duyệt chỉ xuất hiện một lần."); return; }
-    if (list.every((s) => s.daysOver != null)) { setErr("Cần ít nhất một bước luôn áp dụng."); return; }
+    if (list.every((s) => s.daysOver != null || s.amountOver != null)) { setErr("Cần ít nhất một bước luôn áp dụng."); return; }
+    if (type === "salary_advance" && !list.some((s) => s.resolver === "payroll")) { setErr("Luồng tạm ứng phải có bước Kế toán (người chi tiền)."); return; }
     await run("save", async () => setData(await call<WorkflowDef[]>("POST", `workflows/${type}/versions`, { steps: list, effectiveFrom: from, note: note || null })), "Đã lưu luồng duyệt mới");
   }
   return (
@@ -97,27 +98,33 @@ function WorkflowModal({ onClose }: { onClose: () => void }) {
       </div>
       <div className="card detail-list">
         {list.map((s, i) => (
-          <div key={i} className="detail-row" style={{ gridTemplateColumns: type === "leave" ? "60px 1fr 130px 200px auto" : "60px 1fr 130px auto", minHeight: 52 }}>
+          <div key={i} className="detail-row" style={{ gridTemplateColumns: type === "leave" || type === "salary_advance" ? "60px 1fr 130px 230px auto" : "60px 1fr 130px auto", minHeight: 52 }}>
             <span style={{ color: "var(--ink)", fontSize: 12, fontWeight: 700 }}>Bước {i + 1}</span>
             <select className="select" disabled={!manage} value={s.resolver} onChange={(e) => set(i, { resolver: e.target.value as StepResolver })}>
-              {(Object.keys(STEP_RESOLVERS) as StepResolver[]).map((k) => <option key={k} value={k}>{STEP_RESOLVERS[k]}</option>)}
+              {(Object.keys(STEP_RESOLVERS) as StepResolver[]).filter((k) => k !== "payroll" || type === "salary_advance").map((k) => <option key={k} value={k}>{STEP_RESOLVERS[k]}</option>)}
             </select>
             <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11.5 }}>SLA <input type="number" min={1} max={240} disabled={!manage} value={s.slaHours} onChange={(e) => set(i, { slaHours: Number(e.target.value) || 1 })} style={{ width: 64 }} /> giờ</label>
             {type === "leave" ? <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11.5 }}>
               <input type="checkbox" disabled={!manage} checked={s.daysOver != null} onChange={(e) => set(i, { daysOver: e.target.checked ? 2 : null })} />Chỉ khi nghỉ trên
-              <input type="number" min={0} max={30} disabled={!manage || s.daysOver == null} value={s.daysOver ?? ""} onChange={(e) => set(i, { daysOver: Number(e.target.value) || 0 })} style={{ width: 48 }} /> ngày</label> : null}
+              <input type="number" min={0} max={30} disabled={!manage || s.daysOver == null} value={s.daysOver ?? ""} onChange={(e) => set(i, { daysOver: Number(e.target.value) || 0 })} style={{ width: 48 }} /> ngày</label>
+              : type === "salary_advance" ? <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11.5 }}>
+              <input type="checkbox" disabled={!manage} checked={s.amountOver != null} onChange={(e) => set(i, { amountOver: e.target.checked ? 5000000 : null })} />Chỉ khi trên
+              <input type="number" min={0} step={500000} disabled={!manage || s.amountOver == null} value={s.amountOver ?? ""} onChange={(e) => set(i, { amountOver: Number(e.target.value) || 0 })} style={{ width: 96 }} /> ₫</label> : null}
             {manage ? <button className="btn small" disabled={list.length <= 1} onClick={() => setSteps(list.filter((_, k) => k !== i))}>Bỏ</button> : <span />}
           </div>
         ))}
       </div>
-      {manage && steps && list.length < 2 ? <button className="btn small" style={{ marginTop: 10 }} onClick={() => setSteps([...list, { resolver: list.some((s) => s.resolver === "hr") ? "direct_manager" : "hr", slaHours: 24 }])}><Icon name="plus" /> Thêm bước</button> : null}
+      {manage && steps && list.length < (type === "salary_advance" ? 3 : 2) ? <button className="btn small" style={{ marginTop: 10 }} onClick={() => {
+        const free = (["direct_manager", "hr", "payroll"] as StepResolver[]).find((k) => (k !== "payroll" || type === "salary_advance") && !list.some((s) => s.resolver === k));
+        if (free) setSteps([...list, { resolver: free, slaHours: 24 }]);
+      }}><Icon name="plus" /> Thêm bước</button> : null}
       <p className="muted" style={{ fontSize: 11.5, margin: "10px 0" }}>Không có quản lý trực tiếp (hoặc người gửi chính là quản lý) thì bước Quản lý được bỏ qua; không còn bước nào thì chuyển cho Phòng Nhân sự. Không ai tự duyệt đơn của mình.{type === "leave" ? " Đơn nghỉ trước phép (số dư âm) luôn cần Phòng Nhân sự duyệt." : ""}</p>
       {manage ? <div className="form-grid">
         <Field label="Hiệu lực từ"><input type="date" min={tenantToday(me.tenant.timezone)} value={from} onChange={(e) => setFrom(e.target.value)} /></Field>
         <Field label="Ghi chú"><input value={note} onChange={(e) => setNote(e.target.value)} /></Field>
       </div> : null}
       <ErrorLine text={err} />
-      <ul className="version-list">{(wf?.versions ?? []).map((v) => <li key={v.versionNo}>v{v.versionNo} · từ {fmtDate(v.effectiveFrom)} · {v.steps.map((s) => `${STEP_RESOLVERS[s.resolver]} (${s.slaHours} giờ${s.daysOver != null ? `, khi nghỉ trên ${s.daysOver} ngày` : ""})`).join(" → ")}{v.note ? ` — ${v.note}` : ""}</li>)}</ul>
+      <ul className="version-list">{(wf?.versions ?? []).map((v) => <li key={v.versionNo}>v{v.versionNo} · từ {fmtDate(v.effectiveFrom)} · {v.steps.map((s) => `${STEP_RESOLVERS[s.resolver]} (${s.slaHours} giờ${s.daysOver != null ? `, khi nghỉ trên ${s.daysOver} ngày` : ""}${s.amountOver != null ? `, khi trên ${s.amountOver.toLocaleString("vi-VN")} ₫` : ""})`).join(" → ")}{v.note ? ` — ${v.note}` : ""}</li>)}</ul>
     </Modal>
   );
 }

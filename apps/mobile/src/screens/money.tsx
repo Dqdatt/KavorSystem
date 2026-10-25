@@ -4,7 +4,9 @@ import { Gi, Ic } from "../icons";
 import { Btn, BtnRow, Card, Chip, Chips, ErrLine, Field, InfoRow, LinkBtn, Ln, Note, Num, Row, RowBtn, RowStrong, SecT, SectionHead, St, T, TbBtn, TextArea, Timeline } from "../ui";
 import { Foot, TopBar, type ScreenSpec } from "../screen";
 import { advLimit, groupThousands, netPay, sum, vnd } from "../data";
-import { ACT, ADV_DAY, ADV_STEPS, S, advEligible, advError, emit, go, money } from "../store";
+import { ACT, ADV_DAY, ADV_STEPS, S, advEligible, advError, emit, go, money, stamp } from "../store";
+import { REMOTE } from "../api/http";
+import type { RequestItem } from "@kavor/contracts";
 
 const EyeBtn = () => <TbBtn label="Ẩn hoặc hiện số tiền" onPress={ACT.hideMoney}><Ic n={S.hideMoney ? "eyeOff" : "eye"} s={20} /></TbBtn>;
 const Cap = ({ children }: { children: string }) => <T style={{ textAlign: "center", color: C.ink2, fontSize: 13, fontFamily: F.medium }}>{children}</T>;
@@ -50,7 +52,115 @@ export function payslipSpec(): ScreenSpec {
   };
 }
 
+/* ---------- Tạm ứng (bản dùng API) ---------- */
+type AdvReq = Extract<RequestItem, { type: "salary_advance" }>;
+const asAdv = (r: RequestItem | null | undefined) => (r && r.type === "salary_advance" ? r : null);
+const mLabel = (m: string) => `${m.slice(5)}/${m.slice(0, 4)}`;
+/* Trạng thái đơn tạm ứng: đang duyệt / chờ chi / đã chi / từ chối / đã hủy */
+function advState(r: AdvReq): [string, "ok" | "warn" | "bad" | "mute"] {
+  if (r.payout) return ["Đã chi", "ok"];
+  if (r.status === "approved") return ["Chờ chi", "warn"];
+  if (r.status === "pending") return ["Đang duyệt", "warn"];
+  return r.status === "rejected" ? ["Từ chối", "bad"] : ["Đã hủy", "mute"];
+}
+
+function remoteAdvanceSpec(): ScreenSpec {
+  const d = S.advData, el = advEligible(), cur = asAdv(d?.current), p = d?.policy;
+  const top = [
+    <View key="top" style={{ paddingTop: 8 }}>
+      <Cap>{d ? `Hạn mức tạm ứng tháng ${Number(d.month.slice(5))}` : "Hạn mức tạm ứng"}</Cap>
+      <Amt muted={!!el}>{el || !d ? "0 ₫" : money(d.limit)}</Amt>
+      {p ? <View style={{ alignItems: "center", marginTop: 4 }}><LinkBtn onPress={ACT.advExplain}>{`${p.maxPercent}% × lương cơ bản · cách tính`}</LinkBtn></View> : null}
+    </View>,
+  ];
+  if (el) top.push(<Note key="el" icon="lock"><T style={{ fontSize: 13, color: C.ink2 }}><T style={{ fontSize: 13, fontFamily: F.bold, color: C.ink }}>{el[0]}</T>{"\n"}{el[1]}</T></Note>);
+  else if (cur) {
+    const [label, tone] = advState(cur);
+    top.push(<Card key="a"><RowBtn icon={<Gi n="cash" s={24} />} title={`${cur.no} · ${vnd(cur.payload.amount)}`} sub={`${label} · gửi ${stamp(cur.submittedAt)}`} right={<St s={tone}>{label}</St>} onPress={() => { S.param = cur.no; go("advanceDetail"); }} /></Card>);
+    top.push(<Note key="used" icon="info">{`Bạn đã dùng lượt tạm ứng tháng ${Number(d!.month.slice(5))}.`}</Note>);
+  } else if (d?.deadlinePassed) top.push(<Note key="dl" icon="info">{`Đã qua hạn nhận đơn tháng ${Number(d.month.slice(5))} (đến hết ngày ${Number(d.deadline!.slice(8))}). Bạn có thể tạm ứng từ tháng sau.`}</Note>);
+  const past = (d?.history ?? []).map(asAdv).filter((r): r is AdvReq => !!r && r.id !== cur?.id);
+  const daysLeft = d?.deadline && !d.deadlinePassed ? Math.round((Date.parse(`${d.deadline}T00:00:00Z`) - Date.parse(`${d.today}T00:00:00Z`)) / 86_400_000) : null;
+  return {
+    head: <TopBar title="Tạm ứng lương" />,
+    body: [
+      ...top,
+      p ? <Card key="rules">
+        <InfoRow k="Số lần mỗi tháng" v="1 lần" strong />
+        <InfoRow k="Hạn nhận đơn" v={d?.deadline ? `Đến hết ngày ${Number(d.deadline.slice(8))}${daysLeft != null ? ` · còn ${daysLeft} ngày` : " · đã qua"}` : "—"} strong />
+        <InfoRow k="Duyệt" v={d?.approvers.length ? `${d.approvers.join(" → ")}${d.hrOverAmount ? ` (trên ${vnd(d.hrOverAmount)} thêm HR)` : ""}` : "—"} strong />
+        <InfoRow k="Khấu trừ" v="Vào lương tháng ứng" strong />
+      </Card> : null,
+      <SectionHead key="sh" title="Lịch sử" />,
+      past.length ? <Card key="hist">{past.map((r) => {
+        const [label, tone] = advState(r);
+        return <RowBtn key={r.id} icon={<Gi n="cash" s={24} />} title={`${r.no} · ${vnd(r.payload.amount)}`} sub={r.payout ? `Đã chi ${stamp(r.payout.paidAt)} · trừ lương ${mLabel(r.payload.month)}` : `Trừ lương ${mLabel(r.payload.month)}`} right={<St s={tone}>{label}</St>} onPress={() => { S.param = r.no; go("advanceDetail"); }} />;
+      })}</Card> : <Card key="hist"><View style={{ padding: 18 }}><T style={{ color: C.ink2, textAlign: "center" }}>Chưa có lần tạm ứng nào.</T></View></Card>,
+      <Spacer key="sp" />,
+    ],
+    foot: d && !el && !cur && !d.deadlinePassed ? <Foot><Btn block onPress={() => go("advanceNew")}>Tạo đề nghị tạm ứng</Btn></Foot> : undefined,
+  };
+}
+
+function remoteAdvanceNewSpec(): ScreenSpec {
+  const d = S.advData, err = advError(), lim = d?.limit ?? 0, min = d?.policy?.minAmount ?? 500000;
+  const quick = [1000000, 2000000, 3000000].filter((x) => x >= min && x < lim);
+  return {
+    head: <TopBar title="Đề nghị tạm ứng" />,
+    body: [
+      <View key="amt" style={{ alignItems: "center", paddingTop: 8 }}>
+        <Cap>Số tiền muốn ứng</Cap>
+        <View style={{ flexDirection: "row", alignItems: "baseline", justifyContent: "center", gap: 6, paddingVertical: 8, width: "100%" }}>
+          <TextInput accessibilityLabel="Số tiền tạm ứng" allowFontScaling={false} keyboardType="number-pad" value={S.advAmt ? groupThousands(S.advAmt) : ""}
+            onChangeText={(t) => { S.advAmt = parseInt(t.replace(/\D/g, ""), 10) || 0; emit(); }}
+            style={{ flexShrink: 1, minWidth: 40, textAlign: "center", fontSize: 42, fontFamily: F.light, color: C.hero, padding: 0, fontVariant: ["tabular-nums"] }} />
+          <T style={{ fontSize: 20, color: C.ink3 }}>₫</T>
+        </View>
+        {err ? <ErrLine center>{err}</ErrLine> : <T style={{ color: C.ink3, fontSize: 12 }}>Tối đa {vnd(lim)}</T>}
+      </View>,
+      <Chips key="q" wrap style={{ justifyContent: "center" }}>
+        {[...quick.map((x) => [x, `${x / 1e6} triệu`] as [number, string]), [lim, "Tối đa"] as [number, string]].map(([x, l]) => <Chip key={l} label={l} on={S.advAmt === x} onPress={() => ACT.advQuick(x)} />)}
+      </Chips>,
+      <Field key="r" label="Lý do (không bắt buộc)"><TextArea accessibilityLabel="Lý do" defaultValue={S.advReason} placeholder="Ví dụ: Chi phí y tế" onChangeText={(t) => { S.advReason = t; }} /></Field>,
+      <Card key="c">
+        <InfoRow k="Nhận vào" v="Tài khoản nhận lương" strong />
+        <InfoRow k="Trừ vào" v={d ? `Lương tháng ${mLabel(d.month)}` : "—"} strong />
+        <InfoRow k="Người duyệt" v={d?.approvers.length ? `${d.approvers.join(" → ")}${d.hrOverAmount && S.advAmt > d.hrOverAmount ? " (thêm HR)" : ""}` : "—"} strong />
+      </Card>,
+      <Spacer key="sp" />,
+    ],
+    foot: <Foot><Btn block disabled={!!err} onPress={ACT.advReview}>Tiếp tục</Btn></Foot>,
+  };
+}
+
+function remoteAdvanceDetailSpec(): ScreenSpec {
+  const d = S.advData, r = asAdv([...(d?.current ? [d.current] : []), ...(d?.history ?? [])].find((x) => x.no === S.param) ?? d?.current);
+  if (!r) return remoteAdvanceSpec();
+  const [label, tone] = advState(r);
+  const steps: Array<[string, string]> = [["Đã gửi", stamp(r.submittedAt)],
+    ...r.steps.filter((s) => s.status !== "skipped").map((s): [string, string] => [s.resolver === "payroll" ? "Kế toán duyệt" : s.resolver === "hr" ? "HR duyệt" : "Quản lý duyệt",
+      s.actedAt ? `${s.actedBy ?? s.assignee ?? ""} · ${stamp(s.actedAt)}${s.comment ? ` · “${s.comment}”` : ""}` : s.assignee ?? "—"]),
+    ["Đã chi", r.payout ? `${stamp(r.payout.paidAt)}${r.payout.note ? ` · ${r.payout.note}` : ""}` : "Vào tài khoản nhận lương"],
+    ["Khấu trừ", `Lương tháng ${mLabel(r.payload.month)}`]];
+  const active = r.steps.filter((s) => s.status !== "skipped");
+  const k = active.findIndex((s) => s.status === "pending" || s.status === "rejected" || s.status === "cancelled");
+  const cur = r.status === "approved" ? (r.payout ? steps.length - 1 : steps.length - 2) : k < 0 ? 1 : k + 1;
+  return {
+    head: <TopBar title={r.no} />,
+    body: [
+      <View key="top" style={{ paddingTop: 8 }}>
+        <Cap>Số tiền tạm ứng</Cap><Amt>{vnd(r.payload.amount)}</Amt>
+        <View style={{ alignItems: "center", marginTop: 6 }}><St s={tone}>{label}</St></View>
+      </View>,
+      <Card key="tl" pad><Timeline steps={steps} cur={cur} fail={r.status === "rejected" || r.status === "cancelled"} /></Card>,
+      <Card key="c"><InfoRow k="Lý do" v={r.payload.reason || "—"} strong /><InfoRow k="Trừ vào" v={`Lương tháng ${mLabel(r.payload.month)}`} strong /></Card>,
+      r.canCancel ? <Btn key="x" kind="danger" block onPress={ACT.advCancel}>Hủy đề nghị</Btn> : null,
+    ],
+  };
+}
+
 export function advanceSpec(): ScreenSpec {
+  if (REMOTE) return remoteAdvanceSpec();
   const el = advEligible(), a = S.advance, lim = advLimit();
   const top = [
     <View key="top" style={{ paddingTop: 8 }}>
@@ -81,6 +191,7 @@ export function advanceSpec(): ScreenSpec {
 }
 
 export function advanceNewSpec(): ScreenSpec {
+  if (REMOTE) return remoteAdvanceNewSpec();
   const lim = advLimit(), err = advError();
   return {
     head: <TopBar title="Đề nghị tạm ứng" />,
@@ -107,6 +218,7 @@ export function advanceNewSpec(): ScreenSpec {
 }
 
 export function advanceDetailSpec(): ScreenSpec {
+  if (REMOTE) return remoteAdvanceDetailSpec();
   const a = S.advance;
   if (!a) return advanceSpec();
   const steps: Array<[string, string]> = [["Đã gửi", a.created], ["Quản lý duyệt", "Lê Quang Huy"], ["HR duyệt", "Mai Phương Thảo"], ["Kế toán duyệt", "Đỗ Hồng Nhung"], ["Đã chi", "Vào Vietcombank •6789"], ["Đã khấu trừ", "Lương 10/2026"]];

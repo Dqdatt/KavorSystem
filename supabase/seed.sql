@@ -75,7 +75,9 @@ insert into public.employees (
   -- Nhân viên dùng trong app mobile (prototype): kích hoạt bằng HD0142 + thao.ha@haidang.vn
   ('60000000-0000-4000-8000-000000000142','10000000-0000-4000-8000-000000000001','HD0142','Trần Thu Hà','thao.ha@haidang.vn','0912345468','2021-03-03','official','active','sample','HD0142'),
   -- HR Administrator của web HR/Admin (prototype): kích hoạt bằng HD0007 + thao.mai@haidang.vn
-  ('60000000-0000-4000-8000-000000000007','10000000-0000-4000-8000-000000000001','HD0007','Mai Phương Thảo','thao.mai@haidang.vn','0912000007','2020-05-04','official','active','sample','HD0007')
+  ('60000000-0000-4000-8000-000000000007','10000000-0000-4000-8000-000000000001','HD0007','Mai Phương Thảo','thao.mai@haidang.vn','0912000007','2020-05-04','official','active','sample','HD0007'),
+  -- Kế toán (prototype: duyệt và chi tạm ứng): kích hoạt bằng HD0215 + nhung.do@haidang.vn
+  ('60000000-0000-4000-8000-000000000215','10000000-0000-4000-8000-000000000001','HD0215','Đỗ Hồng Nhung','nhung.do@haidang.vn','0912000215','2021-09-06','official','active','sample','HD0215')
 on conflict (tenant_id, employee_code) do nothing;
 
 insert into public.audit_logs (
@@ -95,19 +97,22 @@ insert into public.employee_assignments (tenant_id, employee_id, legal_entity_id
   ('10000000-0000-4000-8000-000000000001','60000000-0000-4000-8000-000000000004','20000000-0000-4000-8000-000000000001','30000000-0000-4000-8000-000000000002','40000000-0000-4000-8000-000000000006','50000000-0000-4000-8000-000000000008',null,'2023-08-01'),
   ('10000000-0000-4000-8000-000000000001','60000000-0000-4000-8000-000000000005','20000000-0000-4000-8000-000000000001','30000000-0000-4000-8000-000000000001','40000000-0000-4000-8000-000000000004','50000000-0000-4000-8000-000000000005','60000000-0000-4000-8000-000000000001','2022-11-07'),
   ('10000000-0000-4000-8000-000000000001','60000000-0000-4000-8000-000000000142','20000000-0000-4000-8000-000000000001','30000000-0000-4000-8000-000000000001','40000000-0000-4000-8000-000000000005','50000000-0000-4000-8000-000000000007','60000000-0000-4000-8000-000000000003','2021-03-03'),
-  ('10000000-0000-4000-8000-000000000001','60000000-0000-4000-8000-000000000007','20000000-0000-4000-8000-000000000001','30000000-0000-4000-8000-000000000001','40000000-0000-4000-8000-000000000002','50000000-0000-4000-8000-000000000002','60000000-0000-4000-8000-000000000001','2020-05-04');
+  ('10000000-0000-4000-8000-000000000001','60000000-0000-4000-8000-000000000007','20000000-0000-4000-8000-000000000001','30000000-0000-4000-8000-000000000001','40000000-0000-4000-8000-000000000002','50000000-0000-4000-8000-000000000002','60000000-0000-4000-8000-000000000001','2020-05-04'),
+  ('10000000-0000-4000-8000-000000000001','60000000-0000-4000-8000-000000000215','20000000-0000-4000-8000-000000000001','30000000-0000-4000-8000-000000000001','40000000-0000-4000-8000-000000000003','50000000-0000-4000-8000-000000000004','60000000-0000-4000-8000-000000000001','2021-09-06');
 
 -- Tài khoản quản trị được mời trước khi kích hoạt: membership chưa có user, role gán sẵn.
--- Mai Phương Thảo: Tenant Admin + HR Operations toàn công ty. Lê Quang Huy: quản lý phòng Marketing.
+-- Mai Phương Thảo: Tenant Admin + HR Operations toàn công ty. Lê Quang Huy: quản lý phòng Marketing. Đỗ Hồng Nhung: Kế toán toàn công ty.
 insert into public.memberships (id, tenant_id, employee_id, status) values
   ('80000000-0000-4000-8000-000000000007','10000000-0000-4000-8000-000000000001','60000000-0000-4000-8000-000000000007','invited'),
-  ('80000000-0000-4000-8000-000000000003','10000000-0000-4000-8000-000000000001','60000000-0000-4000-8000-000000000003','invited');
+  ('80000000-0000-4000-8000-000000000003','10000000-0000-4000-8000-000000000001','60000000-0000-4000-8000-000000000003','invited'),
+  ('80000000-0000-4000-8000-000000000215','10000000-0000-4000-8000-000000000001','60000000-0000-4000-8000-000000000215','invited');
 insert into public.role_assignments (tenant_id, membership_id, role_id, scope_type, scope_id, effective_from)
 select '10000000-0000-4000-8000-000000000001', m, r.id, st, sid, '2026-01-01'
 from (values
   ('80000000-0000-4000-8000-000000000007'::uuid, 'tenant_admin', 'tenant', null::uuid),
   ('80000000-0000-4000-8000-000000000007'::uuid, 'hr_ops', 'tenant', null::uuid),
-  ('80000000-0000-4000-8000-000000000003'::uuid, 'manager', 'department', '40000000-0000-4000-8000-000000000005'::uuid)
+  ('80000000-0000-4000-8000-000000000003'::uuid, 'manager', 'department', '40000000-0000-4000-8000-000000000005'::uuid),
+  ('80000000-0000-4000-8000-000000000215'::uuid, 'payroll', 'tenant', null::uuid)
 ) v(m, code, st, sid)
 join public.roles r on r.code = v.code and r.tenant_id is null;
 
@@ -172,6 +177,12 @@ insert into public.holidays (calendar_id, holiday_date, name, kind) values
 select public.provision_tenant(id) from public.tenants order by code;
 select public.provision_workflows(id) from public.tenants order by code;
 select public.provision_leave_types(id) from public.tenants order by code;
+
+-- Lương cơ bản mẫu (hư cấu) để tính hạn mức tạm ứng: Hà 15 triệu như prototype
+insert into public.employee_compensations (tenant_id, employee_id, base_salary, effective_from, note)
+select '10000000-0000-4000-8000-000000000001', e, s, '2026-01-01', 'Dữ liệu mẫu'
+from (values ('60000000-0000-4000-8000-000000000142'::uuid, 15000000::bigint), ('60000000-0000-4000-8000-000000000003'::uuid, 28000000::bigint),
+  ('60000000-0000-4000-8000-000000000005'::uuid, 18000000::bigint), ('60000000-0000-4000-8000-000000000007'::uuid, 30000000::bigint)) v(e, s);
 
 -- Sổ phép năm của Hà: đã nghỉ 2 ngày trước khi chuyển sang Kavor (nhập số dư đầu kỳ từ bảng tính). Cấp/tích lũy do API tạo khi đọc sổ.
 insert into public.leave_accounts (id, tenant_id, employee_id, leave_type_id, year)

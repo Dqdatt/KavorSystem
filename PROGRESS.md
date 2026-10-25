@@ -2,9 +2,16 @@
 _Cập nhật: 2026-10-24 — bởi Claude (Opus 5.5)_
 
 ## Mục tiêu đang làm
-Đã sửa lỗi lệch múi giờ trong hàm phân quyền SQL (25/10). Bước kế tiếp: tạm ứng lương.
+Tạm ứng lương đã xong phần code và kiểm thử tự động (25/10, xem "Đã xong"); chờ thử trên iPhone. Bước kế tiếp: payroll (nhập kết quả lương, phiếu lương).
 
 ## Đã xong
+- Tạm ứng lương (25/10), theo PILOT_RULEBOOK §9, PERMISSION_MATRIX (Payroll) và DATABASE_SCHEMA §11:
+  - DB `202610300001_salary_advance.sql`: vai trò hệ thống **Kế toán** (`payroll`) với `salary_advance.process`, `compensation.read`, `compensation.manage` (+ `request.read`, `employee.read`); HR/Tenant Admin/Quản lý mặc định **không** xem lương. Lương cơ bản `employee_compensations` (phiên bản theo ngày hiệu lực, không sửa/xóa, RLS: chính mình hoặc có `compensation.read`). Bước duyệt mới **Kế toán** (resolver `payroll`, người duyệt = có `salary_advance.process` với người gửi — `step_reviewers` dùng chung cho HR/Kế toán), bước có điều kiện `amountOver`. Đơn `request_type 'salary_advance'` (TU-0001) tạo nguyên tử bằng `create_advance_request`; `salary_advances` (số tiền, tháng khấu trừ, đã chi ai/khi nào/ghi chú; mỗi tháng một đơn đang chờ/đã duyệt; chỉ ghi nhận đã chi một lần khi đơn đã duyệt) + thông báo `advance.paid`. Quy định tạm ứng thêm `deadlineDay` (31 = cuối tháng) và `minAmount`. Mẫu: 30% lương cơ bản, tối thiểu 500.000, nhận đơn đến hết ngày 20, luồng Quản lý → HR (trên 5 triệu) → Kế toán. pgTAP `salary_advance.test.sql` 13 test (tổng 192).
+  - API `apps/api/src/advance`: `/me/advance` (hạn mức = lương cơ bản × %, làm tròn xuống 10.000; điều kiện: chưa áp dụng, tắt, thử việc, đang báo trước nghỉ việc, chưa có lương cơ bản; hạn nhận đơn; đơn tháng này; lịch sử; người duyệt dự kiến), `/me/requests/advance` (tối thiểu, bước 10.000, hạn mức, hạn nhận đơn, mỗi tháng một lần; không chụp lương vào đơn để người duyệt không thấy lương), `/admin/advances?month=` + `/admin/advances/:id/paid` (Kế toán; không tự chi đơn của mình), `/admin/compensations` (+ đổi lương; nhật ký không ghi số tiền). Luồng duyệt: phạm vi theo quyền từng bước (HR/Kế toán).
+  - Web: trang **Tạm ứng lương** (mục Tài chính, quyền `salary_advance.process`; thiết kế bổ sung — prototype HR chưa có): 4 chỉ số, đơn theo tháng khấu trừ, duyệt bước Kế toán, "Xác nhận đã chi" kèm ghi chú chuyển khoản; tab **Lương cơ bản** (nhập/đổi lương theo ngày hiệu lực). Modal đơn tạm ứng, Cấu hình workflow có bước Kế toán + "chỉ khi trên X ₫". Đã thử trên trình duyệt bằng tài khoản Kế toán.
+  - Mobile (bản dùng API): màn Tạm ứng (hạn mức thật, cách tính theo lương của chính mình, hạn nhận đơn, đơn tháng này, lịch sử), Đề nghị tạm ứng (gợi ý số tiền theo hạn mức, kiểm tra trước khi gửi, xác nhận bằng PIN), chi tiết (luồng duyệt + đã chi + khấu trừ, hủy khi đang chờ); Trang chủ/menu tạo đơn hiện hạn mức thật; thông báo "đã chi".
+  - Seed: Kế toán Đỗ Hồng Nhung (HD0215 · nhung.do@haidang.vn, vai trò Kế toán toàn công ty); lương cơ bản mẫu (HD0142 15 triệu như prototype).
+  - Smoke `tools/advance-smoke.sh` 31 bước; cả 10 smoke đạt; pgTAP 192; unit test API 28; build 6/6.
 - Sửa lệch múi giờ (25/10): migration `202610290001_tenant_local_date.sql` thêm `tenant_today(tenant)` (ngày theo múi giờ công ty); `permission_scopes`, `scoped_employees`, `permission_grants` mặc định tính theo ngày của tenant (chữ ký giữ nguyên, `p_date` mặc định null), `active_tenant_admin_count`, trigger chặn gỡ Tenant Admin cuối cùng, trigger chặn sửa ngày lễ đã qua cũng vậy; Console API đếm/hiện Tenant Admin theo ngày của từng tenant (trước đây dùng ngày UTC). pgTAP `tenant_local_date.test.sql` 7 test chọn múi giờ test sao cho ngày tenant luôn khác ngày UTC (tổng 179). Đã chạy lại toàn bộ 9 smoke lúc 6:42–6:52 sáng giờ VN (khung giờ trước đây lỗi): đều đạt.
 - Làm thêm giờ — OT (25/10), theo PILOT_RULEBOOK §8, US-043, BLLĐ 2019 Điều 98, 107 và NĐ 145/2020:
   - DB `202610280001_overtime.sql`: permission `overtime.read`; quy định OT là kind `overtime` trong khung quy định có tầng/phiên bản (hệ số ngày thường/nghỉ tuần/lễ, sàn luật 150/200/300% chặn ở API; tối đa 4 giờ/ngày làm việc, 40 giờ/tháng, 200 giờ/năm; đăng ký bù tối đa 1 ngày sau khi làm); đơn `request_type 'overtime'` (số OT-0001) tạo nguyên tử bằng `create_overtime_request`; `overtime_entries` (một khoảng giờ/đơn, bội số 30 phút, loại ngày + hệ số chụp lúc gửi) chặn trùng giờ với đơn khác và kỳ công đã khóa, không sửa được; luồng duyệt mặc định Quản lý → HR; thông báo hiện ngày/giờ/số giờ. pgTAP `overtime.test.sql` 11 test (tổng 172).
@@ -73,7 +80,7 @@ _Cập nhật: 2026-10-24 — bởi Claude (Opus 5.5)_
 - Kiểm tra ngày 22/10: `pnpm turbo run typecheck test build --force` pass 18/18 task (test thật chỉ có contracts 2 + api 2)
 
 ## Đang dở (QUAN TRỌNG NHẤT)
-- Không có việc dở. DB local vừa reset về dữ liệu mẫu sau khi chạy smoke (iPhone phải kích hoạt lại HD0142). Chưa thử từ chối/hủy đơn và duyệt trên app bằng tài khoản quản lý trên máy thật (smoke đã kiểm). Thử duyệt trên app: kích hoạt quản lý HDG0003 (huy.le@example.test) ở máy khác/simulator. Thử Console: `OPERATOR_PASSWORD='…' bash tools/create-operator.sh <email> "<Họ tên>"` (tạo 2 người để thử duyệt khôi phục), `pnpm dev:console` → http://localhost:3001, lần đầu liên kết ứng dụng xác thực.
+- Chưa thử tạm ứng trên iPhone. DB local đã chuẩn bị: Kế toán HD0215 + quản lý HDG0003 đã kích hoạt, HD0142 có quy định tạm ứng riêng (hạn đến cuối tháng) để thử sau ngày 20; iPhone phải kích hoạt lại HD0142. Chưa thử từ chối/hủy đơn và duyệt trên app bằng tài khoản quản lý trên máy thật (smoke đã kiểm). Thử duyệt trên app: kích hoạt quản lý HDG0003 (huy.le@example.test) ở máy khác/simulator. Thử Console: `OPERATOR_PASSWORD='…' bash tools/create-operator.sh <email> "<Họ tên>"` (tạo 2 người để thử duyệt khôi phục), `pnpm dev:console` → http://localhost:3001, lần đầu liên kết ứng dụng xác thực.
 - Cài bản mới lên iPhone: build `xcodebuild -workspace ios/Kavor.xcworkspace -scheme Kavor -configuration Release -destination 'generic/platform=iOS' -derivedDataPath ios/build-device -allowProvisioningUpdates build` (trong `apps/mobile`, có `EXPO_PUBLIC_API_URL`, xóa `$TMPDIR/metro-cache` trước) rồi `xcrun devicectl device install app --device 36F8CE4A-8C04-5232-AB9D-0041A426F6A0 ios/build-device/Build/Products/Release-iphoneos/Kavor.app`. Nếu devicectl báo "unavailable": mở khóa iPhone, bấm Tin cậy, cắm cáp dữ liệu.
 - Reset DB local: dùng `bash tools/db-reset.sh` (sau `supabase db reset` Kong giữ IP cũ của Auth → 502).
 - Bản trên iPhone trỏ tới API `http://192.168.1.22:4000/api/v1` (IP LAN của Mac ngày 24/10; trước là 192.168.1.25, 172.17.91.14): Mac phải chạy `pnpm dev:backend`, cùng Wi-Fi. IP Mac đổi thì phải build lại app.
@@ -110,19 +117,21 @@ _Cập nhật: 2026-10-24 — bởi Claude (Opus 5.5)_
 - Ca qua đêm, tầng "loại hợp đồng", lịch xếp ca theo ngày, bản đồ chọn vị trí chưa có. Trình duyệt nhúng trong app Claude không cấp quyền vị trí; nút "Dùng vị trí hiện tại của trình duyệt" cần Chrome/Safari thật.
 - Giải trình chưa có đính kèm minh chứng (cần Storage + quét file); Bảng công chưa tính nghỉ phép/OT/ca qua đêm; thiếu cả ngày chỉ giải trình theo giờ ca. Snapshot khóa kỳ chưa có trang xem lịch sử khóa/mở.
 - Thông báo trên mobile không đến tức thì (iPhone trong LAN không nối Realtime của Supabase local; chưa có push) — app hỏi lại mỗi 30 giây khi đang mở, và khi mở/quay lại app; app tắt thì không biết cho tới lần mở sau. E19 vẫn hỏi lại 8 giây/lần. Ngưỡng "sắp quá hạn" 4 giờ và chu kỳ quét 10 phút là hằng số của hệ thống, chưa cấu hình theo tenant. Chưa có nhắc chấm công, thông báo phiếu lương/bản tin (chờ module tương ứng), chưa có dọn thông báo cũ.
-- Đơn tạm ứng/sửa hồ sơ trên mobile bản dùng API vẫn là dữ liệu cục bộ trong phiên (đơn mẫu bị ẩn) cho tới khi làm module tương ứng.
+- Đơn sửa hồ sơ trên mobile bản dùng API vẫn là dữ liệu cục bộ trong phiên (đơn mẫu bị ẩn) cho tới khi làm module tương ứng.
 - Nghỉ phép chưa có: đính kèm minh chứng, ủy quyền người duyệt khi vắng, nghỉ nửa ngày xét muộn/sớm theo nửa ca, đơn vượt năm (phải tách), sửa loại nghỉ trên web (đang dùng mẫu), tầng "loại hợp đồng"; thâm niên tính tại 01/01 (đủ năm giữa năm thì năm sau mới cộng); phép tồn tự chuyển chỉ khi sổ năm trước có trong Kavor (năm đầu nhập tay).
 - Phạm vi/tầng dùng phân công tổ chức hiện tại; danh sách nhân viên/chấm công lọc trong bộ nhớ API — đủ cho vài nghìn nhân viên, cần phân trang ở SQL khi lớn hơn. RLS `employees` gọi hàm phạm vi theo từng dòng (chậm nếu client đọc trực tiếp nhiều dòng; hiện client không đọc trực tiếp).
 - Khi máy Mac quá tải (build Xcode), GoTrue chậm → web báo "Máy chủ xác thực đang bận" (không còn tự đăng xuất).
 - Ảnh native lấy từ simulator; chưa có ảnh/video từ iPhone 11 thật.
-- Ngoài auth, chấm công, công tháng, giải trình, nghỉ phép và OT, các màn (tạm ứng, lương, tin tức) vẫn dùng dữ liệu mẫu.
+- Ngoài auth, chấm công, công tháng, giải trình, nghỉ phép, OT và tạm ứng, các màn (phiếu lương, tin tức, tài liệu) vẫn dùng dữ liệu mẫu.
+- Tạm ứng chưa có: tài khoản ngân hàng nhận tiền (cần mã hóa — `employee_bank_accounts` trong schema), khấu trừ thực tế vào lương (module payroll đọc `salary_advances` đã chi), chặn khi kỳ lương đã chốt, nhiều lần/tháng. Quy định mẫu nhận đơn đến ngày 20 nên sau ngày 20 nhân viên không gửi được đơn tháng đó (đúng prototype); thử trên máy sau ngày 20 thì tạo quy định riêng hạn 31.
 - OT chưa có: OT ban đêm (+30%/+20%), OT qua nửa đêm (phải tách hai đơn), đối chiếu giờ OT với chấm công thực tế, ngoại lệ 300 giờ/năm theo ngành (chỉnh trong quy định), payroll input (module payroll đọc `overtime_entries` đã duyệt).
 - Android chưa thử luồng chấm công thật (GPS/hàng đợi) trên emulator.
 - Test tự động của admin-web, console-web, mobile, web-ui vẫn là placeholder.
 - Trên bản dev, gõ phím "r" khi không focus ô nhập sẽ làm Metro reload (chỉ ảnh hưởng dev).
 
 ## Bước tiếp theo
-1. Tạm ứng → payroll → bản tin/tài liệu.
+1. Thử tạm ứng trên iPhone (HD0142 gửi đơn → Quản lý → Kế toán duyệt → Kế toán xác nhận đã chi).
+2. Payroll (nhập kết quả lương từ Google Sheets, duyệt, phiếu lương) → bản tin/tài liệu.
 - Push từ máy chủ khi app tắt (APNs/FCM) cần tài khoản Apple Developer trả phí → làm khi mua (xem "Quyết định đã chốt"); lúc đó thay luôn việc E19 hỏi lại 8 giây/lần.
 - Staging: **hoãn tới khi hệ thống hoàn thiện** (quyết định 24/10). Phương án đã phân tích sẵn: Render Singapore cho API + 2 web (~$21/tháng, địa chỉ onrender.com, chưa cần domain), Gmail SMTP như CarRental cho OTP và thư mời, project Supabase `KavorSystem` (Singapore) làm staging, chỉ dùng dữ liệu mẫu; cần đổi các giá trị localhost trong `supabase/config.toml` sang biến môi trường trước khi `config push`.
 - Ngoài luồng chính: test component cho admin-web; Sentry; số liệu luật cần HR/Payroll SME xác nhận trước pilot; pháp lý chuyển dữ liệu ra nước ngoài (Nghị định 13/2023, dữ liệu ở Singapore) trước khi có dữ liệu thật.
@@ -131,6 +140,7 @@ _Cập nhật: 2026-10-24 — bởi Claude (Opus 5.5)_
 - Không có.
 
 ## Nhật ký
+- 2026-10-25 — Tạm ứng lương: vai trò Kế toán, lương cơ bản có phiên bản, đơn tạm ứng mỗi tháng một lần theo hạn mức, Quản lý → HR (trên 5 triệu) → Kế toán, xác nhận đã chi + thông báo; web trang Tạm ứng lương + Lương cơ bản; mobile đọc từ API.
 - 2026-10-25 — Sửa lệch múi giờ: hàm phân quyền/phạm vi SQL và Console dùng ngày theo múi giờ công ty thay vì UTC (trước đây 0:00–7:00 vai trò/phân công mới chưa có hiệu lực).
 - 2026-10-25 — Làm thêm giờ: quy định OT có tầng theo luật, đơn OT bội số 30 phút ngoài ca chính, giới hạn ngày/tháng/năm, Quản lý → HR, bảng công có giờ OT; web HR tab Làm thêm giờ; mobile đọc từ API.
 - 2026-10-24 — Nghỉ phép: quy định phép năm có tầng, loại nghỉ, sổ phép ledger, đơn nghỉ giữ chỗ → duyệt trừ phép, luồng duyệt theo số ngày, bảng công hiện ngày nghỉ; web HR trang Nghỉ phép; mobile đọc từ API.

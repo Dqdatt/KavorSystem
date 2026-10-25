@@ -177,7 +177,19 @@ export function SheetContent({ kind, arg }: { kind: SheetKind; arg?: string }) {
       <TextArea placeholder="Ví dụ: Tháng 9 em làm thêm 10 giờ nhưng phiếu chỉ tính 9,8 giờ." defaultValue={S.f.payQ} onChangeText={(t) => { S.f.payQ = t; }} />
       <Btn block onPress={ACT.payQSend}>Gửi cho HR</Btn>
     </>;
-    case "advExplain": return <>
+    case "advExplain": if (REMOTE && S.advData?.policy) {
+      const d = S.advData, p = d.policy!;
+      return <>
+        <H3>Cách tính hạn mức</H3>
+        <Box><Ln k="Lương cơ bản" v={d.baseSalary ? `${d.baseSalary.toLocaleString("vi-VN")} ₫` : "Chưa có"} /><Ln k="Tỷ lệ cho phép" v={`${p.maxPercent}%`} /><Ln k="Hạn mức tháng" v={`${d.limit.toLocaleString("vi-VN")} ₫`} kind="tot" /></Box>
+        <View style={{ paddingLeft: 18, gap: 4 }}>
+          {[`Mỗi tháng ứng 1 lần, gửi đến hết ngày ${Number(d.deadline?.slice(8) ?? p.deadlineDay)}.`, `Tối thiểu ${p.minAmount.toLocaleString("vi-VN")} ₫ mỗi lần.`, "Khoản ứng được trừ vào lương của chính tháng đó.", "Tỷ lệ và hạn nhận đơn do công ty cấu hình."].map((x) => (
+            <View key={x} style={{ flexDirection: "row" }}><T style={{ position: "absolute", left: -13, fontSize: 13.5, color: C.ink2 }}>•</T><T style={{ fontSize: 13.5, color: C.ink2 }}>{x}</T></View>
+          ))}
+        </View>
+        <Close>Đã hiểu</Close>
+      </>;
+    } return <>
       <H3>Cách tính hạn mức</H3>
       <Box><Ln k="Lương cơ bản" v="15.000.000 ₫" /><Ln k="Tỷ lệ cho phép" v="30%" /><Ln k="Hạn mức tháng" v="4.500.000 ₫" kind="tot" /></Box>
       <View style={{ paddingLeft: 18, gap: 4 }}>
@@ -187,15 +199,24 @@ export function SheetContent({ kind, arg }: { kind: SheetKind; arg?: string }) {
       </View>
       <Close>Đã hiểu</Close>
     </>;
-    case "advReview": return <>
+    case "advReview": if (REMOTE && S.advData) {
+      const d = S.advData;
+      return <>
+        <H3>Kiểm tra đề nghị</H3>
+        <Box><Ln k="Số tiền" v={`${S.advAmt.toLocaleString("vi-VN")} ₫`} /><Ln k="Nhận vào" v="Tài khoản nhận lương" /><Ln k="Trừ vào" v={`Lương ${d.month.slice(5)}/${d.month.slice(0, 4)}`} />
+          <Ln k="Duyệt" v={`${d.approvers.join(" → ")}${d.hrOverAmount && S.advAmt > d.hrOverAmount ? " (thêm HR)" : ""}`} /></Box>
+        <T style={{ color: C.ink3, fontSize: 12 }}>{`Sau khi gửi, bạn không tạo thêm đề nghị tạm ứng trong tháng ${Number(d.month.slice(5))}.`}</T>
+        <Btn block spinKey="advConfirm" icon={<Ic n="lock" s={18} w={2} color="#fff" />} onPress={ACT.advConfirm}>Xác nhận bằng PIN</Btn>
+      </>;
+    } return <>
       <H3>Kiểm tra đề nghị</H3>
       <Box><Ln k="Số tiền" v={`${String(S.advAmt).replace(/\B(?=(\d{3})+(?!\d))/g, ".")} ₫`} /><Ln k="Nhận vào" v="Vietcombank •6789" /><Ln k="Trừ vào" v="Lương 10/2026" /><Ln k="Duyệt" v="QL → HR → Kế toán" /></Box>
       <T style={{ color: C.ink3, fontSize: 12 }}>Sau khi gửi, bạn không tạo thêm đề nghị tạm ứng trong tháng 10.</T>
       <Btn block icon={<Ic n="lock" s={18} w={2} color="#fff" />} onPress={ACT.advConfirm}>Xác nhận bằng PIN</Btn>
     </>;
     case "advCancel": return <>
-      <H3>Hủy đề nghị tạm ứng?</H3><Sub>Bạn có thể tạo đề nghị mới trước ngày {ADV_DAY}/10.</Sub>
-      <BtnRow><Btn kind="ghost" onPress={() => closeSheet()}>Giữ lại</Btn><Btn kind="danger" onPress={ACT.advCancelGo}>Hủy đề nghị</Btn></BtnRow>
+      <H3>Hủy đề nghị tạm ứng?</H3><Sub>{REMOTE && S.advData?.deadline ? `Bạn có thể tạo đề nghị mới đến hết ngày ${S.advData.deadline.slice(8)}/${S.advData.deadline.slice(5, 7)}.` : `Bạn có thể tạo đề nghị mới trước ngày ${ADV_DAY}/10.`}</Sub>
+      <BtnRow><Btn kind="ghost" onPress={() => closeSheet()}>Giữ lại</Btn><Btn kind="danger" spinKey="advCancelGo" onPress={ACT.advCancelGo}>Hủy đề nghị</Btn></BtnRow>
     </>;
     case "cancelAsk": return <>
       <H3>Hủy đơn {arg}?</H3><Sub>Đơn sẽ rời khỏi danh sách chờ của người duyệt.</Sub>

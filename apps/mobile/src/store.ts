@@ -9,12 +9,12 @@ import {
 import type { IllusKind } from "./illus";
 import { api, type Snapshot } from "./api";
 import { authenticate, biometricLabel, clearQuickLogin, clearSession, loadBioPrefs, loadSession, loadSupport, quickLoginEmployee, quickRefreshToken, saveBioPrefs, saveSession, saveSupport, type BioPrefs } from "./auth";
-import { ApiError, REMOTE, attendanceApi, authApi, companyApi, isNetworkError, leaveApi, notificationsApi, overtimeApi, setTokenSource, timesheetApi } from "./api/http";
+import { ApiError, REMOTE, advanceApi, attendanceApi, authApi, companyApi, isNetworkError, leaveApi, notificationsApi, overtimeApi, setTokenSource, timesheetApi } from "./api/http";
 import { clearExplainReminders, onReminderTap, scheduleExplainReminders } from "./notify";
 import { MY_REQ_INIT, SUPPORT_SAMPLE } from "./api/mock-data";
 import {
   EXPLANATION_KINDS, distanceMeters, passwordProblems,
-  type AttendanceEvent, type AttendanceToday, type AuthResult, type ExplanationKind, type AppNotification, type MyCompany, type MyLeave, type MyOvertime, type MyTimesheet, type NotificationFeed, type RequestItem, type SupportContact, type TimesheetDay, type WorkLocation,
+  type AttendanceEvent, type AttendanceToday, type AuthResult, type ExplanationKind, type AppNotification, type MyAdvance, type MyCompany, type MyLeave, type MyOvertime, type MyTimesheet, type NotificationFeed, type RequestItem, type SupportContact, type TimesheetDay, type WorkLocation,
 } from "@kavor/contracts";
 import { currentFix, deviceRegistration, deviceSummary, enqueue, flushQueue, installationId, LocationError, newEventId, quietFix, readQueue, type Fix } from "./attendance";
 
@@ -156,6 +156,8 @@ const makeState = () => ({
   lvr: { type: null as string | null, from: null as string | null, to: null as string | null },
   /* Làm thêm giờ (bản dùng API): ngày chọn trên form; giờ từ/đến dùng chung S.ot.from/to (phút) */
   otData: null as MyOvertime | null,
+  /* Tạm ứng (bản dùng API) */
+  advData: null as MyAdvance | null,
   otDay: null as string | null,
   /* Thông báo trong app (bản dùng API) */
   notifs: null as NotificationFeed | null,
@@ -242,9 +244,10 @@ export const leaveRange = (p: { from: string; to: string; half: string }) => `${
 export const dayCount = (n: number) => `${dec(n)} ngày`;
 export const reqSub = (r: RequestItem) => r.type === "leave" ? `${leaveRange(r.payload)} · ${dayCount(r.payload.days)}`
   : r.type === "overtime" ? `${WD_ISO[isoWeekday(r.payload.date)]} ${ddmm(r.payload.date)} · ${r.payload.start}–${r.payload.end} · ${dec(r.payload.hours)} giờ`
+  : r.type === "salary_advance" ? `${vnd(r.payload.amount)} · trừ lương ${r.payload.month.slice(5)}/${r.payload.month.slice(0, 4)}`
   : `${r.workDate ? `${WD_ISO[isoWeekday(r.workDate)]} ${ddmm(r.workDate)} · ` : ""}${EXPLANATION_KINDS[r.payload.kind].toLowerCase()}`;
-const reqTitle = (r: RequestItem) => r.type === "leave" ? r.payload.leaveTypeName : r.type === "overtime" ? "Làm thêm giờ" : "Giải trình công";
-const reqKind = (r: RequestItem) => (r.type === "leave" ? "leave" as const : r.type === "overtime" ? "ot" as const : "explain" as const);
+const reqTitle = (r: RequestItem) => r.type === "leave" ? r.payload.leaveTypeName : r.type === "overtime" ? "Làm thêm giờ" : r.type === "salary_advance" ? "Tạm ứng lương" : "Giải trình công";
+const reqKind = (r: RequestItem) => (r.type === "leave" ? "leave" as const : r.type === "overtime" ? "ot" as const : r.type === "salary_advance" ? "advance" as const : "explain" as const);
 export const tsDay = (date: string) => S.ts?.days.find((d) => d.date === date);
 /* Ngày còn giải trình được có hạn gần nhất (bản dùng API) — cho thông báo ở Trang chủ và menu tạo đơn */
 export function explainDue(): { date: string; deadline: string; daysLeft: number; issue: string } | null {
@@ -280,7 +283,7 @@ export async function loadRequests() {
     const [mine, ap] = await Promise.all([timesheetApi.mine(), timesheetApi.approvals()]);
     S.reqItems = new Map([...mine, ...ap.items].map((r) => [r.no, r]));
     /* Đơn giải trình, nghỉ phép, OT lấy từ máy chủ; tạm ứng/sửa hồ sơ chưa có máy chủ nên giữ đơn tạo trong phiên */
-    const local = S.myReq.filter((r) => r.type !== "explain" && r.type !== "leave" && r.type !== "ot" && !MOCK_REQ_IDS.has(r.id));
+    const local = S.myReq.filter((r) => r.type !== "explain" && r.type !== "leave" && r.type !== "ot" && r.type !== "advance" && !MOCK_REQ_IDS.has(r.id));
     S.myReq = [...mine.map((r) => ({
       id: r.no, type: reqKind(r), title: reqTitle(r), sub: reqSub(r), status: r.status, created: stamp(r.submittedAt), reason: r.payload.reason,
       note: r.steps.find((x) => x.status === "rejected")?.comment ?? undefined,
@@ -319,6 +322,17 @@ function otDefaults(d?: string) {
   const start = day.shift ? Math.ceil(toMin(day.shift.end) / 30) * 30 : 8 * 60;
   S.ot.from = start; S.ot.to = Math.min(start + 120, 23 * 60 + 30);
 }
+export async function loadAdvance(manual = false) {
+  if (!REMOTE || !isLoggedIn() || S.stack[0] === "consent") return;
+  try {
+    S.advData = await advanceApi.get();
+    if (S.advAmt > S.advData.limit) S.advAmt = Math.max(S.advData.policy?.minAmount ?? 0, Math.floor(S.advData.limit / 2 / 100000) * 100000);
+    emit();
+  } catch (e) {
+    if (e instanceof ApiError && e.status === 401) showErr("session");
+    else if (manual) toast(e instanceof ApiError ? e.message : "Chưa tải được dữ liệu tạm ứng.");
+  }
+}
 export async function loadOvertime(manual = false) {
   if (!REMOTE || !isLoggedIn() || S.stack[0] === "consent") return;
   try { S.otData = await overtimeApi.get(); if (!S.otDay || !S.otData.days.some((x) => x.date === S.otDay)) otDefaults(); emit(); }
@@ -327,7 +341,7 @@ export async function loadOvertime(manual = false) {
     else if (manual) toast(e instanceof ApiError ? e.message : "Chưa tải được dữ liệu làm thêm.");
   }
 }
-const refreshWork = () => { void loadTimesheet(S.ts?.period.month); void loadRequests(); void loadNotifications(); void loadLeave(); void loadOvertime(); };
+const refreshWork = () => { void loadTimesheet(S.ts?.period.month); void loadRequests(); void loadNotifications(); void loadLeave(); void loadOvertime(); void loadAdvance(); };
 export const unreadCount = () => (REMOTE ? S.notifs?.unread ?? 0 : 2);
 
 /* Bấm nhắc hạn giải trình → mở form giải trình ngày đó (đăng nhập xong mới mở; khi app vừa khởi động thì đợi khôi phục phiên) */
@@ -345,6 +359,7 @@ export function lvrCount() {
 }
 export const pendingCount = () => (S.role === "manager" ? S.approvals.length : 0);
 export function advEligible(): [string, string] | null {
+  if (REMOTE) return S.advData?.ineligible ?? (S.advData ? null : ["Đang tải…", "Cần kết nối mạng để xem hạn mức tạm ứng."]);
   if (S.contract === "probation") return ["Chưa áp dụng cho nhân viên thử việc", "Bạn có thể tạm ứng sau khi ký hợp đồng chính thức."];
   if (S.contract === "leaving") return ["Không áp dụng trong thời gian báo trước nghỉ việc", "Lương cuối được thanh toán đủ theo quy trình nghỉ việc."];
   return null;
@@ -397,6 +412,7 @@ export function go(r: Route) {
   if (r === "notifications" && REMOTE) openNotifications();
   if ((r === "leave" || r === "leaveNew") && REMOTE) void loadLeave(true);
   if (r === "ot" && REMOTE) void loadOvertime(true);
+  if ((r === "advance" || r === "advanceNew" || r === "advanceDetail") && REMOTE) void loadAdvance(true);
   closeSheet();
   if (S.net === "offline" && NEEDNET[r]) { S.err = { kind: "offline", retry: r, over: { t: "Cần kết nối để xem", p: "Phiếu lương và tạm ứng không lưu trên máy vì lý do bảo mật. Kết nối mạng rồi thử lại." } }; S.stack.push("err"); render("push"); return; }
   if (GATED[r] && Date.now() > S.pinUntil) { openPin(() => { S.stack.push(r); render("push"); }); return; }
@@ -985,6 +1001,16 @@ export const ACT = {
   advReview: () => { if (advError()) return; openSheet("advReview"); },
   advConfirm: () => {
     if (!needNet(() => ACT.advConfirm())) return; closeSheet(true);
+    if (REMOTE) {
+      /* Xác nhận bằng PIN rồi gửi đơn thật; máy chủ kiểm tra lại hạn mức, hạn nhận đơn, mỗi tháng một lần */
+      openPin(() => remote("advConfirm", async () => {
+        const r = await advanceApi.create({ amount: S.advAmt, reason: S.advReason.trim() || null });
+        S.advReason = ""; S.param = r.no;
+        await Promise.all([loadAdvance(), loadRequests()]);
+        S.stack = ["home", "advance", "advanceDetail"]; render("push"); toast(`Đã gửi đề nghị tạm ứng ${r.no}`);
+      }));
+      return;
+    }
     openPin(() => {
       S.advance = { id: "TU-1016", amount: S.advAmt, step: 1, created: "16/10 " + hm(simNow()), reason: S.advReason };
       const req: MyReq = { id: "TU-1016", type: "advance", title: "Tạm ứng lương", sub: vnd(S.advAmt) + " · trừ kỳ 10/2026", status: "pending", created: S.advance.created, reason: S.advReason || "—", adv: true };
@@ -994,7 +1020,16 @@ export const ACT = {
   },
   advStep: () => { const a = S.advance!; a.step = Math.min(5, a.step + 1); if (a.step >= 4) { const r = S.myReq.find((x) => x.id === a.id); if (r) r.status = "approved"; } emit(); },
   advCancel: () => openSheet("advCancel"),
-  advCancelGo: () => { const r = S.myReq.find((x) => x.id === S.advance!.id); if (r) { r.status = "cancelled"; sync(api.cancelRequest(r.id)); } S.advance = null; closeSheet(); S.stack = ["home", "advance"]; render("pop"); toast("Đã hủy đề nghị tạm ứng"); },
+  advCancelGo: () => {
+    const cur = REMOTE ? S.advData?.current : null;
+    if (cur) {
+      remote("advCancelGo", async () => {
+        await timesheetApi.cancel(cur.id);
+        await Promise.all([loadAdvance(), loadRequests()]);
+        closeSheet(); S.stack = ["home", "advance"]; render("pop"); toast(`Đã hủy đề nghị tạm ứng ${cur.no}`);
+      });
+      return;
+    } const r = S.myReq.find((x) => x.id === S.advance!.id); if (r) { r.status = "cancelled"; sync(api.cancelRequest(r.id)); } S.advance = null; closeSheet(); S.stack = ["home", "advance"]; render("pop"); toast("Đã hủy đề nghị tạm ứng"); },
   reqTab: (a: "mine" | "approve") => { S.reqTab = a; S.selectMode = false; S.sel.clear(); emit(); },
   reqFilter: (a: string) => { S.reqFilter = a; emit(); },
   newsCat: (a: string) => { S.newsCat = a; emit(); },
@@ -1135,6 +1170,11 @@ export const ACT = {
 };
 
 export function advError() {
+  if (REMOTE) {
+    const d = S.advData, min = d?.policy?.minAmount ?? 0, v = S.advAmt;
+    if (!d) return "Đang tải hạn mức…";
+    return v > d.limit ? `Vượt hạn mức. Tối đa ${vnd(d.limit)}.` : v < min ? `Tối thiểu ${vnd(min)}.` : v % 10000 ? "Số tiền theo bước 10.000 ₫." : "";
+  }
   const lim = advLimit(), v = S.advAmt;
   return v > lim ? `Vượt hạn mức. Tối đa ${vnd(lim)}.` : v < 500000 ? "Tối thiểu 500.000 ₫." : "";
 }
@@ -1145,7 +1185,8 @@ export function quickItems(): Array<[string, "tap" | "plane" | "clock" | "moon" 
     ["leaveNew", "plane", "Xin nghỉ phép", `Còn ${dec(lvAvail())} ngày phép`],
     ["explain", "clock", "Giải trình công", REMOTE ? (S.ts?.explanation ? `Còn ${explainLeft()}/${S.explainLimit} lượt${explainDue() ? ` · hạn ${ddmm(explainDue()!.deadline)}` : ""}` : "Theo bảng công") : `Còn ${explainLeft()}/3 lượt · hạn 22/10`],
     ["ot", "moon", "Làm thêm giờ", REMOTE && S.otData?.policy ? `Tháng này ${dec(S.otData.usage.monthHours)}/${dec(S.otData.policy.monthlyLimitHours)} giờ` : "Đăng ký OT"],
-    ["advance", "cash", "Tạm ứng lương", advEligible() ? "Chưa áp dụng" : S.advance ? "Đã dùng lượt tháng này" : "Hạn mức 4,5 triệu"],
+    ["advance", "cash", "Tạm ứng lương", REMOTE ? (!S.advData ? "Xem hạn mức" : S.advData.ineligible ? "Chưa áp dụng" : S.advData.current ? "Đã dùng lượt tháng này" : `Hạn mức ${vnd(S.advData.limit)}`)
+      : advEligible() ? "Chưa áp dụng" : S.advance ? "Đã dùng lượt tháng này" : "Hạn mức 4,5 triệu"],
     ["payslips", "receipt", "Phiếu lương", "Tháng 09/2026"],
     ["_edit", "user", "Sửa hồ sơ", "Gửi HR duyệt"],
   ];

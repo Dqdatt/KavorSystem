@@ -17,6 +17,7 @@ import { viewerOf } from "../timesheet/requests.service.js";
 import type { NotificationsService } from "../notifications/notifications.service.js";
 import type { LeaveService } from "../leave/leave.service.js";
 import type { OvertimeService } from "../overtime/overtime.service.js";
+import type { AdvanceService } from "../advance/advance.service.js";
 import type { TimesheetAdmin } from "../timesheet/timesheet-admin.service.js";
 import { date, nullableText, oneOf, type Body as Json } from "./validate.js";
 
@@ -24,7 +25,7 @@ export const ADMIN_SERVICES = Symbol("ADMIN_SERVICES");
 export type AdminServices = {
   employees: EmployeesAdmin; attendance: AttendanceAdmin; schedule: ScheduleAdmin;
   settings: SettingsAdmin; rules: RulesAdmin; mfa: MfaAdmin; company: CompanyService;
-  timesheets: TimesheetAdmin; requests: RequestsService; notifications: NotificationsService; leave: LeaveService; overtime: OvertimeService;
+  timesheets: TimesheetAdmin; requests: RequestsService; notifications: NotificationsService; leave: LeaveService; overtime: OvertimeService; advance: AdvanceService;
 };
 
 function bearer(header?: string): string {
@@ -216,6 +217,16 @@ export class AdminController {
   /* Làm thêm giờ: tổng hợp theo tháng trong phạm vi */
   @Get("overtime")
   overtimeBoard(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Query("month") month?: string) { return this.run(r, a, (s, c) => s.overtime.board(c, month)); }
+
+  /* Tạm ứng lương (Kế toán): danh sách theo tháng khấu trừ, xác nhận đã chi; lương cơ bản */
+  @Get("advances")
+  advances(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Query("month") month?: string) { return this.run(r, a, (s, c) => s.advance.board(c, month)); }
+  @Post("advances/:requestId/paid") @HttpCode(200)
+  advancePaid(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("requestId") id: string, @Body() b: Json) { return this.run(r, a, (s, c) => s.advance.markPaid(c, id, b)); }
+  @Get("compensations")
+  compensations(@Req() r: CorrelatedRequest, @Headers("authorization") a?: string) { return this.run(r, a, (s, c) => s.advance.compensations(c)); }
+  @Post("compensations/:employeeId") @HttpCode(200)
+  compensationSet(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("employeeId") id: string, @Body() b: Json) { return this.run(r, a, (s, c) => s.advance.setCompensation(c, id, b)); }
 
   /* Thông báo của chính người đăng nhập web (hồ sơ nhân viên gắn với tài khoản) */
   @Get("notifications")
