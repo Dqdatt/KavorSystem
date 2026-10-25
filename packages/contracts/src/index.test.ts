@@ -37,7 +37,7 @@ import { checkRuleConfig } from "./index.js";
 test("rule config keeps declared fields and rejects bad values", () => {
   const ok = checkRuleConfig("explanation", { monthlyLimit: 3, deadlineDays: 3, extra: "x" });
   assert.deepEqual(ok, { config: { monthlyLimit: 3, deadlineDays: 3 }, problems: [] });
-  const bad = checkRuleConfig("salary_advance", { enabled: "yes", maxPercent: 120, excludeProbation: true, excludeNoticePeriod: false });
+  const bad = checkRuleConfig("salary_advance", { enabled: "yes", maxPercent: 120, excludeProbation: true, excludeNoticePeriod: false, deadlineDay: 20, minAmount: 500000 });
   assert.equal(bad.problems.length, 2);
   assert.equal(checkRuleConfig("reminder", null).problems.length, 3);
   assert.equal(checkRuleConfig("explanation", { monthlyLimit: 2.5, deadlineDays: 3 }).problems.length, 1);

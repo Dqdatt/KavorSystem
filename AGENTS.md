@@ -1,5 +1,17 @@
 # AGENTS.md
 
+## Cách làm việc (bắt buộc — đọc `docs/AGENT_PLAYBOOK.md` trước khi bắt đầu bất kỳ việc gì)
+
+- Đọc file trước khi sửa; đọc `PROGRESS.md` và tài liệu nghiệp vụ liên quan trước khi làm module. Không đoán tên API/cột/hàm.
+- Không báo "xong" khi chưa chạy kiểm tra: dán lệnh + kết quả thật (typecheck, test, smoke, ảnh chụp). Chưa kiểm thì ghi "chưa kiểm tra".
+- Bước nhỏ, kiểm ngay sau mỗi bước. Cùng một lỗi sửa 2 lần chưa được → dừng đoán, đo nguyên nhân (log/DB/curl/ảnh) hoặc hỏi người dùng.
+- Chuyển prototype → native: port nguyên văn từng màn (chép giá trị CSS, chữ, thứ tự), mỗi màn chụp + ghép ảnh bằng `tools/ui-compare/`
+  rồi mới sang màn khác; đổi component dùng chung thì chụp lại toàn bộ. Chỉ ảnh ghép mới là bằng chứng "khớp".
+- Làm theo khuôn module có sẵn (migration → pgTAP → contracts → API → smoke → web → mobile → kiểm thử tổng → PROGRESS). Không sửa lan ngoài yêu cầu.
+- Kiểm tra toàn bộ: `bash tools/verify-all.sh` (bản `--quick` khi đang làm). Phải đạt trước khi báo xong/commit/bàn giao.
+- Nhiều agent: mỗi lần một agent; bắt đầu bằng `git status` sạch + đọc `PROGRESS.md`, ghi "Đang làm: <agent>"; không force-push/rebase;
+  **không sửa migration đã push** (tạo migration mới). Chi tiết: `docs/AGENT_PLAYBOOK.md` mục 4.
+
 ## Kiến trúc
 
 - Monorepo pnpm/Turborepo: `apps/admin-web` và `apps/console-web` là Next.js; `apps/mobile` là Expo/React Native; `apps/api` là backend TypeScript; `packages/contracts` chứa contract dùng chung; `packages/web-ui` chứa UI web dùng chung; `supabase/` chứa cấu hình/migration PostgreSQL.

@@ -2,9 +2,13 @@
 _Cập nhật: 2026-10-24 — bởi Claude (Opus 5.5)_
 
 ## Mục tiêu đang làm
-Tạm ứng lương đã xong và đã thử trên iPhone (25/10, xem "Đã xong"). Bước kế tiếp: payroll (nhập kết quả lương, phiếu lương).
+Bàn giao (25/10): Claude dừng ở đây, dự án chuyển sang Codex. Bước kế tiếp: **Payroll** theo `docs/plans/payroll.md`. Mọi agent làm theo `docs/AGENT_PLAYBOOK.md`; kiểm tra toàn bộ bằng `bash tools/verify-all.sh`.
 
 ## Đã xong
+- Bàn giao cho agent khác (25/10): `docs/AGENT_PLAYBOOK.md` (nguyên tắc, cách port prototype → native có đối chiếu ảnh, khuôn module 11 bước,
+  quy tắc nhiều agent: một agent một lúc, ghi "Đang làm", không force-push, không sửa migration đã push), mục bắt buộc ở đầu `AGENTS.md`,
+  `tools/verify-all.sh` (typecheck + unit test + pgTAP + mọi smoke trên DB mới + build + lint, một lệnh), kế hoạch `docs/plans/payroll.md`.
+  Khi viết lệnh kiểm tra phát hiện test contracts hỏng từ commit tạm ứng (quy định tạm ứng thêm 2 trường) → đã sửa test.
 - Tạm ứng lương (25/10), theo PILOT_RULEBOOK §9, PERMISSION_MATRIX (Payroll) và DATABASE_SCHEMA §11:
   - DB `202610300001_salary_advance.sql`: vai trò hệ thống **Kế toán** (`payroll`) với `salary_advance.process`, `compensation.read`, `compensation.manage` (+ `request.read`, `employee.read`); HR/Tenant Admin/Quản lý mặc định **không** xem lương. Lương cơ bản `employee_compensations` (phiên bản theo ngày hiệu lực, không sửa/xóa, RLS: chính mình hoặc có `compensation.read`). Bước duyệt mới **Kế toán** (resolver `payroll`, người duyệt = có `salary_advance.process` với người gửi — `step_reviewers` dùng chung cho HR/Kế toán), bước có điều kiện `amountOver`. Đơn `request_type 'salary_advance'` (TU-0001) tạo nguyên tử bằng `create_advance_request`; `salary_advances` (số tiền, tháng khấu trừ, đã chi ai/khi nào/ghi chú; mỗi tháng một đơn đang chờ/đã duyệt; chỉ ghi nhận đã chi một lần khi đơn đã duyệt) + thông báo `advance.paid`. Quy định tạm ứng thêm `deadlineDay` (31 = cuối tháng) và `minAmount`. Mẫu: 30% lương cơ bản, tối thiểu 500.000, nhận đơn đến hết ngày 20, luồng Quản lý → HR (trên 5 triệu) → Kế toán. pgTAP `salary_advance.test.sql` 13 test (tổng 192).
   - API `apps/api/src/advance`: `/me/advance` (hạn mức = lương cơ bản × %, làm tròn xuống 10.000; điều kiện: chưa áp dụng, tắt, thử việc, đang báo trước nghỉ việc, chưa có lương cơ bản; hạn nhận đơn; đơn tháng này; lịch sử; người duyệt dự kiến), `/me/requests/advance` (tối thiểu, bước 10.000, hạn mức, hạn nhận đơn, mỗi tháng một lần; không chụp lương vào đơn để người duyệt không thấy lương), `/admin/advances?month=` + `/admin/advances/:id/paid` (Kế toán; không tự chi đơn của mình), `/admin/compensations` (+ đổi lương; nhật ký không ghi số tiền). Luồng duyệt: phạm vi theo quyền từng bước (HR/Kế toán).
@@ -81,7 +85,7 @@ Tạm ứng lương đã xong và đã thử trên iPhone (25/10, xem "Đã xong
 - Kiểm tra ngày 22/10: `pnpm turbo run typecheck test build --force` pass 18/18 task (test thật chỉ có contracts 2 + api 2)
 
 ## Đang dở (QUAN TRỌNG NHẤT)
-- Không có việc dở. DB local đang có dữ liệu thử trên iPhone (HD0142, HDG0003, Kế toán HD0215 đã kích hoạt; TU-0001 đã chi; HD0142 có quy định tạm ứng riêng hạn đến cuối tháng); chạy smoke thì reset trước và iPhone phải kích hoạt lại. Chưa thử từ chối/hủy đơn và duyệt trên app bằng tài khoản quản lý trên máy thật (smoke đã kiểm). Thử duyệt trên app: kích hoạt quản lý HDG0003 (huy.le@example.test) ở máy khác/simulator. Thử Console: `OPERATOR_PASSWORD='…' bash tools/create-operator.sh <email> "<Họ tên>"` (tạo 2 người để thử duyệt khôi phục), `pnpm dev:console` → http://localhost:3001, lần đầu liên kết ứng dụng xác thực.
+- Không có việc dở, không ai đang làm. DB local vừa reset về dữ liệu mẫu khi chạy `verify-all.sh` (iPhone phải kích hoạt lại HD0142; thử tạm ứng sau ngày 20 cần quy định riêng hạn 31 — xem smoke tạm ứng). Chưa thử từ chối/hủy đơn và duyệt trên app bằng tài khoản quản lý trên máy thật (smoke đã kiểm). Thử duyệt trên app: kích hoạt quản lý HDG0003 (huy.le@example.test) ở máy khác/simulator. Thử Console: `OPERATOR_PASSWORD='…' bash tools/create-operator.sh <email> "<Họ tên>"` (tạo 2 người để thử duyệt khôi phục), `pnpm dev:console` → http://localhost:3001, lần đầu liên kết ứng dụng xác thực.
 - Cài bản mới lên iPhone: build `xcodebuild -workspace ios/Kavor.xcworkspace -scheme Kavor -configuration Release -destination 'generic/platform=iOS' -derivedDataPath ios/build-device -allowProvisioningUpdates build` (trong `apps/mobile`, có `EXPO_PUBLIC_API_URL`, xóa `$TMPDIR/metro-cache` trước) rồi `xcrun devicectl device install app --device 36F8CE4A-8C04-5232-AB9D-0041A426F6A0 ios/build-device/Build/Products/Release-iphoneos/Kavor.app`. Nếu devicectl báo "unavailable": mở khóa iPhone, bấm Tin cậy, cắm cáp dữ liệu.
 - Reset DB local: dùng `bash tools/db-reset.sh` (sau `supabase db reset` Kong giữ IP cũ của Auth → 502).
 - Bản trên iPhone trỏ tới API `http://192.168.1.83:4000/api/v1` (IP LAN của Mac ngày 25/10; trước là 192.168.1.22, 192.168.1.25, 172.17.91.14). App báo "không kết nối máy chủ" thì kiểm tra `ipconfig getifaddr en0` trước — IP đổi thì phải build lại: Mac phải chạy `pnpm dev:backend`, cùng Wi-Fi. IP Mac đổi thì phải build lại app.
@@ -131,7 +135,8 @@ Tạm ứng lương đã xong và đã thử trên iPhone (25/10, xem "Đã xong
 - Trên bản dev, gõ phím "r" khi không focus ô nhập sẽ làm Metro reload (chỉ ảnh hưởng dev).
 
 ## Bước tiếp theo
-1. Payroll (nhập kết quả lương từ Google Sheets, duyệt, phiếu lương) → bản tin/tài liệu.
+1. Payroll — làm theo `docs/plans/payroll.md` (đã chốt phạm vi, bảng, quyền, CSV, API, web, mobile, kiểm thử).
+2. Bản tin / tài liệu.
 - Push từ máy chủ khi app tắt (APNs/FCM) cần tài khoản Apple Developer trả phí → làm khi mua (xem "Quyết định đã chốt"); lúc đó thay luôn việc E19 hỏi lại 8 giây/lần.
 - Staging: **hoãn tới khi hệ thống hoàn thiện** (quyết định 24/10). Phương án đã phân tích sẵn: Render Singapore cho API + 2 web (~$21/tháng, địa chỉ onrender.com, chưa cần domain), Gmail SMTP như CarRental cho OTP và thư mời, project Supabase `KavorSystem` (Singapore) làm staging, chỉ dùng dữ liệu mẫu; cần đổi các giá trị localhost trong `supabase/config.toml` sang biến môi trường trước khi `config push`.
 - Ngoài luồng chính: test component cho admin-web; Sentry; số liệu luật cần HR/Payroll SME xác nhận trước pilot; pháp lý chuyển dữ liệu ra nước ngoài (Nghị định 13/2023, dữ liệu ở Singapore) trước khi có dữ liệu thật.
@@ -140,6 +145,7 @@ Tạm ứng lương đã xong và đã thử trên iPhone (25/10, xem "Đã xong
 - Không có.
 
 ## Nhật ký
+- 2026-10-25 — Bàn giao sang Codex: playbook cách làm việc, `tools/verify-all.sh`, kế hoạch payroll; sửa test contracts hỏng.
 - 2026-10-25 — Tạm ứng lương: vai trò Kế toán, lương cơ bản có phiên bản, đơn tạm ứng mỗi tháng một lần theo hạn mức, Quản lý → HR (trên 5 triệu) → Kế toán, xác nhận đã chi + thông báo; web trang Tạm ứng lương + Lương cơ bản; mobile đọc từ API.
 - 2026-10-25 — Sửa lệch múi giờ: hàm phân quyền/phạm vi SQL và Console dùng ngày theo múi giờ công ty thay vì UTC (trước đây 0:00–7:00 vai trò/phân công mới chưa có hiệu lực).
 - 2026-10-25 — Làm thêm giờ: quy định OT có tầng theo luật, đơn OT bội số 30 phút ngoài ca chính, giới hạn ngày/tháng/năm, Quản lý → HR, bảng công có giờ OT; web HR tab Làm thêm giờ; mobile đọc từ API.
