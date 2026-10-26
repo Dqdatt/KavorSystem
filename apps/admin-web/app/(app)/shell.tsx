@@ -7,9 +7,10 @@ import { useRealtimeStatus } from "../_lib/client";
 import { Icon, MeContext, ToastProvider, can, initials, longDate } from "../_ui/kit";
 import { NotificationBell } from "../_ui/notifications";
 
-type NavItem = { href: string; label: string; icon: string; perm?: string };
-/* Chỉ hiện trang của module đã làm (chấm công, nghỉ phép, đơn & phê duyệt, cài đặt doanh nghiệp). Các mục khác của prototype (Tổ chức,
-   Lương, Tài liệu, Bản tin, Tích hợp, Báo cáo, Phân quyền) sẽ thêm khi module tương ứng tới lượt. */
+/* perm dạng mảng = có một trong các quyền là thấy mục */
+type NavItem = { href: string; label: string; icon: string; perm?: string | string[] };
+/* Chỉ hiện trang của module đã làm (chấm công, nghỉ phép, đơn & phê duyệt, lương & tạm ứng, cài đặt doanh nghiệp). Các mục khác của
+   prototype (Tổ chức, Tài liệu, Bản tin, Tích hợp, Báo cáo, Phân quyền) sẽ thêm khi module tương ứng tới lượt. */
 const NAV: Array<{ label?: string; items: NavItem[] }> = [
   { items: [{ href: "/", label: "Tổng quan", icon: "home" }] },
   { label: "Nhân sự", items: [{ href: "/employees", label: "Nhân viên", icon: "users", perm: "employee.read" }] },
@@ -19,9 +20,9 @@ const NAV: Array<{ label?: string; items: NavItem[] }> = [
     { href: "/leave", label: "Nghỉ phép", icon: "plane", perm: "leave.read" },
   ] },
   { label: "Vận hành", items: [{ href: "/requests", label: "Đơn & phê duyệt", icon: "checks", perm: "request.read" }] },
-  { label: "Tài chính", items: [{ href: "/advances", label: "Tạm ứng lương", icon: "pay", perm: "salary_advance.process" }] },
+  { label: "Tài chính", items: [{ href: "/payroll", label: "Lương & tạm ứng", icon: "pay", perm: ["payroll.read", "salary_advance.process", "compensation.read"] }] },
 ];
-const TITLES: Record<string, string> = { "/": "Tổng quan", "/employees": "Nhân viên", "/attendance": "Chấm công", "/schedules": "Ca & địa điểm", "/settings": "Cài đặt doanh nghiệp", "/requests": "Đơn & phê duyệt", "/leave": "Nghỉ phép", "/advances": "Tạm ứng lương" };
+const TITLES: Record<string, string> = { "/": "Tổng quan", "/employees": "Nhân viên", "/attendance": "Chấm công", "/schedules": "Ca & địa điểm", "/settings": "Cài đặt doanh nghiệp", "/requests": "Đơn & phê duyệt", "/leave": "Nghỉ phép", "/payroll": "Lương & tạm ứng" };
 
 function today(tz: string) {
   return new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
@@ -53,7 +54,7 @@ export function Shell({ me, children }: { me: AdminMe; children: ReactNode }) {
               <button className="collapse-btn" onClick={() => setMenu(false)} aria-label="Đóng menu">‹</button>
             </div>
             {NAV.map((g, i) => {
-              const items = g.items.filter((it) => !it.perm || can(me, it.perm));
+              const items = g.items.filter((it) => !it.perm || [it.perm].flat().some((p) => can(me, p)));
               if (!items.length) return null;
               return (
                 <div key={i}>

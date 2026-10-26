@@ -3,6 +3,8 @@
 > Viết bởi Claude ngày 25/10/2026 sau khi đọc PILOT_RULEBOOK §10, DATABASE_SCHEMA §11, PERMISSION_MATRIX (Payroll),
 > prototype HR `page-payroll` (modal `payrollImport`) và prototype mobile `payslips`/`payslip`.
 > Cập nhật 25/10/2026: triển khai riêng phần DB bởi Codex; API/web/mobile còn ở bước sau.
+> Cập nhật 26/10/2026: contracts/API/smoke + phiếu mobile (Codex); web `/payroll` tab Kỳ lương/Tạm ứng/Lương cơ bản (Claude).
+> Còn lại: export/PDF, mở lại published/paid/closed (cần phiên bản phiếu công bố).
 > Người làm tiếp: đọc `docs/AGENT_PLAYBOOK.md` mục 3 (khuôn module) và làm đúng thứ tự dưới đây.
 
 ## Chế độ

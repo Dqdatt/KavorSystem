@@ -1,10 +1,27 @@
 # PROGRESS
-_Cập nhật: 2026-10-26 — bởi Codex_
+_Cập nhật: 2026-10-26 — bởi Claude_
 
 ## Mục tiêu đang làm
-Payroll theo `docs/plans/payroll.md`: DB + contracts + API + smoke và phiếu cá nhân mobile đã nối API; đã cài bản sửa thông báo lên iPhone qua Wi-Fi (26/10), người dùng xác nhận các thao tác payroll khác ổn; vòng chờ Face ID đã sửa và cài lại. Ba smoke cũ phụ thuộc ngày đầu kỳ đã sửa sau khi được duyệt; kiểm tra tổng 26/10 TẤT CẢ ĐẠT, DB/Auth và app iPhone đã khôi phục. Web payroll làm ở phiên được giao tiếp. Mọi agent làm theo `docs/AGENT_PLAYBOOK.md`; kiểm tra toàn bộ bằng `bash tools/verify-all.sh`.
+Payroll theo `docs/plans/payroll.md`: DB + contracts + API + smoke, phiếu cá nhân mobile và **web `/payroll`** đã xong (web thử bằng trình duyệt tự động trong phiên cloud, chưa thử trên Mac của người dùng). Còn export/PDF và mở lại kỳ đã công bố. Mọi agent làm theo `docs/AGENT_PLAYBOOK.md`; kiểm tra toàn bộ bằng `bash tools/verify-all.sh`.
 
 ## Đã xong
+- Web payroll (26/10, Claude, nhánh `claude/ecstatic-pascal-dblg7v`): mục menu Tài chính đổi thành **Lương & tạm ứng** `/payroll`
+  (hiện khi có một trong `payroll.read` / `salary_advance.process` / `compensation.read`), tab theo quyền:
+  - **Kỳ lương** (`payroll/cycles.tsx`, bám `page-payroll` + modal `payrollImport` của prototype HR): chọn kỳ, Mở kỳ lương (tháng +
+    ngày trả, mặc định tháng sau kỳ mới nhất, ngày 05 tháng kế), banner + "Tải file mẫu" (chỉ header theo danh mục thành phần),
+    4 chỉ số, "Danh sách lỗi cần xử lý" (lỗi chặn + cảnh báo đối chiếu, nhóm theo mã, "Tải file lỗi" CSV), "Quy trình kỳ lương"
+    6 bước theo trạng thái + nhật ký, bảng kết quả (bấm xem phiếu Thu nhập/Khấu trừ/Thực lĩnh), lịch sử nhập file.
+    Nút chuyển trạng thái lấy từ `actions` của API (người nhập lần cuối không thấy nút Duyệt, hiện "Chờ Kế toán khác duyệt");
+    Mở lại (approved → prepared) dùng `ReasonModal`. Thiết kế bổ sung: chọn/mở kỳ, bảng kết quả, lịch sử nhập, nhật ký, bước 5–6.
+  - **Tạm ứng** và **Lương cơ bản**: chuyển nguyên từ trang cũ sang `payroll/advances.tsx`; `/advances` chuyển hướng sang
+    `/payroll?tab=advances|salary`.
+  - Sửa API `detail`: lỗi `EMPLOYEE_UNKNOWN` của mã không thuộc công ty (gõ sai, mã tenant khác) bị bộ lọc phạm vi ẩn khỏi danh sách
+    lỗi (toast báo 3 lỗi, trang chỉ hiện 2). Nay chỉ ẩn mã của nhân viên công ty nằm ngoài phạm vi người xem; smoke payroll thêm 1 bước.
+  - Kiểm tra: E2E Playwright trên Supabase local + API + `pnpm dev:admin` (phiên cloud): Kế toán 1 mở kỳ → nhập file lỗi (3 lỗi
+    hiện đủ) → nhập file đúng 9 dòng → gửi kiểm tra (không có nút Duyệt) → Kế toán 2 duyệt → công bố → xem phiếu → đã trả → đóng;
+    `/advances` chuyển hướng đúng; màn 390 px không tràn. `bash tools/verify-all.sh` đầy đủ: TẤT CẢ ĐẠT — typecheck, unit,
+    pgTAP 301, smoke advance 31 · attendance 19 · auth 15 · console 44 · hr 64 · leave 39 · notifications 21 · overtime 28 ·
+    payroll 105 · settings 74 · timesheet 48, build, lint DB. Admin-web vẫn chưa có test tự động (placeholder).
 - Sửa smoke đầu kỳ công (26/10, Codex; người dùng duyệt đúng 3 script leave/notifications/timesheet):
   - Leave chọn ngày làm việc đã qua gần nhất từ API; khi kỳ mới chưa có ngày đã qua thì đọc kỳ trước,
     đối chiếu bảng công đúng tháng chứa ngày nghỉ. Năm lấy từ `today` của tenant thay ngày máy Mac.
@@ -195,8 +212,11 @@ Payroll theo `docs/plans/payroll.md`: DB + contracts + API + smoke và phiếu c
 - Kiểm tra ngày 22/10: `pnpm turbo run typecheck test build --force` pass 18/18 task (test thật chỉ có contracts 2 + api 2)
 
 ## Đang dở (QUAN TRỌNG NHẤT)
+- Web payroll `/payroll` nằm trên nhánh `claude/ecstatic-pascal-dblg7v` (phiên cloud), **chưa vào main**; người dùng cần thử trên
+  Mac (`pnpm dev:admin`, Kế toán HD0215 nhập + HD0216 duyệt) rồi quyết định merge. DB của phiên cloud là container riêng — DB local
+  trên Mac không bị đụng tới. Vòng chờ Face ID trên iPhone vẫn chờ người dùng thử lại.
 - Payroll DB/contracts/API/smoke đã đạt verify đầy đủ; người dùng đã yêu cầu commit và push các thay đổi hoàn tất lên main ngày 26/10.
-  Mobile phiếu cá nhân đã nối API, người dùng xác nhận các thao tác khác ổn; đã cài bản sửa vòng chờ Face ID. Web payroll chưa triển khai; chưa có export/PDF. Mở lại published/paid/closed
+  Mobile phiếu cá nhân đã nối API, người dùng xác nhận các thao tác khác ổn; đã cài bản sửa vòng chờ Face ID. Chưa có export/PDF. Mở lại published/paid/closed
   cần thiết kế phiên bản phiếu công bố ở phiên sau.
 - DB local có kỳ lương mẫu 2026-10 đã công bố cho HD0142 để thử thông báo, hai tài khoản Kế toán đã kích hoạt qua API;
   HD0142 đã kích hoạt trên iPhone, dữ liệu/auth được giữ sau verify. Không reset DB nếu người dùng đang thử. Tạm ứng sau ngày 20 cần
@@ -254,8 +274,8 @@ Payroll theo `docs/plans/payroll.md`: DB + contracts + API + smoke và phiếu c
 - Trên bản dev, gõ phím "r" khi không focus ô nhập sẽ làm Metro reload (chỉ ảnh hưởng dev).
 
 ## Bước tiếp theo
-1. Người dùng thử lại riêng vòng chờ Face ID trên iPhone. Ba smoke đã sửa và verify-all đã đạt đầy đủ. Phiên tiếp theo được giao làm web theo
-   `docs/plans/payroll.md` để nhập CSV/duyệt/công bố qua UI; contracts/API đã có. Export/PDF để sau.
+1. Người dùng thử web `/payroll` trên Mac (nhánh `claude/ecstatic-pascal-dblg7v`) và thử lại vòng chờ Face ID trên iPhone; ổn thì merge vào main.
+   Export/PDF phiếu lương và mở lại kỳ đã công bố để sau.
 2. Bản tin / tài liệu.
 - Push từ máy chủ khi app tắt (APNs/FCM) cần tài khoản Apple Developer trả phí → làm khi mua (xem "Quyết định đã chốt"); lúc đó thay luôn việc E19 hỏi lại 8 giây/lần.
 - Staging: **hoãn tới khi hệ thống hoàn thiện** (quyết định 24/10). Phương án đã phân tích sẵn: Render Singapore cho API + 2 web (~$21/tháng, địa chỉ onrender.com, chưa cần domain), Gmail SMTP như CarRental cho OTP và thư mời, project Supabase `KavorSystem` (Singapore) làm staging, chỉ dùng dữ liệu mẫu; cần đổi các giá trị localhost trong `supabase/config.toml` sang biến môi trường trước khi `config push`.
@@ -265,6 +285,8 @@ Payroll theo `docs/plans/payroll.md`: DB + contracts + API + smoke và phiếu c
 - Không có. Người dùng đã duyệt sửa cả 3 smoke leave/notifications/timesheet ngày 26/10.
 
 ## Nhật ký
+- 2026-10-26 — Claude (phiên cloud) làm web payroll `/payroll` + sửa API hiện lỗi mã nhân viên không thuộc công ty. Dựng Docker/Supabase/API/web
+  trong container, E2E Playwright hai Kế toán đạt, verify-all đầy đủ TẤT CẢ ĐẠT (payroll 105). Commit + push nhánh `claude/ecstatic-pascal-dblg7v`.
 - 2026-10-26 — Người dùng yêu cầu commit và push lên main trước khi làm tiếp. Gom phần payroll contracts/API/smoke, phiếu mobile/thông báo, vòng chờ Face ID và ba smoke đầu kỳ đã hoàn tất; verify-all đầy đủ đã đạt; verify-all --quick trước commit đạt typecheck/unit/301 pgTAP, exit 0. Không đưa cấu hình local, thông tin đăng nhập hay snapshot DB/Auth vào Git.
 - 2026-10-26 — Sau khi được duyệt, sửa đúng 3 smoke leave/notifications/timesheet về chọn kỳ/ngày và fixture. Chạy riêng 39/21/48 bước đạt; verify-all đầy đủ TẤT CẢ ĐẠT (payroll 104, pgTAP 301). Khôi phục DB/Auth người dùng, API .3 khỏe, mở lại iPhone thành công. Không commit.
 - 2026-10-26 — Người dùng xác nhận payroll khác ổn, gửi ảnh vòng Face ID xoay méo. Đổi vòng chờ thành tròn, kiểm video simulator, build/cài Wi-Fi đạt. Verify-all phát hiện 3 smoke cũ lỗi đầu kỳ; chờ duyệt sửa test. DB/auth đã khôi phục, không commit.

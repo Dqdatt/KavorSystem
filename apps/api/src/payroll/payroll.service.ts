@@ -151,15 +151,19 @@ export class PayrollService {
 
   async detail(ctx: AdminContext, month: string): Promise<PayrollDetail> {
     const c = await this.scopedCycle(ctx, month, "payroll.read");
-    const [components, results, rawBatches, rawEvents, scopedEmployees] = await Promise.all([
+    const [components, results, rawBatches, rawEvents, scopedEmployees, tenantEmployees] = await Promise.all([
       this.components(ctx.db, ctx.tenantId), this.results(ctx.db, c),
       all<BatchRow>((a, b) => ctx.db.from("payroll_import_batches").select("id, file_name, total_rows, error_rows, warnings, created_by, created_at")
         .eq("tenant_id", ctx.tenantId).eq("cycle_id", c.id).order("created_at", { ascending: false }).order("id").range(a, b)), this.events(ctx.db, c),
       all<{ id: string; employee_code: string }>((a, b) => ctx.scopedEmployees("payroll.read", "id, employee_code").order("id").range(a, b)),
+      this.employees(ctx.db, ctx.tenantId),
     ]);
     const codes = new Set(scopedEmployees.map((e) => e.employee_code)), ids = new Set(scopedEmployees.map((e) => e.id));
+    const tenantCodes = new Set(tenantEmployees.map((e) => e.employee_code));
     // Batch cũ/cảnh báo thiếu dòng có thể nhắc người ngoài kết quả hiện tại; không lộ khi phạm vi đã thu hẹp.
-    const batches = rawBatches.map((b) => batchView({ ...b, warnings: b.warnings.filter((i) => !i.employeeCode || codes.has(i.employeeCode)) }, rawEvents.some((e) => e.action === "replaced" && e.batch_id === b.id)));
+    // Mã không thuộc nhân viên nào của công ty (gõ sai, tenant khác) không chỉ tới ai → vẫn hiện để Kế toán sửa file.
+    const visible = (code: string | null) => !code || codes.has(code) || !tenantCodes.has(code);
+    const batches = rawBatches.map((b) => batchView({ ...b, warnings: b.warnings.filter((i) => visible(i.employeeCode)) }, rawEvents.some((e) => e.action === "replaced" && e.batch_id === b.id)));
     const latest = batches.find((b) => b.id === c.latest_batch_id);
     const ready = !!latest && latest.applied && latest.totalRows > 0 && latest.errorRows === 0 && latest.errors.length === 0;
     const actions: PayrollAction[] = [];

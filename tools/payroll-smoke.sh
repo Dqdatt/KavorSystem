@@ -62,6 +62,7 @@ B=$(csvbody $'employee_code,BASE,NET,work_days\nHD0142,10,9,32\nHD0142,abc,0,0\n
 r=$(call POST "$ROOT/import" "$PAY1" "$B")
 check "Trùng NV, mã lạ/khác tenant, ô số, NET, work_days đều được chẩn đoán" "$(echo "$r" | py "set(['EMPLOYEE_DUPLICATE','EMPLOYEE_UNKNOWN','MONEY_INVALID','NET_MISMATCH','WORK_DAYS_INVALID']) <= {x['code'] for x in d['batch']['errors']}")" True
 check "Đếm dòng lỗi, không áp kết quả" "$(echo "$r" | py "(d['batch']['errorRows'], d['batch']['applied'])")" "(4, False)"
+check "Chi tiết kỳ vẫn hiện lỗi mã không thuộc công ty" "$(call GET "$ROOT" "$PAY1" | py "sorted(x['employeeCode'] for x in d['errors'] if x['code']=='EMPLOYEE_UNKNOWN')")" "['BX0001', 'KHONG_CO']"
 check "File lỗi chưa gửi được → 409" "$(status POST "$ROOT/submit" "$PAY1" '{}')" 409
 B=$(csvbody $'employee_code,BASE\nHD0142,100')
 check "Thiếu NET là lỗi chặn" "$(call POST "$ROOT/import" "$PAY1" "$B" | py "'HEADER_REQUIRED' in {x['code'] for x in d['batch']['errors']}")" True
