@@ -7,13 +7,13 @@ import { Icon, MeContext, ToastProvider, initials, longDate, tenantToday } from 
 
 type NavItem = { href: string; label: string; icon: string };
 /* Chỉ hiện trang đã làm (tenant, gói dịch vụ, khôi phục chủ sở hữu, audit). Các mục khác của prototype (Usage — đã gộp bảng
-   "gần giới hạn" vào Gói dịch vụ, Sync jobs, Sự cố, Releases, Feature flags, Support access, Cài đặt nền tảng) sẽ thêm khi tới lượt. */
+   "gần giới hạn" vào Gói dịch vụ, Sync jobs, Sự cố, Releases, Feature flags, Cài đặt nền tảng) sẽ thêm khi tới lượt. */
 const NAV: Array<{ label?: string; items: NavItem[] }> = [
   { items: [{ href: "/", label: "Tổng quan nền tảng", icon: "home" }] },
   { label: "Khách hàng", items: [{ href: "/tenants", label: "Doanh nghiệp", icon: "building" }, { href: "/plans", label: "Gói dịch vụ", icon: "card" }] },
-  { label: "An toàn", items: [{ href: "/recoveries", label: "Khôi phục chủ sở hữu", icon: "key" }, { href: "/audit", label: "Audit log", icon: "log" }] },
+  { label: "An toàn", items: [{ href: "/support", label: "Support access", icon: "lock" }, { href: "/recoveries", label: "Khôi phục chủ sở hữu", icon: "key" }, { href: "/audit", label: "Audit log", icon: "log" }] },
 ];
-const TITLES: Record<string, string> = { "/": "Tổng quan nền tảng", "/tenants": "Doanh nghiệp", "/plans": "Gói dịch vụ", "/recoveries": "Khôi phục chủ sở hữu", "/audit": "Audit log" };
+const TITLES: Record<string, string> = { "/": "Tổng quan nền tảng", "/tenants": "Doanh nghiệp", "/plans": "Gói dịch vụ", "/support": "Support access", "/recoveries": "Khôi phục chủ sở hữu", "/audit": "Audit log" };
 const ROLE: Record<OperatorMe["role"], string> = { platform_operator: "Platform Operator", platform_support: "Kavor Support" };
 
 export function Shell({ me, children }: { me: OperatorMe; children: ReactNode }) {
@@ -59,7 +59,7 @@ export function Shell({ me, children }: { me: OperatorMe; children: ReactNode })
           <section className="app-main">
             <header className="topbar">
               <button className="icon-btn mobile-menu" onClick={() => setMenu(true)} aria-label="Mở menu"><Icon name="menu" /></button>
-              <div className="title-copy"><h1>{TITLES[path] ?? "Kavor Console"}</h1><span className="topbar-sub">{longDate(tenantToday("Asia/Ho_Chi_Minh"))}</span></div>
+              <div className="title-copy"><h1>{TITLES[path] ?? (path.startsWith("/support/") ? "Chế độ hỗ trợ" : "Kavor Console")}</h1><span className="topbar-sub">{longDate(tenantToday("Asia/Ho_Chi_Minh"))}</span></div>
               <span />
               <div className="top-actions">
                 <span className="account-chip" title={me.email}><span className="avatar purple">{initials(me.fullName)}</span><span>{process.env.NEXT_PUBLIC_KAVOR_ENV ?? "Local dev"}</span></span>

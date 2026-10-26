@@ -41,7 +41,7 @@ Cột **Schema**: thiết kế trong `DATABASE_SCHEMA.md` (đã có migration ha
 
 - Bảo trì, bắt cập nhật app (màn lỗi, toast "Đã cập nhật lên phiên bản 2.4.0") → Releases, Flags, Incidents.
 - Đăng nhập SSO công ty (mô phỏng) → sau pilot.
-- Tạo tenant, mời Tenant Admin đầu tiên, gói dịch vụ → Tenants, Subscriptions. Xong: tạo tenant + khôi phục chủ sở hữu (24/10), gói + giới hạn nhân sự, tạm khóa/mở lại/đóng tenant (26/10). Còn: support access (`docs/plans/console-ops.md` phần B), Usage chi tiết, Releases/Flags/Incidents.
+- Tạo tenant, mời Tenant Admin đầu tiên, gói dịch vụ → Tenants, Subscriptions. Xong: tạo tenant + khôi phục chủ sở hữu (24/10), gói + giới hạn nhân sự, tạm khóa/mở lại/đóng tenant (26/10). Support access có thời hạn (Tenant Admin duyệt trên web HR) xong 26/10. Còn: Usage chi tiết, Releases/Flags/Incidents.
 
 ## 4. Chỉ phía mobile, chưa làm
 

@@ -8,9 +8,10 @@ import type { MfaAdmin } from "../admin/mfa.service.js";
 import { EMAIL, req, type Body as Json } from "../admin/validate.js";
 import { operatorOf, resolveConsole, type ConsoleContext } from "./context.js";
 import type { ConsoleService } from "./console.service.js";
+import type { SupportService } from "../support/support.service.js";
 
 export const CONSOLE_SERVICES = Symbol("CONSOLE_SERVICES");
-export type ConsoleServices = { console: ConsoleService; mfa: MfaAdmin };
+export type ConsoleServices = { console: ConsoleService; mfa: MfaAdmin; support: SupportService };
 
 function bearer(header?: string): string {
   const m = /^Bearer\s+(.+)$/i.exec(header ?? "");
@@ -128,6 +129,16 @@ export class ConsoleController {
       return s.console.decideRecovery(c, id, action, b);
     });
   }
+
+  /* ---------- Support access có thời hạn ---------- */
+  @Get("support")
+  support(@Req() r: CorrelatedRequest, @Headers("authorization") a?: string) { return this.run(r, a, (s, c) => s.support.consoleList(c)); }
+  @Post("support") @HttpCode(201)
+  supportRequest(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Body() b: Json) { return this.run(r, a, (s, c) => s.support.request(c, b)); }
+  @Post("support/:id/close") @HttpCode(200)
+  supportClose(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string) { return this.run(r, a, (s, c) => s.support.close(c, id)); }
+  @Get("support/:id/view/:scope")
+  supportView(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string, @Param("scope") scope: string) { return this.run(r, a, (s, c) => s.support.view(c, id, scope)); }
 
   @Get("audit")
   audit(@Req() r: CorrelatedRequest, @Headers("authorization") a?: string) { return this.run(r, a, (s, c) => s.console.audit(c)); }

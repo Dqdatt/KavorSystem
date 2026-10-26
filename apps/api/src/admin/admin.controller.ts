@@ -22,6 +22,7 @@ import type { PayrollService } from "../payroll/payroll.service.js";
 import type { AnnouncementsService } from "../announcements/announcements.service.js";
 import type { DocumentsService } from "../documents/documents.service.js";
 import type { TimesheetAdmin } from "../timesheet/timesheet-admin.service.js";
+import type { SupportService } from "../support/support.service.js";
 import { date, nullableText, oneOf, type Body as Json } from "./validate.js";
 
 export const ADMIN_SERVICES = Symbol("ADMIN_SERVICES");
@@ -29,7 +30,7 @@ export type AdminServices = {
   employees: EmployeesAdmin; attendance: AttendanceAdmin; schedule: ScheduleAdmin;
   settings: SettingsAdmin; rules: RulesAdmin; mfa: MfaAdmin; company: CompanyService;
   timesheets: TimesheetAdmin; requests: RequestsService; notifications: NotificationsService; leave: LeaveService; overtime: OvertimeService; advance: AdvanceService;
-  payroll: PayrollService; announcements: AnnouncementsService; documents: DocumentsService;
+  payroll: PayrollService; announcements: AnnouncementsService; documents: DocumentsService; support: SupportService;
 };
 
 function bearer(header?: string): string {
@@ -71,6 +72,18 @@ export class AdminController {
   mfaEnroll(@Req() r: CorrelatedRequest, @Headers("authorization") a?: string) { return this.run(r, a, (s, c) => s.mfa.enroll(c), { mfaStep: true }); }
   @Post("mfa/verify") @HttpCode(200)
   mfaVerify(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Body() b: Json) { return this.run(r, a, (s, c) => s.mfa.verify(c, b), { mfaStep: true }); }
+  /* ---------- Support access của Kavor (Tenant Admin duyệt; banner cho mọi người dùng web) ---------- */
+  @Get("support/banner")
+  supportBanner(@Req() r: CorrelatedRequest, @Headers("authorization") a?: string) { return this.run(r, a, (s, c) => s.support.banner(c)); }
+  @Get("support")
+  supportList(@Req() r: CorrelatedRequest, @Headers("authorization") a?: string) { return this.run(r, a, (s, c) => s.support.tenantList(c)); }
+  @Post("support/:id/:action") @HttpCode(200)
+  supportDecide(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string, @Param("action") action: string, @Body() b: Json) {
+    return this.run(r, a, (s, c) => {
+      if (action !== "approve" && action !== "reject" && action !== "revoke") throw new AuthError("NOT_FOUND", "Không tìm thấy.", 404);
+      return s.support.decide(c, id, action, b);
+    });
+  }
   @Post("employees/:id/mfa-reset") @HttpCode(200)
   mfaReset(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string, @Body() b: Json) { return this.run(r, a, (s, c) => s.mfa.reset(c, id, b)); }
 

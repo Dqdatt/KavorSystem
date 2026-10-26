@@ -10,18 +10,20 @@ import {
   type RuleConfig, type RuleKind, type RulePolicy, type RuleVersion, type SetupChecklist, type SetupStepState,
 } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
+import { SupportPanel } from "../../_ui/support";
 import { Empty, ErrorLine, Field, Icon, LoadError, Modal, SCOPE, Status, can, fmtDate, fmtDateTime, num, tenantToday, useAction, useMe } from "../../_ui/kit";
 import { ReasonModal } from "../../_ui/reason-modal";
 
-type Tab = "company" | "setup" | "rules" | "holidays" | "privacy";
+type Tab = "company" | "setup" | "rules" | "holidays" | "privacy" | "support";
 const TABS: Array<[Tab, string, string | null]> = [
-  ["company", "Doanh nghiệp", null], ["setup", "Thiết lập ban đầu", null], ["rules", "Quy định", "policy.read"], ["holidays", "Ngày lễ", "policy.read"], ["privacy", "Dữ liệu cá nhân", "privacy.read"],
+  ["company", "Doanh nghiệp", null], ["setup", "Thiết lập ban đầu", null], ["rules", "Quy định", "policy.read"], ["holidays", "Ngày lễ", "policy.read"], ["privacy", "Dữ liệu cá nhân", "privacy.read"], ["support", "Hỗ trợ Kavor", "support_access.approve"],
 ];
 const HEAD: Record<Tab, [string, string]> = {
   company: ["Thiết lập doanh nghiệp", "Đây là cấu hình tenant trên Kavor, không phải đăng ký kinh doanh."],
   setup: ["Thiết lập ban đầu", "Trạng thái tính từ dữ liệu thật của công ty; mỗi bước xong khi dữ liệu đã đủ."],
   rules: ["Quy định nghiệp vụ", "Mỗi quy định có phiên bản theo ngày hiệu lực và áp dụng theo tầng: cá nhân > phòng ban > chi nhánh > pháp nhân > công ty."],
   holidays: ["Ngày nghỉ lễ", "Lịch quốc gia do Kavor duy trì cho mọi công ty; công ty thêm ngày nghỉ riêng hoặc nghỉ bù."],
+  support: ["Hỗ trợ từ Kavor", "Kỹ sư Kavor chỉ xem được dữ liệu công ty khi Tenant Admin duyệt, trong phạm vi và thời hạn đã ghi."],
   privacy: ["Dữ liệu cá nhân", "Điều khoản có phiên bản theo Nghị định 13/2023/NĐ-CP; đổi điều khoản thì nhân viên phải đồng ý lại trên app."],
 };
 
@@ -41,7 +43,7 @@ function SettingsPage() {
           <div className="segmented" role="tablist">{tabs.map(([k, l]) => <button key={k} className={tab === k ? "active" : ""} onClick={() => { setAction(null); router.replace(`/settings?tab=${k}`, { scroll: false }); }}>{l}</button>)}</div>
         </div>
       </div>
-      {tab === "company" ? <Company setAction={setAction} /> : tab === "setup" ? <Setup /> : tab === "rules" ? <Rules setAction={setAction} /> : tab === "holidays" ? <Holidays setAction={setAction} /> : <Privacy setAction={setAction} />}
+      {tab === "company" ? <Company setAction={setAction} /> : tab === "setup" ? <Setup /> : tab === "rules" ? <Rules setAction={setAction} /> : tab === "holidays" ? <Holidays setAction={setAction} /> : tab === "support" ? <SupportPanel /> : <Privacy setAction={setAction} />}
     </section>
   );
 }

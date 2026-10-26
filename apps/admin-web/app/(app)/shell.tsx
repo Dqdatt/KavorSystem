@@ -6,6 +6,7 @@ import type { AdminMe } from "@kavor/contracts";
 import { useRealtimeStatus } from "../_lib/client";
 import { Icon, MeContext, ToastProvider, can, initials, longDate } from "../_ui/kit";
 import { NotificationBell } from "../_ui/notifications";
+import { SupportBanner } from "../_ui/support";
 
 /* perm dạng mảng = có một trong các quyền là thấy mục */
 type NavItem = { href: string; label: string; icon: string; perm?: string | string[] };
@@ -99,7 +100,7 @@ export function Shell({ me, children }: { me: AdminMe; children: ReactNode }) {
                 <span className="account-chip" title={`Tenant ${me.tenant.code}`}><span className="avatar">{initials(me.fullName)}</span><span>{me.tenant.name}</span></span>
               </div>
             </header>
-            <div className="workspace">{children}</div>
+            <div className="workspace"><SupportBanner />{children}</div>
           </section>
         </ToastProvider>
       </main>

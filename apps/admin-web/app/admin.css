@@ -31,3 +31,6 @@ a.nav-item, a.quick-item { text-decoration: none; color: inherit; }
 .notif-pop .notification.unread { background: #fff; border-color: var(--line-strong); }
 .notif-pop .notification.unread .notification-copy b::after { content: ""; display: inline-block; width: 6px; height: 6px; margin-left: 6px; border-radius: 50%; background: var(--green); vertical-align: middle; }
 .notif-pop .notif-act { color: var(--green) !important; font-weight: 600; }
+/* Banner Kavor đang hỗ trợ (thiết kế bổ sung, cùng khung .banner): tông xanh dương để khác banner xanh lá của checklist */
+.support-banner { background: linear-gradient(105deg, #1e3a8a 0%, #1d4ed8 55%, #1e3a8a 100%); }
+.support-banner .banner-icon { color: #1d4ed8; }

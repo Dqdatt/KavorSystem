@@ -551,6 +551,44 @@ export type TenantStatusInput = { action: TenantStatusAction; reason: string; /*
 export type TenantPlanInput = { plan: PlanCode; employeeLimit: number; reason: string };
 /* Gần giới hạn: dùng từ 90% giới hạn nhân sự */
 export const NEAR_LIMIT_RATIO = 0.9;
+
+/* ---------- Support access có thời hạn (docs/plans/console-ops.md phần B) ---------- */
+/* Phạm vi chỉ đọc; không có lương, tài khoản ngân hàng, tài liệu cá nhân, liên hệ cá nhân */
+export type SupportScope = "settings" | "directory" | "audit";
+export const SUPPORT_SCOPES: Record<SupportScope, { label: string; detail: string }> = {
+  settings: { label: "Cấu hình công ty", detail: "Gói, quy định, ngày lễ, luồng duyệt, ca và địa điểm, vai trò (không có người)" },
+  directory: { label: "Danh sách nhân sự tối thiểu", detail: "Mã, họ tên, phòng ban, chức danh, trạng thái hồ sơ và tài khoản — không có liên hệ, lương" },
+  audit: { label: "Nhật ký hoạt động 30 ngày", detail: "Thời gian, người làm, hành động — không có dữ liệu trước/sau" },
+};
+export const SUPPORT_MINUTES = [30, 60] as const;
+/* expired: yêu cầu chờ quá 24 giờ, hoặc phiên đã hết thời hạn */
+export type SupportStatus = "pending" | "active" | "rejected" | "cancelled" | "revoked" | "ended" | "expired";
+export type SupportSession = {
+  id: string; tenant: { id: string; code: string; name: string }; operator: string;
+  ticket: string; reason: string; scopes: SupportScope[]; minutes: number; status: SupportStatus;
+  requestedAt: string; requestExpiresAt: string; decidedBy: string | null; decidedAt: string | null; decisionNote: string | null;
+  startsAt: string | null; expiresAt: string | null; endedAt: string | null;
+  /* Console: yêu cầu của chính người đang xem */
+  mine: boolean;
+};
+export type SupportRequestInput = { tenantId: string; ticket: string; reason: string; scopes: SupportScope[]; minutes: number };
+/* Banner web HR: mọi người dùng thấy phiên đang hiệu lực; số yêu cầu chờ chỉ người duyệt được thấy */
+export type SupportBanner = { pending: number; active: Array<{ id: string; operator: string; expiresAt: string; scopes: SupportScope[] }>; canApprove: boolean };
+export type SupportSettingsView = {
+  tenant: { code: string; name: string; timezone: string; plan: string; employeeLimit: number; employees: number };
+  rules: Array<{ kind: string; name: string; versionNo: number; effectiveFrom: string; config: unknown }>;
+  holidays: Array<{ date: string; name: string; scope: "national" | "company" }>;
+  workflows: Array<{ requestType: string; name: string; versionNo: number; effectiveFrom: string; steps: unknown }>;
+  shifts: Array<{ code: string; name: string; start: string; end: string; workDays: number[] | null }>;
+  locations: Array<{ code: string; name: string; radiusM: number; active: boolean }>;
+  roles: Array<{ code: string; name: string; system: boolean; permissions: string[]; members: number }>;
+};
+export type SupportDirectoryRow = { code: string; fullName: string; department: string | null; position: string | null; status: EmployeeStatus; account: AccountStatus };
+export type SupportAuditRow = { at: string; actor: string; action: string; resourceType: string };
+export type SupportView =
+  | { scope: "settings"; session: SupportSession; data: SupportSettingsView }
+  | { scope: "directory"; session: SupportSession; data: SupportDirectoryRow[] }
+  | { scope: "audit"; session: SupportSession; data: SupportAuditRow[] };
 export type TenantAdminInfo = {
   employeeId: string; code: string; fullName: string; email: string | null; account: AccountStatus;
   mfaEnrolled: boolean; lastLoginAt: string | null; invitedAt: string | null;

@@ -3,12 +3,23 @@ _Cập nhật: 2026-10-26 — bởi Claude_
 
 ## Mục tiêu đang làm
 Payroll (web `/payroll`), **Bản tin** (`docs/plans/announcements.md`), **Tài liệu nhân sự** (`docs/plans/documents.md`) và **Đề nghị sửa hồ sơ**
-(`docs/plans/profile-change.md`) và **Console: gói dịch vụ + tạm khóa/đóng tenant** (`docs/plans/console-ops.md` phần A) đã xong trên nhánh
+(`docs/plans/profile-change.md`) và **Console: gói dịch vụ + tạm khóa/đóng tenant + support access** (`docs/plans/console-ops.md`) đã xong trên nhánh
 `claude/ecstatic-pascal-dblg7v` (phiên cloud: web thử bằng trình duyệt tự động; mobile chỉ typecheck + test hành vi trong Node, **chưa build/chụp trên
 simulator hay iPhone** vì phiên cloud không có Mac). Người dùng giao "cứ làm tiếp, review sau" (26/10): các quyết định mặc định của module Tài liệu
 ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AGENT_PLAYBOOK.md`; kiểm tra toàn bộ bằng `bash tools/verify-all.sh`.
 
 ## Đã xong
+- Support access có thời hạn (26/10, Claude; quyết định mặc định chờ review — `docs/plans/console-ops.md` phần B):
+  - DB `202611050001_support_access.sql`: `support_access_sessions` (ticket, lý do, phạm vi settings/directory/audit, 30/60 phút; nội dung bất biến;
+    thời hạn do DB tính lúc duyệt; chỉ chuyển pending→approved/rejected/cancelled, approved→revoked/ended; yêu cầu chờ hết hạn sau 24 giờ; một yêu cầu
+    chờ mỗi người mỗi tenant); `support_session_active()` (tenant tạm khóa thì mất hiệu lực); quyền `support_access.approve` cho Tenant Admin; thành viên
+    tenant đọc được (Realtime). pgTAP 18 (tổng 436).
+  - API Console `/console/support` (danh sách, yêu cầu, `/:id/close` hủy/kết thúc, `/:id/view/:scope` xem chỉ đọc + audit `support.viewed` mỗi lần);
+    web HR `/admin/support/banner`, `/admin/support`, `/admin/support/:id/approve|reject|revoke`. Phạm vi không có điện thoại/email/lương/tài khoản
+    ngân hàng; nhật ký không có dữ liệu trước/sau. Smoke `tools/support-smoke.sh` (36 bước).
+  - Console web: trang **Support access** (bám page-access + modal requestAccess; phạm vi là dữ liệu Kavor có, thêm mã ticket) và **chế độ hỗ trợ**
+    `/support/[id]` (banner đỏ đếm ngược, tab theo phạm vi, ẩn dữ liệu khi hết giờ). Web HR: banner xanh dương trên mọi trang khi Kavor đang hỗ trợ (mọi
+    người dùng) hoặc có yêu cầu chờ (Tenant Admin); Cài đặt → tab **Hỗ trợ Kavor** duyệt/từ chối/thu hồi. Đã thử bằng trình duyệt tự động cả hai phía.
 - Kavor Console — gói dịch vụ, giới hạn nhân sự, tạm khóa/mở lại/đóng tenant (26/10, Claude; quyết định mặc định chờ review — `docs/plans/console-ops.md` phần A):
   - DB `202611040001_tenant_lifecycle.sql`: `platform_plans` (Dùng thử 50, Starter 100, Growth 500, Enterprise theo hợp đồng); `tenants.status_reason`,
     `status_changed_at`; trigger: chỉ đóng tenant đang tạm khóa, đã đóng không mở lại; RLS (`is_active_member`, `current_employee_ids`,
@@ -322,7 +333,9 @@ ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AG
 - Luật nhà nước dạng số (`statutory_rule_sets`: bảo hiểm, thuế, phép năm tối thiểu, giới hạn OT) chưa làm — làm cùng module phép/payroll. Lịch lễ quốc gia mới có 2026; 2027 chờ Chính phủ công bố lịch Tết. Nội dung điều khoản mẫu và ngày lễ cần chuyên gia xác nhận.
 - Tạm ứng trên mobile còn dữ liệu mẫu ("30%" vẫn cứng) — nối khi làm module tạm ứng. Server chưa chặn API chấm công khi nhân viên chưa đồng ý điều khoản (app tự chặn bằng màn đồng ý).
 - Đặt lại MFA (web HR hoặc Console) không đăng xuất phiên aal2 đang mở của người đó (hết hạn sau ≤ 1 giờ).
-- Console chưa có: support access có thời hạn (phần B của `docs/plans/console-ops.md`), giá/tính năng theo gói, tạo/sửa gói, xuất/xóa dữ liệu tenant đã đóng, Usage chi tiết (API, storage), màn quản lý nhân viên Kavor; thao tác đóng tenant chỉ cần một người (chưa hai người duyệt); nhân viên Kavor mất điện thoại phải nhờ người có service role xóa factor. Bộ kit giao diện console-web là bản sao từ admin-web (chuyển chung vào `@kavor/web-ui` khi ổn định); `DashboardShell` của web-ui không còn ai dùng.
+- Support access: chưa báo Tenant Admin qua thông báo app/email khi có yêu cầu (chỉ banner web), chưa có phạm vi nhạy cảm cần duyệt hai lớp, chưa
+  tích hợp hệ thống ticket; banner web cần kênh Realtime đã đăng ký (vài giây sau khi mở trang) mới tự cập nhật theo thao tác của người khác.
+- Console chưa có: giá/tính năng theo gói, tạo/sửa gói, xuất/xóa dữ liệu tenant đã đóng, Usage chi tiết (API, storage), màn quản lý nhân viên Kavor; thao tác đóng tenant chỉ cần một người (chưa hai người duyệt); nhân viên Kavor mất điện thoại phải nhờ người có service role xóa factor. Bộ kit giao diện console-web là bản sao từ admin-web (chuyển chung vào `@kavor/web-ui` khi ổn định); `DashboardShell` của web-ui không còn ai dùng.
 - Cấp Tenant Admin cho người có tài khoản đang bị khóa thì role được gán nhưng vẫn không đăng nhập được cho tới khi mở khóa.
 - Ca qua đêm, tầng "loại hợp đồng", lịch xếp ca theo ngày, bản đồ chọn vị trí chưa có. Trình duyệt nhúng trong app Claude không cấp quyền vị trí; nút "Dùng vị trí hiện tại của trình duyệt" cần Chrome/Safari thật.
 - Giải trình chưa có đính kèm minh chứng (cần Storage + quét file); Bảng công chưa tính nghỉ phép/OT/ca qua đêm; thiếu cả ngày chỉ giải trình theo giờ ca. Snapshot khóa kỳ chưa có trang xem lịch sử khóa/mở.
@@ -346,21 +359,24 @@ ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AG
 - Trên bản dev, gõ phím "r" khi không focus ô nhập sẽ làm Metro reload (chỉ ảnh hưởng dev).
 
 ## Bước tiếp theo
-1. Người dùng thử trên Mac (nhánh `claude/ecstatic-pascal-dblg7v`): web `/payroll` (file mẫu `sample-data/payroll_import_2026-10.csv`) và
+1. Review quyết định mặc định trong `docs/plans/console-ops.md` (gói, khóa/đóng tenant, support access: phạm vi, 30/60 phút, Tenant Admin duyệt).
+   Người dùng thử trên Mac (nhánh `claude/ecstatic-pascal-dblg7v`): web `/payroll` (file mẫu `sample-data/payroll_import_2026-10.csv`) và
    `/announcements`, `/documents`, Đơn & phê duyệt (đơn HS); build Release iPhone mới để thử tab Bản tin, Hồ sơ → Hợp đồng và quyết định, mở file,
    bấm thông báo, Hồ sơ → Đề nghị sửa (gửi, thẻ đang chờ, HR duyệt rồi xem lại); thử lại vòng chờ Face ID. Review quyết định mặc định trong
    `docs/plans/documents.md`. Ổn thì merge vào main. Export/PDF phiếu lương và mở lại kỳ đã công bố để sau.
-2. Support access có thời hạn (`docs/plans/console-ops.md` phần B: Kavor yêu cầu → Tenant Admin duyệt trên web HR → xem chỉ đọc theo phạm vi, banner, tự hết hạn).
-3. Phần còn lại của Kavor Console theo prototype: Usage chi tiết, Sync jobs, Sự cố, Releases (phiên bản app tối thiểu iOS/Android), Feature flags, Cài đặt nền tảng.
+2. Phần còn lại của Kavor Console theo prototype: Usage chi tiết, Sync jobs, Sự cố, Releases (phiên bản app tối thiểu iOS/Android), Feature flags, Cài đặt nền tảng.
 - Push từ máy chủ khi app tắt (APNs/FCM) cần tài khoản Apple Developer trả phí → làm khi mua (xem "Quyết định đã chốt"); lúc đó thay luôn việc E19 hỏi lại 8 giây/lần.
 - Staging: **hoãn tới khi hệ thống hoàn thiện** (quyết định 24/10). Phương án đã phân tích sẵn: Render Singapore cho API + 2 web (~$21/tháng, địa chỉ onrender.com, chưa cần domain), Gmail SMTP như CarRental cho OTP và thư mời, project Supabase `KavorSystem` (Singapore) làm staging, chỉ dùng dữ liệu mẫu; cần đổi các giá trị localhost trong `supabase/config.toml` sang biến môi trường trước khi `config push`.
 - Ngoài luồng chính: test component cho admin-web; Sentry; số liệu luật cần HR/Payroll SME xác nhận trước pilot; pháp lý chuyển dữ liệu ra nước ngoài (Nghị định 13/2023, dữ liệu ở Singapore) trước khi có dữ liệu thật.
 
 ## Câu hỏi đang chờ người dùng trả lời
+- Review quyết định mặc định của Console (`docs/plans/console-ops.md`): mức gói (50/100/500/hợp đồng), đóng tenant chỉ cần một người, support access
+  3 phạm vi chỉ đọc, 30/60 phút, chỉ Tenant Admin duyệt, mọi người dùng web HR thấy banner.
 - Review các quyết định mặc định của module Tài liệu (`docs/plans/documents.md`): 6 danh mục cố định, quyền HR Operations/Tenant Admin, mobile qua
   PIN/Face ID, tối đa 5 MB, "Thiếu hồ sơ" = chưa có hợp đồng còn hiệu lực.
 
 ## Nhật ký
+- 2026-10-26 — Claude: Console phần B (support access có thời hạn). Verify-all đầy đủ TẤT CẢ ĐẠT (pgTAP 436, 16 smoke — support 36, build, lint).
 - 2026-10-26 — Claude: Console phần A (gói dịch vụ + giới hạn nhân sự, tạm khóa/mở lại/đóng tenant). Verify-all đầy đủ TẤT CẢ ĐẠT (pgTAP 418, 15 smoke — console-ops 39, build, lint); mobile test 18 ca.
 - 2026-10-26 — Claude: đề nghị sửa hồ sơ theo câu trả lời của người dùng (các trường đề xuất + tài khoản ngân hàng thuộc hồ sơ; HR duyệt, Kế toán
   kế thừa). Verify-all đầy đủ: typecheck, unit, pgTAP 404,

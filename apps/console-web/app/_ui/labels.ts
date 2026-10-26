@@ -1,8 +1,12 @@
 /* Nhãn hiển thị dùng chung cho các trang Kavor Console */
-import type { ConsoleTenant, PlanCode, TenantStatus } from "@kavor/contracts";
+import type { ConsoleTenant, PlanCode, SupportStatus, TenantStatus } from "@kavor/contracts";
 
 export const PLAN: Record<PlanCode, string> = { trial: "Trial", starter: "Starter", growth: "Growth", enterprise: "Enterprise" };
 export const TSTATUS: Record<TenantStatus, [string, string]> = { active: ["Hoạt động", ""], provisioning: ["Đang khởi tạo", "info"], suspended: ["Tạm khóa", "bad"], closed: ["Đã đóng", "muted"] };
+export const SSTATUS: Record<SupportStatus, [string, string]> = {
+  pending: ["Chờ tenant", "warn"], active: ["Đang hiệu lực", ""], rejected: ["Tenant từ chối", "bad"], cancelled: ["Đã hủy", "muted"],
+  revoked: ["Tenant thu hồi", "bad"], ended: ["Đã kết thúc", "muted"], expired: ["Hết hạn", "muted"],
+};
 /* Cảnh báo chống mất quyền: không còn Tenant Admin hoạt động, hoặc chỉ còn một */
 export function adminHealth(t: ConsoleTenant): [string, string] {
   if (t.admins.active === 0) return [t.admins.invited ? "Admin chưa kích hoạt" : "Không còn Tenant Admin", t.admins.invited ? "info" : "bad"];
@@ -16,5 +20,7 @@ export const ACTION: Record<string, string> = {
   "owner_recovery.requested": "Tạo yêu cầu khôi phục", "owner_recovery.approved": "Duyệt khôi phục", "owner_recovery.rejected": "Từ chối khôi phục",
   "owner_recovery.cancelled": "Hủy yêu cầu khôi phục", "auth.mfa_reset": "Đặt lại xác thực hai lớp", "role.granted": "Cấp Tenant Admin",
   "auth.mfa_enrolled": "Bật xác thực hai lớp", "auth.mfa_verified": "Xác thực hai lớp",
+  "support.requested": "Yêu cầu support access", "support.approved": "Tenant duyệt support access", "support.rejected": "Tenant từ chối support access",
+  "support.revoked": "Tenant thu hồi support access", "support.cancelled": "Hủy yêu cầu support access", "support.ended": "Kết thúc phiên hỗ trợ", "support.viewed": "Xem dữ liệu khi hỗ trợ",
   "tenant.plan_changed": "Đổi gói dịch vụ", "tenant.suspended": "Tạm khóa tenant", "tenant.reactivated": "Mở lại tenant", "tenant.closed": "Đóng tenant",
 };
