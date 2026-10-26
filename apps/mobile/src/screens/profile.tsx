@@ -14,13 +14,13 @@ import { useClock } from "../clock";
 import { REMOTE } from "../api/http";
 import { DOCUMENT_CATEGORIES, type NotificationKind } from "@kavor/contracts";
 import { dec, gh, hm } from "../data";
-import { ACT, S, go, jump, setBioPref, lvAvail, phase, shiftMinutes, toast, worked, type ErrKind, type Route } from "../store";
+import { ACT, S, go, jump, setBioPref, lvAvail, phase, profileFieldsText, shiftMinutes, toast, worked, type ErrKind, type Route } from "../store";
 
 /* Ảnh bìa mặc định của Kavor (dùng khi công ty chưa tải ảnh bìa riêng) */
 const COVER = '<svg viewBox="0 0 320 124" preserveAspectRatio="xMidYMid slice"><defs><linearGradient id="pfSky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#CFF5E4"/><stop offset="1" stop-color="#F3FCF8"/></linearGradient></defs><rect width="320" height="124" fill="url(#pfSky)"/><circle cx="252" cy="36" r="15" fill="#FFF4D6"/><path d="M0 22c18 8 30 30 34 58l6 44H0z" fill="#2E9C77" opacity=".55"/><path d="M320 14c-20 10-34 34-38 64l-4 46h42z" fill="#2E9C77" opacity=".55"/><path d="M0 80c40-20 70-16 110-8s80-18 120-10 60 0 90-8v70H0z" fill="#A7F3D0"/><path d="M0 96c50-14 100-4 150-10s90-14 170 0v42H0z" fill="#34C79A"/><path d="M0 108c60-8 120 4 190-4s90-4 130 2v18H0z" fill="#0B7A5A"/></svg>';
 const VERIFIED = '<svg width="20" height="20" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="#065F46"/><path d="m7 12.5 3.2 3.2L17 9" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
-/* Bản dùng API: hồ sơ thật (chỉ đọc); bản mẫu/QA giữ nguyên prototype */
+/* Bản dùng API: hồ sơ thật, sửa qua đề nghị HR duyệt; bản mẫu/QA giữ nguyên prototype */
 const EMPLOYMENT: Record<string, string> = { probation: "Thử việc", official: "Chính thức", contractor: "Cộng tác viên", intern: "Thực tập" };
 const initials = (name: string) => { const p = name.trim().split(/\s+/); return ((p.length > 1 ? p[0]![0]! : "") + p[p.length - 1]![0]!).toUpperCase(); };
 const maskPhone = (p: string | null) => (!p ? "—" : p.replace(/\s+/g, "").length > 7 ? `${p.replace(/\s+/g, "").slice(0, 4)} ••• ${p.replace(/\s+/g, "").slice(-3)}` : p);
@@ -67,12 +67,16 @@ export function profileSpec(): ScreenSpec {
     head: <TopBar title="Hồ sơ" right={null} />,
     body: [
       <PfCard key="pf" />,
-      REMOTE ? null : <Notice key="n" icon={<Gi n="hour" s={26} />} title="Đổi tài khoản ngân hàng đang chờ HR" sub="Lương kỳ này vẫn vào Vietcombank •6789" right={<Ic n="chevR" s={18} w={2} color={C.ink3} />} onPress={() => { S.param = "HS-0221"; go("reqDetail"); }} />,
+      REMOTE ? (S.profile?.pending ? <Notice key="n" icon={<Gi n="hour" s={26} />} title="Đề nghị sửa thông tin đang chờ HR" sub={`${S.profile.pending.no} · ${profileFieldsText(S.profile.pending.fields)}`} right={<Ic n="chevR" s={18} w={2} color={C.ink3} />} onPress={ACT.openPendingProfile} /> : null)
+        : <Notice key="n" icon={<Gi n="hour" s={26} />} title="Đổi tài khoản ngân hàng đang chờ HR" sub="Lương kỳ này vẫn vào Vietcombank •6789" right={<Ic n="chevR" s={18} w={2} color={C.ink3} />} onPress={() => { S.param = "HS-0221"; go("reqDetail"); }} />,
       <SectionHead key="sh1" title="Công việc" />,
       REMOTE ? <Card key="job"><InfoRow k="Phòng ban" v={S.profile?.department ?? "—"} strong /><InfoRow k="Quản lý trực tiếp" v={S.profile?.manager ?? "—"} strong />
         <InfoRow k="Ngày vào làm" v={S.profile ? dmy(S.profile.hireDate) : "—"} strong /><InfoRow k="Hợp đồng" v={contractText()} strong /></Card> : <Card key="job"><InfoRow k="Phòng ban" v="Marketing" strong /><InfoRow k="Quản lý trực tiếp" v="Lê Quang Huy" strong /><InfoRow k="Ngày vào làm" v="03/03/2021" strong /><InfoRow k="Hợp đồng" v={S.contract === "probation" ? "Thử việc · đến 30/11" : S.contract === "leaving" ? "Nghỉ từ 15/11/2026" : "Chính thức"} strong /></Card>,
       <SectionHead key="sh2" title="Cá nhân" link="Đề nghị sửa" onLink={ACT.editProfile} />,
-      REMOTE ? <Card key="me"><InfoRow k="Điện thoại" v={maskPhone(S.profile?.phone ?? null)} strong /><InfoRow k="Email" v={S.profile?.workEmail ?? "—"} strong /></Card> : <Card key="me"><InfoRow k="Điện thoại" v="0912 ••• 468" strong /><InfoRow k="Email" v="ha.tran@haidang.vn" strong /><InfoRow k="Địa chỉ" v="Tân Định, TP.HCM" strong /><InfoRow k="Liên hệ khẩn cấp" v="Trần Văn Bình" strong /><InfoRow k="Ngân hàng" v="Vietcombank •6789" strong /></Card>,
+      REMOTE ? <Card key="me"><InfoRow k="Điện thoại" v={maskPhone(S.profile?.phone ?? null)} strong /><InfoRow k="Email" v={S.profile?.workEmail ?? "—"} strong />
+        <InfoRow k="Email cá nhân" v={S.profile?.personal.personalEmail ?? "—"} strong /><InfoRow k="Địa chỉ" v={S.profile?.personal.address ?? "—"} strong />
+        <InfoRow k="Liên hệ khẩn cấp" v={S.profile?.personal.emergency ? `${S.profile.personal.emergency.name} (${S.profile.personal.emergency.relation})` : "—"} strong />
+        <InfoRow k="Ngân hàng" v={S.profile?.personal.bank ? `${S.profile.personal.bank.bankName} •${S.profile.personal.bank.last4}` : "—"} strong /></Card> : <Card key="me"><InfoRow k="Điện thoại" v="0912 ••• 468" strong /><InfoRow k="Email" v="ha.tran@haidang.vn" strong /><InfoRow k="Địa chỉ" v="Tân Định, TP.HCM" strong /><InfoRow k="Liên hệ khẩn cấp" v="Trần Văn Bình" strong /><InfoRow k="Ngân hàng" v="Vietcombank •6789" strong /></Card>,
       <Card key="links">
         <RowBtn icon={<Gi n="doc" s={24} />} title="Hợp đồng và quyết định" onPress={() => REMOTE ? go("docs") : toast("P05–P06: hợp đồng, quyết định và trình xem PDF")} />
         <RowBtn icon={<Gi n="grid" s={24} />} title="Widget chấm công" onPress={() => go("widgetGuide")} />

@@ -1,7 +1,7 @@
 "use client";
 /* Đơn từ trên web HR: nhãn, tóm tắt nội dung, các bước duyệt và modal "Chi tiết đơn" (bám modal approve của prototype HR) */
 import { useState } from "react";
-import { EXPLANATION_KINDS, OVERTIME_DAY_KINDS, REQUEST_TYPES, STEP_RESOLVERS, type RequestItem, type RequestStatus, type StepStatus } from "@kavor/contracts";
+import { EXPLANATION_KINDS, OVERTIME_DAY_KINDS, PROFILE_FIELDS, REQUEST_TYPES, STEP_RESOLVERS, type ProfileField, type ProfileValues, type RequestItem, type RequestStatus, type StepStatus } from "@kavor/contracts";
 import { call } from "../_lib/client";
 import { ErrorLine, Field, Modal, Person, Status, fmtDate, fmtDateTime, useAction, useMe } from "./kit";
 
@@ -19,10 +19,18 @@ export function leaveRange(p: Extract<RequestItem, { type: "leave" }>["payload"]
   return `${wd(p.from)} ${fmtDate(p.from).slice(0, 5)}${p.to !== p.from ? `–${wd(p.to)} ${fmtDate(p.to).slice(0, 5)}` : ""}${HALF[p.half]}`;
 }
 
-/* "T5 22/10 · Quên chấm ra · ra 17:00" / "Phép năm · T2 26/10–T4 28/10 · 3 ngày" */
+/* Giá trị một trường hồ sơ để so sánh trước/sau; số tài khoản đầy đủ chỉ có khi người xem được phép (API đã lọc) */
+export function profileValue(f: ProfileField, v: ProfileValues) {
+  if (f === "emergency") return v.emergency ? `${v.emergency.name} · ${v.emergency.phone} · ${v.emergency.relation}` : "—";
+  if (f === "bank") return v.bank ? `${v.bank.bankName} · ${v.bank.accountNo ?? `•••• ${v.bank.last4}`} · ${v.bank.holder}` : "—";
+  return (v[f] as string | null | undefined) || "—";
+}
+
+/* "T5 22/10 · Quên chấm ra · ra 17:00" / "Phép năm · T2 26/10–T4 28/10 · 3 ngày" / "Sửa điện thoại, tài khoản ngân hàng" */
 export function requestSummary(r: RequestItem) {
   if (r.type === "leave") return `${r.payload.leaveTypeName} · ${leaveRange(r.payload)} · ${days(r.payload.days)}`;
   if (r.type === "salary_advance") return `${money(r.payload.amount)} · trừ lương ${r.payload.month.slice(5)}/${r.payload.month.slice(0, 4)}`;
+  if (r.type === "profile_change") return `Sửa ${r.payload.fields.map((f) => PROFILE_FIELDS[f].toLowerCase()).join(", ")}`;
   if (r.type === "overtime") return `${wd(r.payload.date)} ${fmtDate(r.payload.date).slice(0, 5)} · ${r.payload.start}–${r.payload.end} · ${r.payload.hours.toLocaleString("vi-VN")} giờ (${r.payload.ratePercent}%)`;
   const p = r.payload;
   const times = [p.clockIn ? `vào ${p.clockIn}` : null, p.clockOut ? `ra ${p.clockOut}` : null].filter(Boolean).join(", ");
@@ -83,7 +91,10 @@ export function RequestModal({ r, onClose, onDone }: { r: RequestItem; onClose: 
           <div className="detail-row"><span>Ngày</span><b>{wd(r.payload.date)} {fmtDate(r.payload.date)} · {OVERTIME_DAY_KINDS[r.payload.dayKind]}</b></div>
           <div className="detail-row"><span>Giờ làm thêm</span><b>{r.payload.start}–{r.payload.end} · {r.payload.hours.toLocaleString("vi-VN")} giờ</b></div>
           <div className="detail-row"><span>Hệ số</span><b>{r.payload.ratePercent}%</b></div>
-        </> : <div className="detail-row"><span>Nội dung</span><b>{requestSummary(r)}</b></div>}
+        </> : r.type === "profile_change" ? r.payload.fields.map((f) => (
+          <div key={f} className="detail-row"><span>{PROFILE_FIELDS[f]}</span>
+            <b style={{ whiteSpace: "normal", maxWidth: 460 }}><span className="muted" style={{ textDecoration: "line-through", fontWeight: 500 }}>{profileValue(f, r.payload.before)}</span> → {profileValue(f, r.payload.after)}</b></div>
+        )) : <div className="detail-row"><span>Nội dung</span><b>{requestSummary(r)}</b></div>}
         {r.type === "explanation" && r.day ? <div className="detail-row"><span>Chấm công gốc</span><b>{r.day.shift ?? "—"} · vào {r.day.rawIn ?? "--:--"} · ra {r.day.rawOut ?? "--:--"}</b></div> : null}
         <div className="detail-row"><span>Lý do</span><b style={{ whiteSpace: "normal", maxWidth: 420 }}>{r.payload.reason || "—"}</b></div>
         <div className="detail-row"><span>Gửi lúc</span><b>{fmtDateTime(r.submittedAt, tz)}</b></div>

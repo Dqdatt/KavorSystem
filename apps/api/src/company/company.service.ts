@@ -1,12 +1,13 @@
 /* Thông tin công ty cho app nhân viên: thương hiệu, liên hệ HR, lịch nghỉ lễ, điều khoản dữ liệu cá nhân (ADR 0001).
    Mobile không còn giữ các giá trị này trong code; công ty đổi trên web là app nhận ở lần mở sau. */
-import type { BrandingKind, EmploymentType, EmployeeStatus, Holiday, HolidayKind, MyCompany, MyPolicies, MyProfile, SupportContact } from "@kavor/contracts";
+import type { BrandingKind, EmploymentType, EmployeeStatus, Holiday, HolidayKind, MyCompany, MyPolicies, MyProfile, ProfileField, SupportContact } from "@kavor/contracts";
 import { AuthError, type EmployeeRow } from "../auth/auth.service.js";
 import type { SupabaseGateway } from "../auth/supabase.js";
 import { localParts } from "../attendance/attendance.service.js";
 import { PolicyIndex, loadPlacements } from "../attendance/policy.js";
 import { brandingVersion, type BrandingStore } from "./branding.js";
 import { currentTerms, recordConsent, toTerms } from "./privacy.js";
+import { loadPersonal } from "../profile/profile.service.js";
 
 export const supportOf = (raw: unknown): SupportContact => {
   const s = (raw ?? {}) as Partial<Record<keyof SupportContact, unknown>>;
@@ -64,12 +65,15 @@ export class CompanyService {
     const db = this.sb.admin;
     const { data: t } = await db.from("tenants").select("timezone").eq("id", emp.tenant_id).single();
     const today = localParts(new Date(), (t?.timezone as string) ?? "Asia/Ho_Chi_Minh").date;
-    const [{ data: e, error }, placements, { data: doc }] = await Promise.all([
+    const [{ data: e, error }, placements, { data: doc }, personal, { data: pend }] = await Promise.all([
       db.from("employees").select("employee_code, full_name, hire_date, employment_type, status, termination_date, work_email, phone").eq("id", emp.id).single(),
       loadPlacements(db, emp.tenant_id, today, [emp.id]),
       db.from("employee_documents").select("title, expires_on").eq("tenant_id", emp.tenant_id).eq("employee_id", emp.id).eq("category", "contract")
         .eq("visibility", "hr_employee").is("archived_at", null).order("issued_on", { ascending: false, nullsFirst: false }).order("created_at", { ascending: false }).limit(1).maybeSingle(),
+      loadPersonal(db, emp.tenant_id, [emp.id], () => true).then((m) => m.get(emp.id)!),
+      db.from("requests").select("id, request_no, current_version, request_versions(version_no, payload)").eq("requester_employee_id", emp.id).eq("request_type", "profile_change").eq("status", "pending").maybeSingle(),
     ]);
+    const pr = pend as { id: string; request_no: string; current_version: number; request_versions: Array<{ version_no: number; payload: { fields?: ProfileField[] } }> } | null;
     if (error || !e) throw new AuthError("NOT_FOUND", "Không tìm thấy hồ sơ.", 404);
     const p = placements.get(emp.id) ?? null;
     const name = async (table: string, id: string | null | undefined, col = "name") => {
@@ -84,6 +88,7 @@ export class CompanyService {
       hireDate: e.hire_date as string, employmentType: e.employment_type as EmploymentType, status: e.status as EmployeeStatus, terminationDate: (e.termination_date as string | null) ?? null,
       workEmail: (e.work_email as string | null) ?? null, phone: (e.phone as string | null) ?? null,
       contract: doc ? { title: doc.title as string, expiresOn: (doc.expires_on as string | null) ?? null } : null,
+      personal, pending: pr ? { id: pr.id, no: pr.request_no, fields: pr.request_versions.find((v) => v.version_no === pr.current_version)?.payload.fields ?? [] } : null,
     };
   }
 

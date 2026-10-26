@@ -15,9 +15,10 @@ import type { AdvanceService } from "../advance/advance.service.js";
 import type { PayrollService } from "../payroll/payroll.service.js";
 import type { AnnouncementsService } from "../announcements/announcements.service.js";
 import type { DocumentsService } from "../documents/documents.service.js";
+import type { ProfileService } from "../profile/profile.service.js";
 
 export const TIMESHEET_SERVICES = Symbol("TIMESHEET_SERVICES");
-export type TimesheetServices = { timesheets: TimesheetService; requests: RequestsService; notifications: NotificationsService; leave: LeaveService; overtime: OvertimeService; advance: AdvanceService; payroll: PayrollService; announcements: AnnouncementsService; documents: DocumentsService };
+export type TimesheetServices = { timesheets: TimesheetService; requests: RequestsService; notifications: NotificationsService; leave: LeaveService; overtime: OvertimeService; advance: AdvanceService; payroll: PayrollService; announcements: AnnouncementsService; documents: DocumentsService; profile: ProfileService };
 
 function bearer(header?: string): string {
   const m = /^Bearer\s+(.+)$/i.exec(header ?? "");
@@ -112,6 +113,8 @@ export class TimesheetController {
   async documentFile(@Req() r: CorrelatedRequest, @Param("id") id: string, @Query("e") e: string, @Query("exp") exp: string, @Query("sig") sig: string, @Res({ passthrough: true }) res: Response) {
     return this.signedFile(r, res, (s, correlationId) => s.documents.linkedFile(id, String(e ?? ""), Number(exp), String(sig ?? ""), correlationId));
   }
+  @Post("requests/profile") @HttpCode(201)
+  profileRequest(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Body() b: Json) { return this.run(r, a, (s, emp, v) => s.profile.createChange(emp, b, v.correlationId)); }
   @Post("requests/:id/cancel") @HttpCode(200)
   cancel(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string) { return this.run(r, a, (s, emp, v) => s.requests.cancel(emp, id, v.correlationId)); }
 

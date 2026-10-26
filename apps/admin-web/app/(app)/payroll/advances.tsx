@@ -96,7 +96,7 @@ export function Salary() {
       <article className="card">
         <div className="toolbar"><label className="search"><Icon name="search" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Tìm nhân viên…" /></label></div>
         {b && !rows.length ? <Empty title="Không có nhân viên phù hợp" /> : (
-          <div className="table-wrap"><table className="data-table"><thead><tr><th>Nhân viên</th><th>Phòng ban</th><th>Lương cơ bản</th><th>Hiệu lực từ</th><th>Lịch sử</th><th /></tr></thead><tbody>
+          <div className="table-wrap"><table className="data-table"><thead><tr><th>Nhân viên</th><th>Phòng ban</th><th>Lương cơ bản</th><th>Hiệu lực từ</th><th>Lịch sử</th><th>Tài khoản ngân hàng</th><th /></tr></thead><tbody>
             {rows.map((r) => (
               <tr key={r.employee.id}>
                 <td><Person name={r.employee.fullName} seed={r.employee.code} sub={r.employee.code} /></td>
@@ -104,6 +104,8 @@ export function Salary() {
                 <td className="num">{r.baseSalary ? <b>{money(r.baseSalary)}</b> : <span className="muted">Chưa nhập</span>}</td>
                 <td>{fmtDate(r.effectiveFrom)}</td>
                 <td className="muted" style={{ whiteSpace: "normal", fontSize: 11 }}>{r.history.slice(1, 3).map((h) => `${money(h.baseSalary)} từ ${fmtDate(h.effectiveFrom)}`).join(" · ") || "—"}</td>
+                {/* Tài khoản HR đã duyệt từ đề nghị sửa hồ sơ (Kế toán chỉ đọc) */}
+                <td style={{ whiteSpace: "normal", fontSize: 11 }}>{r.bank ? <><b>{r.bank.accountNo ?? `•••• ${r.bank.last4}`}</b><div className="muted">{r.bank.bankName} · {r.bank.holder}</div></> : <span className="muted">Chưa có</span>}</td>
                 <td>{b?.canManage ? <button className="btn small" onClick={() => setEdit(r)}>{r.baseSalary ? "Đổi lương" : "Nhập lương"}</button> : null}</td>
               </tr>
             ))}

@@ -210,11 +210,28 @@ export type AdminMe = {
 export type AccountStatus = "not_invited" | "invited" | "active" | "locked";
 export type EmploymentType = "probation" | "official" | "contractor" | "intern";
 export type EmployeeStatus = "preboarding" | "active" | "suspended" | "on_leave" | "leaving" | "terminated";
+/* ---------- Hồ sơ cá nhân + đề nghị sửa (HR duyệt; Kế toán đọc lại tài khoản đã duyệt) ---------- */
+export type ProfileField = "phone" | "personalEmail" | "address" | "emergency" | "bank";
+export const PROFILE_FIELDS: Record<ProfileField, string> = { phone: "Điện thoại", personalEmail: "Email cá nhân", address: "Địa chỉ", emergency: "Liên hệ khẩn cấp", bank: "Tài khoản ngân hàng" };
+export type EmergencyContact = { name: string; phone: string; relation: string };
+/* accountNo chỉ có khi người xem được xem số đầy đủ (chính nhân viên, employee.sensitive.read); còn lại chỉ 4 số cuối */
+export type BankAccountView = { bankName: string; holder: string; last4: string; accountNo?: string };
+export type ProfileValues = { phone?: string | null; personalEmail?: string | null; address?: string | null; emergency?: EmergencyContact | null; bank?: BankAccountView | null };
+/* fields: trường đổi; before/after: giá trị lúc gửi và giá trị đề nghị (chỉ các trường đổi) */
+export type ProfileChangePayload = { fields: ProfileField[]; before: ProfileValues; after: ProfileValues; reason: string | null };
+export type ProfileChangeInput = {
+  phone?: string | null; personalEmail?: string | null; address?: string | null; emergency?: EmergencyContact | null;
+  bank?: { bankName: string; accountNo: string; holder: string }; reason?: string | null;
+};
+export type PersonalInfo = { personalEmail: string | null; address: string | null; emergency: EmergencyContact | null; bank: BankAccountView | null };
+
 /* Hồ sơ của chính nhân viên trên app (chỉ đọc). contract: hợp đồng lao động HR chia sẻ gần nhất (Tài liệu, "HR + Nhân viên", chưa gỡ) */
 export type MyProfile = {
   employeeCode: string; fullName: string; position: string | null; department: string | null; branch: string | null; manager: string | null;
   hireDate: string; employmentType: EmploymentType; status: EmployeeStatus; terminationDate: string | null;
   workEmail: string | null; phone: string | null; contract: { title: string; expiresOn: string | null } | null;
+  /* Thông tin cá nhân đã duyệt (số tài khoản đầy đủ vì là của chính mình) + đề nghị sửa đang chờ */
+  personal: PersonalInfo; pending: { id: string; no: string; fields: ProfileField[] } | null;
 };
 
 export type EmployeeListItem = {
@@ -271,6 +288,8 @@ export type EmployeeDetail = EmployeeListItem & {
   policies: ResolvedPolicies;
   recentEvents: AdminAttendanceEvent[];
   audit: AuditEntry[];
+  /* Thông tin cá nhân đã duyệt; số tài khoản đầy đủ chỉ khi người xem có employee.sensitive.read */
+  personal: PersonalInfo;
 };
 
 export type EmployeeUpsert = {
@@ -617,8 +636,8 @@ export type RequestStep = {
   taskId: string; stepNo: number; resolver: StepResolver; assignee: string | null; status: StepStatus;
   dueAt: string | null; actedAt: string | null; actedBy: string | null; comment: string | null;
 };
-export type RequestType = "explanation" | "leave" | "overtime" | "salary_advance";
-export const REQUEST_TYPES: Record<RequestType, string> = { explanation: "Giải trình công", leave: "Nghỉ phép", overtime: "Làm thêm giờ", salary_advance: "Tạm ứng lương" };
+export type RequestType = "explanation" | "leave" | "overtime" | "salary_advance" | "profile_change";
+export const REQUEST_TYPES: Record<RequestType, string> = { explanation: "Giải trình công", leave: "Nghỉ phép", overtime: "Làm thêm giờ", salary_advance: "Tạm ứng lương", profile_change: "Sửa hồ sơ" };
 export type ExplanationPayload = { kind: ExplanationKind; clockIn: string | null; clockOut: string | null; reason: string };
 export type LeaveHalf = "full" | "am" | "pm";
 export type LeavePayload = { leaveType: string; leaveTypeName: string; from: string; to: string; half: LeaveHalf; days: number; reason: string };
@@ -629,7 +648,7 @@ export type OvertimePayload = { date: string; start: string; end: string; hours:
 export type AdvancePayload = { amount: number; month: string; reason: string };
 export type AdvancePayout = { paidAt: string; paidBy: string | null; note: string | null };
 export type RequestItem = RequestItemBase & ({ type: "explanation"; payload: ExplanationPayload } | { type: "leave"; payload: LeavePayload } | { type: "overtime"; payload: OvertimePayload }
-  | { type: "salary_advance"; payload: AdvancePayload; payout: AdvancePayout | null });
+  | { type: "salary_advance"; payload: AdvancePayload; payout: AdvancePayout | null } | { type: "profile_change"; payload: ProfileChangePayload });
 type RequestItemBase = {
   id: string; no: string; status: RequestStatus; submittedAt: string; completedAt: string | null;
   workDate: string | null;
@@ -669,6 +688,8 @@ export type CompensationRow = {
   employee: { id: string; code: string; fullName: string; department: string | null };
   baseSalary: number | null; effectiveFrom: string | null;
   history: Array<{ baseSalary: number; effectiveFrom: string; note: string | null; createdAt: string }>;
+  /* Tài khoản ngân hàng HR đã duyệt (null nếu chưa có hoặc người xem không có employee.sensitive.read) */
+  bank: BankAccountView | null;
 };
 export type CompensationBoard = { rows: CompensationRow[]; canManage: boolean };
 export type CompensationInput = { baseSalary: number; effectiveFrom: string; note?: string | null };

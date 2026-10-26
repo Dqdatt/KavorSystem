@@ -10,6 +10,7 @@ import { conflict, forbidden, invalid, notFound, type AdminContext } from "./con
 import type { Mailer } from "./mailer.js";
 import type { AttendanceAdmin } from "./attendance-admin.service.js";
 import { addDays, EMAIL, date, nullableText, oneOf, req, text, uuid, type Body } from "./validate.js";
+import { loadPersonal } from "../profile/profile.service.js";
 
 export type EmployeeRowFull = {
   id: string; tenant_id: string; employee_code: string; full_name: string; work_email: string | null; phone: string | null;
@@ -101,8 +102,11 @@ export class EmployeesAdmin {
       audit = ((logs ?? []) as Array<{ id: string; action: string; actor_user_id: string | null; created_at: string; reason: string | null; before_data: unknown; after_data: unknown }>)
         .map((l) => ({ id: l.id, action: l.action, actor: l.actor_user_id ? actors.get(l.actor_user_id) ?? "Người dùng" : "Hệ thống", createdAt: l.created_at, reason: l.reason, before: l.before_data, after: l.after_data }));
     }
+    /* Thông tin cá nhân đã duyệt; số tài khoản đầy đủ chỉ khi có employee.sensitive.read với nhân viên này */
+    const reveal = ctx.can("employee.sensitive.read") && (await this.inScope(ctx, "employee.sensitive.read", id));
+    const personal = (await loadPersonal(ctx.db, ctx.tenantId, [id], () => reveal)).get(id)!;
     return {
-      ...item!,
+      ...item!, personal,
       legalEntity: p ? { id: p.legal_entity_id, name: org.names.get(p.legal_entity_id) ?? "—" } : null,
       manager: p?.manager_employee_id ? { id: p.manager_employee_id, name: org.names.get(p.manager_employee_id) ?? "—" } : null,
       assignmentFrom: p?.effective_from ?? null, terminationDate: row.termination_date,

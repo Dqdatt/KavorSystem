@@ -32,6 +32,7 @@ import { AdvanceService } from "./advance/advance.service.js";
 import { PayrollService } from "./payroll/payroll.service.js";
 import { AnnouncementsService } from "./announcements/announcements.service.js";
 import { DocumentsService } from "./documents/documents.service.js";
+import { ProfileService } from "./profile/profile.service.js";
 import type { TimesheetServices } from "./timesheet/timesheet.controller.js";
 
 @Module({
@@ -50,7 +51,7 @@ import type { TimesheetServices } from "./timesheet/timesheet.controller.js";
         const notifications = new NotificationsService(sb);
         notifications.startDueSweep();
         const requests = new RequestsService(sb, timesheets);
-        return { timesheets, requests, notifications, leave: new LeaveService(sb, timesheets, requests), overtime: new OvertimeService(sb, timesheets, requests), advance: new AdvanceService(sb, timesheets, requests), payroll: new PayrollService(sb, timesheets), announcements: new AnnouncementsService(sb), documents: new DocumentsService(sb) };
+        return { timesheets, requests, notifications, leave: new LeaveService(sb, timesheets, requests), overtime: new OvertimeService(sb, timesheets, requests), advance: new AdvanceService(sb, timesheets, requests), payroll: new PayrollService(sb, timesheets), announcements: new AnnouncementsService(sb), documents: new DocumentsService(sb), profile: new ProfileService(sb, requests) };
       },
     },
     {

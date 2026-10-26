@@ -109,6 +109,17 @@ function EmployeeDrawer({ id, onClose, onEdit, onChanged }: { id: string; onClos
             {e.terminationDate ? <div className="detail-row"><span>Ngày nghỉ việc</span><b>{fmtDate(e.terminationDate)}</b></div> : null}
           </div>
 
+          {/* Thông tin cá nhân do nhân viên đề nghị sửa trên app, HR duyệt (Đơn & phê duyệt); số tài khoản đầy đủ chỉ khi có quyền */}
+          <div className="drawer-section">
+            <h4>Thông tin cá nhân</h4>
+            <div className="card detail-list">
+              <div className="detail-row"><span>Email cá nhân</span><b>{e.personal.personalEmail ?? "—"}</b></div>
+              <div className="detail-row"><span>Địa chỉ</span><b style={{ whiteSpace: "normal" }}>{e.personal.address ?? "—"}</b></div>
+              <div className="detail-row"><span>Liên hệ khẩn cấp</span><b>{e.personal.emergency ? `${e.personal.emergency.name} · ${e.personal.emergency.relation} · ${e.personal.emergency.phone}` : "—"}</b></div>
+              <div className="detail-row"><span>Tài khoản ngân hàng</span><b>{e.personal.bank ? `${e.personal.bank.bankName} · ${e.personal.bank.accountNo ?? `•••• ${e.personal.bank.last4}`} · ${e.personal.bank.holder}` : "—"}</b></div>
+            </div>
+          </div>
+
           <div className="drawer-section">
             <h4>Tài khoản Kavor</h4>
             <div className="card detail-list">

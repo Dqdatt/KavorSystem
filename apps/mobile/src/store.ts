@@ -13,8 +13,8 @@ import { ApiError, REMOTE, advanceApi, announcementsApi, attendanceApi, document
 import { clearExplainReminders, onReminderTap, scheduleExplainReminders } from "./notify";
 import { MY_REQ_INIT, SUPPORT_SAMPLE } from "./api/mock-data";
 import {
-  EXPLANATION_KINDS, distanceMeters, passwordProblems,
-  type AttendanceEvent, type AttendanceToday, type AuthResult, type ExplanationKind, type AppNotification, type MyAdvance, type MyAnnouncement, type MyAnnouncements, type MyDocuments, type MyProfile, type MyCompany, type MyLeave, type MyOvertime, type MyPayslip, type MyPayslips, type MyTimesheet, type NotificationFeed, type RequestItem, type SupportContact, type TimesheetDay, type WorkLocation,
+  EXPLANATION_KINDS, PROFILE_FIELDS, distanceMeters, passwordProblems,
+  type AttendanceEvent, type AttendanceToday, type AuthResult, type ExplanationKind, type AppNotification, type MyAdvance, type MyAnnouncement, type MyAnnouncements, type MyDocuments, type MyProfile, type ProfileChangeInput, type ProfileField, type MyCompany, type MyLeave, type MyOvertime, type MyPayslip, type MyPayslips, type MyTimesheet, type NotificationFeed, type RequestItem, type SupportContact, type TimesheetDay, type WorkLocation,
 } from "@kavor/contracts";
 import { currentFix, deviceRegistration, deviceSummary, enqueue, flushQueue, installationId, LocationError, newEventId, quietFix, readQueue, type Fix } from "./attendance";
 
@@ -46,6 +46,8 @@ const freshForms = () => ({
   newPw: "", confirmPw: "", newPwShow: false, confirmPwShow: false, resetErr: "",
   acId: "HD0142", acMail: "thao.ha@haidang.vn", acPw: "", agree: false, agreeErr: false,
   rej: "", rejErr: false, payQ: "", payChip: 1, pfPhone: "0912 345 468", pfAddr: "Tân Định, TP.HCM",
+  /* Đề nghị sửa hồ sơ (bản dùng API): điền sẵn từ hồ sơ đã duyệt khi mở form */
+  pfEmail: "", pfEmName: "", pfEmPhone: "", pfEmRel: "", pfBank: "", pfAcc: "", pfHolder: "", pfReason: "", pfErr: "",
 });
 
 const fromSnapshot = (d: Snapshot) => ({
@@ -255,9 +257,12 @@ export const dayCount = (n: number) => `${dec(n)} ngày`;
 export const reqSub = (r: RequestItem) => r.type === "leave" ? `${leaveRange(r.payload)} · ${dayCount(r.payload.days)}`
   : r.type === "overtime" ? `${WD_ISO[isoWeekday(r.payload.date)]} ${ddmm(r.payload.date)} · ${r.payload.start}–${r.payload.end} · ${dec(r.payload.hours)} giờ`
   : r.type === "salary_advance" ? `${vnd(r.payload.amount)} · trừ lương ${r.payload.month.slice(5)}/${r.payload.month.slice(0, 4)}`
+  : r.type === "profile_change" ? profileFieldsText(r.payload.fields)
   : `${r.workDate ? `${WD_ISO[isoWeekday(r.workDate)]} ${ddmm(r.workDate)} · ` : ""}${EXPLANATION_KINDS[r.payload.kind].toLowerCase()}`;
-const reqTitle = (r: RequestItem) => r.type === "leave" ? r.payload.leaveTypeName : r.type === "overtime" ? "Làm thêm giờ" : r.type === "salary_advance" ? "Tạm ứng lương" : "Giải trình công";
-const reqKind = (r: RequestItem) => (r.type === "leave" ? "leave" as const : r.type === "overtime" ? "ot" as const : r.type === "salary_advance" ? "advance" as const : "explain" as const);
+/* "Điện thoại, tài khoản ngân hàng" */
+export const profileFieldsText = (fields: ProfileField[]) => { const t = fields.map((f) => PROFILE_FIELDS[f].toLowerCase()).join(", "); return t.charAt(0).toUpperCase() + t.slice(1); };
+export const reqTitle = (r: RequestItem) => r.type === "leave" ? r.payload.leaveTypeName : r.type === "overtime" ? "Làm thêm giờ" : r.type === "salary_advance" ? "Tạm ứng lương" : r.type === "profile_change" ? "Sửa thông tin cá nhân" : "Giải trình công";
+export const reqKind = (r: RequestItem) => (r.type === "leave" ? "leave" as const : r.type === "overtime" ? "ot" as const : r.type === "salary_advance" ? "advance" as const : r.type === "profile_change" ? "profile" as const : "explain" as const);
 export const tsDay = (date: string) => S.ts?.days.find((d) => d.date === date);
 /* Ngày còn giải trình được có hạn gần nhất (bản dùng API) — cho thông báo ở Trang chủ và menu tạo đơn */
 export function explainDue(): { date: string; deadline: string; daysLeft: number; issue: string } | null {
@@ -292,15 +297,15 @@ export async function loadRequests() {
   try {
     const [mine, ap] = await Promise.all([timesheetApi.mine(), timesheetApi.approvals()]);
     S.reqItems = new Map([...mine, ...ap.items].map((r) => [r.no, r]));
-    /* Đơn giải trình, nghỉ phép, OT lấy từ máy chủ; tạm ứng/sửa hồ sơ chưa có máy chủ nên giữ đơn tạo trong phiên */
-    const local = S.myReq.filter((r) => r.type !== "explain" && r.type !== "leave" && r.type !== "ot" && r.type !== "advance" && !MOCK_REQ_IDS.has(r.id));
+    /* Mọi loại đơn đều lấy từ máy chủ; chỉ giữ đơn tạo trong phiên không thuộc loại nào ở trên (không còn) và bỏ đơn mẫu */
+    const local = S.myReq.filter((r) => r.type !== "explain" && r.type !== "leave" && r.type !== "ot" && r.type !== "advance" && r.type !== "profile" && !MOCK_REQ_IDS.has(r.id));
     S.myReq = [...mine.map((r) => ({
-      id: r.no, type: reqKind(r), title: reqTitle(r), sub: reqSub(r), status: r.status, created: stamp(r.submittedAt), reason: r.payload.reason,
+      id: r.no, type: reqKind(r), title: reqTitle(r), sub: reqSub(r), status: r.status, created: stamp(r.submittedAt), reason: r.payload.reason ?? "",
       note: r.steps.find((x) => x.status === "rejected")?.comment ?? undefined,
     })), ...local];
     S.approvals = ap.items.map((r) => ({
       id: r.no, who: r.requester.fullName, ini: initialsOf(r.requester.fullName), role: r.requester.department ?? "", type: reqKind(r), title: reqTitle(r),
-      sub: reqSub(r), reason: r.payload.reason, created: stamp(r.submittedAt),
+      sub: reqSub(r), reason: r.payload.reason ?? "", created: stamp(r.submittedAt),
       ctx: r.type === "explanation" && r.day ? `Chấm công gốc: vào ${r.day.rawIn ?? "--:--"} · ra ${r.day.rawOut ?? "--:--"}` : "",
     }));
     S.role = ap.canApprove ? "manager" : "staff";
@@ -1234,9 +1239,37 @@ export const ACT = {
     S.stack = ["done"]; render("push");
   },
   doneGo: (a: Route) => { S.reqTab = "mine"; S.reqFilter = "all"; S.stack = [a]; render("fade"); },
-  /* Bản dùng API: luồng đề nghị sửa hồ sơ chưa làm (cần chốt trường được sửa, tài khoản ngân hàng) — không giả vờ đã gửi */
-  editProfile: () => { if (REMOTE) { toast("Đề nghị sửa thông tin sẽ có ở bản sau. Cần sửa ngay, vui lòng liên hệ HR."); return; } openSheet("editProfile"); },
-  pfSend: () => { if (!needNet(() => ACT.pfSend())) return; sync(api.requestProfileChange({ phone: S.f.pfPhone, address: S.f.pfAddr })); closeSheet(); toast("Đã gửi. Thông tin cũ vẫn hiệu lực đến khi HR duyệt."); },
+  editProfile: () => {
+    if (REMOTE) {
+      const p = S.profile, f = S.f;
+      if (!p) { void loadProfile().then(() => { if (S.profile) ACT.editProfile(); else toast("Chưa tải được hồ sơ. Kiểm tra kết nối rồi thử lại."); }); return; }
+      f.pfPhone = p.phone ?? ""; f.pfEmail = p.personal.personalEmail ?? ""; f.pfAddr = p.personal.address ?? "";
+      f.pfEmName = p.personal.emergency?.name ?? ""; f.pfEmPhone = p.personal.emergency?.phone ?? ""; f.pfEmRel = p.personal.emergency?.relation ?? "";
+      f.pfBank = p.personal.bank?.bankName ?? ""; f.pfAcc = p.personal.bank?.accountNo ?? ""; f.pfHolder = p.personal.bank?.holder ?? ""; f.pfReason = ""; f.pfErr = "";
+    }
+    openSheet("editProfile");
+  },
+  /* Mở đơn sửa hồ sơ đang chờ (từ thẻ trên Hồ sơ / sheet) */
+  openPendingProfile: () => {
+    const no = S.profile?.pending?.no; if (!no) return;
+    remote("openPendingProfile", async () => { await loadRequests(); S.param = no; go("reqDetail"); });
+  },
+  pfSend: () => {
+    if (REMOTE) {
+      const f = S.f, t = (x: string) => x.trim();
+      const em = [t(f.pfEmName), t(f.pfEmPhone), t(f.pfEmRel)];
+      const body: ProfileChangeInput = { phone: t(f.pfPhone), personalEmail: t(f.pfEmail), address: t(f.pfAddr), reason: t(f.pfReason) || null,
+        emergency: em.some(Boolean) ? { name: em[0]!, phone: em[1]!, relation: em[2]! } : null,
+        ...(t(f.pfBank) || t(f.pfAcc) || t(f.pfHolder) ? { bank: { bankName: t(f.pfBank), accountNo: t(f.pfAcc), holder: t(f.pfHolder) } } : {}) };
+      f.pfErr = ""; emit();
+      remote("pfSend", async () => {
+        await companyApi.profileChange(body);
+        closeSheet(); toast("Đã gửi. Thông tin cũ vẫn hiệu lực đến khi HR duyệt.");
+        await Promise.all([loadProfile(), loadRequests()]);
+      }, (e) => { if (e.status === 401) return false; S.f.pfErr = e.message; emit(); return true; });
+      return;
+    }
+    if (!needNet(() => ACT.pfSend())) return; sync(api.requestProfileChange({ phone: S.f.pfPhone, address: S.f.pfAddr })); closeSheet(); toast("Đã gửi. Thông tin cũ vẫn hiệu lực đến khi HR duyệt."); },
   logoutAsk: () => openSheet("logoutAsk"),
   logoutGo: () => {
     /* Còn bật đăng nhập bằng Face ID thì giữ refresh token cho lần sau; tắt thì thu hồi phiên trên máy chủ */

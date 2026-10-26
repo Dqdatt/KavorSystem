@@ -17,6 +17,7 @@ import { PolicyIndex, loadPlacements } from "../attendance/policy.js";
 import { monthOf, periodOf } from "../timesheet/compute.js";
 import type { RequestsService, Viewer } from "../timesheet/requests.service.js";
 import type { TimesheetService } from "../timesheet/timesheet.service.js";
+import { bankView } from "../profile/profile.service.js";
 
 type Db = SupabaseGateway["admin"];
 type AdvRow = { request_id: string; employee_id: string; amount: number; deduct_month: string; paid_at: string | null; requests: { status: string; submitted_at: string } };
@@ -187,6 +188,12 @@ export class AdvanceService {
     ]);
     const today = (await this.timesheets.tenantClock(db, ctx.tenantId)).today;
     const all = (comps ?? []) as Array<{ employee_id: string; base_salary: number; effective_from: string; note: string | null; created_at: string }>;
+    /* Kế toán đọc lại tài khoản ngân hàng HR đã duyệt (đề nghị sửa hồ sơ), chỉ khi có employee.sensitive.read trong phạm vi */
+    const sens = ctx.can("employee.sensitive.read") ? await ctx.scopedEmployeeIds("employee.sensitive.read") : new Set<string>();
+    const bankIds = ids.filter((id) => sens.has(id));
+    const { data: banks, error: bankErr } = bankIds.length ? await db.from("employee_bank_accounts").select("employee_id, bank_name, account_no, holder").eq("tenant_id", ctx.tenantId).in("employee_id", bankIds) : { data: [], error: null };
+    if (bankErr) throw bankErr;
+    const bank = new Map(((banks ?? []) as Array<{ employee_id: string; bank_name: string; account_no: string; holder: string }>).map((x) => [x.employee_id, x]));
     const rows: CompensationRow[] = ((emps ?? []) as Array<{ id: string; employee_code: string; full_name: string }>).map((e) => {
       const h = all.filter((c) => c.employee_id === e.id);
       const cur = h.find((c) => c.effective_from <= today);
@@ -194,6 +201,7 @@ export class AdvanceService {
         employee: { id: e.id, code: e.employee_code, fullName: e.full_name, department: deps.get(e.id) || null },
         baseSalary: cur ? Number(cur.base_salary) : null, effectiveFrom: cur?.effective_from ?? null,
         history: h.map((c) => ({ baseSalary: Number(c.base_salary), effectiveFrom: c.effective_from, note: c.note, createdAt: c.created_at })),
+        bank: bank.has(e.id) ? bankView(bank.get(e.id)!, true) : null,
       };
     });
     await ctx.audit("compensation.viewed", "tenant", ctx.tenantId, null, { employees: rows.length });

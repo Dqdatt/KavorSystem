@@ -7,8 +7,8 @@ import { Illus } from "../illus";
 import { Avatar, Balanced, Btn, BtnRow, Card, Chip, Chips, Empty, InfoRow, LinkBtn, Seg, St, T, Tag, Timeline } from "../ui";
 import { Foot, TabHead, TopBar, type ScreenSpec } from "../screen";
 import { TYPE_ICON, type Approval, type MyReq } from "../data";
-import { EXPLANATION_KINDS, OVERTIME_DAY_KINDS, STEP_RESOLVERS, type RequestItem } from "@kavor/contracts";
-import { ACT, S, dayCount, go, leaveRange, reqSub, stamp } from "../store";
+import { EXPLANATION_KINDS, OVERTIME_DAY_KINDS, PROFILE_FIELDS, STEP_RESOLVERS, type ProfileField, type ProfileValues, type RequestItem } from "@kavor/contracts";
+import { ACT, S, dayCount, go, leaveRange, reqKind, reqSub, reqTitle, stamp } from "../store";
 
 /* Luồng duyệt của đơn thật: "Đã gửi" + từng bước theo phiên bản workflow lúc gửi */
 function flowOf(r: RequestItem): { steps: Array<[string, string]>; cur: number } {
@@ -22,6 +22,11 @@ function flowOf(r: RequestItem): { steps: Array<[string, string]>; cur: number }
   const k = r.steps.findIndex((s) => s.status === "pending" || s.status === "rejected" || (r.status === "cancelled" && s.status !== "approved" && s.status !== "skipped"));
   return { steps, cur: k < 0 ? steps.length - 1 : k + 1 };
 }
+/* Giá trị trường hồ sơ trong đơn sửa: số tài khoản đầy đủ chỉ có khi được phép (của chính mình/HR), còn lại •6789 như prototype */
+const profileText = (f: ProfileField, v: ProfileValues) =>
+  f === "emergency" ? (v.emergency ? `${v.emergency.name} (${v.emergency.relation}) · ${v.emergency.phone}` : "—")
+  : f === "bank" ? (v.bank ? `${v.bank.bankName} ${v.bank.accountNo ?? `•${v.bank.last4}`}` : "—")
+  : (v[f] as string | null | undefined) || "—";
 const proposed = (r: Extract<RequestItem, { type: "explanation" }>) => [r.payload.clockIn ? `vào ${r.payload.clockIn}` : null, r.payload.clockOut ? `ra ${r.payload.clockOut}` : null].filter(Boolean).join(" · ") || "—";
 /* Nội dung đơn theo loại: giải trình (giờ đề nghị, chấm công gốc) / nghỉ phép (loại, khoảng ngày, số ngày làm việc) */
 function ReqRows({ r, approver }: { r: RequestItem; approver?: boolean }) {
@@ -34,6 +39,10 @@ function ReqRows({ r, approver }: { r: RequestItem; approver?: boolean }) {
     <InfoRow k="Số tiền" v={`${r.payload.amount.toLocaleString("vi-VN")} ₫`} strong />
     <InfoRow k="Trừ vào lương" v={`Tháng ${r.payload.month.slice(5)}/${r.payload.month.slice(0, 4)}`} strong />
     {r.payout ? <InfoRow k="Đã chi" v={`${stamp(r.payout.paidAt)}${r.payout.note ? ` · ${r.payout.note}` : ""}`} strong /> : null}
+  </>;
+  if (r.type === "profile_change") return <>
+    {approver ? <InfoRow k="Loại đơn" v="Sửa thông tin cá nhân" strong /> : null}
+    {r.payload.fields.map((f) => <InfoRow key={f} k={PROFILE_FIELDS[f]} v={`${profileText(f, r.payload.before)} → ${profileText(f, r.payload.after)}`} strong />)}
   </>;
   if (r.type === "overtime") return <>
     {approver ? <InfoRow k="Loại đơn" v="Làm thêm giờ" strong /> : null}
@@ -200,14 +209,14 @@ function remoteReqDetail(r: RequestItem): ScreenSpec {
     head: <TopBar title={r.no} />,
     body: [
       <View key="c" style={{ alignItems: "center", gap: 6, paddingTop: 6 }}>
-        <Gi n={TYPE_ICON[r.type === "leave" ? "leave" : r.type === "overtime" ? "ot" : r.type === "salary_advance" ? "advance" : "explain"]} s={44} w={1.5} />
-        <T style={{ color: C.ink2, fontFamily: F.medium, textAlign: "center" }}>{r.type === "leave" ? r.payload.leaveTypeName : r.type === "overtime" ? "Làm thêm giờ" : r.type === "salary_advance" ? "Tạm ứng lương" : "Giải trình công"}</T>
+        <Gi n={TYPE_ICON[reqKind(r)]} s={44} w={1.5} />
+        <T style={{ color: C.ink2, fontFamily: F.medium, textAlign: "center" }}>{reqTitle(r)}</T>
         <Balanced style={{ fontSize: 20, fontFamily: F.bold, textAlign: "center" }}>{reqSub(r)}</Balanced>
         <Tag st={r.status} />
       </View>,
       <Card key="info">
         <ReqRows r={r} />
-        <InfoRow k="Lý do" v={r.payload.reason} strong /><InfoRow k="Gửi lúc" v={stamp(r.submittedAt)} strong />
+        <InfoRow k="Lý do" v={r.payload.reason || "—"} strong /><InfoRow k="Gửi lúc" v={stamp(r.submittedAt)} strong />
       </Card>,
       <Card key="tl" pad><Timeline steps={f.steps} cur={f.cur} allDone={r.status === "approved"} fail={stopped} /></Card>,
       r.canCancel ? <Btn key="x" kind="danger" block onPress={() => ACT.cancelAsk(r.no)}>Hủy đơn</Btn> : null,

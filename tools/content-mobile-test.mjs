@@ -18,7 +18,10 @@ const post = (id, extra = {}) => ({ id, category: 'notice', title: `Bài ${id}`,
 let list = async () => ({ items: [post('a1', { category: 'policy', important: true, attachment: { name: 'Quy-dinh.pdf', type: 'application/pdf', size: 412 * 1024 } }), post('a2', { category: 'event' }), post('a3', { publishAt: new Date(Date.now() - 5 * 86400_000).toISOString() })] });
 let get = async (id) => ({ ...post(id, { title: 'Quy định mới', attachment: { name: 'Quy-dinh.pdf', type: 'application/pdf', size: 412 * 1024 } }), readAt: today });
 let docList = async () => ({ items: [{ id: 'd1', category: 'contract', title: 'HĐLĐ', docNo: null, issuedOn: '2026-01-01', expiresOn: null, expiry: 'none', versionNo: 2, fileName: 'a.pdf', type: 'application/pdf', size: 10, updatedAt: today }] });
-globalThis.__newsTest = { React, ApiError, opened, companyApi: { profile: async () => { calls.push('profile'); return { employeeCode: 'HD0142', fullName: 'Trần Thu Hà', department: 'Marketing' }; } }, documentsApi: {
+globalThis.__newsTest = { React, ApiError, opened, companyApi: {
+  profile: async () => { calls.push('profile'); return profile(); },
+  profileChange: async (b) => { calls.push('profileChange'); sent.push(b); return changeReply(b); },
+}, timesheetApi: { mine: async () => { calls.push('mine'); return []; }, approvals: async () => ({ items: [], canApprove: false }) }, documentsApi: {
   list: async () => { calls.push('docs'); return docList(); },
   fileUrl: async (id) => { calls.push(`docfile:${id}`); return `http://api.test/api/v1/me/documents/${id}/file?sig=y`; },
 }, announcementsApi: {
@@ -26,14 +29,18 @@ globalThis.__newsTest = { React, ApiError, opened, companyApi: { profile: async 
   get: async (id) => { calls.push(`get:${id}`); return get(id); },
   fileUrl: async (id) => { calls.push(`file:${id}`); return `http://api.test/api/v1/me/announcements/${id}/file?sig=x`; },
 } };
+const personal = { personalEmail: null, address: 'Tân Định, TP.HCM', emergency: { name: 'Trần Văn Bình', phone: '0909123456', relation: 'Bố' }, bank: { bankName: 'Vietcombank', holder: 'TRAN THU HA', last4: '6789', accountNo: '0071000006789' } };
+let profile = async () => ({ employeeCode: 'HD0142', fullName: 'Trần Thu Hà', department: 'Marketing', phone: '0912345468', personal, pending: null });
+const sent = [];
+let changeReply = async () => ({ id: 'r1', no: 'HS-0001' });
 const noop = `export const empty=async()=>{};`;
 const mocks = new Map([
   ['react-native', `export const AppState={currentState:'active',addEventListener:()=>({remove(){}})}, Linking={addEventListener:()=>({remove(){}}),openURL:async(u)=>{globalThis.__newsTest.opened.push(u);}}, Vibration={vibrate(){}}, Easing={bezier:()=>()=>{}}, StyleSheet={create:x=>x}, View='View',Pressable='Pressable',TextInput='TextInput';`],
   ['./auth', `${noop} export const authenticate=async()=>({ok:true}), biometricLabel=async()=> 'Face ID', loadSession=async()=>null, quickLoginEmployee=empty,quickRefreshToken=empty,clearQuickLogin=empty,clearSession=empty,loadBioPrefs=empty,loadSupport=empty,saveBioPrefs=empty,saveSession=empty,saveSupport=empty;`],
   ['./attendance', `${noop} export const currentFix=empty,deviceRegistration=empty,deviceSummary=empty,enqueue=empty,flushQueue=empty,installationId=empty,newEventId=empty,quietFix=empty,readQueue=empty;export class LocationError extends Error {}`],
   ['./notify', `${noop} export const clearExplainReminders=empty,scheduleExplainReminders=empty,onReminderTap=()=>()=>{};`],
-  ['./api/http', `export const REMOTE=true,ApiError=globalThis.__newsTest.ApiError,announcementsApi=globalThis.__newsTest.announcementsApi,documentsApi=globalThis.__newsTest.documentsApi,companyApi=globalThis.__newsTest.companyApi;
-    export const advanceApi={},attendanceApi={},authApi={},leaveApi={},notificationsApi={},overtimeApi={},payslipApi={},timesheetApi={},setTokenSource=()=>{},isNetworkError=()=>false;`],
+  ['./api/http', `export const REMOTE=true,ApiError=globalThis.__newsTest.ApiError,announcementsApi=globalThis.__newsTest.announcementsApi,documentsApi=globalThis.__newsTest.documentsApi,companyApi=globalThis.__newsTest.companyApi,timesheetApi=globalThis.__newsTest.timesheetApi;
+    export const advanceApi={},attendanceApi={},authApi={},leaveApi={},notificationsApi={},overtimeApi={},payslipApi={},setTokenSource=()=>{},isNetworkError=()=>false;`],
   ['../api/http', `export const REMOTE=true;`],
   ['../qa', `export const QA_ENABLED=false;`],
   ['./home', `export const ImpTag=()=>'Quan trọng';`],
@@ -114,7 +121,23 @@ console.log('✔ Lỗi tải tài liệu không giữ danh sách cũ; đăng xu�
 S.stack=['home'];calls.length=0;S.sheet=null;
 module.exports.go('profile');await delay(0);
 assert.deepEqual(calls,['profile']);assert.equal(S.profile.fullName,'Trần Thu Hà');
-ACT.editProfile();assert.ok(!S.sheet,'bản API không mở form giả');assert.ok(S.toast.msg.includes('liên hệ HR'));
+ACT.editProfile();
+assert.equal(S.sheet?.kind,'editProfile');
+assert.deepEqual([S.f.pfPhone,S.f.pfAddr,S.f.pfEmRel,S.f.pfAcc,S.f.pfHolder],['0912345468','Tân Định, TP.HCM','Bố','0071000006789','TRAN THU HA'],'form điền sẵn thông tin đã duyệt');
+console.log('✔ "Đề nghị sửa" mở form điền sẵn hồ sơ hiện tại');
+changeReply=async()=>{throw new ApiError('VALIDATION_ERROR','Số tài khoản gồm 6–20 chữ số.',400);};
+S.f.pfAcc='12ab';calls.length=0;ACT.pfSend();await delay(0);await delay(0);
+assert.equal(S.sheet?.kind,'editProfile','lỗi kiểm tra giữ form mở');assert.equal(S.f.pfErr,'Số tài khoản gồm 6–20 chữ số.');
+changeReply=async()=>({id:'r1',no:'HS-0001'});
+profile=async()=>({ employeeCode: 'HD0142', fullName: 'Trần Thu Hà', department: 'Marketing', phone: '0912345468', personal, pending: { id: 'r1', no: 'HS-0001', fields: ['address', 'bank'] } });
+S.f.pfAcc='19012345 6789';S.f.pfAddr=' Quận 1 ';S.f.pfEmName='';S.f.pfEmPhone='';S.f.pfEmRel='';S.f.pfReason='Đổi tài khoản';calls.length=0;
+ACT.pfSend();await delay(0);await delay(0);await delay(0);
+assert.deepEqual(sent.at(-1),{phone:'0912345468',personalEmail:'',address:'Quận 1',reason:'Đổi tài khoản',emergency:null,bank:{bankName:'Vietcombank',accountNo:'19012345 6789',holder:'TRAN THU HA'}});
+assert.equal(S.sheetShow,false,'gửi xong đóng form');assert.ok(S.toast.msg.includes('HR duyệt'));
+assert.ok(calls.includes('profile')&&calls.includes('mine'),'tải lại hồ sơ và đơn của tôi');assert.equal(S.profile.pending.no,'HS-0001');
+console.log('✔ Gửi đề nghị: lỗi hiện trong form; thành công đóng form, tải lại hồ sơ có đề nghị đang chờ');
+ACT.openPendingProfile();await delay(0);await delay(0);
+assert.equal(cur(),'reqDetail');assert.equal(S.param,'HS-0001');
 ACT.logoutGo();assert.equal(S.profile,null);
-console.log('✔ Hồ sơ đọc từ API; "Đề nghị sửa" chưa làm thì báo rõ, không giả vờ gửi; đăng xuất xóa hồ sơ');
+console.log('✔ Mở đề nghị đang chờ từ Hồ sơ; đăng xuất xóa hồ sơ');
 globalThis.setInterval=nativeInterval;

@@ -239,7 +239,36 @@ export function SheetContent({ kind, arg }: { kind: SheetKind; arg?: string }) {
         <Close kind="primary">Xong</Close>
       </>;
     }
-    case "editProfile": return <>
+    /* Bản dùng API: đủ trường người dùng chốt 26/10 (điện thoại, email cá nhân, địa chỉ, liên hệ khẩn cấp, tài khoản ngân hàng) — thiết kế bổ sung
+       theo khuôn sheet của prototype; đang có đề nghị chờ thì không sửa tiếp (như ghi chú HS-0221 của prototype) */
+    case "editProfile": if (REMOTE) {
+      const p = S.profile, set = (k: keyof typeof S.f) => (t: string) => { (S.f as Record<string, unknown>)[k] = t; };
+      return <>
+        <H3>Đề nghị sửa thông tin</H3><Sub>Có hiệu lực sau khi HR duyệt</Sub>
+        {p?.pending ? <>
+          <Note icon="lock">{`Bạn đang có đề nghị ${p.pending.no} chờ HR duyệt, chưa sửa tiếp được. Hủy đề nghị đó nếu cần gửi lại.`}</Note>
+          <Btn block kind="ghost" onPress={() => { closeSheet(); ACT.openPendingProfile(); }}>Xem đề nghị {p.pending.no}</Btn>
+        </> : <>
+          <Field label="Số điện thoại"><Inp defaultValue={S.f.pfPhone} keyboardType="phone-pad" onChangeText={set("pfPhone")} /></Field>
+          <Field label="Email cá nhân"><Inp defaultValue={S.f.pfEmail} keyboardType="email-address" autoCapitalize="none" placeholder="ví dụ: ten@gmail.com" onChangeText={set("pfEmail")} /></Field>
+          <Field label="Địa chỉ"><Inp defaultValue={S.f.pfAddr} onChangeText={set("pfAddr")} /></Field>
+          <Field label="Liên hệ khẩn cấp">
+            <Inp defaultValue={S.f.pfEmName} placeholder="Họ tên" onChangeText={set("pfEmName")} />
+            <Inp defaultValue={S.f.pfEmPhone} placeholder="Số điện thoại" keyboardType="phone-pad" onChangeText={set("pfEmPhone")} />
+            <Inp defaultValue={S.f.pfEmRel} placeholder="Quan hệ (bố, mẹ, vợ/chồng…)" onChangeText={set("pfEmRel")} />
+          </Field>
+          <Field label="Tài khoản ngân hàng">
+            <Inp defaultValue={S.f.pfBank} placeholder="Ngân hàng" onChangeText={set("pfBank")} />
+            <Inp defaultValue={S.f.pfAcc} placeholder="Số tài khoản" keyboardType="number-pad" onChangeText={set("pfAcc")} />
+            <Inp defaultValue={S.f.pfHolder} placeholder="Chủ tài khoản" autoCapitalize="characters" onChangeText={set("pfHolder")} />
+          </Field>
+          <Field label="Lý do (không bắt buộc)"><Inp defaultValue={S.f.pfReason} onChangeText={set("pfReason")} /></Field>
+          {S.f.pfErr ? <ErrLine>{S.f.pfErr}</ErrLine> : null}
+          <Btn block spinKey="pfSend" onPress={ACT.pfSend}>Gửi đề nghị</Btn>
+        </>}
+      </>;
+    }
+    return <>
       <H3>Đề nghị sửa thông tin</H3><Sub>Có hiệu lực sau khi HR duyệt</Sub>
       <Field label="Số điện thoại"><Inp defaultValue={S.f.pfPhone} keyboardType="phone-pad" onChangeText={(t) => { S.f.pfPhone = t; }} /></Field>
       <Field label="Địa chỉ"><Inp defaultValue={S.f.pfAddr} onChangeText={(t) => { S.f.pfAddr = t; }} /></Field>
