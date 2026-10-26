@@ -29,6 +29,9 @@ Toàn bộ dữ liệu trong thư mục này là hư cấu và chỉ dùng cho d
 - `HDG0008` có check-in gửi trễ từ Android offline queue.
 - `HDG0010` đang thử việc, số dư phép năm bằng 0.
 - Payroll sử dụng số tiền giả; không phản ánh chính sách hay thu nhập thật.
+- `payroll_import_2026-10.csv`: file thử trang web Lương & tạm ứng → Kỳ lương → Import kết quả, đúng định dạng importer
+  (cột theo mã thành phần, `NET` = thu nhập − khấu trừ) cho 9 nhân viên seed Hải Đăng. Nhập được ngay; cảnh báo kỳ công chưa
+  khóa và ngày công lệch bảng công là đúng dự kiến. `payroll_results.csv` là định dạng cũ, importer không đọc.
 
 ## Quy tắc
 
