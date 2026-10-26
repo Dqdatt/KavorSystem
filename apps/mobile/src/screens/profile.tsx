@@ -20,19 +20,37 @@ import { ACT, S, go, jump, setBioPref, lvAvail, phase, shiftMinutes, toast, work
 const COVER = '<svg viewBox="0 0 320 124" preserveAspectRatio="xMidYMid slice"><defs><linearGradient id="pfSky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#CFF5E4"/><stop offset="1" stop-color="#F3FCF8"/></linearGradient></defs><rect width="320" height="124" fill="url(#pfSky)"/><circle cx="252" cy="36" r="15" fill="#FFF4D6"/><path d="M0 22c18 8 30 30 34 58l6 44H0z" fill="#2E9C77" opacity=".55"/><path d="M320 14c-20 10-34 34-38 64l-4 46h42z" fill="#2E9C77" opacity=".55"/><path d="M0 80c40-20 70-16 110-8s80-18 120-10 60 0 90-8v70H0z" fill="#A7F3D0"/><path d="M0 96c50-14 100-4 150-10s90-14 170 0v42H0z" fill="#34C79A"/><path d="M0 108c60-8 120 4 190-4s90-4 130 2v18H0z" fill="#0B7A5A"/></svg>';
 const VERIFIED = '<svg width="20" height="20" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="#065F46"/><path d="m7 12.5 3.2 3.2L17 9" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
+/* Bản dùng API: hồ sơ thật (chỉ đọc); bản mẫu/QA giữ nguyên prototype */
+const EMPLOYMENT: Record<string, string> = { probation: "Thử việc", official: "Chính thức", contractor: "Cộng tác viên", intern: "Thực tập" };
+const initials = (name: string) => { const p = name.trim().split(/\s+/); return ((p.length > 1 ? p[0]![0]! : "") + p[p.length - 1]![0]!).toUpperCase(); };
+const maskPhone = (p: string | null) => (!p ? "—" : p.replace(/\s+/g, "").length > 7 ? `${p.replace(/\s+/g, "").slice(0, 4)} ••• ${p.replace(/\s+/g, "").slice(-3)}` : p);
+const dmy = (d: string) => d.split("-").reverse().join("/");
+function seniority(hire: string) {
+  const [y, m, d] = hire.split("-").map(Number) as [number, number, number], now = new Date();
+  const months = (now.getFullYear() - y) * 12 + (now.getMonth() + 1 - m) - (now.getDate() < d ? 1 : 0);
+  return months >= 12 ? `${Math.floor(months / 12)} năm` : `${Math.max(0, months)} tháng`;
+}
+function contractText() {
+  const p = S.profile;
+  if (!p) return "—";
+  if (p.terminationDate) return `Nghỉ từ ${dmy(p.terminationDate)}`;
+  return `${EMPLOYMENT[p.employmentType] ?? p.employmentType}${p.contract?.expiresOn ? ` · đến ${dmy(p.contract.expiresOn)}` : ""}`;
+}
+
 function PfCard() {
+  const p = REMOTE ? S.profile : null;
   return (
     <View style={styles.pf}>
       {/* Ảnh bìa do công ty tải lên trên web; chưa có thì dùng ảnh mặc định của Kavor */}
       <View style={styles.cover}>{S.coverSrc ? <Image source={S.coverSrc} style={{ width: "100%", height: "100%" }} resizeMode="cover" accessibilityIgnoresInvertColors /> : <SvgXml xml={COVER} width="100%" height="100%" />}</View>
-      <View style={{ marginTop: -54 }}><Avatar ini="TH" size="xl" /></View>
+      <View style={{ marginTop: -54 }}><Avatar ini={REMOTE ? (p ? initials(p.fullName) : "…") : "TH"} size="xl" /></View>
       <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 12, marginBottom: 2 }}>
-        <T style={{ fontSize: 22, fontFamily: F.bold }}>Trần Thu Hà</T>
+        <T style={{ fontSize: 22, fontFamily: F.bold }}>{REMOTE ? p?.fullName ?? "—" : "Trần Thu Hà"}</T>
         <SvgXml xml={VERIFIED} width={20} height={20} />
       </View>
-      <T style={{ fontSize: 13, color: C.ink2, fontFamily: F.medium }}>Senior Designer · Marketing · HD0142</T>
+      <T style={{ fontSize: 13, color: C.ink2, fontFamily: F.medium }}>{REMOTE ? (p ? [p.position, p.department, p.employeeCode].filter(Boolean).join(" · ") : " ") : "Senior Designer · Marketing · HD0142"}</T>
       <View style={{ flexDirection: "row", width: "100%", marginTop: 18, marginBottom: 16 }}>
-        {([["star", "5 năm", "Thâm niên"], ["plane", dec(lvAvail()), "Ngày phép"], ["cal", REMOTE ? (S.ts ? `${S.ts.summary.credited}/${S.ts.summary.standard}` : "—") : "10/22", "Ngày công"]] as Array<[IconName, string, string]>).map(([icon, b, s], i) => (
+        {([["star", REMOTE ? (p ? seniority(p.hireDate) : "—") : "5 năm", "Thâm niên"], ["plane", dec(lvAvail()), "Ngày phép"], ["cal", REMOTE ? (S.ts ? `${S.ts.summary.credited}/${S.ts.summary.standard}` : "—") : "10/22", "Ngày công"]] as Array<[IconName, string, string]>).map(([icon, b, s], i) => (
           <View key={s} style={[{ flex: 1, alignItems: "center", gap: 3 }, i > 0 && { borderLeftWidth: 1, borderLeftColor: "rgba(6,95,70,0.12)" }]}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}><Gi n={icon} s={16} w={2} /><T style={{ fontSize: 17, fontFamily: F.bold }}>{b}</T></View>
             <T style={{ fontSize: 12, color: C.ink3, fontFamily: F.medium }}>{s}</T>
@@ -49,11 +67,12 @@ export function profileSpec(): ScreenSpec {
     head: <TopBar title="Hồ sơ" right={null} />,
     body: [
       <PfCard key="pf" />,
-      <Notice key="n" icon={<Gi n="hour" s={26} />} title="Đổi tài khoản ngân hàng đang chờ HR" sub="Lương kỳ này vẫn vào Vietcombank •6789" right={<Ic n="chevR" s={18} w={2} color={C.ink3} />} onPress={() => { S.param = "HS-0221"; go("reqDetail"); }} />,
+      REMOTE ? null : <Notice key="n" icon={<Gi n="hour" s={26} />} title="Đổi tài khoản ngân hàng đang chờ HR" sub="Lương kỳ này vẫn vào Vietcombank •6789" right={<Ic n="chevR" s={18} w={2} color={C.ink3} />} onPress={() => { S.param = "HS-0221"; go("reqDetail"); }} />,
       <SectionHead key="sh1" title="Công việc" />,
-      <Card key="job"><InfoRow k="Phòng ban" v="Marketing" strong /><InfoRow k="Quản lý trực tiếp" v="Lê Quang Huy" strong /><InfoRow k="Ngày vào làm" v="03/03/2021" strong /><InfoRow k="Hợp đồng" v={S.contract === "probation" ? "Thử việc · đến 30/11" : S.contract === "leaving" ? "Nghỉ từ 15/11/2026" : "Chính thức"} strong /></Card>,
+      REMOTE ? <Card key="job"><InfoRow k="Phòng ban" v={S.profile?.department ?? "—"} strong /><InfoRow k="Quản lý trực tiếp" v={S.profile?.manager ?? "—"} strong />
+        <InfoRow k="Ngày vào làm" v={S.profile ? dmy(S.profile.hireDate) : "—"} strong /><InfoRow k="Hợp đồng" v={contractText()} strong /></Card> : <Card key="job"><InfoRow k="Phòng ban" v="Marketing" strong /><InfoRow k="Quản lý trực tiếp" v="Lê Quang Huy" strong /><InfoRow k="Ngày vào làm" v="03/03/2021" strong /><InfoRow k="Hợp đồng" v={S.contract === "probation" ? "Thử việc · đến 30/11" : S.contract === "leaving" ? "Nghỉ từ 15/11/2026" : "Chính thức"} strong /></Card>,
       <SectionHead key="sh2" title="Cá nhân" link="Đề nghị sửa" onLink={ACT.editProfile} />,
-      <Card key="me"><InfoRow k="Điện thoại" v="0912 ••• 468" strong /><InfoRow k="Email" v="ha.tran@haidang.vn" strong /><InfoRow k="Địa chỉ" v="Tân Định, TP.HCM" strong /><InfoRow k="Liên hệ khẩn cấp" v="Trần Văn Bình" strong /><InfoRow k="Ngân hàng" v="Vietcombank •6789" strong /></Card>,
+      REMOTE ? <Card key="me"><InfoRow k="Điện thoại" v={maskPhone(S.profile?.phone ?? null)} strong /><InfoRow k="Email" v={S.profile?.workEmail ?? "—"} strong /></Card> : <Card key="me"><InfoRow k="Điện thoại" v="0912 ••• 468" strong /><InfoRow k="Email" v="ha.tran@haidang.vn" strong /><InfoRow k="Địa chỉ" v="Tân Định, TP.HCM" strong /><InfoRow k="Liên hệ khẩn cấp" v="Trần Văn Bình" strong /><InfoRow k="Ngân hàng" v="Vietcombank •6789" strong /></Card>,
       <Card key="links">
         <RowBtn icon={<Gi n="doc" s={24} />} title="Hợp đồng và quyết định" onPress={() => REMOTE ? go("docs") : toast("P05–P06: hợp đồng, quyết định và trình xem PDF")} />
         <RowBtn icon={<Gi n="grid" s={24} />} title="Widget chấm công" onPress={() => go("widgetGuide")} />

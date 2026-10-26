@@ -14,7 +14,7 @@ import { clearExplainReminders, onReminderTap, scheduleExplainReminders } from "
 import { MY_REQ_INIT, SUPPORT_SAMPLE } from "./api/mock-data";
 import {
   EXPLANATION_KINDS, distanceMeters, passwordProblems,
-  type AttendanceEvent, type AttendanceToday, type AuthResult, type ExplanationKind, type AppNotification, type MyAdvance, type MyAnnouncement, type MyAnnouncements, type MyDocuments, type MyCompany, type MyLeave, type MyOvertime, type MyPayslip, type MyPayslips, type MyTimesheet, type NotificationFeed, type RequestItem, type SupportContact, type TimesheetDay, type WorkLocation,
+  type AttendanceEvent, type AttendanceToday, type AuthResult, type ExplanationKind, type AppNotification, type MyAdvance, type MyAnnouncement, type MyAnnouncements, type MyDocuments, type MyProfile, type MyCompany, type MyLeave, type MyOvertime, type MyPayslip, type MyPayslips, type MyTimesheet, type NotificationFeed, type RequestItem, type SupportContact, type TimesheetDay, type WorkLocation,
 } from "@kavor/contracts";
 import { currentFix, deviceRegistration, deviceSummary, enqueue, flushQueue, installationId, LocationError, newEventId, quietFix, readQueue, type Fix } from "./attendance";
 
@@ -167,6 +167,8 @@ const makeState = () => ({
   annDetail: null as MyAnnouncement | null, annDetailError: "",
   /* Tài liệu HR chia sẻ (bản dùng API): chỉ tải sau cổng PIN/Face ID như phiếu lương (hợp đồng có thông tin lương) */
   docData: null as MyDocuments | null, docError: "",
+  /* Hồ sơ của chính mình (bản dùng API, chỉ đọc) */
+  profile: null as MyProfile | null,
   /* Thông báo trong app (bản dùng API) */
   notifs: null as NotificationFeed | null,
   /* Thông báo chưa đọc lúc mở màn Thông báo: vẫn hiện chấm xanh trong lần xem đó dù đã đánh dấu đọc trên máy chủ */
@@ -387,6 +389,11 @@ export async function loadAnnouncement(id: string) {
     if (e instanceof ApiError && e.status === 404 && S.annData) S.annData = { items: S.annData.items.filter((x) => x.id !== id) };
   } finally { if (request === annRequest) emit(); }
 }
+export async function loadProfile() {
+  if (!REMOTE || !isLoggedIn() || S.stack[0] === "consent") return;
+  try { S.profile = await companyApi.profile(); emit(); }
+  catch (e) { if (e instanceof ApiError && e.status === 401) showErr("session"); }
+}
 let docRequest = 0;
 function clearDocuments() { docRequest++; S.docData = null; S.docError = ""; }
 export async function loadDocuments() {
@@ -429,7 +436,7 @@ export async function loadPayslips(month?: string) {
     if (e instanceof ApiError && e.status === 401) { clearPayroll(); showErr("session"); }
   } finally { if (request === payrollRequest) emit(); }
 }
-const refreshWork = () => { void loadTimesheet(S.ts?.period.month); void loadRequests(); void loadNotifications(); void loadLeave(); void loadOvertime(); void loadAdvance(); void loadAnnouncements(); };
+const refreshWork = () => { void loadTimesheet(S.ts?.period.month); void loadRequests(); void loadNotifications(); void loadLeave(); void loadOvertime(); void loadAdvance(); void loadAnnouncements(); void loadProfile(); };
 export const unreadCount = () => (REMOTE ? S.notifs?.unread ?? 0 : 2);
 
 /* Bấm nhắc hạn giải trình → mở form giải trình ngày đó (đăng nhập xong mới mở; khi app vừa khởi động thì đợi khôi phục phiên) */
@@ -513,6 +520,7 @@ export function go(r: Route) {
     }
     if (REMOTE && r === "newsDetail") void loadAnnouncement(S.param ?? "");
     if (REMOTE && r === "docs") void loadDocuments();
+    if (REMOTE && r === "profile") void loadProfile();
     render("push");
   };
   if (GATED[r] && Date.now() > S.pinUntil) { openPin(enter); return; }
@@ -560,7 +568,7 @@ export function openPin(ok: () => void) { S.pin = ""; S.pinOk = ok; openSheet("p
 /* Lưu phiên vào Keychain; thiết bị đã đăng ký thì vào thẳng trang chủ, chưa thì sang bước đăng ký.
    Công ty có điều khoản dữ liệu cá nhân mới chưa đồng ý thì hỏi trước (ADR 0001 §5). */
 async function signIn(employeeId: string, result?: AuthResult) {
-  clearPayroll(); clearAnnouncements(); clearDocuments(); S.pinUntil = 0;
+  clearPayroll(); clearAnnouncements(); clearDocuments(); S.profile = null; S.pinUntil = 0;
   const session = await saveSession({ employeeId, ...(result ? { auth: result.session, me: result.me } : {}) });
   const target: Route = session.deviceRegistered ? "home" : "device";
   if ((await loadCompany())?.privacy.required) { askConsent(target); return; }
@@ -1226,7 +1234,8 @@ export const ACT = {
     S.stack = ["done"]; render("push");
   },
   doneGo: (a: Route) => { S.reqTab = "mine"; S.reqFilter = "all"; S.stack = [a]; render("fade"); },
-  editProfile: () => openSheet("editProfile"),
+  /* Bản dùng API: luồng đề nghị sửa hồ sơ chưa làm (cần chốt trường được sửa, tài khoản ngân hàng) — không giả vờ đã gửi */
+  editProfile: () => { if (REMOTE) { toast("Đề nghị sửa thông tin sẽ có ở bản sau. Cần sửa ngay, vui lòng liên hệ HR."); return; } openSheet("editProfile"); },
   pfSend: () => { if (!needNet(() => ACT.pfSend())) return; sync(api.requestProfileChange({ phone: S.f.pfPhone, address: S.f.pfAddr })); closeSheet(); toast("Đã gửi. Thông tin cũ vẫn hiệu lực đến khi HR duyệt."); },
   logoutAsk: () => openSheet("logoutAsk"),
   logoutGo: () => {
@@ -1235,7 +1244,7 @@ export const ACT = {
       if (!S.bio.login && sess?.auth) { await authApi.logout(sess.auth.accessToken).catch(() => undefined); await clearQuickLogin(); }
     });
     /* Đăng xuất: bỏ nhắc nhở và thông báo của người vừa dùng máy */
-    if (REMOTE) { void clearExplainReminders().catch(() => undefined); S.notifs = null; S.ts = null; clearPayroll(); clearAnnouncements(); clearDocuments(); }
+    if (REMOTE) { void clearExplainReminders().catch(() => undefined); S.notifs = null; S.ts = null; S.profile = null; clearPayroll(); clearAnnouncements(); clearDocuments(); }
     void clearSession(); S.pinUntil = 0; S.f = freshForms(); closeSheet(); S.stack = ["login"]; render("fade");
   },
   pinkey: (a: string) => {

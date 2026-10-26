@@ -53,6 +53,7 @@ check "Chỉ số: 3 tài liệu, 1 sắp hết hạn, 8 người chưa có hợ
 
 echo "— Nhân viên xem tài liệu của mình"
 check "Chỉ thấy hợp đồng (CCCD là Chỉ HR)" "$(call GET me/documents "$EMP" | py "[(i['title'], i['versionNo'], i['expiry']) for i in d['items']]")" "[('Hợp đồng lao động 2026', 1, 'soon')]"
+check "Hồ sơ trên app: phòng ban, quản lý, hợp đồng HR chia sẻ" "$(call GET me/profile "$EMP" | py "(d['employeeCode'], d['department'], d['manager'], d['contract']['title'], d['contract']['expiresOn']=='$SOON')")" "('HD0142', 'Marketing', 'Lê Quang Huy', 'Hợp đồng lao động 2026', True)"
 check "Không lấy được liên kết CCCD → 404" "$(status POST "me/documents/$CCCD/file-link" "$EMP")" 404
 check "Không lấy được tài liệu người khác → 404" "$(status POST "me/documents/$OTHER/file-link" "$EMP")" 404
 P=$(call POST "me/documents/$DOC/file-link" "$EMP" | field data.path); need "Nhận liên kết tải hợp đồng" "$P"
@@ -75,6 +76,7 @@ echo "— Sửa thông tin, đổi quyền xem, gỡ"
 check "Đổi sang Chỉ HR" "$(call PATCH "admin/documents/$DOC" "$HR" "{\"category\":\"contract\",\"title\":\"Hợp đồng lao động 2026\",\"docNo\":\"HĐLĐ-0142/2026\",\"issuedOn\":\"$PAST\",\"expiresOn\":\"$SOON\",\"visibility\":\"hr_only\"}" | py "d['item']['visibility']")" hr_only
 check "Liên kết cũ hết dùng được khi đổi sang Chỉ HR → 404" "$(curl -s -o /dev/null -w '%{http_code}' "$API/$P")" 404
 check "Nhân viên không còn thấy" "$(call GET me/documents "$EMP" | py "len(d['items'])")" 0
+check "Hồ sơ trên app không còn hiện hợp đồng Chỉ HR" "$(call GET me/profile "$EMP" | py "d['contract']")" None
 check "Gỡ thiếu lý do → 400" "$(status POST "admin/documents/$CCCD/archive" "$HR" '{"reason":""}')" 400
 check "Gỡ CCCD" "$(call POST "admin/documents/$CCCD/archive" "$HR" '{"reason":"Nhân viên cập nhật CCCD mới"}' | py "(d['item']['archivedAt'] is not None, d['canUpload'], d['canManage'])")" "(True, False, False)"
 check "Đã gỡ không thêm phiên bản → 409" "$(status POST "admin/documents/$CCCD/versions" "$HR" "{\"fileName\":\"x.png\",\"dataBase64\":\"$PNG\"}")" 409

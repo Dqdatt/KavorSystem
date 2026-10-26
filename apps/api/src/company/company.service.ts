@@ -1,6 +1,6 @@
 /* Thông tin công ty cho app nhân viên: thương hiệu, liên hệ HR, lịch nghỉ lễ, điều khoản dữ liệu cá nhân (ADR 0001).
    Mobile không còn giữ các giá trị này trong code; công ty đổi trên web là app nhận ở lần mở sau. */
-import type { BrandingKind, Holiday, HolidayKind, MyCompany, MyPolicies, SupportContact } from "@kavor/contracts";
+import type { BrandingKind, EmploymentType, EmployeeStatus, Holiday, HolidayKind, MyCompany, MyPolicies, MyProfile, SupportContact } from "@kavor/contracts";
 import { AuthError, type EmployeeRow } from "../auth/auth.service.js";
 import type { SupabaseGateway } from "../auth/supabase.js";
 import { localParts } from "../attendance/attendance.service.js";
@@ -56,6 +56,34 @@ export class CompanyService {
       support: support.phone || support.email ? support : null,
       privacy: { required: !!terms && (accepted ?? 0) < terms.version_no, terms: terms && toTerms(terms), acceptedVersionNo: accepted },
       holidays,
+    };
+  }
+
+  /* Hồ sơ của chính nhân viên (chỉ đọc): phân công hiện hành theo ngày công ty, hợp đồng HR chia sẻ gần nhất */
+  async profile(emp: EmployeeRow): Promise<MyProfile> {
+    const db = this.sb.admin;
+    const { data: t } = await db.from("tenants").select("timezone").eq("id", emp.tenant_id).single();
+    const today = localParts(new Date(), (t?.timezone as string) ?? "Asia/Ho_Chi_Minh").date;
+    const [{ data: e, error }, placements, { data: doc }] = await Promise.all([
+      db.from("employees").select("employee_code, full_name, hire_date, employment_type, status, termination_date, work_email, phone").eq("id", emp.id).single(),
+      loadPlacements(db, emp.tenant_id, today, [emp.id]),
+      db.from("employee_documents").select("title, expires_on").eq("tenant_id", emp.tenant_id).eq("employee_id", emp.id).eq("category", "contract")
+        .eq("visibility", "hr_employee").is("archived_at", null).order("issued_on", { ascending: false, nullsFirst: false }).order("created_at", { ascending: false }).limit(1).maybeSingle(),
+    ]);
+    if (error || !e) throw new AuthError("NOT_FOUND", "Không tìm thấy hồ sơ.", 404);
+    const p = placements.get(emp.id) ?? null;
+    const name = async (table: string, id: string | null | undefined, col = "name") => {
+      if (!id) return null;
+      const { data } = await db.from(table).select(col).eq("id", id).maybeSingle();
+      return ((data as Record<string, string> | null)?.[col]) ?? null;
+    };
+    const [position, department, branch, manager] = await Promise.all([name("positions", p?.position_id), name("departments", p?.department_id), name("branches", p?.branch_id),
+      name("employees", p?.manager_employee_id, "full_name")]);
+    return {
+      employeeCode: e.employee_code as string, fullName: e.full_name as string, position, department, branch, manager,
+      hireDate: e.hire_date as string, employmentType: e.employment_type as EmploymentType, status: e.status as EmployeeStatus, terminationDate: (e.termination_date as string | null) ?? null,
+      workEmail: (e.work_email as string | null) ?? null, phone: (e.phone as string | null) ?? null,
+      contract: doc ? { title: doc.title as string, expiresOn: (doc.expires_on as string | null) ?? null } : null,
     };
   }
 

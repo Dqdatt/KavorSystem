@@ -18,7 +18,7 @@ const post = (id, extra = {}) => ({ id, category: 'notice', title: `Bài ${id}`,
 let list = async () => ({ items: [post('a1', { category: 'policy', important: true, attachment: { name: 'Quy-dinh.pdf', type: 'application/pdf', size: 412 * 1024 } }), post('a2', { category: 'event' }), post('a3', { publishAt: new Date(Date.now() - 5 * 86400_000).toISOString() })] });
 let get = async (id) => ({ ...post(id, { title: 'Quy định mới', attachment: { name: 'Quy-dinh.pdf', type: 'application/pdf', size: 412 * 1024 } }), readAt: today });
 let docList = async () => ({ items: [{ id: 'd1', category: 'contract', title: 'HĐLĐ', docNo: null, issuedOn: '2026-01-01', expiresOn: null, expiry: 'none', versionNo: 2, fileName: 'a.pdf', type: 'application/pdf', size: 10, updatedAt: today }] });
-globalThis.__newsTest = { React, ApiError, opened, documentsApi: {
+globalThis.__newsTest = { React, ApiError, opened, companyApi: { profile: async () => { calls.push('profile'); return { employeeCode: 'HD0142', fullName: 'Trần Thu Hà', department: 'Marketing' }; } }, documentsApi: {
   list: async () => { calls.push('docs'); return docList(); },
   fileUrl: async (id) => { calls.push(`docfile:${id}`); return `http://api.test/api/v1/me/documents/${id}/file?sig=y`; },
 }, announcementsApi: {
@@ -32,8 +32,8 @@ const mocks = new Map([
   ['./auth', `${noop} export const authenticate=async()=>({ok:true}), biometricLabel=async()=> 'Face ID', loadSession=async()=>null, quickLoginEmployee=empty,quickRefreshToken=empty,clearQuickLogin=empty,clearSession=empty,loadBioPrefs=empty,loadSupport=empty,saveBioPrefs=empty,saveSession=empty,saveSupport=empty;`],
   ['./attendance', `${noop} export const currentFix=empty,deviceRegistration=empty,deviceSummary=empty,enqueue=empty,flushQueue=empty,installationId=empty,newEventId=empty,quietFix=empty,readQueue=empty;export class LocationError extends Error {}`],
   ['./notify', `${noop} export const clearExplainReminders=empty,scheduleExplainReminders=empty,onReminderTap=()=>()=>{};`],
-  ['./api/http', `export const REMOTE=true,ApiError=globalThis.__newsTest.ApiError,announcementsApi=globalThis.__newsTest.announcementsApi,documentsApi=globalThis.__newsTest.documentsApi;
-    export const advanceApi={},attendanceApi={},authApi={},companyApi={},leaveApi={},notificationsApi={},overtimeApi={},payslipApi={},timesheetApi={},setTokenSource=()=>{},isNetworkError=()=>false;`],
+  ['./api/http', `export const REMOTE=true,ApiError=globalThis.__newsTest.ApiError,announcementsApi=globalThis.__newsTest.announcementsApi,documentsApi=globalThis.__newsTest.documentsApi,companyApi=globalThis.__newsTest.companyApi;
+    export const advanceApi={},attendanceApi={},authApi={},leaveApi={},notificationsApi={},overtimeApi={},payslipApi={},timesheetApi={},setTokenSource=()=>{},isNetworkError=()=>false;`],
   ['../api/http', `export const REMOTE=true;`],
   ['../qa', `export const QA_ENABLED=false;`],
   ['./home', `export const ImpTag=()=>'Quan trọng';`],
@@ -111,4 +111,10 @@ let releaseDoc;docList=()=>new Promise(r=>{releaseDoc=r;});
 const slowDoc=module.exports.loadDocuments();ACT.logoutGo();releaseDoc({items:[{id:'z'}]});await slowDoc;
 assert.equal(S.docData,null);
 console.log('✔ Lỗi tải tài liệu không giữ danh sách cũ; đăng xuất bỏ phản hồi đang tải');
+S.stack=['home'];calls.length=0;S.sheet=null;
+module.exports.go('profile');await delay(0);
+assert.deepEqual(calls,['profile']);assert.equal(S.profile.fullName,'Trần Thu Hà');
+ACT.editProfile();assert.ok(!S.sheet,'bản API không mở form giả');assert.ok(S.toast.msg.includes('liên hệ HR'));
+ACT.logoutGo();assert.equal(S.profile,null);
+console.log('✔ Hồ sơ đọc từ API; "Đề nghị sửa" chưa làm thì báo rõ, không giả vờ gửi; đăng xuất xóa hồ sơ');
 globalThis.setInterval=nativeInterval;

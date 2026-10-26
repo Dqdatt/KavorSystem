@@ -3,7 +3,7 @@
 import type {
   AttendanceEvent, AttendanceEventRequest, AttendanceToday, DeviceInfo, DeviceRegisterRequest,
   ActivationStartRequest, ActivationVerifyRequest, ApiEnvelope, AuthResult, BrandingKind, ExplanationInput, LoginRequest, MeProfile, AdvanceInput, LeaveInput, MyAdvance, MyApprovals, MyCompany, MyLeave, MyOvertime, MyTimesheet, NotificationFeed, OvertimeInput, RequestItem,
-  MyAnnouncement, MyAnnouncements, MyDocuments, MyPayslip, MyPayslips, OtpSentResponse, PasswordForgotRequest, PasswordResetRequest, PrivacyConsentRequest, RefreshRequest,
+  MyAnnouncement, MyAnnouncements, MyDocuments, MyPayslip, MyProfile, MyPayslips, OtpSentResponse, PasswordForgotRequest, PasswordResetRequest, PrivacyConsentRequest, RefreshRequest,
 } from "@kavor/contracts";
 import { QA_ENABLED } from "../qa";
 
@@ -70,6 +70,7 @@ export const attendanceApi = {
 /* Thông tin công ty (thương hiệu, liên hệ HR, ngày lễ, điều khoản dữ liệu cá nhân) — công ty cấu hình trên web */
 export const companyApi = {
   get: async () => call<MyCompany>("GET", "/me/company", undefined, await token()),
+  profile: async () => call<MyProfile>("GET", "/me/profile", undefined, await token()),
   consent: async (b: PrivacyConsentRequest) => call<{ acceptedVersionNo: number }>("POST", "/me/privacy-consents", b, await token()),
   /* Ảnh tải bằng <Image> kèm header Authorization; ?v= đổi khi công ty thay ảnh nên cache được */
   brandingSource: async (kind: BrandingKind, version: string) => ({ uri: `${BASE}/me/company/branding/${kind}?v=${version}`, headers: { authorization: `Bearer ${await token()}` } }),

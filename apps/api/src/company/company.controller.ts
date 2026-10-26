@@ -41,6 +41,10 @@ export class CompanyController {
   @Get("company")
   get(@Req() r: CorrelatedRequest, @Headers("authorization") a?: string) { return this.run(r, a, (s, emp) => s.company(emp)); }
 
+  /* Hồ sơ của chính mình trên app (chỉ đọc) */
+  @Get("profile")
+  profile(@Req() r: CorrelatedRequest, @Headers("authorization") a?: string) { return this.run(r, a, (s, emp) => s.profile(emp)); }
+
   /* Ảnh logo/bìa: app tải kèm header Authorization, phiên bản ảnh nằm ở query (?v=) làm khóa cache */
   @Get("company/branding/:kind")
   async branding(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("kind") kind: string, @Res({ passthrough: true }) res: Response) {

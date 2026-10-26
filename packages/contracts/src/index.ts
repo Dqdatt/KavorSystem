@@ -210,6 +210,12 @@ export type AdminMe = {
 export type AccountStatus = "not_invited" | "invited" | "active" | "locked";
 export type EmploymentType = "probation" | "official" | "contractor" | "intern";
 export type EmployeeStatus = "preboarding" | "active" | "suspended" | "on_leave" | "leaving" | "terminated";
+/* Hồ sơ của chính nhân viên trên app (chỉ đọc). contract: hợp đồng lao động HR chia sẻ gần nhất (Tài liệu, "HR + Nhân viên", chưa gỡ) */
+export type MyProfile = {
+  employeeCode: string; fullName: string; position: string | null; department: string | null; branch: string | null; manager: string | null;
+  hireDate: string; employmentType: EmploymentType; status: EmployeeStatus; terminationDate: string | null;
+  workEmail: string | null; phone: string | null; contract: { title: string; expiresOn: string | null } | null;
+};
 
 export type EmployeeListItem = {
   id: string;

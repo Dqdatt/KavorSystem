@@ -8,6 +8,10 @@ simulator hay iPhone** vì phiên cloud không có Mac). Người dùng giao "c�
 ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AGENT_PLAYBOOK.md`; kiểm tra toàn bộ bằng `bash tools/verify-all.sh`.
 
 ## Đã xong
+- Hồ sơ trên app đọc từ API (26/10, Claude): `GET /me/profile` (chỉ đọc: chức danh, phòng ban, chi nhánh, quản lý, ngày vào làm, loại hợp đồng,
+  điện thoại, email công ty, hợp đồng HR chia sẻ gần nhất). Màn Hồ sơ bản dùng API hiện dữ liệu thật (thâm niên tính từ ngày vào làm, điện thoại che
+  giữa); bỏ thẻ mẫu "Đổi tài khoản ngân hàng đang chờ HR" và các dòng chưa có trong Kavor (địa chỉ, liên hệ khẩn cấp, ngân hàng). Nút "Đề nghị sửa
+  thông tin" ở bản dùng API chỉ báo "sẽ có ở bản sau, liên hệ HR" (không giả vờ đã gửi). Smoke tài liệu thêm 2 bước hồ sơ (42); test mobile 15.
 - Tài liệu nhân sự (26/10, Claude; quyết định mặc định chờ người dùng review — xem `docs/plans/documents.md`):
   - DB `202611020001_documents.sql`: tài liệu gắn nhân viên (6 danh mục, số văn bản, hiệu lực/hết hạn, quyền xem "HR + Nhân viên"/"Chỉ HR"),
     phiên bản bất biến kèm SHA-256 + `scan_status` (chưa có dịch vụ quét → `not_scanned`), gỡ có lý do thay cho xóa; quyền
@@ -302,7 +306,7 @@ ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AG
 - Phạm vi/tầng dùng phân công tổ chức hiện tại; danh sách nhân viên/chấm công lọc trong bộ nhớ API — đủ cho vài nghìn nhân viên, cần phân trang ở SQL khi lớn hơn. RLS `employees` gọi hàm phạm vi theo từng dòng (chậm nếu client đọc trực tiếp nhiều dòng; hiện client không đọc trực tiếp).
 - Khi máy Mac quá tải (build Xcode), GoTrue chậm → web báo "Máy chủ xác thực đang bận" (không còn tự đăng xuất).
 - Ảnh native lấy từ simulator; chưa có ảnh/video từ iPhone 11 thật.
-- Mobile: đề nghị sửa hồ sơ (HS-0221) và phần thông tin cá nhân/công việc trên màn Hồ sơ vẫn là dữ liệu mẫu.
+- Mobile: đề nghị sửa hồ sơ (HS-0221) chưa làm — bản dùng API báo "sẽ có ở bản sau". Chưa lưu địa chỉ, liên hệ khẩn cấp, tài khoản ngân hàng (cần mã hóa).
 - Tài liệu: chưa có "Tạo từ mẫu", quét virus, nhắc hạn tự động (`document.expiring`), danh mục do công ty định nghĩa, quyền xem giới hạn cho Kế toán/Kiểm soát,
   nhân viên tự tải hồ sơ; mobile chưa thử trên thiết bị. Web chưa có mục tài liệu trong hồ sơ nhân viên (chỉ ở trang Tài liệu).
 - Bản tin: mobile chưa build/chụp trên simulator/iPhone (cần Mac: build Release mới, thử tab Bản tin, mở file PDF, bấm thông báo). Chưa có quét virus file
@@ -311,23 +315,29 @@ ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AG
 - Tạm ứng: DB/API payroll đã nối đối chiếu và đánh dấu khấu trừ khi công bố; chưa có UI payroll web; mobile có phiếu cá nhân. Chưa có tài khoản ngân hàng nhận tiền (cần mã hóa — `employee_bank_accounts` trong schema), chặn khi kỳ lương đã chốt, nhiều lần/tháng. Quy định mẫu nhận đơn đến ngày 20 nên sau ngày 20 nhân viên không gửi được đơn tháng đó (đúng prototype); thử trên máy sau ngày 20 thì tạo quy định riêng hạn 31.
 - OT chưa có: OT ban đêm (+30%/+20%), OT qua nửa đêm (phải tách hai đơn), đối chiếu giờ OT với chấm công thực tế, ngoại lệ 300 giờ/năm theo ngành (chỉnh trong quy định). API payroll đã đọc `overtime_entries` đã duyệt để cảnh báo OT_PAY hai chiều, không tính tiền OT.
 - Android chưa thử luồng chấm công thật (GPS/hàng đợi) trên emulator.
-- Test tự động của admin-web, console-web, web-ui vẫn là placeholder; mobile có 14 ca hành vi (payroll 6, bản tin 5, tài liệu 3), chưa có bộ kiểm UI/native đầy đủ.
+- Test tự động của admin-web, console-web, web-ui vẫn là placeholder; mobile có 15 ca hành vi (payroll 6, bản tin 5, tài liệu 3, hồ sơ 1), chưa có bộ kiểm UI/native đầy đủ.
 - Trên bản dev, gõ phím "r" khi không focus ô nhập sẽ làm Metro reload (chỉ ảnh hưởng dev).
 
 ## Bước tiếp theo
 1. Người dùng thử trên Mac (nhánh `claude/ecstatic-pascal-dblg7v`): web `/payroll` (file mẫu `sample-data/payroll_import_2026-10.csv`) và
    `/announcements`, `/documents`; build Release iPhone mới để thử tab Bản tin, Hồ sơ → Hợp đồng và quyết định, mở file, bấm thông báo; thử lại vòng
    chờ Face ID. Review quyết định mặc định trong `docs/plans/documents.md`. Ổn thì merge vào main. Export/PDF phiếu lương và mở lại kỳ đã công bố để sau.
-2. Đề nghị sửa hồ sơ nhân viên (mobile HS-0221 → HR duyệt trên web) và hồ sơ cá nhân trên app đọc từ API.
+2. Đề nghị sửa hồ sơ nhân viên (mobile HS-0221 → HR duyệt trên web) — **chờ người dùng chốt** (xem "Câu hỏi đang chờ").
 3. Phần còn lại của Kavor Console (khóa/đóng tenant, gói dịch vụ + giới hạn nhân viên, support access có thời hạn).
 - Push từ máy chủ khi app tắt (APNs/FCM) cần tài khoản Apple Developer trả phí → làm khi mua (xem "Quyết định đã chốt"); lúc đó thay luôn việc E19 hỏi lại 8 giây/lần.
 - Staging: **hoãn tới khi hệ thống hoàn thiện** (quyết định 24/10). Phương án đã phân tích sẵn: Render Singapore cho API + 2 web (~$21/tháng, địa chỉ onrender.com, chưa cần domain), Gmail SMTP như CarRental cho OTP và thư mời, project Supabase `KavorSystem` (Singapore) làm staging, chỉ dùng dữ liệu mẫu; cần đổi các giá trị localhost trong `supabase/config.toml` sang biến môi trường trước khi `config push`.
 - Ngoài luồng chính: test component cho admin-web; Sentry; số liệu luật cần HR/Payroll SME xác nhận trước pilot; pháp lý chuyển dữ liệu ra nước ngoài (Nghị định 13/2023, dữ liệu ở Singapore) trước khi có dữ liệu thật.
 
 ## Câu hỏi đang chờ người dùng trả lời
-- Không có. Người dùng đã duyệt sửa cả 3 smoke leave/notifications/timesheet ngày 26/10.
+- Review các quyết định mặc định của module Tài liệu (`docs/plans/documents.md`): 6 danh mục cố định, quyền HR Operations/Tenant Admin, mobile qua
+  PIN/Face ID, tối đa 5 MB, "Thiếu hồ sơ" = chưa có hợp đồng còn hiệu lực.
+- Đề nghị sửa hồ sơ: nhân viên được đề nghị sửa những trường nào (điện thoại, email cá nhân, địa chỉ, liên hệ khẩn cấp…)? Có làm tài khoản ngân hàng
+  ngay không — cần mã hóa trường (khóa ở đâu, ai xem được số đầy đủ: chỉ Kế toán?) và có bắt buộc kèm ảnh/xác nhận chủ tài khoản không?
+  Ai duyệt (HR trong phạm vi, hay HR rồi Kế toán với tài khoản ngân hàng)?
 
 ## Nhật ký
+- 2026-10-26 — Claude: hồ sơ trên app đọc từ API (`/me/profile`), ghi câu hỏi chốt cho đề nghị sửa hồ sơ. Verify-all đầy đủ TẤT CẢ ĐẠT
+  (pgTAP 376, 13 smoke — documents 42, build, lint). Dừng chờ người dùng review + trả lời câu hỏi trước module đề nghị sửa hồ sơ.
 - 2026-10-26 — Claude (phiên cloud) làm module Tài liệu nhân sự trọn vòng (DB, pgTAP 32, API, smoke 40, web, mobile REMOTE + 3 test hành vi).
   Verify-all đầy đủ TẤT CẢ ĐẠT: pgTAP 376, 13 smoke (documents 40, announcements 51, payroll 105, …), build, lint. Mobile chưa thử trên thiết bị.
 - 2026-10-26 — Claude (phiên cloud) làm module Bản tin trọn vòng (DB, pgTAP 43, API, smoke 51, web, mobile REMOTE + 5 test hành vi) và file CSV mẫu
