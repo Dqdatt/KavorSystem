@@ -196,6 +196,34 @@ export type PolicyScopeType = "tenant" | "legal_entity" | "branch" | "department
 export type Ref = { id: string; name: string };
 
 export type AdminRole = { code: string; name: string; scopeType: ScopeType; scopeName: string };
+
+/* ---------- Cơ cấu tổ chức + vai trò (docs/plans/org-roles.md) ---------- */
+export type OrgUnitKind = "legal_entity" | "branch" | "department" | "position";
+export const ORG_UNIT_KINDS: Record<OrgUnitKind, string> = { legal_entity: "Pháp nhân", branch: "Chi nhánh", department: "Phòng ban", position: "Chức danh" };
+/* parentId: chi nhánh → pháp nhân; phòng ban → phòng ban cha (null nếu cấp cao nhất trong chi nhánh). employees = nhân viên đang phân công trực tiếp */
+export type OrgUnit = {
+  id: string; kind: OrgUnitKind; code: string; name: string; parentId: string | null; branchId: string | null;
+  taxCode: string | null; jobLevel: string | null; effectiveFrom: string; effectiveTo: string | null; active: boolean; employees: number;
+};
+export type OrgTree = {
+  units: OrgUnit[]; today: string; canManage: boolean;
+  metrics: { legalEntities: number; branches: number; departments: number; positions: number; managers: number; employees: number };
+};
+export type OrgUnitInput = { kind: OrgUnitKind; code: string; name: string; parentId?: string | null; branchId?: string | null; taxCode?: string | null; jobLevel?: string | null; effectiveFrom?: string };
+export type OrgUnitUpdate = { code?: string; name?: string; taxCode?: string | null; jobLevel?: string | null };
+
+export type RoleAssignmentRow = {
+  id: string; employee: { id: string; code: string; fullName: string }; account: AccountStatus;
+  scopeType: ScopeType; scopeId: string | null; scopeName: string; effectiveFrom: string; effectiveTo: string | null; state: "active" | "future" | "ended";
+};
+export type RoleInfo = {
+  code: string; name: string; system: boolean; description: string; defaultScope: string;
+  /* Vai trò có dữ liệu nhạy cảm (lương, tài khoản ngân hàng, toàn quyền) — cảnh báo khi gán */
+  sensitive: boolean; payrollData: string; allowedScopes: ScopeType[];
+  permissions: Array<{ code: string; description: string }>; members: number; updatedAt: string | null; assignments: RoleAssignmentRow[];
+};
+export type RolesBoard = { roles: RoleInfo[]; canAssign: boolean; today: string };
+export type RoleAssignInput = { employeeId: string; roleCode: string; scopeType: ScopeType; scopeId?: string | null; effectiveFrom: string; effectiveTo?: string | null };
 export type AdminMe = {
   userId: string;
   employeeId: string | null;

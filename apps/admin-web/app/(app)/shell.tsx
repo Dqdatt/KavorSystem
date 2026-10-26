@@ -10,11 +10,11 @@ import { SupportBanner } from "../_ui/support";
 
 /* perm dạng mảng = có một trong các quyền là thấy mục */
 type NavItem = { href: string; label: string; icon: string; perm?: string | string[] };
-/* Chỉ hiện trang của module đã làm (chấm công, nghỉ phép, đơn & phê duyệt, lương & tạm ứng, tài liệu, bản tin, cài đặt doanh nghiệp). Các
-   mục khác của prototype (Tổ chức, Tích hợp, Báo cáo, Phân quyền) sẽ thêm khi module tương ứng tới lượt. */
+/* Chỉ hiện trang của module đã làm (chấm công, nghỉ phép, đơn & phê duyệt, lương & tạm ứng, tài liệu, bản tin, cơ cấu tổ chức, phân quyền,
+   cài đặt doanh nghiệp). Các mục khác của prototype (Tích hợp, Báo cáo) sẽ thêm khi module tương ứng tới lượt. */
 const NAV: Array<{ label?: string; items: NavItem[] }> = [
   { items: [{ href: "/", label: "Tổng quan", icon: "home" }] },
-  { label: "Nhân sự", items: [{ href: "/employees", label: "Nhân viên", icon: "users", perm: "employee.read" }] },
+  { label: "Nhân sự", items: [{ href: "/employees", label: "Nhân viên", icon: "users", perm: "employee.read" }, { href: "/organization", label: "Cơ cấu tổ chức", icon: "org", perm: "organization.read" }] },
   { label: "Thời gian", items: [
     { href: "/attendance", label: "Chấm công", icon: "clock", perm: "attendance.read" },
     { href: "/schedules", label: "Ca & địa điểm", icon: "calendar", perm: "schedule.read" },
@@ -26,8 +26,9 @@ const NAV: Array<{ label?: string; items: NavItem[] }> = [
     { href: "/documents", label: "Tài liệu", icon: "file", perm: "document.read" },
     { href: "/announcements", label: "Bản tin", icon: "news", perm: "announcement.publish" },
   ] },
+  { label: "Hệ thống", items: [{ href: "/roles", label: "Vai trò & phân quyền", icon: "shield", perm: "role.read" }] },
 ];
-const TITLES: Record<string, string> = { "/": "Tổng quan", "/employees": "Nhân viên", "/attendance": "Chấm công", "/schedules": "Ca & địa điểm", "/settings": "Cài đặt doanh nghiệp", "/requests": "Đơn & phê duyệt", "/leave": "Nghỉ phép", "/payroll": "Lương & tạm ứng", "/announcements": "Bản tin", "/documents": "Tài liệu" };
+const TITLES: Record<string, string> = { "/": "Tổng quan", "/employees": "Nhân viên", "/attendance": "Chấm công", "/schedules": "Ca & địa điểm", "/settings": "Cài đặt doanh nghiệp", "/requests": "Đơn & phê duyệt", "/leave": "Nghỉ phép", "/payroll": "Lương & tạm ứng", "/announcements": "Bản tin", "/documents": "Tài liệu", "/organization": "Cơ cấu tổ chức", "/roles": "Vai trò & phân quyền" };
 
 function today(tz: string) {
   return new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());

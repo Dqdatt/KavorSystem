@@ -10,6 +10,17 @@ simulator hay iPhone** vì phiên cloud không có Mac). Người dùng giao "c�
 ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AGENT_PLAYBOOK.md`; kiểm tra toàn bộ bằng `bash tools/verify-all.sh`.
 
 ## Đã xong
+- Cơ cấu tổ chức + Vai trò & phân quyền trên web HR (26/10, Claude, phiên cloud; quyết định mặc định chờ review — `docs/plans/org-roles.md`):
+  - DB `202611060001_org_roles.sql`: quyền `role.assign` (Tenant Admin), `organization.manage` (HR Ops + Tenant Admin — trước đây chỉ có trong seed
+    nên chưa ai có); trigger đơn vị cha cùng tenant + phòng ban không tạo vòng; ngày kết thúc ≥ ngày hiệu lực; không gán trùng vai trò + phạm vi đang mở.
+    pgTAP 15 (tổng 451).
+  - API `/admin/organization` (cây + chỉ số), thêm/sửa/ngừng đơn vị (ngừng bị chặn khi còn phân công nhân viên, đơn vị con, vai trò, quy định;
+    đơn vị tạo nhầm chưa từng hiệu lực thì xóa), `/admin/roles` (5 vai trò mẫu, quyền, người được gán), gán/thu hồi vai trò theo phạm vi hợp lệ của
+    từng vai trò (có tác dụng ngay; không gỡ Tenant Admin cuối cùng; người chưa kích hoạt được gán trước). Danh sách chọn ở form nhân viên bỏ đơn vị đã
+    ngừng. Smoke `tools/org-smoke.sh` (41 bước).
+  - Web: trang **Cơ cấu tổ chức** (bám page-organization: chỉ số + sơ đồ khối; "Danh sách" = cây có thao tác + chức danh) và **Vai trò & phân quyền**
+    (bám page-roles + drawer chi tiết, form gán, thu hồi). Nav thêm "Cơ cấu tổ chức" (Nhân sự) và "Hệ thống → Vai trò & phân quyền". Checklist
+    thiết lập trỏ bước tổ chức sang `/organization`. Đã thử bằng trình duyệt tự động.
 - Support access có thời hạn (26/10, Claude; quyết định mặc định chờ review — `docs/plans/console-ops.md` phần B):
   - DB `202611050001_support_access.sql`: `support_access_sessions` (ticket, lý do, phạm vi settings/directory/audit, 30/60 phút; nội dung bất biến;
     thời hạn do DB tính lúc duyệt; chỉ chuyển pending→approved/rejected/cancelled, approved→revoked/ended; yêu cầu chờ hết hạn sau 24 giờ; một yêu cầu
@@ -334,6 +345,9 @@ ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AG
 - Luật nhà nước dạng số (`statutory_rule_sets`: bảo hiểm, thuế, phép năm tối thiểu, giới hạn OT) chưa làm — làm cùng module phép/payroll. Lịch lễ quốc gia mới có 2026; 2027 chờ Chính phủ công bố lịch Tết. Nội dung điều khoản mẫu và ngày lễ cần chuyên gia xác nhận.
 - Tạm ứng trên mobile còn dữ liệu mẫu ("30%" vẫn cứng) — nối khi làm module tạm ứng. Server chưa chặn API chấm công khi nhân viên chưa đồng ý điều khoản (app tự chặn bằng màn đồng ý).
 - Đặt lại MFA (web HR hoặc Console) không đăng xuất phiên aal2 đang mở của người đó (hết hạn sau ≤ 1 giờ).
+- Phân quyền: phạm vi "phòng ban" chỉ gồm đúng phòng đó, **không gồm phòng ban con** (`scoped_employees` so khớp `department_id`) — cần quyết
+  định có tính cả cây không. Chưa có vai trò tùy chỉnh, người duyệt thứ hai khi gán vai trò nhạy cảm, import cơ cấu, phiên bản tên đơn vị (đổi tên sửa
+  tại chỗ + audit).
 - Support access: chưa báo Tenant Admin qua thông báo app/email khi có yêu cầu (chỉ banner web), chưa có phạm vi nhạy cảm cần duyệt hai lớp, chưa
   tích hợp hệ thống ticket; banner web cần kênh Realtime đã đăng ký (vài giây sau khi mở trang) mới tự cập nhật theo thao tác của người khác.
 - Console chưa có: giá/tính năng theo gói, tạo/sửa gói, xuất/xóa dữ liệu tenant đã đóng, Usage chi tiết (API, storage), màn quản lý nhân viên Kavor; thao tác đóng tenant chỉ cần một người (chưa hai người duyệt); nhân viên Kavor mất điện thoại phải nhờ người có service role xóa factor. Bộ kit giao diện console-web là bản sao từ admin-web (chuyển chung vào `@kavor/web-ui` khi ổn định); `DashboardShell` của web-ui không còn ai dùng.
@@ -365,7 +379,8 @@ ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AG
    `/announcements`, `/documents`, Đơn & phê duyệt (đơn HS); build Release iPhone mới để thử tab Bản tin, Hồ sơ → Hợp đồng và quyết định, mở file,
    bấm thông báo, Hồ sơ → Đề nghị sửa (gửi, thẻ đang chờ, HR duyệt rồi xem lại); thử lại vòng chờ Face ID. Review quyết định mặc định trong
    `docs/plans/documents.md`. Ổn thì merge vào main. Export/PDF phiếu lương và mở lại kỳ đã công bố để sau.
-2. Phần còn lại của Kavor Console theo prototype: Usage chi tiết, Sync jobs, Sự cố, Releases (phiên bản app tối thiểu iOS/Android), Feature flags, Cài đặt nền tảng.
+2. Nhập nhân viên hàng loạt (Excel/CSV, Google Sheets một chiều — PERMISSION_MATRIX "Import nhân viên": HR Ops + Tenant Admin).
+3. Phần còn lại của Kavor Console theo prototype: Usage chi tiết, Sync jobs, Sự cố, Releases (phiên bản app tối thiểu iOS/Android), Feature flags, Cài đặt nền tảng.
 - Push từ máy chủ khi app tắt (APNs/FCM) cần tài khoản Apple Developer trả phí → làm khi mua (xem "Quyết định đã chốt"); lúc đó thay luôn việc E19 hỏi lại 8 giây/lần.
 - Staging: **hoãn tới khi hệ thống hoàn thiện** (quyết định 24/10). Phương án đã phân tích sẵn: Render Singapore cho API + 2 web (~$21/tháng, địa chỉ onrender.com, chưa cần domain), Gmail SMTP như CarRental cho OTP và thư mời, project Supabase `KavorSystem` (Singapore) làm staging, chỉ dùng dữ liệu mẫu; cần đổi các giá trị localhost trong `supabase/config.toml` sang biến môi trường trước khi `config push`.
 - Ngoài luồng chính: test component cho admin-web; Sentry; số liệu luật cần HR/Payroll SME xác nhận trước pilot; pháp lý chuyển dữ liệu ra nước ngoài (Nghị định 13/2023, dữ liệu ở Singapore) trước khi có dữ liệu thật.
@@ -377,6 +392,7 @@ ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AG
   PIN/Face ID, tối đa 5 MB, "Thiếu hồ sơ" = chưa có hợp đồng còn hiệu lực.
 
 ## Nhật ký
+- 2026-10-26 — Claude (cloud): Cơ cấu tổ chức + Vai trò & phân quyền. Verify-all đầy đủ TẤT CẢ ĐẠT (pgTAP 451, 17 smoke — org 41, build, lint).
 - 2026-10-26 — Claude: Console phần B (support access có thời hạn). Verify-all đầy đủ TẤT CẢ ĐẠT (pgTAP 436, 16 smoke — support 36, build, lint).
 - 2026-10-26 — Claude: Console phần A (gói dịch vụ + giới hạn nhân sự, tạm khóa/mở lại/đóng tenant). Verify-all đầy đủ TẤT CẢ ĐẠT (pgTAP 418, 15 smoke — console-ops 39, build, lint); mobile test 18 ca.
 - 2026-10-26 — Claude: đề nghị sửa hồ sơ theo câu trả lời của người dùng (các trường đề xuất + tài khoản ngân hàng thuộc hồ sơ; HR duyệt, Kế toán

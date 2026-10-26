@@ -9,18 +9,18 @@ Cột **Schema**: thiết kế trong `DATABASE_SCHEMA.md` (đã có migration ha
 
 | # | Tính năng | Mobile hiện tại | HR cần quản lý | Schema | Trạng thái |
 |---|---|---|---|---|---|
-| 1 | Thông báo | Danh sách cứng 6 mục; mục U02 chỉ là toast | Lưu thông báo, push APNs/FCM, đã đọc; cấu hình nhắc chấm công/hạn giải trình; gửi thủ công theo nhóm | `notifications`, `notification_deliveries`, `tenant_settings.notification_settings` | Chưa làm |
-| 2 | Thương hiệu công ty | Ảnh bìa SVG cứng (`screens/profile.tsx` `COVER`), không có logo công ty | Logo, ảnh bìa chung, tên hiển thị; cần Storage | `tenant_settings.branding` (chưa chi tiết) | Chưa làm |
+| 1 | Thông báo | Danh sách cứng 6 mục; mục U02 chỉ là toast | Lưu thông báo, push APNs/FCM, đã đọc; cấu hình nhắc chấm công/hạn giải trình; gửi thủ công theo nhóm | `notifications`, `notification_deliveries`, `tenant_settings.notification_settings` | Xong 26/10: lưu + đã đọc + nhắc hạn (trigger SQL, Realtime web); **chưa push APNs/FCM** (cần tài khoản Apple trả phí) |
+| 2 | Thương hiệu công ty | Ảnh bìa SVG cứng (`screens/profile.tsx` `COVER`), không có logo công ty | Logo, ảnh bìa chung, tên hiển thị; cần Storage | `tenant_settings.branding` (chưa chi tiết) | Xong 23/10 (logo + ảnh bìa, Storage riêng tư) |
 | 3 | Ảnh đại diện | Chữ viết tắt | Nhân viên tự đổi hoặc HR tải lên; có/không cần duyệt | Chưa có trường | Chưa làm |
 | 4 | Địa điểm chấm công | Nút dev `/dev/work-location` | Bản đồ, tọa độ, bán kính, sai số tối đa; nhiều địa điểm; gán theo nhóm | `work_locations` + `work_location_versions` + `policy_assignments` | Xong 23/10 (chưa có bản đồ) |
 | 5 | Thiết bị chấm công | Màn E19, "yêu cầu chuyển máy" mô phỏng | Duyệt/từ chối/reset/thu hồi; lịch sử máy | `employee_devices` (+ quyết định HR) | Xong 23/10 |
-| 6 | Quy định giải trình | Cứng 3 lượt/tháng, hạn 22/10 | Số lượt, hạn = chốt công − N ngày, bắt buộc đính kèm | Chưa có | Chưa làm |
-| 7 | Chính sách tạm ứng | Cứng 30% lương, khóa ngày 20, chặn thử việc/sắp nghỉ, 6 bước | % hạn mức, ngày khóa, đối tượng; kế toán đánh dấu đã chi; trừ vào kỳ lương | `salary_advances`, `salary_advance_events` (chưa có policy) | Chưa làm |
-| 8 | Lịch nghỉ lễ | Đơn phép chỉ bỏ T7/CN | Lịch lễ quốc gia (Kavor) + ngày nghỉ riêng (công ty) | Chưa có bảng | Chưa làm |
-| 9 | Liên hệ HR | Cứng "028 3822 0142 · hr@haidang.vn" | Thông tin hỗ trợ trong cài đặt công ty | `tenant_settings` | Chưa làm |
+| 6 | Quy định giải trình | Cứng 3 lượt/tháng, hạn 22/10 | Số lượt, hạn = chốt công − N ngày, bắt buộc đính kèm | Chưa có | Xong (quy định có phiên bản/tầng: số lượt, hạn); **chưa đính kèm minh chứng** |
+| 7 | Chính sách tạm ứng | Cứng 30% lương, khóa ngày 20, chặn thử việc/sắp nghỉ, 6 bước | % hạn mức, ngày khóa, đối tượng; kế toán đánh dấu đã chi; trừ vào kỳ lương | `salary_advances`, `salary_advance_events` (chưa có policy) | Xong (quy định %, ngày khóa, đối tượng; Kế toán duyệt/đánh dấu đã chi; trừ khi công bố phiếu lương) |
+| 8 | Lịch nghỉ lễ | Đơn phép chỉ bỏ T7/CN | Lịch lễ quốc gia (Kavor) + ngày nghỉ riêng (công ty) | Chưa có bảng | Xong 23/10 (lịch quốc gia do Kavor + ngày nghỉ riêng công ty) |
+| 9 | Liên hệ HR | Cứng "028 3822 0142 · hr@haidang.vn" | Thông tin hỗ trợ trong cài đặt công ty | `tenant_settings` | Xong 23/10 |
 | 10 | Tài khoản nhân viên | — | Ai chưa kích hoạt, gửi lại lời mời, khóa khi nghỉ việc, đăng xuất mọi thiết bị | `memberships` (gắn hồ sơ), Supabase Auth | Xong 23/10 trừ "đăng xuất mọi thiết bị" |
-| 11 | Đồng ý dữ liệu cá nhân | Checkbox lúc kích hoạt, không lưu | Điều khoản có phiên bản, lưu ai đồng ý lúc nào (NĐ 13/2023) | Chưa có | Chưa làm |
-| 12 | Luồng duyệt | Quản lý duyệt trên mobile; tạm ứng 6 bước | Prototype chỉ có nút "Cấu hình workflow" — cần trang: ai duyệt loại đơn nào, mấy cấp, SLA | `workflow_definitions/versions/steps` | Chưa làm |
+| 11 | Đồng ý dữ liệu cá nhân | Checkbox lúc kích hoạt, không lưu | Điều khoản có phiên bản, lưu ai đồng ý lúc nào (NĐ 13/2023) | Chưa có | Xong 23/10 (điều khoản phiên bản, đồng ý lại trên app) |
+| 12 | Luồng duyệt | Quản lý duyệt trên mobile; tạm ứng 6 bước | Prototype chỉ có nút "Cấu hình workflow" — cần trang: ai duyệt loại đơn nào, mấy cấp, SLA | `workflow_definitions/versions/steps` | Xong (Đơn & phê duyệt → Cấu hình workflow, phiên bản theo ngày) |
 
 ## 2. Mobile cần, prototype HR có (port + nối dữ liệu)
 
@@ -35,7 +35,7 @@ Cột **Schema**: thiết kế trong `DATABASE_SCHEMA.md` (đã có migration ha
 | Ca cố định/linh hoạt | Lịch làm (mẫu ca, cảnh báo) | `shift_definitions`, `work_schedules`, `shift_assignments` |
 | Phiếu lương | Payroll | `payroll_*`, `payslips` |
 | Hợp đồng và quyết định (P05–P06, toast) | Tài liệu — xong 26/10 (chưa có Tạo từ mẫu) | `employee_documents`, `document_versions` |
-| Quản lý duyệt đơn | Phân quyền, Tổ chức | `role_assignments` (scope) |
+| Quản lý duyệt đơn | Phân quyền, Tổ chức — xong 26/10 (`/roles`, `/organization`) | `role_assignments` (scope) |
 
 ## 3. Thuộc Kavor Console
 

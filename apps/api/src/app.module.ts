@@ -22,6 +22,7 @@ import { CompanyController, COMPANY_SERVICE } from "./company/company.controller
 import { ConsoleController, CONSOLE_SERVICES } from "./console/console.controller.js";
 import { ConsoleService } from "./console/console.service.js";
 import { SupportService } from "./support/support.service.js";
+import { OrgAdmin } from "./admin/org.service.js";
 import { TimesheetController, TIMESHEET_SERVICES } from "./timesheet/timesheet.controller.js";
 import { TimesheetService } from "./timesheet/timesheet.service.js";
 import { RequestsService } from "./timesheet/requests.service.js";
@@ -75,7 +76,7 @@ import type { TimesheetServices } from "./timesheet/timesheet.controller.js";
           attendance, schedule, company,
           employees: new EmployeesAdmin(sb, new Mailer(loadConfig().mail), attendance),
           settings: new SettingsAdmin(sb, branding, schedule), rules: new RulesAdmin(schedule), mfa: new MfaAdmin(sb),
-          timesheets: new TimesheetAdmin(ts.timesheets, ts.requests), requests: ts.requests, notifications: ts.notifications, leave: ts.leave, overtime: ts.overtime, advance: ts.advance, payroll: ts.payroll, announcements: ts.announcements, documents: ts.documents, support: new SupportService(sb),
+          timesheets: new TimesheetAdmin(ts.timesheets, ts.requests), requests: ts.requests, notifications: ts.notifications, leave: ts.leave, overtime: ts.overtime, advance: ts.advance, payroll: ts.payroll, announcements: ts.announcements, documents: ts.documents, support: new SupportService(sb), org: new OrgAdmin(sb),
         };
       },
     },

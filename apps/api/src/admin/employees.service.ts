@@ -22,7 +22,7 @@ export const EMP_COLS = "id, tenant_id, employee_code, full_name, work_email, ph
 export const EMPLOYMENT_TYPES = ["probation", "official", "contractor", "intern"] as const;
 export const EMPLOYEE_STATUSES = ["preboarding", "active", "suspended", "on_leave", "leaving", "terminated"] as const;
 
-type Org = { names: Map<string, string>; deptBranch: Map<string, string | null>; branchEntity: Map<string, string> };
+type Org = { names: Map<string, string>; deptBranch: Map<string, string | null>; branchEntity: Map<string, string>; ended: Set<string> };
 
 /* Bỏ dấu tiếng Việt để tìm "thu ha" ra "Thu Hà" */
 export const fold = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/g, "d").replace(/Đ/g, "D").toLowerCase();
@@ -50,11 +50,13 @@ export class EmployeesAdmin {
   async orgOptions(ctx: AdminContext): Promise<OrgOptions> {
     ctx.require("employee.read");
     const db = ctx.db;
+    /* Chỉ đơn vị còn hoạt động (đơn vị đã ngừng không chọn được nữa) */
+    const live = `effective_to.is.null,effective_to.gte.${localParts(new Date(), (await tenantSettings(this.sb, ctx.tenantId)).timezone).date}`;
     const [le, br, de, po, em] = await Promise.all([
-      db.from("legal_entities").select("id, name").eq("tenant_id", ctx.tenantId).order("name"),
-      db.from("branches").select("id, name").eq("tenant_id", ctx.tenantId).order("name"),
-      db.from("departments").select("id, name, branch_id").eq("tenant_id", ctx.tenantId).order("name"),
-      db.from("positions").select("id, name").eq("tenant_id", ctx.tenantId).order("name"),
+      db.from("legal_entities").select("id, name").eq("tenant_id", ctx.tenantId).or(live).order("name"),
+      db.from("branches").select("id, name").eq("tenant_id", ctx.tenantId).or(live).order("name"),
+      db.from("departments").select("id, name, branch_id").eq("tenant_id", ctx.tenantId).or(live).order("name"),
+      db.from("positions").select("id, name").eq("tenant_id", ctx.tenantId).or(live).order("name"),
       ctx.scopedEmployees("employee.read", "id, full_name, employee_code, status").order("full_name"),
     ]);
     return {
@@ -280,13 +282,18 @@ export class EmployeesAdmin {
   }
 
   async org(ctx: AdminContext): Promise<Org> {
-    const [le, br, de, po, em] = await Promise.all([
-      ctx.db.from("legal_entities").select("id, name").eq("tenant_id", ctx.tenantId),
-      ctx.db.from("branches").select("id, name, legal_entity_id").eq("tenant_id", ctx.tenantId),
-      ctx.db.from("departments").select("id, name, branch_id").eq("tenant_id", ctx.tenantId),
-      ctx.db.from("positions").select("id, name").eq("tenant_id", ctx.tenantId),
+    const [le, br, de, po, em, s] = await Promise.all([
+      ctx.db.from("legal_entities").select("id, name, effective_to").eq("tenant_id", ctx.tenantId),
+      ctx.db.from("branches").select("id, name, legal_entity_id, effective_to").eq("tenant_id", ctx.tenantId),
+      ctx.db.from("departments").select("id, name, branch_id, effective_to").eq("tenant_id", ctx.tenantId),
+      ctx.db.from("positions").select("id, name, effective_to").eq("tenant_id", ctx.tenantId),
       ctx.db.from("employees").select("id, full_name").eq("tenant_id", ctx.tenantId),
+      tenantSettings(this.sb, ctx.tenantId),
     ]);
+    /* Đơn vị đã ngừng (ngày kết thúc trước hôm nay): vẫn có tên để hiển thị lịch sử, nhưng không xếp người mới vào */
+    const today = localParts(new Date(), s.timezone).date;
+    const ended = new Set(([...(le.data ?? []), ...(br.data ?? []), ...(de.data ?? []), ...(po.data ?? [])] as Array<{ id: string; effective_to: string | null }>)
+      .filter((u) => u.effective_to && u.effective_to < today).map((u) => u.id));
     const names = new Map<string, string>();
     for (const r of [...(le.data ?? []), ...(br.data ?? []), ...(de.data ?? []), ...(po.data ?? [])] as Array<{ id: string; name: string }>) names.set(r.id, r.name);
     for (const r of (em.data ?? []) as Array<{ id: string; full_name: string }>) names.set(r.id, r.full_name);
@@ -294,6 +301,7 @@ export class EmployeesAdmin {
       names,
       deptBranch: new Map(((de.data ?? []) as Array<{ id: string; branch_id: string | null }>).map((d) => [d.id, d.branch_id])),
       branchEntity: new Map(((br.data ?? []) as Array<{ id: string; legal_entity_id: string }>).map((b) => [b.id, b.legal_entity_id])),
+      ended,
     };
   }
 
@@ -301,6 +309,7 @@ export class EmployeesAdmin {
   private placementFor(org: Org, departmentId: string, positionId: string) {
     if (!org.deptBranch.has(departmentId)) throw invalid("Phòng ban không tồn tại.");
     if (!org.names.has(positionId)) throw invalid("Chức danh không tồn tại.");
+    if (org.ended.has(departmentId) || org.ended.has(positionId)) throw invalid("Phòng ban hoặc chức danh đã ngừng hoạt động.");
     const branchId = org.deptBranch.get(departmentId);
     if (!branchId) throw invalid("Phòng ban chưa gắn chi nhánh. Cập nhật cơ cấu tổ chức trước.");
     return { legal_entity_id: org.branchEntity.get(branchId)!, branch_id: branchId, department_id: departmentId, position_id: positionId };

@@ -258,7 +258,7 @@ export class SettingsAdmin {
       ({ key, title, detail, href, state: state ?? (ok ? "done" : "todo") });
     const steps: SetupStep[] = [
       step("company", "Thông tin công ty và thương hiệu", !missing.length, missing.length ? `Còn thiếu: ${missing.join(", ")}.` : "Đã có tên pháp lý, logo và liên hệ HR.", "/settings"),
-      step("organization", "Pháp nhân, chi nhánh, phòng ban", n(le) > 0 && n(br) > 0 && n(de) > 0, `${n(le)} pháp nhân · ${n(br)} chi nhánh · ${n(de)} phòng ban.`, "/employees"),
+      step("organization", "Pháp nhân, chi nhánh, phòng ban", n(le) > 0 && n(br) > 0 && n(de) > 0, `${n(le)} pháp nhân · ${n(br)} chi nhánh · ${n(de)} phòng ban.`, "/organization"),
       step("locations", "Địa điểm chấm công", has("work_location"), has("work_location") ? "Đã áp dụng địa điểm chấm công." : "Chưa áp dụng địa điểm nào: nhân viên chưa chấm công được.", "/schedules?tab=locations"),
       step("shifts", "Ca làm việc", has("shift"), has("shift") ? "Đã áp dụng ca làm việc." : "Chưa áp dụng ca nào.", "/schedules?tab=assignments"),
       step("rules", "Quy định giải trình, tạm ứng, nhắc nhở", has("explanation") && has("salary_advance") && has("reminder"), "Kavor đã tạo sẵn mẫu theo luật; xem lại cho phù hợp công ty.", "/settings?tab=rules"),

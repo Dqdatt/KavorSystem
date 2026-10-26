@@ -23,6 +23,7 @@ import type { AnnouncementsService } from "../announcements/announcements.servic
 import type { DocumentsService } from "../documents/documents.service.js";
 import type { TimesheetAdmin } from "../timesheet/timesheet-admin.service.js";
 import type { SupportService } from "../support/support.service.js";
+import type { OrgAdmin } from "./org.service.js";
 import { date, nullableText, oneOf, type Body as Json } from "./validate.js";
 
 export const ADMIN_SERVICES = Symbol("ADMIN_SERVICES");
@@ -30,7 +31,7 @@ export type AdminServices = {
   employees: EmployeesAdmin; attendance: AttendanceAdmin; schedule: ScheduleAdmin;
   settings: SettingsAdmin; rules: RulesAdmin; mfa: MfaAdmin; company: CompanyService;
   timesheets: TimesheetAdmin; requests: RequestsService; notifications: NotificationsService; leave: LeaveService; overtime: OvertimeService; advance: AdvanceService;
-  payroll: PayrollService; announcements: AnnouncementsService; documents: DocumentsService; support: SupportService;
+  payroll: PayrollService; announcements: AnnouncementsService; documents: DocumentsService; support: SupportService; org: OrgAdmin;
 };
 
 function bearer(header?: string): string {
@@ -72,6 +73,22 @@ export class AdminController {
   mfaEnroll(@Req() r: CorrelatedRequest, @Headers("authorization") a?: string) { return this.run(r, a, (s, c) => s.mfa.enroll(c), { mfaStep: true }); }
   @Post("mfa/verify") @HttpCode(200)
   mfaVerify(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Body() b: Json) { return this.run(r, a, (s, c) => s.mfa.verify(c, b), { mfaStep: true }); }
+  /* ---------- Cơ cấu tổ chức + vai trò & phân quyền ---------- */
+  @Get("organization")
+  orgTree(@Req() r: CorrelatedRequest, @Headers("authorization") a?: string) { return this.run(r, a, (s, c) => s.org.tree(c)); }
+  @Post("organization/units") @HttpCode(201)
+  orgCreate(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Body() b: Json) { return this.run(r, a, (s, c) => s.org.createUnit(c, b)); }
+  @Patch("organization/units/:kind/:id")
+  orgUpdate(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("kind") kind: string, @Param("id") id: string, @Body() b: Json) { return this.run(r, a, (s, c) => s.org.updateUnit(c, kind, id, b)); }
+  @Post("organization/units/:kind/:id/end") @HttpCode(200)
+  orgEnd(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("kind") kind: string, @Param("id") id: string, @Body() b: Json) { return this.run(r, a, (s, c) => s.org.endUnit(c, kind, id, b)); }
+  @Get("roles")
+  roles(@Req() r: CorrelatedRequest, @Headers("authorization") a?: string) { return this.run(r, a, (s, c) => s.org.roles(c)); }
+  @Post("roles/assignments") @HttpCode(201)
+  roleAssign(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Body() b: Json) { return this.run(r, a, (s, c) => s.org.assign(c, b)); }
+  @Post("roles/assignments/:id/revoke") @HttpCode(200)
+  roleRevoke(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string, @Body() b: Json) { return this.run(r, a, (s, c) => s.org.revoke(c, id, b)); }
+
   /* ---------- Support access của Kavor (Tenant Admin duyệt; banner cho mọi người dùng web) ---------- */
   @Get("support/banner")
   supportBanner(@Req() r: CorrelatedRequest, @Headers("authorization") a?: string) { return this.run(r, a, (s, c) => s.support.banner(c)); }
