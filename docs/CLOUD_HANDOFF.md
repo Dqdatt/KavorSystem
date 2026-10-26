@@ -66,6 +66,12 @@ App trên iPhone 11 (bản Release, `EXPO_PUBLIC_API_URL=http://<IP LAN Mac>:400
 mở được phiếu lương**, Face ID gọi thẳng hộp thoại Apple, sinh trắc học theo hệ điều hành, căn trái meta bản tin, tô dải ngày khi xin nghỉ nhiều ngày,
 nút "?" hiện hướng dẫn sử dụng thay ghi chú QA, widget chấm công thật). Chi tiết, vị trí code, hướng làm: **`docs/plans/mobile-ui-feedback.md`**.
 
+## Phản hồi UI web của người dùng (26/10) — kế hoạch, chưa làm
+
+Hai web cần đẹp hơn theo tinh thần app mobile (gọn, có theme sáng/tối), sửa lỗi căn hàng (nguyên nhân chính đã tìm: `.field` thiếu
+`align-content: start`), dropdown tự vẽ thay `<select>` của hệ điều hành, bản đồ kéo thả ghim cho địa điểm chấm công, Việt hóa thuật ngữ
+("tenant"…), bỏ lặp tiêu đề topbar/page-head/modal. Kế hoạch 5 bước + hiện trạng đo được: **`docs/plans/web-ui-polish.md`**.
+
 ## Đánh giá MVP (26/10) — chưa đủ để pilot
 
 Theo `IMPLEMENTATION_ROADMAP.md` §15–19 (P0 – Pilot, go-live gate):

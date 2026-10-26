@@ -312,6 +312,8 @@ ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AG
 - Kiểm tra ngày 22/10: `pnpm turbo run typecheck test build --force` pass 18/18 task (test thật chỉ có contracts 2 + api 2)
 
 ## Đang dở (QUAN TRỌNG NHẤT)
+- **Phản hồi UI web của người dùng (26/10, chưa làm):** kế hoạch 5 bước trong `docs/plans/web-ui-polish.md` (căn hàng form, bỏ lặp tiêu đề,
+  Việt hóa thuật ngữ — hỏi duyệt bảng từ trước, hệ thống thiết kế chung + theme sáng/tối + dropdown tự vẽ, bản đồ chọn vị trí chấm công).
 - **Phản hồi UI mobile của người dùng (26/10, chưa làm):** 9 điểm trong `docs/plans/mobile-ui-feedback.md` — ưu tiên mục PIN (hiện mọi 6 số đều mở
   được phiếu lương/tạm ứng/tài liệu) và Face ID gọi thẳng hộp thoại hệ thống.
 - **26/10: phiên cloud tạm dừng.** Toàn bộ việc làm trên cloud (nhánh `claude/ecstatic-pascal-dblg7v`, đến commit `41bf4f4`), checklist thử tay,
