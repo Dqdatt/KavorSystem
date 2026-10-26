@@ -7,7 +7,8 @@ import { Morph, useReducedMotion } from "../motion";
 import { Card, Count, InfoRow, Notice, Num, Row, RowBtn, RowStrong, SectionHead, St, T } from "../ui";
 import { BrandHead, TopBar, type ScreenSpec } from "../screen";
 import { useClock } from "../clock";
-import { CAT, dec, gh, hm, recentNews, relDay, vnd, advLimit } from "../data";
+import { CAT, dec, gh, hm, vnd, advLimit } from "../data";
+import { recentNewsViews } from "./news";
 import { REMOTE } from "../api/http";
 import { ACT, S, advEligible, ddmm, explainDue, fmtM, loadToday, explainLeft, go, holdDone, jump, lvAvail, pendingCount, phase, shiftLabel, shiftTime, tab, toast, worked } from "../store";
 
@@ -174,7 +175,7 @@ export function Hero({ compact }: { compact?: boolean }) {
 
 /* ================= News carousel ================= */
 function NewsCarousel() {
-  const list = recentNews(S.news);
+  const list = recentNewsViews();
   const { width } = useWindowDimensions();
   const sideness = width / 2 - 130;
   const step = 310;
@@ -214,7 +215,7 @@ function NewsCarousel() {
         onScroll={(e) => { const i = Math.max(0, Math.min(list.length - 1, Math.round((e.nativeEvent.contentOffset.x - first) / step))); if (i !== idxRef.current) setIdx(i); }}
         style={{ marginHorizontal: -20, marginTop: -8, marginBottom: -22, overflow: "visible" }}
         contentContainerStyle={{ paddingHorizontal: sideness, paddingTop: 8, paddingBottom: 34, gap: 10 }}>
-        {list.map((n, i) => <NcCard key={n.id} id={n.id} act={i === idx} imp={!!n.important} icon={CAT[n.cat][1]} cat={CAT[n.cat][0]} date={relDay(n.date)} title={n.title} />)}
+        {list.map((n, i) => <NcCard key={n.key} id={n.key} act={i === idx} imp={!!n.important} icon={CAT[n.cat][1]} cat={CAT[n.cat][0]} date={n.rel} title={n.title} />)}
       </ScrollView>
       {list.length > 1 ? (
         <View style={{ flexDirection: "row", gap: 6, justifyContent: "center", marginTop: -6 }}>
@@ -229,12 +230,12 @@ function NewsCarousel() {
   );
 }
 
-function NcCard({ id, act, imp, icon, cat, date, title }: { id: number; act: boolean; imp: boolean; icon: IconName; cat: string; date: string; title: string }) {
+function NcCard({ id, act, imp, icon, cat, date, title }: { id: string; act: boolean; imp: boolean; icon: IconName; cat: string; date: string; title: string }) {
   const v = useRef(new Animated.Value(act ? 1 : 0)).current;
   useEffect(() => { Animated.timing(v, { toValue: act ? 1 : 0, duration: 450, easing: EASE, useNativeDriver: true }).start(); }, [act]);
   return (
     <Animated.View style={{ width: 300, opacity: v.interpolate({ inputRange: [0, 1], outputRange: [0.72, 1] }), transform: [{ scale: v.interpolate({ inputRange: [0, 1], outputRange: [0.94, 1] }) }] }}>
-      <Pressable onPress={() => { S.param = String(id); go("newsDetail"); }}
+      <Pressable onPress={() => ACT.openNews(id)}
         style={({ pressed }) => [glass, { flexDirection: "row", gap: 12, alignItems: "flex-start", paddingVertical: 14, paddingHorizontal: 16, borderRadius: 20, minHeight: 84 },
           imp && { experimental_backgroundImage: "linear-gradient(155deg, rgba(255,234,235,0.92) 0%, rgba(255,255,255,0.55) 62%)", borderColor: "rgba(255,214,216,0.95)" }, pressed && { transform: [{ scale: 0.98 }] }]}>
         <View style={{ width: 44, height: 44, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: imp ? "rgba(255,236,237,0.98)" : "rgba(236,248,242,0.95)", boxShadow: "inset 0px 1px 0px #fff" }}>

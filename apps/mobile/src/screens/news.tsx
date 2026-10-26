@@ -1,15 +1,32 @@
 import { Pressable, StyleSheet, View } from "react-native";
 import { C, F, GL } from "../theme";
 import { Gi, Ic } from "../icons";
-import { Balanced, Card, Chip, Chips, Empty, T } from "../ui";
+import { announcementBlocks, announcementReadMinutes, type MyAnnouncement } from "@kavor/contracts";
+import { Balanced, Card, Chip, Chips, Empty, Row, Spinner, T } from "../ui";
 import { TabHead, TopBar, type ScreenSpec } from "../screen";
-import { CAT, type News } from "../data";
-import { ACT, S, go } from "../store";
+import { CAT, pad, recentNews, relDay, type News, type NewsCat } from "../data";
+import { REMOTE } from "../api/http";
+import { ACT, S } from "../store";
 import { ImpTag } from "./home";
 
-function NewsRow({ n, first }: { n: News; first: boolean }) {
+/* Một bài như prototype hiển thị; bản dùng API chuyển từ MyAnnouncement (ngày theo giờ máy, nội dung tách đoạn/gạch đầu dòng) */
+export type NewsView = Omit<News, "id"> & { key: string; year: number; rel: string; fileName?: string };
+const size = (n: number) => (n >= 1024 * 1024 ? `${(n / 1024 / 1024).toLocaleString("vi-VN", { maximumFractionDigits: 1 })} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
+const dayDiff = (iso: string) => { const d = new Date(iso), n = new Date(); return Math.round((new Date(n.getFullYear(), n.getMonth(), n.getDate()).getTime() - new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()) / 86_400_000); };
+export function fromApi(a: MyAnnouncement): NewsView {
+  const d = new Date(a.publishAt), date = `${pad(d.getDate())}/${pad(d.getMonth() + 1)}`, diff = dayDiff(a.publishAt);
+  return { key: a.id, cat: a.category as NewsCat, pin: a.pinned, important: a.important, title: a.title, date, year: d.getFullYear(),
+    rel: diff === 0 ? "Hôm nay" : diff === 1 ? "Hôm qua" : date, by: a.authorLabel, read: `${announcementReadMinutes(a.body)} phút`,
+    file: a.attachment ? `${a.attachment.name} · ${size(a.attachment.size)}` : undefined, fileName: a.attachment?.name, body: announcementBlocks(a.body) };
+}
+const fromMock = (n: News): NewsView => ({ ...n, key: String(n.id), year: 2026, rel: relDay(n.date), fileName: n.file?.split(" · ")[0] });
+export const newsViews = (): NewsView[] => (REMOTE ? (S.annData?.items ?? []).map(fromApi) : S.news.map(fromMock));
+/* Thẻ "Bản tin mới" trên Trang chủ: bài trong 2 ngày gần nhất */
+export const recentNewsViews = (): NewsView[] => (REMOTE ? (S.annData?.items ?? []).filter((a) => dayDiff(a.publishAt) <= 2).slice(0, 6).map(fromApi) : recentNews(S.news).map(fromMock));
+
+function NewsRow({ n, first }: { n: NewsView; first: boolean }) {
   return (
-    <Pressable onPress={() => { S.param = String(n.id); go("newsDetail"); }} style={({ pressed }) => [styles.nw, pressed && { backgroundColor: C.soft }]}>
+    <Pressable onPress={() => ACT.openNews(n.key)} style={({ pressed }) => [styles.nw, pressed && { backgroundColor: C.soft }]}>
       {!first ? <View style={styles.nwLine} /> : null}
       <View style={styles.ico}><Gi n={CAT[n.cat][1]} s={22} /></View>
       <View style={{ flex: 1, minWidth: 0, gap: 4 }}>
@@ -25,14 +42,19 @@ function NewsRow({ n, first }: { n: News; first: boolean }) {
   );
 }
 
+const Loading = ({ k }: { k: string }) => <Card key={k}><Row style={{ justifyContent: "center", paddingVertical: 28 }}><Spinner color={C.emerald} /></Row></Card>;
+
 export function newsSpec(): ScreenSpec {
-  const c = S.newsCat, list = S.news.filter((n) => c === "all" || n.cat === c);
+  const c = S.newsCat, list = newsViews().filter((n) => c === "all" || n.cat === c);
+  const waiting = REMOTE && !S.annData;
   return {
     nav: true,
     head: <TabHead title="Bản tin" />,
     body: [
       <Chips key="chips">{([["all", "Tất cả"], ["notice", "Thông báo"], ["policy", "Chính sách"], ["event", "Sự kiện"]] as Array<[string, string]>).map((x) => <Chip key={x[0]} on={c === x[0]} label={x[1]} onPress={() => ACT.newsCat(x[0])} />)}</Chips>,
-      list.length ? <Card key="list">{list.map((n, i) => <NewsRow key={n.id} n={n} first={i === 0} />)}</Card> : <Empty key="e" icon={<Gi n="news" s={44} />} title="Chưa có bài" />,
+      waiting && S.annError ? <Card key="err"><Empty icon={<Gi n="news" s={44} />} title="Chưa tải được bản tin" text={S.annError} /></Card>
+        : waiting ? <Loading key="l" k="l" />
+        : list.length ? <Card key="list">{list.map((n, i) => <NewsRow key={n.key} n={n} first={i === 0} />)}</Card> : <Empty key="e" icon={<Gi n="news" s={44} />} title="Chưa có bài" />,
     ],
   };
 }
@@ -45,9 +67,14 @@ const HERO_BG: Record<string, string> = {
 };
 
 export function newsDetailSpec(): ScreenSpec {
-  const n = S.news.find((x) => x.id === +(S.param ?? 0)) || S.news[0]!;
+  /* Bản dùng API: chỉ hiện bài máy chủ vừa trả (đã ghi đọc, chưa bị gỡ); đang tải/lỗi thì không hiện bài khác */
+  if (REMOTE && S.annDetail?.id !== S.param) {
+    return { head: <TopBar title="Bản tin" right={null} />, body: [S.annDetailError
+      ? <Card key="err"><Empty icon={<Gi n="news" s={44} />} title="Không mở được bài viết" text={S.annDetailError} /></Card> : <Loading key="l" k="l" />] };
+  }
+  const n = REMOTE ? fromApi(S.annDetail!) : (() => { const views = newsViews(); return views.find((x) => x.key === (S.param ?? "")) || views[0]!; })();
   const by = n.by.split(" "), ini = ((by[0] ?? "")[0]! + (by[by.length - 1] ?? "")[0]!).toUpperCase();
-  const callout = n.id === 6 ? "Hệ thống tạm dừng trong 90 phút, từ 22:00 đến 23:30 tối nay." : n.id === 1 ? "Quy định chấm công mới bắt đầu áp dụng từ ngày 01/11/2026." : "Đây là thông tin quan trọng, bạn nên đọc kỹ trước khi tiếp tục.";
+  const callout = n.key === "6" ? "Hệ thống tạm dừng trong 90 phút, từ 22:00 đến 23:30 tối nay." : n.key === "1" ? "Quy định chấm công mới bắt đầu áp dụng từ ngày 01/11/2026." : "Đây là thông tin quan trọng, bạn nên đọc kỹ trước khi tiếp tục.";
   const file = n.file ? n.file.split(" · ") : null;
   return {
     head: <TopBar title="Bản tin" right={null} />,
@@ -67,7 +94,7 @@ export function newsDetailSpec(): ScreenSpec {
           <View style={styles.byAva}><T style={{ color: "#fff", fontSize: 10, fontFamily: F.bold, letterSpacing: 0.4 }}>{ini}</T></View>
           <View style={{ gap: 1, minWidth: 0 }}>
             <T style={{ fontSize: 12.5, fontFamily: F.bold }}>{n.by}</T>
-            <T style={{ fontSize: 11.5, color: C.ink2 }}>{n.date}/2026 · {n.read} đọc</T>
+            <T style={{ fontSize: 11.5, color: C.ink2 }}>{n.date}/{n.year} · {n.read} đọc</T>
           </View>
         </View>
       </View>,
@@ -98,7 +125,7 @@ export function newsDetailSpec(): ScreenSpec {
           ) : <T key={i} style={{ fontSize: 14, lineHeight: 24.1, color: "#30423B", marginBottom: i === n.body.length - 1 ? 0 : 14 }}>{b}</T>)}
         </View>
         {file ? (
-          <Pressable onPress={() => ACT.toast(`Mở ${file[0]} trong trình xem PDF`)} style={({ pressed }) => [styles.file, pressed && { transform: [{ scale: 0.985 }], backgroundColor: "#fff" }]}>
+          <Pressable onPress={() => ACT.openNewsFile(n.key, n.fileName ?? file[0]!)} style={({ pressed }) => [styles.file, pressed && { transform: [{ scale: 0.985 }], backgroundColor: "#fff" }]}>
             <View style={styles.fileI}><Gi n="doc" s={21} /></View>
             <View style={{ flex: 1, minWidth: 0 }}>
               <T numberOfLines={1} style={{ fontSize: 12.5, fontFamily: F.bold }}>{file[0]}</T>

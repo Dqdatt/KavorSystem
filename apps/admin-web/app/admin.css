@@ -19,7 +19,7 @@ a.nav-item, a.quick-item { text-decoration: none; color: inherit; }
 .login-card { width: min(420px, 100%); }
 .login-card .brand { padding: 0 0 18px; }
 .check-row { display: flex; align-items: center; gap: 8px; font-size: 13px; }
-.check-row input[type="checkbox"] { width: 16px; height: 16px; margin: 0; accent-color: var(--green); }
+.check-row input[type="checkbox"], .check-row input[type="radio"] { width: 16px; height: 16px; min-height: 0; margin: 0; padding: 0; flex: none; accent-color: var(--green); }
 /* Bảng trong drawer (chi tiết bảng công): vừa chiều rộng drawer, ô gọn hơn */
 .drawer .data-table.compact { min-width: 0; }
 .drawer .data-table.compact th, .drawer .data-table.compact td { padding: 0 8px; height: 40px; }

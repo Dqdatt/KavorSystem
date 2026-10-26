@@ -9,12 +9,12 @@ import {
 import type { IllusKind } from "./illus";
 import { api, type Snapshot } from "./api";
 import { authenticate, biometricLabel, clearQuickLogin, clearSession, loadBioPrefs, loadSession, loadSupport, quickLoginEmployee, quickRefreshToken, saveBioPrefs, saveSession, saveSupport, type BioPrefs } from "./auth";
-import { ApiError, REMOTE, advanceApi, attendanceApi, authApi, companyApi, isNetworkError, leaveApi, notificationsApi, overtimeApi, payslipApi, setTokenSource, timesheetApi } from "./api/http";
+import { ApiError, REMOTE, advanceApi, announcementsApi, attendanceApi, authApi, companyApi, isNetworkError, leaveApi, notificationsApi, overtimeApi, payslipApi, setTokenSource, timesheetApi } from "./api/http";
 import { clearExplainReminders, onReminderTap, scheduleExplainReminders } from "./notify";
 import { MY_REQ_INIT, SUPPORT_SAMPLE } from "./api/mock-data";
 import {
   EXPLANATION_KINDS, distanceMeters, passwordProblems,
-  type AttendanceEvent, type AttendanceToday, type AuthResult, type ExplanationKind, type AppNotification, type MyAdvance, type MyCompany, type MyLeave, type MyOvertime, type MyPayslip, type MyPayslips, type MyTimesheet, type NotificationFeed, type RequestItem, type SupportContact, type TimesheetDay, type WorkLocation,
+  type AttendanceEvent, type AttendanceToday, type AuthResult, type ExplanationKind, type AppNotification, type MyAdvance, type MyAnnouncement, type MyAnnouncements, type MyCompany, type MyLeave, type MyOvertime, type MyPayslip, type MyPayslips, type MyTimesheet, type NotificationFeed, type RequestItem, type SupportContact, type TimesheetDay, type WorkLocation,
 } from "@kavor/contracts";
 import { currentFix, deviceRegistration, deviceSummary, enqueue, flushQueue, installationId, LocationError, newEventId, quietFix, readQueue, type Fix } from "./attendance";
 
@@ -162,6 +162,9 @@ const makeState = () => ({
   payrollData: null as MyPayslips | null, payslipData: null as MyPayslip | null,
   payrollError: "", payslipError: "",
   otDay: null as string | null,
+  /* Bản tin (bản dùng API): danh sách + bài đang mở (mở bài = đã đọc trên máy chủ) */
+  annData: null as MyAnnouncements | null, annError: "",
+  annDetail: null as MyAnnouncement | null, annDetailError: "",
   /* Thông báo trong app (bản dùng API) */
   notifs: null as NotificationFeed | null,
   /* Thông báo chưa đọc lúc mở màn Thông báo: vẫn hiện chấm xanh trong lần xem đó dù đã đánh dấu đọc trên máy chủ */
@@ -344,6 +347,44 @@ export async function loadOvertime(manual = false) {
     else if (manual) toast(e instanceof ApiError ? e.message : "Chưa tải được dữ liệu làm thêm.");
   }
 }
+/* Hai bộ đếm riêng: mở bài không làm bỏ kết quả danh sách đang tải; đăng xuất bỏ cả hai */
+let annListRequest = 0, annRequest = 0;
+function clearAnnouncements() {
+  annListRequest++; annRequest++;
+  S.annData = null; S.annError = ""; S.annDetail = null; S.annDetailError = "";
+}
+export async function loadAnnouncements(manual = false) {
+  if (!REMOTE || !isLoggedIn() || S.stack[0] === "consent") return;
+  const request = ++annListRequest;
+  try {
+    const data = await announcementsApi.list();
+    if (request === annListRequest && isLoggedIn()) { S.annData = data; S.annError = ""; emit(); }
+  } catch (e) {
+    if (request !== annListRequest || !isLoggedIn()) return;
+    if (e instanceof ApiError && e.status === 401) { showErr("session"); return; }
+    S.annError = e instanceof ApiError ? e.message : "Chưa tải được bản tin. Vui lòng thử lại.";
+    if (manual) emit();
+  }
+}
+/* Mở một bài: luôn hỏi máy chủ (ghi đã đọc, bài có thể vừa bị gỡ); bài cũ không hiện trong lúc tải bài khác */
+export async function loadAnnouncement(id: string) {
+  if (!REMOTE || !isLoggedIn()) return;
+  const request = ++annRequest;
+  if (S.annDetail?.id !== id) S.annDetail = null;
+  S.annDetailError = ""; emit();
+  try {
+    const data = await announcementsApi.get(id);
+    if (request !== annRequest || !isLoggedIn()) return;
+    S.annDetail = data;
+    if (S.annData) S.annData = { items: S.annData.items.map((x) => (x.id === data.id ? data : x)) };
+  } catch (e) {
+    if (request !== annRequest || !isLoggedIn()) return;
+    if (e instanceof ApiError && e.status === 401) { clearAnnouncements(); showErr("session"); return; }
+    S.annDetail = null;
+    S.annDetailError = e instanceof ApiError && e.status === 404 ? "Bài viết không còn hoặc không gửi tới bạn." : e instanceof ApiError ? e.message : "Chưa tải được bài viết. Vui lòng thử lại.";
+    if (e instanceof ApiError && e.status === 404 && S.annData) S.annData = { items: S.annData.items.filter((x) => x.id !== id) };
+  } finally { if (request === annRequest) emit(); }
+}
 let payrollRequest = 0;
 function clearPayroll() {
   payrollRequest++;
@@ -371,7 +412,7 @@ export async function loadPayslips(month?: string) {
     if (e instanceof ApiError && e.status === 401) { clearPayroll(); showErr("session"); }
   } finally { if (request === payrollRequest) emit(); }
 }
-const refreshWork = () => { void loadTimesheet(S.ts?.period.month); void loadRequests(); void loadNotifications(); void loadLeave(); void loadOvertime(); void loadAdvance(); };
+const refreshWork = () => { void loadTimesheet(S.ts?.period.month); void loadRequests(); void loadNotifications(); void loadLeave(); void loadOvertime(); void loadAdvance(); void loadAnnouncements(); };
 export const unreadCount = () => (REMOTE ? S.notifs?.unread ?? 0 : 2);
 
 /* Bấm nhắc hạn giải trình → mở form giải trình ngày đó (đăng nhập xong mới mở; khi app vừa khởi động thì đợi khôi phục phiên) */
@@ -453,6 +494,7 @@ export function go(r: Route) {
       else { S.payrollData = null; S.payrollError = ""; }
       void loadPayslips(r === "payslip" ? S.param ?? "" : undefined);
     }
+    if (REMOTE && r === "newsDetail") void loadAnnouncement(S.param ?? "");
     render("push");
   };
   if (GATED[r] && Date.now() > S.pinUntil) { openPin(enter); return; }
@@ -466,6 +508,7 @@ export function tab(r: Route) {
   S.stack = [r]; render("fade");
   if (r === "attendance") void loadTimesheet(S.ts?.period.month);
   if (r === "requests") void loadRequests();
+  if (r === "news") void loadAnnouncements(true);
 }
 export function jump(r: string) {
   closeSheet(true); quickClose();
@@ -499,7 +542,7 @@ export function openPin(ok: () => void) { S.pin = ""; S.pinOk = ok; openSheet("p
 /* Lưu phiên vào Keychain; thiết bị đã đăng ký thì vào thẳng trang chủ, chưa thì sang bước đăng ký.
    Công ty có điều khoản dữ liệu cá nhân mới chưa đồng ý thì hỏi trước (ADR 0001 §5). */
 async function signIn(employeeId: string, result?: AuthResult) {
-  clearPayroll(); S.pinUntil = 0;
+  clearPayroll(); clearAnnouncements(); S.pinUntil = 0;
   const session = await saveSession({ employeeId, ...(result ? { auth: result.session, me: result.me } : {}) });
   const target: Route = session.deviceRegistered ? "home" : "device";
   if ((await loadCompany())?.privacy.required) { askConsent(target); return; }
@@ -1079,6 +1122,12 @@ export const ACT = {
   reqTab: (a: "mine" | "approve") => { S.reqTab = a; S.selectMode = false; S.sel.clear(); emit(); },
   reqFilter: (a: string) => { S.reqFilter = a; emit(); },
   newsCat: (a: string) => { S.newsCat = a; emit(); },
+  openNews: (id: string) => { S.param = id; go("newsDetail"); },
+  /* File đính kèm: bản dùng API mở bằng trình duyệt hệ thống (PDF/ảnh xem được ngay); bản mẫu giữ toast như prototype */
+  openNewsFile: (id: string, name: string) => {
+    if (!REMOTE) { toast(`Mở ${name} trong trình xem PDF`); return; }
+    remote("openNewsFile", async () => { await Linking.openURL(await announcementsApi.fileUrl(id)); });
+  },
   cancelAsk: (a: string) => openSheet("cancelAsk", a),
   cancelGo: (a: string) => {
     const item = REMOTE ? S.reqItems.get(a) : undefined;
@@ -1166,7 +1215,7 @@ export const ACT = {
       if (!S.bio.login && sess?.auth) { await authApi.logout(sess.auth.accessToken).catch(() => undefined); await clearQuickLogin(); }
     });
     /* Đăng xuất: bỏ nhắc nhở và thông báo của người vừa dùng máy */
-    if (REMOTE) { void clearExplainReminders().catch(() => undefined); S.notifs = null; S.ts = null; clearPayroll(); }
+    if (REMOTE) { void clearExplainReminders().catch(() => undefined); S.notifs = null; S.ts = null; clearPayroll(); clearAnnouncements(); }
     void clearSession(); S.pinUntil = 0; S.f = freshForms(); closeSheet(); S.stack = ["login"]; render("fade");
   },
   pinkey: (a: string) => {
@@ -1200,6 +1249,7 @@ export const ACT = {
   notifOpen: (n: AppNotification) => {
     if (!n.link) return;
     if (n.link.type === "device") { go("security"); return; }
+    if (n.link.type === "announcement") { ACT.openNews(n.link.id); return; }
     if (n.link.type === "payslip") {
       const month = n.link.no;
       if (!month || !/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) { toast("Không tìm thấy tháng của phiếu lương."); return; }

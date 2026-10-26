@@ -26,7 +26,7 @@ const mocks = new Map([
   ['./attendance', `${noop} export const currentFix=empty,deviceRegistration=empty,deviceSummary=empty,enqueue=empty,flushQueue=empty,installationId=empty,newEventId=empty,quietFix=empty,readQueue=empty;export class LocationError extends Error {}`],
   ['./notify', `${noop} export const clearExplainReminders=empty,scheduleExplainReminders=empty,onReminderTap=()=>()=>{};`],
   ['./api/http', `export const REMOTE=true,ApiError=globalThis.__payrollTest.ApiError,payslipApi=globalThis.__payrollTest.payslipApi;
-    export const advanceApi={},attendanceApi={},authApi={},companyApi={},leaveApi={},notificationsApi={},overtimeApi={},timesheetApi={},setTokenSource=()=>{},isNetworkError=()=>false;`],
+    export const advanceApi={},announcementsApi={},attendanceApi={},authApi={},companyApi={},leaveApi={},notificationsApi={},overtimeApi={},timesheetApi={},setTokenSource=()=>{},isNetworkError=()=>false;`],
   ['../api/http', `export const REMOTE=true;`],
   ['../qa', `export const QA_ENABLED=false;`],
 ]);

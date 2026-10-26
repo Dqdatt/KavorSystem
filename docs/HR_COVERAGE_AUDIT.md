@@ -26,7 +26,7 @@ Cột **Schema**: thiết kế trong `DATABASE_SCHEMA.md` (đã có migration ha
 
 | Mobile | Trang HR Admin | Schema |
 |---|---|---|
-| Bản tin: danh mục, ghim, quan trọng, đính kèm | Bản tin nội bộ (tạo, lên lịch, người nhận, theo dõi đã đọc) | `announcements`, `announcement_audiences`, `announcement_reads` |
+| Bản tin: danh mục, ghim, quan trọng, đính kèm | Bản tin nội bộ (tạo, lên lịch, người nhận, theo dõi đã đọc) — xong 26/10 | `announcements`, `announcement_audiences`, `announcement_reads` |
 | Hồ sơ: phòng ban, quản lý trực tiếp, ngày vào làm, hợp đồng | Nhân viên, Tổ chức | `employees`, `employee_assignments`, `employment_contracts` |
 | Đề nghị sửa thông tin (HS-0221) | Phê duyệt | `requests`, `request_versions` |
 | Nghỉ phép, số dư | Nghỉ phép (chính sách, định mức, chuyển năm, lịch sử version) | `leave_*` |

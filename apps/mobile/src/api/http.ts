@@ -3,7 +3,7 @@
 import type {
   AttendanceEvent, AttendanceEventRequest, AttendanceToday, DeviceInfo, DeviceRegisterRequest,
   ActivationStartRequest, ActivationVerifyRequest, ApiEnvelope, AuthResult, BrandingKind, ExplanationInput, LoginRequest, MeProfile, AdvanceInput, LeaveInput, MyAdvance, MyApprovals, MyCompany, MyLeave, MyOvertime, MyTimesheet, NotificationFeed, OvertimeInput, RequestItem,
-  MyPayslip, MyPayslips, OtpSentResponse, PasswordForgotRequest, PasswordResetRequest, PrivacyConsentRequest, RefreshRequest,
+  MyAnnouncement, MyAnnouncements, MyPayslip, MyPayslips, OtpSentResponse, PasswordForgotRequest, PasswordResetRequest, PrivacyConsentRequest, RefreshRequest,
 } from "@kavor/contracts";
 import { QA_ENABLED } from "../qa";
 
@@ -103,6 +103,13 @@ export const advanceApi = {
 export const payslipApi = {
   list: async () => call<MyPayslips>("GET", "/me/payslips", undefined, await token()),
   get: async (month: string) => call<MyPayslip>("GET", `/me/payslips/${encodeURIComponent(month)}`, undefined, await token()),
+};
+
+/* Bản tin: mở bài = đã đọc. File mở bằng trình duyệt hệ thống qua liên kết ký 5 phút (không gửi được header Authorization) */
+export const announcementsApi = {
+  list: async () => call<MyAnnouncements>("GET", "/me/announcements", undefined, await token()),
+  get: async (id: string) => call<MyAnnouncement>("GET", `/me/announcements/${encodeURIComponent(id)}`, undefined, await token()),
+  fileUrl: async (id: string) => `${BASE}/${(await call<{ path: string; expiresAt: string }>("POST", `/me/announcements/${encodeURIComponent(id)}/file-link`, {}, await token())).path}`,
 };
 
 export const notificationsApi = {
