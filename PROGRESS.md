@@ -2,6 +2,7 @@
 _Cập nhật: 2026-10-26 — bởi Claude_
 
 ## Mục tiêu đang làm
+**Phiên cloud → Desktop: đọc `docs/CLOUD_HANDOFF.md` trước** (commit nào đã push, chưa test gì trên máy thật, quyết định chờ review).
 Payroll (web `/payroll`), **Bản tin** (`docs/plans/announcements.md`), **Tài liệu nhân sự** (`docs/plans/documents.md`) và **Đề nghị sửa hồ sơ**
 (`docs/plans/profile-change.md`) và **Console: gói dịch vụ + tạm khóa/đóng tenant + support access** (`docs/plans/console-ops.md`) đã xong trên nhánh
 `claude/ecstatic-pascal-dblg7v` (phiên cloud: web thử bằng trình duyệt tự động; mobile chỉ typecheck + test hành vi trong Node, **chưa build/chụp trên

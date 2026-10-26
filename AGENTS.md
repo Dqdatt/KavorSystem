@@ -2,6 +2,7 @@
 
 ## Cách làm việc (bắt buộc — đọc `docs/AGENT_PLAYBOOK.md` trước khi bắt đầu bất kỳ việc gì)
 
+- Có `docs/CLOUD_HANDOFF.md` (việc làm từ phiên cloud, chưa test trên máy thật): đọc trước, cập nhật sau mỗi lần push từ cloud.
 - Đọc file trước khi sửa; đọc `PROGRESS.md` và tài liệu nghiệp vụ liên quan trước khi làm module. Không đoán tên API/cột/hàm.
 - Không báo "xong" khi chưa chạy kiểm tra: dán lệnh + kết quả thật (typecheck, test, smoke, ảnh chụp). Chưa kiểm thì ghi "chưa kiểm tra".
 - Bước nhỏ, kiểm ngay sau mỗi bước. Cùng một lỗi sửa 2 lần chưa được → dừng đoán, đo nguyên nhân (log/DB/curl/ảnh) hoặc hỏi người dùng.
