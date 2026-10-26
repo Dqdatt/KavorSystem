@@ -8,6 +8,7 @@ import {
   ago, can, fmtDate, fmtDateTime, tenantToday, useAction, useMe,
 } from "../../_ui/kit";
 import { ReasonModal } from "../../_ui/reason-modal";
+import { ImportModal } from "../../_ui/employee-import";
 
 const AUDIT: Record<string, string> = {
   "employee.created": "Tạo hồ sơ", "employee.updated": "Sửa hồ sơ", "employee.invited": "Gửi lời mời kích hoạt", "account.locked": "Khóa tài khoản", "account.unlocked": "Mở khóa tài khoản",
@@ -28,6 +29,7 @@ function EmployeesPage() {
   const [status, setStatus] = useState("working");
   const [account, setAccount] = useState(params.get("account") ?? "all");
   const [editing, setEditing] = useState<EmployeeDetail | "new" | null>(null);
+  const [importing, setImporting] = useState(false);
   const openId = params.get("id");
 
   useEffect(() => { setQ(params.get("q") ?? ""); }, [params]);
@@ -45,7 +47,7 @@ function EmployeesPage() {
     <section className="page active">
       <div className="page-head">
         <div><h2>Danh sách nhân viên</h2><p>{list.data ? `${rows.length} hồ sơ trong phạm vi của bạn` : "Đang tải…"} · trạng thái tài khoản và thiết bị chấm công.</p></div>
-        <div className="head-actions">{can(me, "employee.create") ? <button className="btn primary" onClick={() => setEditing("new")}><Icon name="plus" /> Thêm nhân viên</button> : null}</div>
+        <div className="head-actions">{can(me, "employee.create") ? <><button className="btn" onClick={() => setImporting(true)}><Icon name="upload" /> Nhập từ file</button><button className="btn primary" onClick={() => setEditing("new")}><Icon name="plus" /> Thêm nhân viên</button></> : null}</div>
       </div>
       <LoadError error={list.error} retry={list.reload} />
       <article className="card">
@@ -73,6 +75,7 @@ function EmployeesPage() {
       </article>
       {openId ? <EmployeeDrawer id={openId} onClose={() => open(null)} onEdit={setEditing} onChanged={list.reload} /> : null}
       {editing && org.data ? <EmployeeForm org={org.data} employee={editing === "new" ? null : editing} onClose={() => setEditing(null)} onSaved={(id) => { setEditing(null); void list.reload(); open(id); }} /> : null}
+      {importing ? <ImportModal onClose={() => setImporting(false)} onDone={() => void list.reload()} /> : null}
     </section>
   );
 }

@@ -32,6 +32,8 @@ Toàn bộ dữ liệu trong thư mục này là hư cấu và chỉ dùng cho d
 - `payroll_import_2026-10.csv`: file thử trang web Lương & tạm ứng → Kỳ lương → Import kết quả, đúng định dạng importer
   (cột theo mã thành phần, `NET` = thu nhập − khấu trừ) cho 9 nhân viên seed Hải Đăng. Nhập được ngay; cảnh báo kỳ công chưa
   khóa và ngày công lệch bảng công là đúng dự kiến. `payroll_results.csv` là định dạng cũ, importer không đọc.
+- `employees_import_sample.csv`: file thử web Nhân viên → Nhập từ file (3 người, quản lý nằm trong cùng file, ngày hai định dạng,
+  loại hợp đồng bằng chữ). `employees.csv` cũng nhập được (cột `manager_employee_code` được nhận, cột thừa bỏ qua; mã đã có trong seed sẽ bỏ qua).
 
 ## Quy tắc
 

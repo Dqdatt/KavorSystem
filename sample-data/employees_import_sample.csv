@@ -1,0 +1,4 @@
+﻿employee_code,full_name,work_email,phone,hire_date,employment_type,department_code,position_code,manager_code
+HD0501,Nguyễn Thị Lan,lan.nguyen@haidang.vn,0901 111 222,01/11/2026,Thử việc,MKT,AE,HD0503
+HD0502,Phạm Quốc Bảo,bao.pham@haidang.vn,,2026-11-01,Chính thức,OPS,OM,
+HD0503,Đặng Thu Trang,trang.dang@haidang.vn,0912 333 444,15/10/2026,Chính thức,MKT,MKTM,

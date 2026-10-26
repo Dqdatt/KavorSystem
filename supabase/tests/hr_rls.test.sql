@@ -2,7 +2,7 @@
 -- Dùng dữ liệu seed (Thảo: tenant_admin + hr_ops toàn công ty; Huy: manager phòng Marketing; Bình: admin tenant B).
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(27);
+select plan(28);
 
 -- Người dùng thử, gắn vào membership đã mời sẵn trong seed
 insert into auth.users (id, email) values
@@ -48,7 +48,11 @@ select throws_ok($$select * from public.scoped_employees('a1000000-0000-4000-800
 
 -- Quản lý (Huy): chỉ phòng Marketing
 select set_config('request.jwt.claims', '{"sub":"a1000000-0000-4000-8000-000000000003","role":"authenticated"}', true);
-select is((select count(*)::int from public.employees), 2, 'Quản lý chỉ thấy 2 nhân viên phòng Marketing');
+-- Không đếm cứng (DB có thể đã có thêm người do smoke/E2E): mọi người thấy được thuộc phòng Marketing, gồm 2 người seed
+select is((select count(*)::int from public.employees e where not exists (select 1 from public.employee_assignments a where a.employee_id = e.id
+  and a.department_id = '40000000-0000-4000-8000-000000000005' and a.effective_from <= public.tenant_today(e.tenant_id) and (a.effective_to is null or a.effective_to >= public.tenant_today(e.tenant_id)))),
+  0, 'Quản lý chỉ thấy nhân viên phòng Marketing');
+select is((select count(*)::int from public.employees where employee_code in ('HD0142', 'HDG0003')), 2, 'Quản lý thấy 2 người Marketing trong seed');
 select is((select count(*)::int from public.attendance_events where client_event_id = 'rls-evt-ha-1'), 1, 'Quản lý thấy chấm công của Hà (Marketing)');
 select is((select count(*)::int from public.attendance_events where client_event_id = 'rls-evt-an-1'), 0, 'Quản lý không thấy chấm công ngoài phòng');
 select is((select count(*)::int from public.audit_logs), 0, 'Quản lý không có audit.read');

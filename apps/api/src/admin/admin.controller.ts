@@ -24,6 +24,7 @@ import type { DocumentsService } from "../documents/documents.service.js";
 import type { TimesheetAdmin } from "../timesheet/timesheet-admin.service.js";
 import type { SupportService } from "../support/support.service.js";
 import type { OrgAdmin } from "./org.service.js";
+import type { EmployeeImport } from "./import.service.js";
 import { date, nullableText, oneOf, type Body as Json } from "./validate.js";
 
 export const ADMIN_SERVICES = Symbol("ADMIN_SERVICES");
@@ -31,7 +32,7 @@ export type AdminServices = {
   employees: EmployeesAdmin; attendance: AttendanceAdmin; schedule: ScheduleAdmin;
   settings: SettingsAdmin; rules: RulesAdmin; mfa: MfaAdmin; company: CompanyService;
   timesheets: TimesheetAdmin; requests: RequestsService; notifications: NotificationsService; leave: LeaveService; overtime: OvertimeService; advance: AdvanceService;
-  payroll: PayrollService; announcements: AnnouncementsService; documents: DocumentsService; support: SupportService; org: OrgAdmin;
+  payroll: PayrollService; announcements: AnnouncementsService; documents: DocumentsService; support: SupportService; org: OrgAdmin; importer: EmployeeImport;
 };
 
 function bearer(header?: string): string {
@@ -73,6 +74,10 @@ export class AdminController {
   mfaEnroll(@Req() r: CorrelatedRequest, @Headers("authorization") a?: string) { return this.run(r, a, (s, c) => s.mfa.enroll(c), { mfaStep: true }); }
   @Post("mfa/verify") @HttpCode(200)
   mfaVerify(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Body() b: Json) { return this.run(r, a, (s, c) => s.mfa.verify(c, b), { mfaStep: true }); }
+  /* Nhập nhân viên từ CSV: dryRun (mặc định) chỉ xem trước; dryRun=false ghi khi cả file không lỗi */
+  @Post("employees/import") @HttpCode(200)
+  importEmployees(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Body() b: Json) { return this.run(r, a, (s, c) => s.importer.run(c, b)); }
+
   /* ---------- Cơ cấu tổ chức + vai trò & phân quyền ---------- */
   @Get("organization")
   orgTree(@Req() r: CorrelatedRequest, @Headers("authorization") a?: string) { return this.run(r, a, (s, c) => s.org.tree(c)); }

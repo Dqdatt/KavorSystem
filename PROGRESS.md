@@ -10,6 +10,14 @@ simulator hay iPhone** vì phiên cloud không có Mac). Người dùng giao "c�
 ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AGENT_PLAYBOOK.md`; kiểm tra toàn bộ bằng `bash tools/verify-all.sh`.
 
 ## Đã xong
+- Nhập nhân viên hàng loạt từ CSV (26/10, Claude, phiên cloud; quyết định mặc định chờ review — `docs/plans/employee-import.md`):
+  - DB `202611070001_employee_import.sql`: `import_employees()` ghi nguyên khối (hồ sơ + phân công từ ngày vào làm, quản lý trong cùng file), mã đã
+    có bỏ qua; chỉ service role. pgTAP 8 (tổng 459).
+  - API `POST /admin/employees/import` (`dryRun` mặc định = xem trước): kiểm tra từng dòng (bắt buộc, định dạng, trùng trong file, email đã dùng,
+    phòng ban/chức danh còn hoạt động, phạm vi `employee.create`, quản lý, giới hạn gói), chỉ ghi khi cả file không lỗi; audit 1 dòng nhập + từng hồ
+    sơ. Nhận cả cột `manager_employee_code` của `sample-data/employees.csv`. Unit test đọc CSV 3, smoke `tools/import-smoke.sh`.
+  - Web: Nhân viên → **Nhập từ file** (tải file mẫu, xem trước từng dòng, lọc dòng lỗi, nhập). File thử `sample-data/employees_import_sample.csv`.
+    Đã thử bằng trình duyệt tự động.
 - Cơ cấu tổ chức + Vai trò & phân quyền trên web HR (26/10, Claude, phiên cloud; quyết định mặc định chờ review — `docs/plans/org-roles.md`):
   - DB `202611060001_org_roles.sql`: quyền `role.assign` (Tenant Admin), `organization.manage` (HR Ops + Tenant Admin — trước đây chỉ có trong seed
     nên chưa ai có); trigger đơn vị cha cùng tenant + phòng ban không tạo vòng; ngày kết thúc ≥ ngày hiệu lực; không gán trùng vai trò + phạm vi đang mở.
@@ -345,6 +353,7 @@ ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AG
 - Luật nhà nước dạng số (`statutory_rule_sets`: bảo hiểm, thuế, phép năm tối thiểu, giới hạn OT) chưa làm — làm cùng module phép/payroll. Lịch lễ quốc gia mới có 2026; 2027 chờ Chính phủ công bố lịch Tết. Nội dung điều khoản mẫu và ngày lễ cần chuyên gia xác nhận.
 - Tạm ứng trên mobile còn dữ liệu mẫu ("30%" vẫn cứng) — nối khi làm module tạm ứng. Server chưa chặn API chấm công khi nhân viên chưa đồng ý điều khoản (app tự chặn bằng màn đồng ý).
 - Đặt lại MFA (web HR hoặc Console) không đăng xuất phiên aal2 đang mở của người đó (hết hạn sau ≤ 1 giờ).
+- Nhập nhân viên: chưa cập nhật hồ sơ cũ bằng file, chưa đọc .xlsx/kết nối Google Sheets, chưa gửi lời mời hàng loạt sau khi nhập.
 - Phân quyền: phạm vi "phòng ban" chỉ gồm đúng phòng đó, **không gồm phòng ban con** (`scoped_employees` so khớp `department_id`) — cần quyết
   định có tính cả cây không. Chưa có vai trò tùy chỉnh, người duyệt thứ hai khi gán vai trò nhạy cảm, import cơ cấu, phiên bản tên đơn vị (đổi tên sửa
   tại chỗ + audit).
@@ -379,7 +388,7 @@ ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AG
    `/announcements`, `/documents`, Đơn & phê duyệt (đơn HS); build Release iPhone mới để thử tab Bản tin, Hồ sơ → Hợp đồng và quyết định, mở file,
    bấm thông báo, Hồ sơ → Đề nghị sửa (gửi, thẻ đang chờ, HR duyệt rồi xem lại); thử lại vòng chờ Face ID. Review quyết định mặc định trong
    `docs/plans/documents.md`. Ổn thì merge vào main. Export/PDF phiếu lương và mở lại kỳ đã công bố để sau.
-2. Nhập nhân viên hàng loạt (Excel/CSV, Google Sheets một chiều — PERMISSION_MATRIX "Import nhân viên": HR Ops + Tenant Admin).
+2. Gửi lời mời kích hoạt hàng loạt (sau khi nhập), ảnh đại diện, quên PIN trên app (A11), đính kèm minh chứng giải trình/nghỉ phép.
 3. Phần còn lại của Kavor Console theo prototype: Usage chi tiết, Sync jobs, Sự cố, Releases (phiên bản app tối thiểu iOS/Android), Feature flags, Cài đặt nền tảng.
 - Push từ máy chủ khi app tắt (APNs/FCM) cần tài khoản Apple Developer trả phí → làm khi mua (xem "Quyết định đã chốt"); lúc đó thay luôn việc E19 hỏi lại 8 giây/lần.
 - Staging: **hoãn tới khi hệ thống hoàn thiện** (quyết định 24/10). Phương án đã phân tích sẵn: Render Singapore cho API + 2 web (~$21/tháng, địa chỉ onrender.com, chưa cần domain), Gmail SMTP như CarRental cho OTP và thư mời, project Supabase `KavorSystem` (Singapore) làm staging, chỉ dùng dữ liệu mẫu; cần đổi các giá trị localhost trong `supabase/config.toml` sang biến môi trường trước khi `config push`.
@@ -392,6 +401,7 @@ ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AG
   PIN/Face ID, tối đa 5 MB, "Thiếu hồ sơ" = chưa có hợp đồng còn hiệu lực.
 
 ## Nhật ký
+- 2026-10-26 — Claude (cloud): Nhập nhân viên hàng loạt từ CSV. Verify-all đầy đủ TẤT CẢ ĐẠT (pgTAP 460, 18 smoke — import 14, build, lint). Sửa test `hr_rls` đếm cứng 2 người Marketing (lỗi khi DB có thêm người do smoke/E2E).
 - 2026-10-26 — Claude (cloud): Cơ cấu tổ chức + Vai trò & phân quyền. Verify-all đầy đủ TẤT CẢ ĐẠT (pgTAP 451, 17 smoke — org 41, build, lint).
 - 2026-10-26 — Claude: Console phần B (support access có thời hạn). Verify-all đầy đủ TẤT CẢ ĐẠT (pgTAP 436, 16 smoke — support 36, build, lint).
 - 2026-10-26 — Claude: Console phần A (gói dịch vụ + giới hạn nhân sự, tạm khóa/mở lại/đóng tenant). Verify-all đầy đủ TẤT CẢ ĐẠT (pgTAP 418, 15 smoke — console-ops 39, build, lint); mobile test 18 ca.

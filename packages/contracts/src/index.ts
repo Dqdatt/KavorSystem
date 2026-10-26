@@ -224,6 +224,20 @@ export type RoleInfo = {
 };
 export type RolesBoard = { roles: RoleInfo[]; canAssign: boolean; today: string };
 export type RoleAssignInput = { employeeId: string; roleCode: string; scopeType: ScopeType; scopeId?: string | null; effectiveFrom: string; effectiveTo?: string | null };
+
+/* ---------- Nhập nhân viên hàng loạt (docs/plans/employee-import.md) ---------- */
+export const EMPLOYEE_IMPORT_COLUMNS = ["employee_code", "full_name", "work_email", "phone", "hire_date", "employment_type", "department_code", "position_code", "manager_code"] as const;
+export const EMPLOYEE_IMPORT_REQUIRED = ["employee_code", "full_name", "work_email", "hire_date", "employment_type", "department_code", "position_code"] as const;
+export type EmployeeImportRow = {
+  line: number; code: string; fullName: string; department: string | null; position: string | null; manager: string | null;
+  action: "create" | "exists" | "error"; errors: string[];
+};
+export type EmployeeImportResult = {
+  fileName: string; dryRun: boolean; applied: boolean; fileErrors: string[];
+  totals: { rows: number; create: number; exists: number; error: number };
+  capacity: { employees: number; limit: number; planName: string };
+  rows: EmployeeImportRow[];
+};
 export type AdminMe = {
   userId: string;
   employeeId: string | null;
