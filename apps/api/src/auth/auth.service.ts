@@ -57,6 +57,7 @@ export class AuthService {
       throw new AuthError(AUTH_ERRORS.employeeNotFound, "Mã nhân viên và email công ty không khớp hồ sơ nhân sự. Liên hệ phòng Nhân sự nếu bạn chắc chắn thông tin đúng.", 404);
     }
     if (emp.status === "terminated" || emp.status === "suspended") throw new AuthError(AUTH_ERRORS.accountDisabled, "Hồ sơ nhân viên đang không hoạt động. Liên hệ phòng Nhân sự.", 403);
+    await assertTenantOpen(this.sb.admin, emp.tenant_id);
     if (emp.user_id) throw new AuthError(AUTH_ERRORS.alreadyActivated, "Tài khoản đã được kích hoạt. Hãy đăng nhập hoặc dùng Quên mật khẩu.", 409);
     /* Đăng ký công khai bị tắt: tạo tài khoản (chưa có mật khẩu) bằng quyền admin rồi gửi OTP đăng nhập */
     const { error: cErr } = await this.sb.admin.auth.admin.createUser({ email: emp.work_email, email_confirm: true, app_metadata: { active_tenant_id: emp.tenant_id } });
@@ -74,6 +75,7 @@ export class AuthService {
     if (!emp || emp.user_id) throw new AuthError(AUTH_ERRORS.otpInvalid, "Mã OTP không đúng hoặc đã hết hạn.", 400);
     const problems = passwordProblems(password, emp.employee_code);
     if (problems.length) throw new AuthError(AUTH_ERRORS.weakPassword, problems.join(" "), 400);
+    await assertTenantOpen(this.sb.admin, emp.tenant_id);
 
     const userId = await this.verifyOtp(email, code);
     const { error: upErr } = await this.sb.admin.auth.admin.updateUserById(userId, { password, app_metadata: { active_tenant_id: emp.tenant_id } });
@@ -207,15 +209,18 @@ export class AuthService {
     return emp;
   }
 
-  /* HR khóa đăng nhập bằng cách chuyển membership sang suspended (hồ sơ nhân sự giữ nguyên) */
+  /* HR khóa đăng nhập bằng cách chuyển membership sang suspended (hồ sơ nhân sự giữ nguyên); Kavor tạm khóa/đóng cả công ty */
   private async assertNotLocked(emp: EmployeeRow) {
-    if (!emp.user_id) return;
-    const { data } = await this.sb.admin.from("memberships").select("status").eq("tenant_id", emp.tenant_id).eq("user_id", emp.user_id).maybeSingle();
-    if (data && data.status !== "active") throw new AuthError(AUTH_ERRORS.accountDisabled, "Tài khoản đang bị khóa. Liên hệ phòng Nhân sự.", 403);
+    const [, m] = await Promise.all([
+      assertTenantOpen(this.sb.admin, emp.tenant_id),
+      emp.user_id ? this.sb.admin.from("memberships").select("status").eq("tenant_id", emp.tenant_id).eq("user_id", emp.user_id).maybeSingle() : Promise.resolve({ data: null }),
+    ]);
+    if (m.data && (m.data as { status: string }).status !== "active") throw new AuthError(AUTH_ERRORS.accountDisabled, "Tài khoản đang bị khóa. Liên hệ phòng Nhân sự.", 403);
   }
 
   /* ---------- Nội bộ ---------- */
   private async passwordLogin(email: string, password: string, emp: EmployeeRow): Promise<AuthResult> {
+    await assertTenantOpen(this.sb.admin, emp.tenant_id);
     const { data, error } = await this.sb.authClient().auth.signInWithPassword({ email, password });
     if (error || !data.session) throw new AuthError(AUTH_ERRORS.invalidCredentials, "Mã nhân viên hoặc mật khẩu không đúng.", 401);
     return { session: toSession(data.session), me: await this.me({ ...emp, user_id: data.user.id }) };
@@ -279,4 +284,13 @@ export class AuthService {
 
 function toSession(s: Session): AuthSession {
   return { accessToken: s.access_token, refreshToken: s.refresh_token, expiresAt: s.expires_at ?? Math.floor(Date.now() / 1000) + (s.expires_in ?? 3600) };
+}
+
+/* Kavor tạm khóa hoặc đóng công ty: chặn mọi người dùng của tenant (kể cả token còn hạn) */
+export async function assertTenantOpen(db: SupabaseGateway["admin"], tenantId: string) {
+  const { data } = await db.from("tenants").select("status").eq("id", tenantId).maybeSingle();
+  const st = (data as { status: string } | null)?.status;
+  if (st === "suspended" || st === "closed") {
+    throw new AuthError(AUTH_ERRORS.tenantSuspended, st === "closed" ? "Công ty đã ngừng sử dụng Kavor. Liên hệ phòng Nhân sự công ty để biết thêm." : "Công ty đang tạm ngừng sử dụng Kavor. Liên hệ phòng Nhân sự hoặc quản trị viên công ty.", 403);
+  }
 }

@@ -5,7 +5,7 @@ import { Suspense, useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
-  RULE_KINDS, checkRuleConfig,
+  NEAR_LIMIT_RATIO, RULE_KINDS, checkRuleConfig,
   type BrandingKind, type CompanySettings, type HolidayYear, type OrgOptions, type PolicyAssignment, type PolicyScopeType, type PrivacyOverview,
   type RuleConfig, type RuleKind, type RulePolicy, type RuleVersion, type SetupChecklist, type SetupStepState,
 } from "@kavor/contracts";
@@ -94,6 +94,9 @@ function Company({ setAction }: { setAction: SetAction }) {
           <Field label="Mã số thuế"><input value={f.taxCode} onChange={set("taxCode")} disabled={!manage} inputMode="numeric" placeholder="10 chữ số" /></Field>
           <Field label="Múi giờ"><select disabled value={data.tenant.timezone}><option>{data.tenant.timezone}</option></select></Field>
           <Field label="Tiền tệ"><select disabled value={data.tenant.currency}><option value={data.tenant.currency}>{data.tenant.currency === "VND" ? "VND — Việt Nam đồng" : data.tenant.currency}</option></select></Field>
+          {/* Gói do Kavor gán (Kavor Console); nhân sự = hồ sơ chưa nghỉ việc */}
+          <Field label="Gói dịch vụ" hint={data.tenant.plan.employees >= data.tenant.plan.employeeLimit * NEAR_LIMIT_RATIO ? "Sắp hết chỗ — liên hệ Kavor để nâng gói" : "Do Kavor cấu hình theo hợp đồng"}>
+            <input disabled value={`${data.tenant.plan.name} · ${data.tenant.plan.employees.toLocaleString("vi-VN")}/${data.tenant.plan.employeeLimit.toLocaleString("vi-VN")} nhân sự`} /></Field>
         </div></div></article>
         <article className="card"><div className="card-head"><h3>Chính sách nền tảng</h3></div><div className="detail-list">
           <SwitchRow label="Cho phép Employee Web" note="Theo gói dịch vụ · chưa mở" checked={p.employeeWeb} locked />

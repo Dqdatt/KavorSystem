@@ -2,9 +2,10 @@
    khôi phục quyền chủ sở hữu (đặt lại MFA của Tenant Admin, cấp Tenant Admin mới) với xác minh + hai nhân viên Kavor.
    Nhân viên Kavor chỉ thấy thông tin vận hành (số lượng, danh sách admin), không đọc hồ sơ/chấm công của tenant. */
 import type {
-  AccountStatus, ConsoleAuditEntry, ConsoleOverview, ConsoleTenant, ConsoleTenantDetail, OwnerRecovery, PlanCode, RecoveryKind, RecoveryStatus,
-  TenantAdminInfo, TenantCreateResult, TenantStatus,
+  AccountStatus, ConsoleAuditEntry, ConsoleOverview, ConsoleTenant, ConsoleTenantDetail, OwnerRecovery, PlanCode, PlatformPlan, RecoveryKind, RecoveryStatus,
+  TenantAdminInfo, TenantCreateResult, TenantStatus, TenantStatusAction,
 } from "@kavor/contracts";
+import { NEAR_LIMIT_RATIO } from "@kavor/contracts";
 import { AuthError } from "../auth/auth.service.js";
 import type { SupabaseGateway } from "../auth/supabase.js";
 import { conflict, forbidden, invalid, notFound } from "../admin/context.js";
@@ -15,16 +16,20 @@ import { localParts } from "../attendance/attendance.service.js";
 
 const PLANS: readonly PlanCode[] = ["trial", "starter", "growth", "enterprise"];
 const KINDS: readonly RecoveryKind[] = ["mfa_reset", "grant_admin"];
+const STATUS_ACTIONS: readonly TenantStatusAction[] = ["suspend", "reactivate", "close"];
 const CODE = /^[A-Z0-9][A-Z0-9-]{2,19}$/;
 
-type TenantRow = { id: string; code: string; display_name: string; legal_name: string | null; tax_code: string | null; timezone: string; plan_code: PlanCode; status: TenantStatus; employee_limit: number; created_at: string };
+type TenantRow = {
+  id: string; code: string; display_name: string; legal_name: string | null; tax_code: string | null; timezone: string; plan_code: PlanCode; status: TenantStatus;
+  employee_limit: number; created_at: string; status_reason: string | null; status_changed_at: string | null;
+};
 type AdminRow = { membership_id: string; status: string; employee_id: string | null; user_id: string | null };
 type RecoveryRow = {
   id: string; tenant_id: string; kind: RecoveryKind; target_employee_id: string | null; new_admin_name: string | null; new_admin_email: string | null;
   verification: string; reason: string; requested_by: string; requested_at: string; expires_at: string; status: Exclude<RecoveryStatus, "expired">;
   decided_by: string | null; decided_at: string | null; decision_note: string | null; result: unknown;
 };
-const TENANT_COLS = "id, code, display_name, legal_name, tax_code, timezone, plan_code, status, employee_limit, created_at";
+const TENANT_COLS = "id, code, display_name, legal_name, tax_code, timezone, plan_code, status, employee_limit, created_at, status_reason, status_changed_at";
 const RECOVERY_COLS = "id, tenant_id, kind, target_employee_id, new_admin_name, new_admin_email, verification, reason, requested_by, requested_at, expires_at, status, decided_by, decided_at, decision_note, result";
 
 export class ConsoleService {
@@ -58,6 +63,7 @@ export class ConsoleService {
       return {
         id: t.id, code: t.code, name: t.display_name, legalName: t.legal_name, plan: t.plan_code, status: t.status, employeeLimit: t.employee_limit,
         employees: c.employees, accounts: c.accounts, admins: { active: c.active, invited: c.invited }, createdAt: t.created_at,
+        statusReason: t.status_reason, statusChangedAt: t.status_changed_at,
       };
     });
   }
@@ -73,11 +79,65 @@ export class ConsoleService {
       employees: live.reduce((n, t) => n + t.employees, 0), accounts: live.reduce((n, t) => n + t.accounts, 0), pendingRecoveries: pending ?? 0,
       singleAdminTenants: live.filter((t) => t.admins.active === 1).length,
       noActiveAdminTenants: live.filter((t) => t.admins.active === 0).length,
+      nearLimitTenants: live.filter((t) => t.employees >= t.employeeLimit * NEAR_LIMIT_RATIO).length,
       recentTenants: tenants.slice(0, 6),
     };
   }
 
   async tenants(ctx: ConsoleContext): Promise<ConsoleTenant[]> { return this.summaries(ctx); }
+
+  /* ---------- Gói dịch vụ, vòng đời tenant (docs/plans/console-ops.md phần A) ---------- */
+  async plans(ctx: ConsoleContext): Promise<PlatformPlan[]> {
+    const [{ data, error }, { data: ts }] = await Promise.all([
+      ctx.db.from("platform_plans").select("code, name, employee_limit, summary, sort").order("sort"),
+      ctx.db.from("tenants").select("plan_code").neq("status", "closed"),
+    ]);
+    if (error) throw error;
+    const n = new Map<string, number>();
+    for (const t of (ts ?? []) as Array<{ plan_code: string }>) n.set(t.plan_code, (n.get(t.plan_code) ?? 0) + 1);
+    return ((data ?? []) as Array<{ code: PlanCode; name: string; employee_limit: number | null; summary: string }>)
+      .map((p) => ({ code: p.code, name: p.name, employeeLimit: p.employee_limit, summary: p.summary, tenants: n.get(p.code) ?? 0 }));
+  }
+
+  private async tenantRow(ctx: ConsoleContext, id: string): Promise<TenantRow> {
+    if (!/^[0-9a-f-]{36}$/i.test(id)) throw notFound("tenant");
+    const { data } = await ctx.db.from("tenants").select(TENANT_COLS).eq("id", id).maybeSingle();
+    if (!data) throw notFound("tenant");
+    return data as TenantRow;
+  }
+
+  /* Đổi gói + giới hạn nhân sự. Giảm dưới số đang dùng vẫn được (chỉ chặn thêm mới), web Console cảnh báo trước */
+  async changePlan(ctx: ConsoleContext, id: string, b: Body): Promise<ConsoleTenantDetail> {
+    if (ctx.operator.role !== "platform_operator") throw forbidden("Chỉ Platform Operator được đổi gói dịch vụ.");
+    const t = await this.tenantRow(ctx, id);
+    if (t.status === "closed") throw conflict("Tenant đã đóng.");
+    const plan = oneOf(b, "plan", PLANS)!;
+    const employeeLimit = number(b, "employeeLimit", 1, 100000, { integer: true })!;
+    const reason = req(b, "reason", { min: 5, max: 500, hint: "ít nhất 5 ký tự" });
+    if (plan === t.plan_code && employeeLimit === t.employee_limit) throw invalid("Gói và giới hạn không thay đổi.");
+    const { error } = await ctx.db.from("tenants").update({ plan_code: plan, employee_limit: employeeLimit, updated_at: new Date().toISOString() }).eq("id", id);
+    if (error) throw error;
+    await ctx.audit("tenant.plan_changed", "tenant", id, { plan: t.plan_code, employee_limit: t.employee_limit }, { plan, employee_limit: employeeLimit }, reason, id);
+    return this.tenant(ctx, id);
+  }
+
+  /* Tạm khóa / mở lại / đóng. Người dùng tenant bị chặn ở API + RLS khi tenant không hoạt động; đóng là trạng thái cuối */
+  async changeStatus(ctx: ConsoleContext, id: string, b: Body): Promise<ConsoleTenantDetail> {
+    if (ctx.operator.role !== "platform_operator") throw forbidden("Chỉ Platform Operator được khóa hoặc đóng tenant.");
+    const t = await this.tenantRow(ctx, id);
+    const action = oneOf(b, "action", STATUS_ACTIONS)!;
+    const reason = req(b, "reason", { min: 5, max: 500, hint: "ít nhất 5 ký tự" });
+    const from: Record<TenantStatusAction, TenantStatus[]> = { suspend: ["active", "provisioning"], reactivate: ["suspended"], close: ["suspended"] };
+    if (!from[action].includes(t.status)) {
+      throw conflict(t.status === "closed" ? "Tenant đã đóng, không thay đổi được." : action === "close" ? "Chỉ đóng được tenant đang tạm khóa. Tạm khóa trước." : action === "reactivate" ? "Tenant không ở trạng thái tạm khóa." : "Tenant đang không hoạt động.");
+    }
+    if (action === "close" && String(b?.confirmCode ?? "").trim().toUpperCase() !== t.code) throw invalid(`Gõ lại mã tenant ${t.code} để xác nhận đóng.`);
+    const status: TenantStatus = action === "reactivate" ? "active" : action === "suspend" ? "suspended" : "closed";
+    const { error } = await ctx.db.from("tenants").update({ status, status_reason: reason, updated_at: new Date().toISOString() }).eq("id", id).eq("status", t.status);
+    if (error) throw error;
+    await ctx.audit(`tenant.${action === "reactivate" ? "reactivated" : action === "suspend" ? "suspended" : "closed"}`, "tenant", id, { status: t.status }, { status }, reason, id);
+    return this.tenant(ctx, id);
+  }
 
   async tenant(ctx: ConsoleContext, id: string): Promise<ConsoleTenantDetail> {
     if (!/^[0-9a-f-]{36}$/i.test(id)) throw notFound("tenant");
@@ -145,6 +205,7 @@ export class ConsoleService {
 
   /* Gửi lại thư mời cho Tenant Admin chưa kích hoạt (khách báo không nhận được thư) */
   async resendInvite(ctx: ConsoleContext, tenantId: string, employeeId: string) {
+    if ((await this.tenantRow(ctx, tenantId)).status !== "active") throw conflict("Tenant đang tạm khóa hoặc đã đóng nên người được mời không đăng nhập được. Mở lại tenant trước.");
     if (!(await this.admins(ctx, tenantId)).some((a) => a.employeeId === employeeId && (a.account === "invited" || a.account === "not_invited"))) {
       throw notFound("Tenant Admin chưa kích hoạt");
     }
@@ -203,8 +264,9 @@ export class ConsoleService {
     const kind = oneOf(b, "kind", KINDS)!;
     const verification = req(b, "verification", { min: 10, max: 1000, hint: "ghi cách đã xác minh người yêu cầu (ít nhất 10 ký tự)" });
     const reason = req(b, "reason", { min: 10, max: 1000, hint: "ít nhất 10 ký tự" });
-    const { data: t } = await ctx.db.from("tenants").select("id").eq("id", tenantId).maybeSingle();
+    const { data: t } = await ctx.db.from("tenants").select("id, status").eq("id", tenantId).maybeSingle();
     if (!t) throw notFound("tenant");
+    if ((t as { status: string }).status === "closed") throw conflict("Tenant đã đóng.");
     const targetEmployeeId = uuid(b, "targetEmployeeId", true) ?? null;
     let newAdminName: string | null = null, newAdminEmail: string | null = null;
     if (kind === "mfa_reset") {

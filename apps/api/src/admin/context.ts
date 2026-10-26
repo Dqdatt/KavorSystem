@@ -2,7 +2,7 @@
    Tenant lấy từ membership đang hoạt động của tài khoản, không tin dữ liệu client gửi lên.
    Phạm vi tính bằng hàm SQL `scoped_employees` — cùng hàm mà RLS dùng, nên API và Realtime không lệch nhau. */
 import { ADMIN_ERRORS, AUTH_ERRORS, type ScopeType } from "@kavor/contracts";
-import { AuthError } from "../auth/auth.service.js";
+import { AuthError, assertTenantOpen } from "../auth/auth.service.js";
 import type { SupabaseGateway } from "../auth/supabase.js";
 
 export type Grant = { permission: string; role_code: string; role_name: string; scope_type: ScopeType; scope_id: string | null };
@@ -100,6 +100,7 @@ export async function resolveAdmin(sb: SupabaseGateway, accessToken: string, cor
   const m = memberships.find((x) => x.tenant_id === preferred) ?? (memberships.length === 1 ? memberships[0] : undefined);
   if (!m) throw forbidden("Tài khoản chưa thuộc công ty nào trên Kavor.");
   if (m.status !== "active") throw new AuthError(AUTH_ERRORS.accountDisabled, "Tài khoản đang bị khóa. Liên hệ quản trị viên công ty.", 403);
+  await assertTenantOpen(sb.admin, m.tenant_id);
   const [{ data: grants, error: gErr }, { data: emp }] = await Promise.all([
     sb.admin.rpc("permission_grants", { p_user: user.id, p_tenant: m.tenant_id }),
     sb.admin.from("employees").select("id, full_name, employee_code, work_email, status").eq("user_id", user.id).eq("tenant_id", m.tenant_id).maybeSingle(),

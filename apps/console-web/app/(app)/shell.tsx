@@ -6,14 +6,14 @@ import type { OperatorMe } from "@kavor/contracts";
 import { Icon, MeContext, ToastProvider, initials, longDate, tenantToday } from "../_ui/kit";
 
 type NavItem = { href: string; label: string; icon: string };
-/* Chỉ hiện trang đã làm (tenant, khôi phục chủ sở hữu, audit). Các mục khác của prototype (Gói dịch vụ, Usage, Sync jobs,
-   Sự cố, Releases, Feature flags, Support access, Cài đặt nền tảng) sẽ thêm khi tới lượt. */
+/* Chỉ hiện trang đã làm (tenant, gói dịch vụ, khôi phục chủ sở hữu, audit). Các mục khác của prototype (Usage — đã gộp bảng
+   "gần giới hạn" vào Gói dịch vụ, Sync jobs, Sự cố, Releases, Feature flags, Support access, Cài đặt nền tảng) sẽ thêm khi tới lượt. */
 const NAV: Array<{ label?: string; items: NavItem[] }> = [
   { items: [{ href: "/", label: "Tổng quan nền tảng", icon: "home" }] },
-  { label: "Khách hàng", items: [{ href: "/tenants", label: "Doanh nghiệp", icon: "building" }] },
+  { label: "Khách hàng", items: [{ href: "/tenants", label: "Doanh nghiệp", icon: "building" }, { href: "/plans", label: "Gói dịch vụ", icon: "card" }] },
   { label: "An toàn", items: [{ href: "/recoveries", label: "Khôi phục chủ sở hữu", icon: "key" }, { href: "/audit", label: "Audit log", icon: "log" }] },
 ];
-const TITLES: Record<string, string> = { "/": "Tổng quan nền tảng", "/tenants": "Doanh nghiệp", "/recoveries": "Khôi phục chủ sở hữu", "/audit": "Audit log" };
+const TITLES: Record<string, string> = { "/": "Tổng quan nền tảng", "/tenants": "Doanh nghiệp", "/plans": "Gói dịch vụ", "/recoveries": "Khôi phục chủ sở hữu", "/audit": "Audit log" };
 const ROLE: Record<OperatorMe["role"], string> = { platform_operator: "Platform Operator", platform_support: "Kavor Support" };
 
 export function Shell({ me, children }: { me: OperatorMe; children: ReactNode }) {

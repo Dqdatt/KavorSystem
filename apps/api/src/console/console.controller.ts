@@ -106,6 +106,12 @@ export class ConsoleController {
   createTenant(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Body() b: Json) { return this.run(r, a, (s, c) => s.console.createTenant(c, b)); }
   @Get("tenants/:id")
   tenant(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string) { return this.run(r, a, (s, c) => s.console.tenant(c, id)); }
+  @Post("tenants/:id/plan") @HttpCode(200)
+  plan(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string, @Body() b: Json) { return this.run(r, a, (s, c) => s.console.changePlan(c, id, b)); }
+  @Post("tenants/:id/status") @HttpCode(200)
+  status(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string, @Body() b: Json) { return this.run(r, a, (s, c) => s.console.changeStatus(c, id, b)); }
+  @Get("plans")
+  plans(@Req() r: CorrelatedRequest, @Headers("authorization") a?: string) { return this.run(r, a, (s, c) => s.console.plans(c)); }
   @Post("tenants/:id/admins/:employeeId/invite") @HttpCode(200)
   invite(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string, @Param("employeeId") employeeId: string) {
     return this.run(r, a, (s, c) => s.console.resendInvite(c, id, employeeId));

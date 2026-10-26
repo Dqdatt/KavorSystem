@@ -89,6 +89,8 @@ export const AUTH_ERRORS = {
   accountDisabled: "AUTH_ACCOUNT_DISABLED",
   rateLimited: "AUTH_RATE_LIMITED",
   sessionExpired: "AUTH_SESSION_EXPIRED",
+  /* Kavor tạm khóa/đóng công ty: mọi người dùng của tenant bị chặn */
+  tenantSuspended: "AUTH_TENANT_SUSPENDED",
 } as const;
 
 /* Chính sách mật khẩu dùng chung cho client (báo lỗi sớm) và server (kiểm tra bắt buộc) */
@@ -368,6 +370,8 @@ export const ADMIN_ERRORS = {
   emailNotConfigured: "EMAIL_NOT_CONFIGURED",
   /* Tài khoản web HR/Admin phải xác thực hai lớp (TOTP) trước khi dùng */
   mfaRequired: "MFA_REQUIRED",
+  /* Đã đủ số nhân sự tối đa của gói dịch vụ */
+  employeeLimitReached: "EMPLOYEE_LIMIT_REACHED",
 } as const;
 
 /* ---------- MFA (TOTP) cho web HR/Admin ---------- */
@@ -384,7 +388,11 @@ export type BrandingKind = "logo" | "cover";
 export type Branding = { logoVersion: string | null; coverVersion: string | null };
 /* MFA luôn bật cho web HR/Admin; Employee Web và đồng bộ Google Sheets theo gói dịch vụ (Kavor Console) */
 export type PlatformPolicy = { mfaRequired: true; employeeWeb: boolean; sheetsAutoSync: boolean; newsReadReceipt: boolean };
-export type TenantProfile = { code: string; displayName: string; legalName: string | null; taxCode: string | null; timezone: string; currency: string };
+export type TenantProfile = {
+  code: string; displayName: string; legalName: string | null; taxCode: string | null; timezone: string; currency: string;
+  /* Gói do Kavor gán; employees = hồ sơ chưa nghỉ việc (tính vào giới hạn) */
+  plan: { code: PlanCode; name: string; employeeLimit: number; employees: number };
+};
 /* Kỳ công: từ ngày periodStartDay tháng trước tới ngày trước đó của tháng này (1 = tháng dương lịch) */
 export type AttendanceConfig = { periodStartDay: number };
 export type CompanySettings = { tenant: TenantProfile; branding: Branding; support: SupportContact; platform: PlatformPolicy; attendance: AttendanceConfig; updatedAt: string; canManage: boolean };
@@ -533,7 +541,16 @@ export type ConsoleTenant = {
   employees: number; accounts: number;
   admins: { active: number; invited: number };
   createdAt: string;
+  /* Lý do + thời điểm đổi trạng thái gần nhất (tạm khóa/mở lại/đóng) */
+  statusReason: string | null; statusChangedAt: string | null;
 };
+/* Gói dịch vụ do Kavor duy trì; employeeLimit null = theo hợp đồng */
+export type PlatformPlan = { code: PlanCode; name: string; employeeLimit: number | null; summary: string; tenants: number };
+export type TenantStatusAction = "suspend" | "reactivate" | "close";
+export type TenantStatusInput = { action: TenantStatusAction; reason: string; /* đóng tenant: gõ lại mã tenant */ confirmCode?: string };
+export type TenantPlanInput = { plan: PlanCode; employeeLimit: number; reason: string };
+/* Gần giới hạn: dùng từ 90% giới hạn nhân sự */
+export const NEAR_LIMIT_RATIO = 0.9;
 export type TenantAdminInfo = {
   employeeId: string; code: string; fullName: string; email: string | null; account: AccountStatus;
   mfaEnrolled: boolean; lastLoginAt: string | null; invitedAt: string | null;
@@ -560,6 +577,7 @@ export type ConsoleOverview = {
   employees: number; accounts: number; pendingRecoveries: number;
   /* Chống mất quyền: tenant chỉ còn 1 Tenant Admin hoạt động, hoặc không còn ai */
   singleAdminTenants: number; noActiveAdminTenants: number;
+  nearLimitTenants: number;
   recentTenants: ConsoleTenant[];
 };
 export type TenantCreateInput = { code: string; name: string; legalName?: string | null; plan: PlanCode; employeeLimit: number; adminName: string; adminEmail: string };

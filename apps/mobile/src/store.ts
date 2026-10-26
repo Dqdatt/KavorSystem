@@ -670,7 +670,12 @@ export async function loadToday() {
   } catch (e) {
     if (e instanceof ApiError && e.status === 401) showErr("session");
     else if (e instanceof ApiError && e.code === "AUTH_ACCOUNT_DISABLED") lockedErr((await loadSession())?.me?.employeeCode ?? "");
+    else if (e instanceof ApiError && e.code === "AUTH_TENANT_SUSPENDED") tenantErr(e.message);
   }
+}
+/* Kavor tạm khóa/đóng cả công ty (thiết kế bổ sung trên khung E16): nói rõ không phải lỗi của riêng tài khoản */
+function tenantErr(message: string) {
+  showErr("disabled", { t: "Công ty tạm ngừng sử dụng Kavor", p: message });
 }
 /* HR khóa đăng nhập (bản dùng API): màn E16 với mã nhân viên thật; "Liên hệ HR" dùng liên hệ công ty đã lưu */
 function lockedErr(code: string) {
@@ -907,7 +912,11 @@ export const ACT = {
     if (!REMOTE) { spin("login", 700, () => { void signIn("HD0142"); }); return; }
     if (!S.f.lgId.trim() || !S.f.lgPw) { toast("Nhập mã nhân viên hoặc email và mật khẩu"); return; }
     remote("login", async () => { const r = await authApi.login({ identifier: S.f.lgId.trim(), password: S.f.lgPw }); S.f.lgPw = ""; await signIn(r.me.employeeCode, r); },
-      (e) => { if (e.code === "AUTH_ACCOUNT_DISABLED") { S.f.lgPw = ""; lockedErr(S.f.lgId.trim()); return true; } return false; });
+      (e) => {
+        if (e.code === "AUTH_ACCOUNT_DISABLED") { S.f.lgPw = ""; lockedErr(S.f.lgId.trim()); return true; }
+        if (e.code === "AUTH_TENANT_SUSPENDED") { S.f.lgPw = ""; tenantErr(e.message); return true; }
+        return false;
+      });
   },
   /* Face ID ở màn đăng nhập: dùng thông tin đăng nhập nhanh đã lưu từ lần đăng nhập mật khẩu trước */
   faceLogin: async () => {

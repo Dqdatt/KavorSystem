@@ -21,7 +21,7 @@ let docList = async () => ({ items: [{ id: 'd1', category: 'contract', title: 'H
 globalThis.__newsTest = { React, ApiError, opened, companyApi: {
   profile: async () => { calls.push('profile'); return profile(); },
   profileChange: async (b) => { calls.push('profileChange'); sent.push(b); return changeReply(b); },
-}, timesheetApi: { mine: async () => { calls.push('mine'); return []; }, approvals: async () => ({ items: [], canApprove: false }) }, documentsApi: {
+}, authApi: { login: async () => { throw new ApiError('AUTH_TENANT_SUSPENDED', 'Công ty đang tạm ngừng sử dụng Kavor. Liên hệ phòng Nhân sự hoặc quản trị viên công ty.', 403); } }, timesheetApi: { mine: async () => { calls.push('mine'); return []; }, approvals: async () => ({ items: [], canApprove: false }) }, documentsApi: {
   list: async () => { calls.push('docs'); return docList(); },
   fileUrl: async (id) => { calls.push(`docfile:${id}`); return `http://api.test/api/v1/me/documents/${id}/file?sig=y`; },
 }, announcementsApi: {
@@ -39,8 +39,8 @@ const mocks = new Map([
   ['./auth', `${noop} export const authenticate=async()=>({ok:true}), biometricLabel=async()=> 'Face ID', loadSession=async()=>null, quickLoginEmployee=empty,quickRefreshToken=empty,clearQuickLogin=empty,clearSession=empty,loadBioPrefs=empty,loadSupport=empty,saveBioPrefs=empty,saveSession=empty,saveSupport=empty;`],
   ['./attendance', `${noop} export const currentFix=empty,deviceRegistration=empty,deviceSummary=empty,enqueue=empty,flushQueue=empty,installationId=empty,newEventId=empty,quietFix=empty,readQueue=empty;export class LocationError extends Error {}`],
   ['./notify', `${noop} export const clearExplainReminders=empty,scheduleExplainReminders=empty,onReminderTap=()=>()=>{};`],
-  ['./api/http', `export const REMOTE=true,ApiError=globalThis.__newsTest.ApiError,announcementsApi=globalThis.__newsTest.announcementsApi,documentsApi=globalThis.__newsTest.documentsApi,companyApi=globalThis.__newsTest.companyApi,timesheetApi=globalThis.__newsTest.timesheetApi;
-    export const advanceApi={},attendanceApi={},authApi={},leaveApi={},notificationsApi={},overtimeApi={},payslipApi={},setTokenSource=()=>{},isNetworkError=()=>false;`],
+  ['./api/http', `export const REMOTE=true,ApiError=globalThis.__newsTest.ApiError,announcementsApi=globalThis.__newsTest.announcementsApi,documentsApi=globalThis.__newsTest.documentsApi,companyApi=globalThis.__newsTest.companyApi,timesheetApi=globalThis.__newsTest.timesheetApi,authApi=globalThis.__newsTest.authApi;
+    export const advanceApi={},attendanceApi={},leaveApi={},notificationsApi={},overtimeApi={},payslipApi={},setTokenSource=()=>{},isNetworkError=()=>false;`],
   ['../api/http', `export const REMOTE=true;`],
   ['../qa', `export const QA_ENABLED=false;`],
   ['./home', `export const ImpTag=()=>'Quan trọng';`],
@@ -140,4 +140,7 @@ ACT.openPendingProfile();await delay(0);await delay(0);
 assert.equal(cur(),'reqDetail');assert.equal(S.param,'HS-0001');
 ACT.logoutGo();assert.equal(S.profile,null);
 console.log('✔ Mở đề nghị đang chờ từ Hồ sơ; đăng xuất xóa hồ sơ');
+S.f.lgId='bich@maub.test';S.f.lgPw='Mat-khau-1';ACT.login();await delay(0);await delay(0);
+assert.equal(S.err?.kind,'disabled');assert.equal(S.err.over.t,'Công ty tạm ngừng sử dụng Kavor');assert.ok(S.err.over.p.includes('tạm ngừng'));assert.equal(S.f.lgPw,'');
+console.log('✔ Công ty bị Kavor tạm khóa: đăng nhập hiện màn lỗi riêng, không báo nhầm là tài khoản bị khóa');
 globalThis.setInterval=nativeInterval;

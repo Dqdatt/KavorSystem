@@ -10,6 +10,7 @@ import { calendarsOf, holidaysOf, supportOf } from "../company/company.service.j
 import { currentTerms, toTerms, type TermsRow } from "../company/privacy.js";
 import { MFA_REQUIRED_FOR_WEB, conflict, invalid, notFound, type AdminContext } from "./context.js";
 import type { ScheduleAdmin } from "./schedule.service.js";
+import { planOf } from "../tenancy/plan.js";
 import { EMAIL, date, nullableText, number, oneOf, req, text, uuid, type Body } from "./validate.js";
 
 const KINDS: readonly BrandingKind[] = ["logo", "cover"];
@@ -46,7 +47,7 @@ export class SettingsAdmin {
       newsReadReceipt: s.platform_policy.newsReadReceipt !== false,
     };
     return {
-      tenant: { code: t.code, displayName: t.display_name, legalName: t.legal_name, taxCode: t.tax_code, timezone: t.timezone, currency: t.currency },
+      tenant: { code: t.code, displayName: t.display_name, legalName: t.legal_name, taxCode: t.tax_code, timezone: t.timezone, currency: t.currency, plan: await planOf(ctx.db, ctx.tenantId) },
       branding: { logoVersion: brandingVersion(s.branding.logoPath), coverVersion: brandingVersion(s.branding.coverPath) },
       support: supportOf(s.support_contact), platform, attendance: { periodStartDay: periodStartDayOf(s.attendance_settings) },
       updatedAt: s.updated_at, canManage: ctx.tenantWide("tenant.settings.manage"),

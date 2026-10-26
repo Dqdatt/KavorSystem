@@ -11,6 +11,7 @@ import type { Mailer } from "./mailer.js";
 import type { AttendanceAdmin } from "./attendance-admin.service.js";
 import { addDays, EMAIL, date, nullableText, oneOf, req, text, uuid, type Body } from "./validate.js";
 import { loadPersonal } from "../profile/profile.service.js";
+import { assertEmployeeCapacity } from "../tenancy/plan.js";
 
 export type EmployeeRowFull = {
   id: string; tenant_id: string; employee_code: string; full_name: string; work_email: string | null; phone: string | null;
@@ -124,6 +125,7 @@ export class EmployeesAdmin {
     await this.assertPlacementAllowed(ctx, "employee.create", placement);
     if (input.managerEmployeeId) await ctx.requireEmployee("employee.read", input.managerEmployeeId);
     await this.assertEmailFree(ctx, input.workEmail, null);
+    if ((input.status ?? "active") !== "terminated") await assertEmployeeCapacity(ctx.db, ctx.tenantId);
     const { data, error } = await ctx.db.from("employees").insert({
       tenant_id: ctx.tenantId, employee_code: input.employeeCode, full_name: input.fullName, work_email: input.workEmail, phone: input.phone ?? null,
       hire_date: input.hireDate, employment_type: input.employmentType, status: input.status ?? "active", source_system: "kavor",
@@ -157,6 +159,8 @@ export class EmployeesAdmin {
     if (input.hireDate !== undefined && input.hireDate !== before.hire_date) patch.hire_date = input.hireDate;
     if (input.employmentType !== undefined && input.employmentType !== before.employment_type) patch.employment_type = input.employmentType;
     if (input.status !== undefined && input.status !== before.status) {
+      /* Hồ sơ đã nghỉ quay lại làm việc thì tính lại vào giới hạn nhân sự của gói */
+      if (before.status === "terminated") await assertEmployeeCapacity(ctx.db, ctx.tenantId);
       patch.status = input.status;
       patch.termination_date = input.status === "terminated" ? (date(b, "terminationDate", true) ?? today) : null;
     }

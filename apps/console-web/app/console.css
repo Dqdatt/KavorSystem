@@ -20,3 +20,7 @@ a.nav-item, a.quick-item { text-decoration: none; color: inherit; }
 .login-card .brand { padding: 0 0 18px; }
 .check-row { display: flex; align-items: center; gap: 8px; font-size: 13px; }
 .check-row input[type="checkbox"] { width: 16px; height: 16px; margin: 0; accent-color: var(--green); }
+.text-amber { color: var(--amber); }
+/* Banner trạng thái xấu (tenant tạm khóa/đã đóng) — thiết kế bổ sung, cùng khung .banner của prototype */
+.banner.bad { background: linear-gradient(105deg, #9f1d1d 0%, #b42323 55%, #8a1717 100%); }
+.banner.bad .banner-icon { color: var(--red); }

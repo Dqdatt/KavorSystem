@@ -3,11 +3,12 @@
    Thêm (thiết kế bổ sung): họ tên + tên pháp lý khi tạo, danh sách Tenant Admin, khôi phục chủ sở hữu, audit Kavor trên tenant. */
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import type { ConsoleTenant, ConsoleTenantDetail, PlanCode, RecoveryKind, TenantCreateResult } from "@kavor/contracts";
+import type { ConsoleTenant, ConsoleTenantDetail, PlanCode, RecoveryKind, TenantCreateResult, TenantStatusAction } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
-import { ACCOUNT, Drawer, Empty, ErrorLine, Field, Icon, LoadError, Modal, Person, Status, ago, fmtDate, fmtDateTime, num, useAction, useToast } from "../../_ui/kit";
+import { ACCOUNT, Drawer, Empty, ErrorLine, Field, Icon, LoadError, Modal, Person, Status, ago, fmtDate, fmtDateTime, num, useAction, useMe, useToast } from "../../_ui/kit";
 import { DecideModal, KIND, RSTATUS, RecoveryForm } from "../../_ui/recovery";
 import { ACTION, PLAN, TSTATUS, adminHealth } from "../../_ui/labels";
+import { PlanModal, StatusModal, usageTone } from "../../_ui/tenant-ops";
 
 function TenantsPage() {
   const router = useRouter();
@@ -43,7 +44,7 @@ function TenantsPage() {
               <tr key={t.id} className="clickable" onClick={() => show(t.id)}>
                 <td><Person name={t.name} seed={t.code} sub={t.code} /></td>
                 <td>{PLAN[t.plan]}</td>
-                <td className="num">{num(t.employees)}/{num(t.employeeLimit)}</td>
+                <td className={`num ${usageTone(t)}`}>{num(t.employees)}/{num(t.employeeLimit)}</td>
                 <td className="num">{num(t.accounts)}</td>
                 <td><Status v={adminHealth(t)} /></td>
                 <td><Status v={TSTATUS[t.status]} /></td>
@@ -98,7 +99,10 @@ function CreateTenant({ onClose, onSaved }: { onClose: () => void; onSaved: (r: 
 }
 
 function TenantDrawer({ id, onClose, onChanged }: { id: string; onClose: () => void; onChanged: () => void }) {
+  const me = useMe();
   const { data: t, error, reload, setData } = useApi<ConsoleTenantDetail>(`tenants/${id}`);
+  const [planning, setPlanning] = useState(false);
+  const [statusAct, setStatusAct] = useState<TenantStatusAction | null>(null);
   const [recovery, setRecovery] = useState<{ kind: RecoveryKind; target?: string } | null>(null);
   const [deciding, setDeciding] = useState<{ id: string; action: "approve" | "reject" | "cancel" } | null>(null);
   const { busy, run } = useAction();
@@ -110,9 +114,27 @@ function TenantDrawer({ id, onClose, onChanged }: { id: string; onClose: () => v
       {t ? <>
         <div className="profile-hero"><span className="avatar purple">{t.name.split(/\s+/).map((w) => w[0]).slice(0, 2).join("").toUpperCase()}</span><div><h3>{t.name}</h3><p>{PLAN[t.plan]} · {t.legalName ?? "Chưa có tên pháp lý"}</p></div></div>
         <div className="grid three" style={{ gridTemplateColumns: "repeat(3,1fr)" }}>
-          <div className="card card-body"><b>{num(t.employees)}/{num(t.employeeLimit)}</b><div className="muted" style={{ fontSize: 10 }}>Nhân sự</div></div>
+          <div className="card card-body"><b className={usageTone(t)}>{num(t.employees)}/{num(t.employeeLimit)}</b><div className="muted" style={{ fontSize: 10 }}>Nhân sự</div></div>
           <div className="card card-body"><b>{num(t.accounts)}</b><div className="muted" style={{ fontSize: 10 }}>Đã kích hoạt</div></div>
           <div className="card card-body"><b><Status v={TSTATUS[t.status]} /></b><div className="muted" style={{ fontSize: 10 }}>Trạng thái</div></div>
+        </div>
+        {t.status !== "active" && t.statusReason ? (
+          <div className="banner bad" style={{ marginTop: 14 }}><span className="banner-icon"><Icon name="alert" /></span>
+            <span className="banner-copy"><b>{TSTATUS[t.status][0]} từ {fmtDateTime(t.statusChangedAt, t.timezone)}</b><span>{t.statusReason}</span></span></div>
+        ) : null}
+        <div className="card" style={{ marginTop: 14 }}><div className="card-head"><div><h3>Gói dịch vụ và trạng thái</h3><p>{me.role === "platform_operator" ? "Mọi thay đổi cần lý do và công ty thấy trong nhật ký" : "Chỉ Platform Operator được thay đổi"}</p></div></div>
+          <div className="detail-list">
+            <div className="detail-row"><span>Gói</span><b>{PLAN[t.plan]} · tối đa {num(t.employeeLimit)} nhân sự</b></div>
+            <div className="detail-row"><span>Trạng thái</span><b><Status v={TSTATUS[t.status]} /></b></div>
+          </div>
+          {me.role === "platform_operator" && t.status !== "closed" ? (
+            <div className="card-body row-actions" style={{ justifyContent: "flex-start", paddingTop: 0 }}>
+              <button className="btn small" onClick={() => setPlanning(true)}><Icon name="card" /> Đổi gói</button>
+              {t.status === "suspended"
+                ? <><button className="btn small primary" onClick={() => setStatusAct("reactivate")}>Mở lại</button><button className="btn small danger" onClick={() => setStatusAct("close")}>Đóng tenant</button></>
+                : <button className="btn small danger" onClick={() => setStatusAct("suspend")}>Tạm khóa</button>}
+            </div>
+          ) : null}
         </div>
         <div className="card" style={{ marginTop: 14 }}><div className="card-head"><h3>Tenant configuration</h3></div><div className="detail-list">
           <div className="detail-row"><span>Primary region</span><b>Singapore</b></div>
@@ -158,6 +180,8 @@ function TenantDrawer({ id, onClose, onChanged }: { id: string; onClose: () => v
           {t.audit.length ? t.audit.map((a) => <div key={a.id} className="detail-row"><span>{fmtDateTime(a.createdAt, t.timezone)} · {a.actor}</span><b>{ACTION[a.action] ?? a.action}</b></div>) : <p className="muted" style={{ fontSize: 12 }}>—</p>}
         </div></div>
       </> : null}
+      {planning && t ? <PlanModal t={t} onClose={() => setPlanning(false)} onDone={(d) => { setData(d); onChanged(); }} /> : null}
+      {statusAct && t ? <StatusModal t={t} action={statusAct} onClose={() => setStatusAct(null)} onDone={(d) => { setData(d); onChanged(); }} /> : null}
       {recovery && t ? <RecoveryForm tenantId={t.id} kind={recovery.kind} targetEmployeeId={recovery.target} onClose={() => setRecovery(null)} onSaved={() => { setRecovery(null); refresh(); }} /> : null}
       {deciding && decidingRow ? <DecideModal r={decidingRow} action={deciding.action} onClose={() => setDeciding(null)} onDone={() => refresh()} /> : null}
     </Drawer>
