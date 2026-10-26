@@ -312,6 +312,8 @@ ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AG
 - Kiểm tra ngày 22/10: `pnpm turbo run typecheck test build --force` pass 18/18 task (test thật chỉ có contracts 2 + api 2)
 
 ## Đang dở (QUAN TRỌNG NHẤT)
+- **26/10: phiên cloud tạm dừng.** Toàn bộ việc làm trên cloud (nhánh `claude/ecstatic-pascal-dblg7v`, đến commit `41bf4f4`), checklist thử tay,
+  đánh giá MVP và thứ tự việc tiếp theo nằm trong `docs/CLOUD_HANDOFF.md` — đọc file đó trước.
 - Web payroll `/payroll` và module Bản tin nằm trên nhánh `claude/ecstatic-pascal-dblg7v` (phiên cloud), **chưa vào main**; người dùng cần thử trên
   Mac (`pnpm dev:admin`, Kế toán HD0215 nhập + HD0216 duyệt) rồi quyết định merge. DB của phiên cloud là container riêng — DB local
   trên Mac không bị đụng tới. Vòng chờ Face ID trên iPhone vẫn chờ người dùng thử lại.
@@ -354,7 +356,7 @@ ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AG
 
 ## Vấn đề/bug còn tồn tại
 - Luật nhà nước dạng số (`statutory_rule_sets`: bảo hiểm, thuế, phép năm tối thiểu, giới hạn OT) chưa làm — làm cùng module phép/payroll. Lịch lễ quốc gia mới có 2026; 2027 chờ Chính phủ công bố lịch Tết. Nội dung điều khoản mẫu và ngày lễ cần chuyên gia xác nhận.
-- Tạm ứng trên mobile còn dữ liệu mẫu ("30%" vẫn cứng) — nối khi làm module tạm ứng. Server chưa chặn API chấm công khi nhân viên chưa đồng ý điều khoản (app tự chặn bằng màn đồng ý).
+- Server chưa chặn API chấm công khi nhân viên chưa đồng ý điều khoản (app tự chặn bằng màn đồng ý).
 - Đặt lại MFA (web HR hoặc Console) không đăng xuất phiên aal2 đang mở của người đó (hết hạn sau ≤ 1 giờ).
 - Nhập nhân viên: chưa cập nhật hồ sơ cũ bằng file, chưa đọc .xlsx/kết nối Google Sheets. Gửi lời mời hàng loạt chạy tuần tự trong request
   (300 người ≈ vài chục giây với SMTP chậm) — cần hàng đợi nền khi có SMTP thật.
@@ -380,7 +382,7 @@ ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AG
 - Bản tin: mobile chưa build/chụp trên simulator/iPhone (cần Mac: build Release mới, thử tab Bản tin, mở file PDF, bấm thông báo). Chưa có quét virus file
   đính kèm (chỉ nhận PDF/PNG/JPEG/WebP theo byte đầu), chọn người nhận theo vai trò, người đăng phạm vi phòng ban, nhiều file/bài, "Lưu tin" theo người dùng.
   Thống kê người nhận gọi hàm SQL theo từng bài (≤ 200 bài/trang) — đủ cho pilot, cần gộp khi công ty lớn.
-- Tạm ứng: DB/API payroll đã nối đối chiếu và đánh dấu khấu trừ khi công bố; chưa có UI payroll web; mobile có phiếu cá nhân. Tài khoản ngân hàng lấy từ hồ sơ HR đã duyệt (tab Lương cơ bản); chưa chặn khi kỳ lương đã chốt, nhiều lần/tháng. Quy định mẫu nhận đơn đến ngày 20 nên sau ngày 20 nhân viên không gửi được đơn tháng đó (đúng prototype); thử trên máy sau ngày 20 thì tạo quy định riêng hạn 31.
+- Tạm ứng: DB/API payroll đã nối đối chiếu và đánh dấu khấu trừ khi công bố; web `/payroll` và phiếu cá nhân trên app đã có. Tài khoản ngân hàng lấy từ hồ sơ HR đã duyệt (tab Lương cơ bản); chưa chặn khi kỳ lương đã chốt, nhiều lần/tháng. Quy định mẫu nhận đơn đến ngày 20 nên sau ngày 20 nhân viên không gửi được đơn tháng đó (đúng prototype); thử trên máy sau ngày 20 thì tạo quy định riêng hạn 31.
 - OT chưa có: OT ban đêm (+30%/+20%), OT qua nửa đêm (phải tách hai đơn), đối chiếu giờ OT với chấm công thực tế, ngoại lệ 300 giờ/năm theo ngành (chỉnh trong quy định). API payroll đã đọc `overtime_entries` đã duyệt để cảnh báo OT_PAY hai chiều, không tính tiền OT.
 - Android chưa thử luồng chấm công thật (GPS/hàng đợi) trên emulator.
 - Test tự động của admin-web, console-web, web-ui vẫn là placeholder; mobile có 17 ca hành vi (payroll 6, bản tin 5, tài liệu 3, hồ sơ 3), chưa có bộ kiểm UI/native đầy đủ.
