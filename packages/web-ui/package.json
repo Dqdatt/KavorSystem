@@ -5,7 +5,7 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./styles.css": "./src/styles.css"
+    "./kavor.css": "./src/kavor.css"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
@@ -13,11 +13,14 @@
     "test": "node -e \"console.log('web-ui: no tests yet')\""
   },
   "peerDependencies": {
-    "react": "^19.3.0"
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
   },
   "devDependencies": {
     "@types/react": "^19.2.2",
+    "@types/react-dom": "^19.2.2",
     "react": "19.3.0",
+    "react-dom": "19.3.0",
     "typescript": "^7.0.2"
   }
 }

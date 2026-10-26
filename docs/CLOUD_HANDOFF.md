@@ -72,6 +72,20 @@ Hai web cần đẹp hơn theo tinh thần app mobile (gọn, có theme sáng/t�
 `align-content: start`), dropdown tự vẽ thay `<select>` của hệ điều hành, bản đồ kéo thả ghim cho địa điểm chấm công, Việt hóa thuật ngữ
 ("tenant"…), bỏ lặp tiêu đề topbar/page-head/modal. Kế hoạch 5 bước + hiện trạng đo được: **`docs/plans/web-ui-polish.md`**.
 
+**Đang dở (commit WIP 26/10, người dùng bảo tạm dừng giữa chừng — chưa chạy `verify-all`, chỉ typecheck 3 gói):** người dùng đã duyệt bước 1–4
++ bảng từ Việt hóa + đổi font sang Montserrat. Đã làm:
+- CSS chung một nguồn `packages/web-ui/src/kavor.css` (biến màu, theme sáng/tối qua `<html data-theme>`, không có thuộc tính = theo hệ điều
+  hành; Montserrat tự host ở `packages/web-ui/fonts`, OFL); đã xóa `kavor-desktop.css`/`admin.css`/`console.css` của hai web; `.field` có
+  `align-content: start` (lỗi lệch hàng).
+- Component `Select` (`packages/web-ui/src/select.tsx`, dùng như `<select>`, onChange trả `{ target: { value } }`) và `ThemeToggle` +
+  `themeInitScript` (`theme.tsx`); layout hai web đã chèn script theme.
+
+Còn phải làm (theo `docs/plans/web-ui-polish.md`): thay 49 chỗ `<select>` bằng `Select` (`<select className="select"` → bộ lọc gọn), gắn
+`ThemeToggle` vào `.top-actions` của hai `shell.tsx`, đổi mã màu viết cứng trong các trang (`(app)/page.tsx`, organization, settings,
+announcements, roles/support/recovery `#79510e` → `.note-amber`, trang đăng nhập) sang biến; bước 2 (bỏ h2 `page-head` ở 12 trang HR + 5 trang
+Console); bước 3 (Việt hóa); rồi chụp toàn bộ trang hai web theme sáng + tối, so với ảnh trước, `verify-all`, cập nhật AGENTS.md (CSS ở
+`packages/web-ui`). **Chưa ai xem ảnh sau khi đổi CSS** — có thể vỡ bố cục ở vài trang.
+
 ## Đánh giá MVP (26/10) — chưa đủ để pilot
 
 Theo `IMPLEMENTATION_ROADMAP.md` §15–19 (P0 – Pilot, go-live gate):
