@@ -129,6 +129,8 @@ export class AdminController {
   createEmployee(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Body() b: Json) { return this.run(r, a, (s, c) => s.employees.create(c, b)); }
   @Patch("employees/:id")
   updateEmployee(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string, @Body() b: Json) { return this.run(r, a, (s, c) => s.employees.update(c, id, b)); }
+  @Post("employees/invite") @HttpCode(200)
+  inviteMany(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Body() b: Json) { return this.run(r, a, (s, c) => s.employees.inviteMany(c, b)); }
   @Post("employees/:id/invite") @HttpCode(200)
   invite(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string) { return this.run(r, a, (s, c) => s.employees.invite(c, id)); }
   @Post("employees/:id/lock") @HttpCode(200)

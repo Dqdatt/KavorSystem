@@ -1,6 +1,6 @@
 /* Nhân viên và tài khoản đăng nhập (web HR/Admin). Mọi truy vấn đi qua phạm vi của người gọi; mọi thao tác ghi có audit. */
 import type {
-  AccountStatus, AdminDevice, AdminOverview, AttendanceBoard, OverviewDay, AdminMe, AuditEntry, EmployeeDetail, EmployeeListItem, EmployeeStatus, EmployeeUpsert, EmploymentType, OrgOptions, Ref, ScopeType,
+  AccountStatus, AdminDevice, BulkInviteResult, AdminOverview, AttendanceBoard, OverviewDay, AdminMe, AuditEntry, EmployeeDetail, EmployeeListItem, EmployeeStatus, EmployeeUpsert, EmploymentType, OrgOptions, Ref, ScopeType,
 } from "@kavor/contracts";
 import { AuthError } from "../auth/auth.service.js";
 import type { SupabaseGateway } from "../auth/supabase.js";
@@ -223,6 +223,24 @@ export class EmployeesAdmin {
     if (error) throw error;
     await ctx.audit("employee.invited", "employee", id, { invited_at: emp.invited_at, invite_count: emp.invite_count }, { invited_at: invitedAt, invite_count: emp.invite_count + 1, to: emp.work_email });
     return { invitedAt, inviteCount: emp.invite_count + 1 };
+  }
+
+  /* Gửi lời mời hàng loạt (tối đa 300 người/lần, gửi lần lượt): người đã kích hoạt, đã nghỉ, thiếu email, ngoài phạm vi hoặc vừa được mời
+     trong 1 phút thì bỏ qua và báo lý do — không làm hỏng cả lô */
+  async inviteMany(ctx: AdminContext, b: Body): Promise<BulkInviteResult> {
+    ctx.require("membership.invite");
+    const ids = Array.isArray(b?.employeeIds) ? [...new Set((b.employeeIds as unknown[]).filter((x): x is string => typeof x === "string" && /^[0-9a-f-]{36}$/i.test(x)))] : [];
+    if (!ids.length || ids.length > 300) throw invalid("Chọn từ 1 đến 300 nhân viên.");
+    const { data } = await ctx.db.from("employees").select("id, employee_code").eq("tenant_id", ctx.tenantId).in("id", ids);
+    const code = new Map(((data ?? []) as Array<{ id: string; employee_code: string }>).map((e) => [e.id, e.employee_code]));
+    const out: BulkInviteResult = { sent: 0, skipped: [] };
+    for (const id of ids) {
+      if (!code.has(id)) { out.skipped.push({ code: "?", reason: "Không tìm thấy nhân viên" }); continue; }
+      try { await this.invite(ctx, id); out.sent++; }
+      catch (e) { out.skipped.push({ code: code.get(id)!, reason: e instanceof AuthError ? e.message : "Chưa gửi được thư" }); }
+    }
+    await ctx.audit("employee.invited_bulk", "tenant", ctx.tenantId, null, { requested: ids.length, sent: out.sent, skipped: out.skipped.length });
+    return out;
   }
 
   /* Khóa đăng nhập: membership chuyển suspended. Mọi request sau đó (kể cả token còn hạn, làm mới phiên, Realtime) bị chặn

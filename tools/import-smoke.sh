@@ -42,6 +42,14 @@ R=$(imp "$HR")
 check "Nhập lại cùng file: 3 dòng đã có, không tạo trùng" "$(echo "$R" | py "(d['totals']['create'], d['totals']['exists'])"):$(sql "select count(*) from public.employees where employee_code like 'HD050%'")" "(0, 3):3"
 check "Audit: 1 dòng nhập + 3 hồ sơ tạo, không chép email" "$(sql "select count(*) filter (where action='employee.imported') || '|' || count(*) filter (where action='employee.created' and after_data->>'source'='import') || '|' || count(*) filter (where after_data::text like '%lan.nguyen%') from public.audit_logs where tenant_id='$HDG'")" "1|3|0"
 
+echo "— Gửi lời mời hàng loạt"
+IDS=$(sql "select json_agg(id order by employee_code) from public.employees where employee_code in ('HD0501','HD0502','HD0503','HD0007') and tenant_id='$HDG'")
+R=$(call POST admin/employees/invite "$HR" "{\"employeeIds\":$IDS}")
+check "Gửi 3 người mới nhập; người đã kích hoạt bị bỏ qua kèm lý do" "$(echo "$R" | py "(d['sent'], [(x['code'], x['reason']) for x in d['skipped']])")" "(3, [('HD0007', 'Nhân viên đã kích hoạt tài khoản.')])"
+check "Email lời mời tới hộp thư" "$(curl -s "$MAIL/api/v1/search?query=to:trang.dang@haidang.vn" | python3 -c "import json,sys; print(len(json.load(sys.stdin).get('messages') or []))")" 1
+check "Gửi lại ngay: bỏ qua cả 3 (chờ 1 phút)" "$(call POST admin/employees/invite "$HR" "{\"employeeIds\":$IDS}" | py "(d['sent'], len(d['skipped']))")" "(0, 4)"
+check "Quản lý không gửi lời mời → 403" "$(status POST admin/employees/invite "$MGR" "{\"employeeIds\":$IDS}")" 403
+
 echo "— Giới hạn gói"
 sql "update public.tenants set employee_limit = (select count(*) from public.employees where tenant_id='$HDG' and status <> 'terminated') + 1 where id='$HDG'"
 printf 'employee_code,full_name,work_email,hire_date,employment_type,department_code,position_code\nHD0701,Một Người,mot.nguoi@haidang.vn,2026-11-01,official,MKT,AE\nHD0702,Hai Người,hai.nguoi@haidang.vn,2026-11-01,official,MKT,AE\n' > "$BAD"

@@ -232,6 +232,8 @@ export type EmployeeImportRow = {
   line: number; code: string; fullName: string; department: string | null; position: string | null; manager: string | null;
   action: "create" | "exists" | "error"; errors: string[];
 };
+/* Gửi lời mời kích hoạt cho nhiều người (sau khi nhập file); người không đủ điều kiện bị bỏ qua kèm lý do */
+export type BulkInviteResult = { sent: number; skipped: Array<{ code: string; reason: string }> };
 export type EmployeeImportResult = {
   fileName: string; dryRun: boolean; applied: boolean; fileErrors: string[];
   totals: { rows: number; create: number; exists: number; error: number };

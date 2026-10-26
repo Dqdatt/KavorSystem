@@ -1,7 +1,7 @@
 "use client";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import type { AdminDevice, EmployeeDetail, EmployeeListItem, EmployeeStatus, EmploymentType, OrgOptions } from "@kavor/contracts";
+import type { AdminDevice, BulkInviteResult, EmployeeDetail, EmployeeListItem, EmployeeStatus, EmploymentType, OrgOptions } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
 import {
   ACCOUNT, Avatar, DEVICE, EMP_STATUS, EMPLOYMENT, Drawer, Empty, ErrorLine, Field, Icon, LoadError, Modal, Person, REJECT_REASON, Status, scopeText,
@@ -30,6 +30,7 @@ function EmployeesPage() {
   const [account, setAccount] = useState(params.get("account") ?? "all");
   const [editing, setEditing] = useState<EmployeeDetail | "new" | null>(null);
   const [importing, setImporting] = useState(false);
+  const [bulk, setBulk] = useState(false);
   const openId = params.get("id");
 
   useEffect(() => { setQ(params.get("q") ?? ""); }, [params]);
@@ -41,6 +42,7 @@ function EmployeesPage() {
     if (!k) return list.data ?? [];
     return (list.data ?? []).filter((e) => `${e.fullName} ${e.code} ${e.email ?? ""}`.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/g, "d").includes(k));
   }, [list.data, q]);
+  const uninvited = rows.filter((e) => e.account === "not_invited" && e.email && e.status !== "terminated");
   const open = (id: string | null) => { const p = new URLSearchParams(params.toString()); if (id) p.set("id", id); else p.delete("id"); router.replace(`/employees?${p.toString()}`, { scroll: false }); };
 
   return (
@@ -58,6 +60,9 @@ function EmployeesPage() {
           </select>
           <select className="select" value={status} onChange={(e) => setStatus(e.target.value)} aria-label="Trạng thái"><option value="working">Đang làm việc</option><option value="terminated">Đã nghỉ việc</option><option value="all">Tất cả trạng thái</option></select>
           <select className="select" value={account} onChange={(e) => setAccount(e.target.value)} aria-label="Tài khoản"><option value="all">Mọi tài khoản</option><option value="pending">Chưa kích hoạt</option><option value="active">Đã kích hoạt</option><option value="locked">Đã khóa</option></select>
+          <span className="toolbar-spacer" />
+          {/* Gửi lời mời cho người chưa mời lần nào trong danh sách đang lọc (thường sau khi nhập từ file) */}
+          {can(me, "membership.invite") && uninvited.length ? <button className="btn small" onClick={() => setBulk(true)}><Icon name="mail" /> Gửi lời mời ({uninvited.length})</button> : null}
         </div>
         {list.data && !rows.length ? <Empty title="Không có nhân viên phù hợp" text="Thử bỏ bớt bộ lọc." /> : (
           <div className="table-wrap"><table className="data-table" style={{ minWidth: 900 }}><thead><tr><th>Nhân viên</th><th>Phòng ban</th><th>Chức danh</th><th>Ngày vào làm</th><th>Loại HĐ</th><th>Tài khoản</th><th>Trạng thái</th><th /></tr></thead><tbody>
@@ -75,6 +80,7 @@ function EmployeesPage() {
       </article>
       {openId ? <EmployeeDrawer id={openId} onClose={() => open(null)} onEdit={setEditing} onChanged={list.reload} /> : null}
       {editing && org.data ? <EmployeeForm org={org.data} employee={editing === "new" ? null : editing} onClose={() => setEditing(null)} onSaved={(id) => { setEditing(null); void list.reload(); open(id); }} /> : null}
+      {bulk ? <BulkInvite rows={uninvited} onClose={() => setBulk(false)} onDone={() => void list.reload()} /> : null}
       {importing ? <ImportModal onClose={() => setImporting(false)} onDone={() => void list.reload()} /> : null}
     </section>
   );
@@ -254,6 +260,21 @@ function EmployeeForm({ org, employee, onClose, onSaved }: { org: OrgOptions; em
         {!employee ? <label className="check-row" style={{ gridColumn: "1 / -1" }}><input type="checkbox" checked={f.sendInvite} onChange={(e) => setF({ ...f, sendInvite: e.target.checked })} /> Gửi email mời kích hoạt ngay</label> : null}
       </div>
       <ErrorLine text={err} />
+    </Modal>
+  );
+}
+
+function BulkInvite({ rows, onClose, onDone }: { rows: EmployeeListItem[]; onClose: () => void; onDone: () => void }) {
+  const { busy, run } = useAction();
+  const [r, setR] = useState<BulkInviteResult | null>(null);
+  return (
+    <Modal title={`Gửi lời mời kích hoạt cho ${rows.length} người?`} sub="Mỗi người nhận một email hướng dẫn kích hoạt Kavor bằng mã nhân viên và email công ty. Người không đủ điều kiện sẽ được bỏ qua." onClose={onClose}
+      foot={r ? <button className="btn primary" onClick={onClose}>Xong</button> : <><button className="btn" onClick={onClose}>Hủy</button>
+        <button className="btn primary" disabled={!!busy} onClick={() => run("bulk", async () => { const x = await call<BulkInviteResult>("POST", "employees/invite", { employeeIds: rows.map((e) => e.id) }); setR(x); onDone(); }, "Đã gửi lời mời")}>{busy ? "Đang gửi…" : "Gửi lời mời"}</button></>}>
+      {r ? <div className="card detail-list">
+        <div className="detail-row"><span>Đã gửi</span><b>{r.sent}</b></div>
+        {r.skipped.map((x, i) => <div key={i} className="detail-row"><span>{x.code}</span><b style={{ whiteSpace: "normal" }}>{x.reason}</b></div>)}
+      </div> : <p className="muted" style={{ fontSize: 12, margin: 0 }}>{rows.slice(0, 8).map((e) => `${e.fullName} (${e.code})`).join(", ")}{rows.length > 8 ? ` và ${rows.length - 8} người khác` : ""}.</p>}
     </Modal>
   );
 }
