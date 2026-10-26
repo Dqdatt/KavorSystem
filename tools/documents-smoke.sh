@@ -18,10 +18,14 @@ HR=$(mfa "$(activate HD0007 thao.mai@haidang.vn)"); need "HR bật MFA" "$HR"
 PAY=$(mfa "$(activate HD0215 nhung.do@haidang.vn)"); need "Kế toán bật MFA" "$PAY"
 MGR=$(mfa "$(activate HDG0003 huy.le@example.test)"); need "Quản lý bật MFA" "$MGR"
 TB=$(mfa "$(activate BX0001 admin@maub.test)"); need "Tenant B bật MFA" "$TB"
-# Fixture quyền: quản lý Marketing được thêm vai trò HR Operations phạm vi phòng Marketing
-sql "insert into public.role_assignments (tenant_id,membership_id,role_id,scope_type,scope_id,effective_from)
+# Fixture quyền: vai trò riêng chỉ có quyền tài liệu, phạm vi phòng Marketing, gán cho quản lý HDG0003
+# (không dùng hr_ops để test RLS khác chạy sau vẫn thấy quản lý không có quyền HR)
+sql "insert into public.roles (tenant_id, code, name) values ('$TENANT','documents_smoke_scoped','Tài liệu smoke phạm vi');
+insert into public.role_permissions (role_id,permission_id) select r.id,p.id from public.roles r cross join public.permissions p
+where r.tenant_id='$TENANT' and r.code='documents_smoke_scoped' and p.code in ('document.read','document.upload','document.manage');
+insert into public.role_assignments (tenant_id,membership_id,role_id,scope_type,scope_id,effective_from)
 select m.tenant_id,m.id,r.id,'department','$MKT',public.tenant_today(m.tenant_id) from public.memberships m join public.employees e on e.id=m.employee_id
-join public.roles r on r.code='hr_ops' and r.tenant_id is null where e.employee_code='HDG0003';" >/dev/null
+join public.roles r on r.code='documents_smoke_scoped' and r.tenant_id='$TENANT' where e.employee_code='HDG0003';" >/dev/null
 
 echo "— Bảng tài liệu và quyền"
 check "Kế toán không có quyền tài liệu → 403" "$(status GET admin/documents "$PAY")" 403
