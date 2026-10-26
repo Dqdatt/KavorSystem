@@ -702,6 +702,50 @@ export type PayrollReopenInput = { reason: string };
 export type MyPayslips = { items: Array<{ cycle: PayrollCycle; net: number; workDays: number | null; viewedAt: string | null }> };
 export type MyPayslip = { cycle: PayrollCycle; result: PayrollResult; viewedAt: string };
 
+/* ---------- Bản tin nội bộ ---------- */
+export type AnnouncementCategory = "notice" | "policy" | "event";
+export const ANNOUNCEMENT_CATEGORIES: Record<AnnouncementCategory, string> = { notice: "Thông báo", policy: "Chính sách", event: "Sự kiện" };
+/* draft: chưa xuất bản; scheduled: hẹn giờ; published: đang hiện; archived: đã gỡ */
+export type AnnouncementStatus = "draft" | "scheduled" | "published" | "archived";
+export const ANNOUNCEMENT_MAX_BYTES = 5 * 1024 * 1024;
+export type AnnouncementAttachment = { name: string; type: "application/pdf" | "image/png" | "image/jpeg" | "image/webp"; size: number };
+export type AnnouncementUnit = { type: "branch" | "department"; id: string; name: string };
+export type AnnouncementAdmin = {
+  id: string; category: AnnouncementCategory; title: string; body: string; authorLabel: string;
+  important: boolean; pinned: boolean; notify: boolean; audience: "tenant" | "units"; units: AnnouncementUnit[];
+  attachment: AnnouncementAttachment | null; status: AnnouncementStatus;
+  publishAt: string | null; notifiedAt: string | null; archivedAt: string | null; createdAt: string; updatedAt: string;
+  /* Số người nhận hiện tại (nhân viên chưa nghỉ việc thuộc đơn vị đã chọn) và số người đã mở bài */
+  recipients: number; reads: number;
+};
+/* units: chi nhánh/phòng ban để chọn người nhận */
+export type AnnouncementBoard = { items: AnnouncementAdmin[]; units: AnnouncementUnit[] };
+export type AnnouncementReader = { id: string; code: string; fullName: string; department: string | null; readAt: string | null };
+export type AnnouncementDetail = { item: AnnouncementAdmin; readers: AnnouncementReader[] };
+export type AnnouncementInput = {
+  category: AnnouncementCategory; title: string; body: string; authorLabel: string;
+  important: boolean; pinned: boolean; notify: boolean; audience: "tenant" | "units"; units: Array<{ type: "branch" | "department"; id: string }>;
+};
+/* publishAt null/không có: xuất bản ngay */
+export type AnnouncementPublishInput = { publishAt?: string | null };
+export type AnnouncementAttachmentInput = { fileName: string; dataBase64: string };
+export type MyAnnouncement = {
+  id: string; category: AnnouncementCategory; title: string; body: string; authorLabel: string; important: boolean; pinned: boolean;
+  publishAt: string; attachment: AnnouncementAttachment | null; readAt: string | null;
+};
+export type MyAnnouncements = { items: MyAnnouncement[] };
+
+/* Nội dung bản tin là chữ thuần: đoạn cách nhau bằng dòng trống; đoạn mà mọi dòng bắt đầu bằng "- " là danh sách gạch đầu dòng.
+   Trả về đúng cấu trúc prototype mobile (string = đoạn, string[] = danh sách). */
+export function announcementBlocks(body: string): Array<string | string[]> {
+  return body.replace(/\r\n?/g, "\n").split(/\n\s*\n/).map((b) => b.trim()).filter(Boolean).map((b) => {
+    const lines = b.split("\n").map((l) => l.trim()).filter(Boolean);
+    return lines.every((l) => /^[-•]\s+/.test(l)) ? lines.map((l) => l.replace(/^[-•]\s+/, "")) : lines.join("\n");
+  });
+}
+/* Thời gian đọc ước tính ("1 phút" như prototype): ~200 từ/phút, tối thiểu 1 */
+export const announcementReadMinutes = (body: string) => Math.max(1, Math.round(body.trim().split(/\s+/).filter(Boolean).length / 200));
+
 /* ---------- Làm thêm giờ ---------- */
 export type OvertimePolicy = {
   name: string; versionNo: number;
@@ -770,10 +814,10 @@ export type EmployeeLeave = { employee: LeaveRow["employee"]; year: number; bala
 export type LeaveAdjustInput = { year: number; amount: number; reason: string; carry?: boolean; expiresOn?: string | null };
 
 /* ---------- Thông báo trong app ---------- */
-export type NotificationKind = "approval.pending" | "approval.due" | "request.approved" | "request.rejected" | "device.approved" | "device.rejected" | "advance.paid" | "payslip.published";
+export type NotificationKind = "approval.pending" | "approval.due" | "request.approved" | "request.rejected" | "device.approved" | "device.rejected" | "advance.paid" | "payslip.published" | "announcement.published";
 export type AppNotification = {
   id: string; kind: NotificationKind; title: string; body: string; createdAt: string; readAt: string | null;
-  link: { type: "request" | "device" | "payslip"; id: string; no: string | null } | null;
+  link: { type: "request" | "device" | "payslip" | "announcement"; id: string; no: string | null } | null;
   /* Thông báo "cần bạn duyệt" mà bước duyệt vẫn đang chờ (bấm vào để duyệt) */
   actionable: boolean;
 };

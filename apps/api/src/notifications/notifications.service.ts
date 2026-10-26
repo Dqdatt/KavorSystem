@@ -5,7 +5,7 @@ import type { SupabaseGateway } from "../auth/supabase.js";
 import { invalid } from "../admin/context.js";
 import type { Body } from "../admin/validate.js";
 
-type Row = { id: string; kind: NotificationKind; title: string; body: string; created_at: string; read_at: string | null; link_type: "request" | "device" | "payslip" | null; link_id: string | null; link_no: string | null; task_id: string | null };
+type Row = { id: string; kind: NotificationKind; title: string; body: string; created_at: string; read_at: string | null; link_type: "request" | "device" | "payslip" | "announcement" | null; link_id: string | null; link_no: string | null; task_id: string | null };
 const COLS = "id, kind, title, body, created_at, read_at, link_type, link_id, link_no, task_id";
 const SWEEP_MS = 10 * 60_000;
 const UUID = /^[0-9a-f-]{36}$/i;
@@ -46,10 +46,14 @@ export class NotificationsService {
     return this.feed(tenantId, employeeId);
   }
 
-  /* Nhắc hạn duyệt: chạy ngay khi khởi động rồi mỗi 10 phút (hàm SQL tự chống nhắc trùng) */
+  /* Nhắc hạn duyệt + thông báo bản tin hẹn giờ đã tới giờ: chạy ngay khi khởi động rồi mỗi 10 phút (hàm SQL tự chống gửi trùng) */
   startDueSweep() {
     if (this.timer) return;
-    const run = () => { void this.sb.admin.rpc("notify_due_approvals").then(({ error }) => { if (error) console.error("[notify_due_approvals]", error.message); }); };
+    const run = () => {
+      for (const fn of ["notify_due_approvals", "notify_due_announcements"]) {
+        void this.sb.admin.rpc(fn).then(({ error }) => { if (error) console.error(`[${fn}]`, error.message); });
+      }
+    };
     setTimeout(run, 5_000).unref();
     this.timer = setInterval(run, SWEEP_MS);
     this.timer.unref();

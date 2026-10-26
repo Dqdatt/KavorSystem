@@ -42,3 +42,13 @@ test("rule config keeps declared fields and rejects bad values", () => {
   assert.equal(checkRuleConfig("reminder", null).problems.length, 3);
   assert.equal(checkRuleConfig("explanation", { monthlyLimit: 2.5, deadlineDays: 3 }).problems.length, 1);
 });
+
+import { announcementBlocks, announcementReadMinutes } from "./index.js";
+
+test("tách nội dung bản tin thành đoạn và danh sách", () => {
+  assert.deepEqual(announcementBlocks("Đoạn 1\r\n\r\n- Ý a\n- Ý b\n\n  \nĐoạn 2\ndòng 2"), ["Đoạn 1", ["Ý a", "Ý b"], "Đoạn 2\ndòng 2"]);
+  assert.deepEqual(announcementBlocks("- chỉ một dòng gạch\nkhông gạch"), ["- chỉ một dòng gạch\nkhông gạch"]);
+  assert.deepEqual(announcementBlocks("   "), []);
+  assert.equal(announcementReadMinutes("ngắn"), 1);
+  assert.equal(announcementReadMinutes(Array(600).fill("từ").join(" ")), 3);
+});

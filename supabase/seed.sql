@@ -239,3 +239,39 @@ select '10000000-0000-4000-8000-000000000001', emp, k.kind, 'seed-' || left(emp:
   '70000000-0000-4000-8000-000000000001', 10.774390, 106.703940, 8, 4
 from plan cross join lateral (values ('in', plan.t_in), ('out', plan.t_out)) k(kind, t)
 where k.t is not null;
+
+-- Bản tin mẫu (nội dung như prototype mobile; ngày tính theo lúc reset, bài "hôm nay" đăng lúc 0:30 để không thành bài hẹn giờ). Bài 9 chỉ gửi phòng Nhân sự, bài 10 hẹn giờ ngày mai, bài 11 là nháp.
+-- File đính kèm không seed được (nằm ở Storage) — HR tải lên trên web.
+with t(tid) as (values ('10000000-0000-4000-8000-000000000001'::uuid)),
+posts(id, days, hm, category, important, pinned, author, title, body) as (values
+  ('a0000000-0000-4000-8000-000000000006'::uuid, 0, '00:30', 'notice', true, false, 'Phòng IT', 'Bảo trì hệ thống Kavor tối nay 22:00 – 23:30',
+   'Trong thời gian bảo trì, app tạm dừng. Ra ca trước 22:00 hoặc sau 23:30 vẫn được ghi nhận bình thường.'),
+  ('a0000000-0000-4000-8000-000000000007'::uuid, 0, '00:45', 'event', false, false, 'Ban Văn hóa', 'Sinh nhật tháng này: 16:00 hôm nay tại pantry tầng 5',
+   'Mời cả nhà ghé chúc mừng 8 bạn có sinh nhật trong tháng.'),
+  ('a0000000-0000-4000-8000-000000000008'::uuid, 1, '09:00', 'notice', false, false, 'Hành chính', 'Đổi khu vực gửi xe máy từ thứ Hai tới',
+   'Xe máy nhân viên chuyển xuống hầm B2, lối vào phía đường Hồ Tùng Mậu. Thẻ xe cũ vẫn dùng được.'),
+  ('a0000000-0000-4000-8000-000000000001'::uuid, 1, '10:00', 'policy', true, true, 'Phòng Nhân sự', 'Chấm công GPS trên app Kavor áp dụng từ 01/11/2026',
+   E'Từ ngày 01/11/2026, nhân viên khối văn phòng chấm công vào/ra ca trên app Kavor thay cho máy vân tay ở sảnh.\n\nMỗi người đăng ký một điện thoại để chấm công. Khi đổi máy, gửi yêu cầu reset trong Hồ sơ → Bảo mật và thiết bị.\n\n- Bán kính chấm công: 50 m quanh điểm đặt tại văn phòng.\n- Quên chấm hoặc lỗi định vị: gửi giải trình, tối đa 3 lần/tháng.\n- Hạn giải trình: trước ngày chốt công 3 ngày.\n\nMáy vân tay vẫn chạy song song đến hết 30/11 để đối chiếu.'),
+  ('a0000000-0000-4000-8000-000000000002'::uuid, 2, '09:30', 'notice', false, false, 'Phòng Nhân sự', 'Lịch nghỉ Tết Dương lịch 2027',
+   'Công ty nghỉ Tết Dương lịch vào Thứ Sáu 01/01/2027. Bộ phận trực vận hành nhận lịch phân ca riêng từ quản lý.'),
+  ('a0000000-0000-4000-8000-000000000003'::uuid, 4, '14:00', 'event', false, false, 'Ban Văn hóa', 'Team building quý 4 tại Đà Lạt, 13–15/11',
+   'Đăng ký trước 05/11 qua quản lý trực tiếp. Công ty hỗ trợ chi phí đi lại và lưu trú.'),
+  ('a0000000-0000-4000-8000-000000000004'::uuid, 6, '08:00', 'notice', false, false, 'Phòng Nhân sự', 'Nhắc hạn gửi giải trình trước ngày chốt công',
+   'Hạn gửi giải trình công là 3 ngày trước ngày chốt công. Sau đó bảng công được khóa để tính lương.'),
+  ('a0000000-0000-4000-8000-000000000005'::uuid, 11, '10:00', 'event', false, false, 'Ban Văn hóa', 'Sáu đồng nghiệp tròn 5 năm gắn bó',
+   'Quà kỷ niệm sẽ được trao tại buổi họp toàn thể cuối tháng.'),
+  ('a0000000-0000-4000-8000-000000000009'::uuid, 3, '11:00', 'policy', false, false, 'Phòng Nhân sự', 'Quy trình tiếp nhận hồ sơ nhân viên mới',
+   E'Áp dụng cho phòng Nhân sự từ tuần này.\n\n- Kiểm tra đủ giấy tờ trước ngày nhận việc.\n- Tạo hồ sơ và mời kích hoạt app trong ngày đầu tiên.'),
+  ('a0000000-0000-4000-8000-000000000010'::uuid, -1, '08:00', 'event', false, false, 'Ban Văn hóa', 'Giải chạy bộ nội bộ cuối năm',
+   'Đăng ký theo phòng ban, mỗi phòng tối thiểu 3 người.'),
+  ('a0000000-0000-4000-8000-000000000011'::uuid, null, null, 'notice', false, false, 'Phòng Nhân sự', 'Khảo sát mức độ hài lòng quý 4 (nháp)',
+   'Khảo sát ẩn danh, mất khoảng 5 phút.')
+)
+insert into public.announcements (id, tenant_id, category, title, body, author_label, important, pinned, audience, publish_at, created_at)
+select p.id, t.tid, p.category, p.title, p.body, p.author, p.important, p.pinned,
+  case when p.id = 'a0000000-0000-4000-8000-000000000009' then 'units' else 'tenant' end,
+  case when p.days is null then null else ((public.tenant_today(t.tid) - p.days) + p.hm::time) at time zone 'Asia/Ho_Chi_Minh' end,
+  coalesce(((public.tenant_today(t.tid) - greatest(p.days, 0)) + time '07:00') at time zone 'Asia/Ho_Chi_Minh', now())
+from posts p cross join t;
+insert into public.announcement_audiences (announcement_id, tenant_id, scope_type, scope_id)
+values ('a0000000-0000-4000-8000-000000000009', '10000000-0000-4000-8000-000000000001', 'department', '40000000-0000-4000-8000-000000000002');

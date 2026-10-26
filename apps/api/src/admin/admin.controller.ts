@@ -19,6 +19,7 @@ import type { LeaveService } from "../leave/leave.service.js";
 import type { OvertimeService } from "../overtime/overtime.service.js";
 import type { AdvanceService } from "../advance/advance.service.js";
 import type { PayrollService } from "../payroll/payroll.service.js";
+import type { AnnouncementsService } from "../announcements/announcements.service.js";
 import type { TimesheetAdmin } from "../timesheet/timesheet-admin.service.js";
 import { date, nullableText, oneOf, type Body as Json } from "./validate.js";
 
@@ -27,7 +28,7 @@ export type AdminServices = {
   employees: EmployeesAdmin; attendance: AttendanceAdmin; schedule: ScheduleAdmin;
   settings: SettingsAdmin; rules: RulesAdmin; mfa: MfaAdmin; company: CompanyService;
   timesheets: TimesheetAdmin; requests: RequestsService; notifications: NotificationsService; leave: LeaveService; overtime: OvertimeService; advance: AdvanceService;
-  payroll: PayrollService;
+  payroll: PayrollService; announcements: AnnouncementsService;
 };
 
 function bearer(header?: string): string {
@@ -241,6 +242,38 @@ export class AdminController {
   payrollImport(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("month") m: string, @Body() b: Json) { return this.run(r, a, (s, c) => s.payroll.importCsv(c, m, b)); }
   @Post("payroll/cycles/:month/:action") @HttpCode(200)
   payrollTransition(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("month") m: string, @Param("action") action: string, @Body() b: Json) { return this.run(r, a, (s, c) => s.payroll.transition(c, m, action, b)); }
+
+  /* Bản tin nội bộ: soạn, xuất bản/hẹn giờ, gỡ, file đính kèm, thống kê đã đọc */
+  @Get("announcements")
+  announcements(@Req() r: CorrelatedRequest, @Headers("authorization") a?: string) { return this.run(r, a, (s, c) => s.announcements.board(c)); }
+  @Post("announcements") @HttpCode(201)
+  announcementCreate(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Body() b: Json) { return this.run(r, a, (s, c) => s.announcements.create(c, b)); }
+  @Get("announcements/:id")
+  announcement(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string) { return this.run(r, a, (s, c) => s.announcements.detail(c, id)); }
+  @Patch("announcements/:id")
+  announcementUpdate(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string, @Body() b: Json) { return this.run(r, a, (s, c) => s.announcements.update(c, id, b)); }
+  @Post("announcements/:id/publish") @HttpCode(200)
+  announcementPublish(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string, @Body() b: Json) { return this.run(r, a, (s, c) => s.announcements.publish(c, id, b)); }
+  @Post("announcements/:id/unschedule") @HttpCode(200)
+  announcementUnschedule(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string) { return this.run(r, a, (s, c) => s.announcements.unschedule(c, id)); }
+  @Post("announcements/:id/archive") @HttpCode(200)
+  announcementArchive(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string) { return this.run(r, a, (s, c) => s.announcements.archive(c, id)); }
+  @Post("announcements/:id/remove") @HttpCode(200)
+  announcementRemove(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string) { return this.run(r, a, (s, c) => s.announcements.remove(c, id)); }
+  @Post("announcements/:id/attachment") @HttpCode(200)
+  announcementAttach(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string, @Body() b: Json) { return this.run(r, a, (s, c) => s.announcements.uploadAttachment(c, id, b)); }
+  @Post("announcements/:id/attachment/remove") @HttpCode(200)
+  announcementDetach(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string) { return this.run(r, a, (s, c) => s.announcements.removeAttachment(c, id)); }
+  /* File đính kèm (nhị phân) — web mở qua route Next cùng origin */
+  @Get("announcements/:id/attachment")
+  async announcementFile(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string, @Res({ passthrough: true }) res: Response) {
+    const env = await this.run(r, a, (s, c) => s.announcements.adminFile(c, id));
+    res.setHeader("content-type", env.data!.contentType);
+    res.setHeader("content-disposition", `inline; filename*=UTF-8''${encodeURIComponent(env.data!.name)}`);
+    res.setHeader("cache-control", "private, no-store");
+    res.setHeader("x-content-type-options", "nosniff");
+    return new StreamableFile(env.data!.data);
+  }
 
   /* Thông báo của chính người đăng nhập web (hồ sơ nhân viên gắn với tài khoản) */
   @Get("notifications")

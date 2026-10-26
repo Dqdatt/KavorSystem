@@ -10,7 +10,7 @@ import { Icon, fmtDateTime, useMe } from "./kit";
 const ICON: Record<NotificationKind, [string, string]> = {
   "approval.pending": ["checks", ""], "approval.due": ["clock", "amber"], "request.approved": ["checks", ""], "request.rejected": ["alert", "red"],
   "device.approved": ["phone", "blue"], "device.rejected": ["phone", "red"], "advance.paid": ["pay", ""],
-  "payslip.published": ["pay", ""],
+  "payslip.published": ["pay", ""], "announcement.published": ["news", "violet"],
 };
 
 export function NotificationBell() {
@@ -32,6 +32,7 @@ export function NotificationBell() {
     if (!n.readAt) void read([n.id]);
     if (n.link?.type === "request") router.push(`/requests?open=${n.link.id}`);
     else if (n.link?.type === "device") router.push("/attendance?tab=devices");
+    else if (n.link?.type === "announcement") router.push(`/announcements?open=${n.link.id}`);
   };
   return (
     <div ref={box} style={{ position: "relative" }}>

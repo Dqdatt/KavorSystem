@@ -1,4 +1,5 @@
-import { Body, Controller, Get, Headers, HttpCode, HttpException, Inject, Param, Post, Query, Req } from "@nestjs/common";
+import { Body, Controller, Get, Headers, HttpCode, HttpException, Inject, Param, Post, Query, Req, Res, StreamableFile } from "@nestjs/common";
+import type { Response } from "express";
 import type { ApiEnvelope } from "@kavor/contracts";
 import type { CorrelatedRequest } from "../correlation.middleware.js";
 import { AuthError, type AuthService, type EmployeeRow } from "../auth/auth.service.js";
@@ -12,9 +13,10 @@ import type { LeaveService } from "../leave/leave.service.js";
 import type { OvertimeService } from "../overtime/overtime.service.js";
 import type { AdvanceService } from "../advance/advance.service.js";
 import type { PayrollService } from "../payroll/payroll.service.js";
+import type { AnnouncementsService } from "../announcements/announcements.service.js";
 
 export const TIMESHEET_SERVICES = Symbol("TIMESHEET_SERVICES");
-export type TimesheetServices = { timesheets: TimesheetService; requests: RequestsService; notifications: NotificationsService; leave: LeaveService; overtime: OvertimeService; advance: AdvanceService; payroll: PayrollService };
+export type TimesheetServices = { timesheets: TimesheetService; requests: RequestsService; notifications: NotificationsService; leave: LeaveService; overtime: OvertimeService; advance: AdvanceService; payroll: PayrollService; announcements: AnnouncementsService };
 
 function bearer(header?: string): string {
   const m = /^Bearer\s+(.+)$/i.exec(header ?? "");
@@ -72,6 +74,30 @@ export class TimesheetController {
   payslips(@Req() r: CorrelatedRequest, @Headers("authorization") a?: string) { return this.run(r, a, (s, emp, v) => s.payroll.myPayslips(emp, v.correlationId)); }
   @Get("payslips/:month")
   payslip(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("month") m: string) { return this.run(r, a, (s, emp, v) => s.payroll.myPayslip(emp, m, v.correlationId)); }
+  @Get("announcements")
+  announcements(@Req() r: CorrelatedRequest, @Headers("authorization") a?: string) { return this.run(r, a, (s, emp) => s.announcements.mine(emp)); }
+  @Get("announcements/:id")
+  announcement(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string) { return this.run(r, a, (s, emp) => s.announcements.one(emp, id)); }
+  @Post("announcements/:id/file-link") @HttpCode(200)
+  announcementLink(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string) { return this.run(r, a, (s, emp) => s.announcements.fileLink(emp, id)); }
+  /* Mở file trong trình duyệt hệ thống: không có header Authorization, xác thực bằng chữ ký ngắn hạn từ file-link */
+  @Get("announcements/:id/file")
+  async announcementFile(@Req() r: CorrelatedRequest, @Param("id") id: string, @Query("e") e: string, @Query("exp") exp: string, @Query("sig") sig: string, @Res({ passthrough: true }) res: Response) {
+    const correlationId = r.correlationId ?? "unknown";
+    try {
+      if (!this.svc) throw new AuthError("AUTH_NOT_CONFIGURED", "Máy chủ chưa cấu hình Supabase.", 503, true);
+      const f = await this.svc.announcements.linkedFile(id, String(e ?? ""), Number(exp), String(sig ?? ""));
+      res.setHeader("content-type", f.contentType);
+      res.setHeader("content-disposition", `inline; filename*=UTF-8''${encodeURIComponent(f.name)}`);
+      res.setHeader("cache-control", "private, no-store");
+      res.setHeader("x-content-type-options", "nosniff");
+      return new StreamableFile(f.data);
+    } catch (err) {
+      const x = err instanceof AuthError ? err : new AuthError("INTERNAL_ERROR", "Hệ thống đang gặp sự cố. Vui lòng thử lại sau.", 500, true);
+      if (!(err instanceof AuthError)) console.error(`[${correlationId}]`, err);
+      throw new HttpException({ data: null, meta: { correlationId }, error: { code: x.code, message: x.message, retryable: x.retryable } } satisfies ApiEnvelope<null>, x.status);
+    }
+  }
   @Post("requests/:id/cancel") @HttpCode(200)
   cancel(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string) { return this.run(r, a, (s, emp, v) => s.requests.cancel(emp, id, v.correlationId)); }
 

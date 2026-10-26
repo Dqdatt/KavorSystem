@@ -12,9 +12,9 @@ async function bootstrap() {
     if (e instanceof ConfigError) { console.error(e.message); process.exit(1); }
     throw e;
   }
-  /* Body JSON tối đa 4 MB: đủ cho ảnh logo/bìa 2 MB gửi dạng base64; mặc định của Express chỉ 100 KB */
+  /* Body JSON tối đa 8 MB: đủ cho file đính kèm bản tin 5 MB (ảnh logo/bìa 2 MB) gửi dạng base64; mặc định của Express chỉ 100 KB */
   const app = await NestFactory.create<NestExpressApplication>(AppModule, { cors: false, bodyParser: false });
-  app.useBodyParser("json", { limit: "4mb" });
+  app.useBodyParser("json", { limit: "8mb" });
   const port = config.port;
 
   app.setGlobalPrefix("api/v1");
