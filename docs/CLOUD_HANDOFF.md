@@ -60,6 +60,12 @@ App trên iPhone 11 (bản Release, `EXPO_PUBLIC_API_URL=http://<IP LAN Mac>:400
 - [ ] Màn "Công ty tạm ngừng sử dụng Kavor" khi Console tạm khóa tenant.
 - [ ] Android emulator: chấm công GPS + hàng đợi offline (chưa từng thử).
 
+## Phản hồi UI mobile của người dùng (26/10) — chưa làm
+
+9 điểm người dùng ghi khi thử app (splash xanh → gradient, OT hiện giờ chấm công + chọn giờ dạng vuốt, **chưa có cài đặt PIN — hiện mọi 6 số đều
+mở được phiếu lương**, Face ID gọi thẳng hộp thoại Apple, sinh trắc học theo hệ điều hành, căn trái meta bản tin, tô dải ngày khi xin nghỉ nhiều ngày,
+nút "?" hiện hướng dẫn sử dụng thay ghi chú QA, widget chấm công thật). Chi tiết, vị trí code, hướng làm: **`docs/plans/mobile-ui-feedback.md`**.
+
 ## Đánh giá MVP (26/10) — chưa đủ để pilot
 
 Theo `IMPLEMENTATION_ROADMAP.md` §15–19 (P0 – Pilot, go-live gate):
