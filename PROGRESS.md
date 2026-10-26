@@ -232,6 +232,7 @@ simulator hay iPhone** vì phiên cloud không có Mac). Tiếp theo: Tài liệ
 - Kiểm tra ngày 22/10: `pnpm turbo run typecheck test build --force` pass 18/18 task (test thật chỉ có contracts 2 + api 2)
 
 ## Đang dở (QUAN TRỌNG NHẤT)
+- Đang làm: Claude — module Tài liệu theo `docs/plans/documents.md` — từ 26/10 (phiên cloud, nhánh `claude/ecstatic-pascal-dblg7v`).
 - Web payroll `/payroll` và module Bản tin nằm trên nhánh `claude/ecstatic-pascal-dblg7v` (phiên cloud), **chưa vào main**; người dùng cần thử trên
   Mac (`pnpm dev:admin`, Kế toán HD0215 nhập + HD0216 duyệt) rồi quyết định merge. DB của phiên cloud là container riêng — DB local
   trên Mac không bị đụng tới. Vòng chờ Face ID trên iPhone vẫn chờ người dùng thử lại.

@@ -20,6 +20,7 @@ import type { OvertimeService } from "../overtime/overtime.service.js";
 import type { AdvanceService } from "../advance/advance.service.js";
 import type { PayrollService } from "../payroll/payroll.service.js";
 import type { AnnouncementsService } from "../announcements/announcements.service.js";
+import type { DocumentsService } from "../documents/documents.service.js";
 import type { TimesheetAdmin } from "../timesheet/timesheet-admin.service.js";
 import { date, nullableText, oneOf, type Body as Json } from "./validate.js";
 
@@ -28,7 +29,7 @@ export type AdminServices = {
   employees: EmployeesAdmin; attendance: AttendanceAdmin; schedule: ScheduleAdmin;
   settings: SettingsAdmin; rules: RulesAdmin; mfa: MfaAdmin; company: CompanyService;
   timesheets: TimesheetAdmin; requests: RequestsService; notifications: NotificationsService; leave: LeaveService; overtime: OvertimeService; advance: AdvanceService;
-  payroll: PayrollService; announcements: AnnouncementsService;
+  payroll: PayrollService; announcements: AnnouncementsService; documents: DocumentsService;
 };
 
 function bearer(header?: string): string {
@@ -268,6 +269,30 @@ export class AdminController {
   @Get("announcements/:id/attachment")
   async announcementFile(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string, @Res({ passthrough: true }) res: Response) {
     const env = await this.run(r, a, (s, c) => s.announcements.adminFile(c, id));
+    res.setHeader("content-type", env.data!.contentType);
+    res.setHeader("content-disposition", `inline; filename*=UTF-8''${encodeURIComponent(env.data!.name)}`);
+    res.setHeader("cache-control", "private, no-store");
+    res.setHeader("x-content-type-options", "nosniff");
+    return new StreamableFile(env.data!.data);
+  }
+
+  /* Tài liệu nhân sự: danh sách theo phạm vi, tải lên (phiên bản bất biến), sửa thông tin, gỡ, tải file (ghi audit) */
+  @Get("documents")
+  documents(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Query("employeeId") employeeId?: string) { return this.run(r, a, (s, c) => s.documents.board(c, { employeeId })); }
+  @Post("documents") @HttpCode(201)
+  documentCreate(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Body() b: Json) { return this.run(r, a, (s, c) => s.documents.create(c, b)); }
+  @Get("documents/:id")
+  document(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string) { return this.run(r, a, (s, c) => s.documents.detail(c, id)); }
+  @Patch("documents/:id")
+  documentUpdate(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string, @Body() b: Json) { return this.run(r, a, (s, c) => s.documents.update(c, id, b)); }
+  @Post("documents/:id/versions") @HttpCode(200)
+  documentVersion(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string, @Body() b: Json) { return this.run(r, a, (s, c) => s.documents.addVersion(c, id, b)); }
+  @Post("documents/:id/archive") @HttpCode(200)
+  documentArchive(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string, @Body() b: Json) { return this.run(r, a, (s, c) => s.documents.archive(c, id, b)); }
+  /* File (nhị phân) — web mở qua route Next cùng origin; ?version=<id> để tải phiên bản cũ */
+  @Get("documents/:id/file")
+  async documentFile(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string, @Query("version") v: string | undefined, @Res({ passthrough: true }) res: Response) {
+    const env = await this.run(r, a, (s, c) => s.documents.adminFile(c, id, v));
     res.setHeader("content-type", env.data!.contentType);
     res.setHeader("content-disposition", `inline; filename*=UTF-8''${encodeURIComponent(env.data!.name)}`);
     res.setHeader("cache-control", "private, no-store");

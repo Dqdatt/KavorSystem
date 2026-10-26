@@ -31,6 +31,7 @@ import { OvertimeService } from "./overtime/overtime.service.js";
 import { AdvanceService } from "./advance/advance.service.js";
 import { PayrollService } from "./payroll/payroll.service.js";
 import { AnnouncementsService } from "./announcements/announcements.service.js";
+import { DocumentsService } from "./documents/documents.service.js";
 import type { TimesheetServices } from "./timesheet/timesheet.controller.js";
 
 @Module({
@@ -49,7 +50,7 @@ import type { TimesheetServices } from "./timesheet/timesheet.controller.js";
         const notifications = new NotificationsService(sb);
         notifications.startDueSweep();
         const requests = new RequestsService(sb, timesheets);
-        return { timesheets, requests, notifications, leave: new LeaveService(sb, timesheets, requests), overtime: new OvertimeService(sb, timesheets, requests), advance: new AdvanceService(sb, timesheets, requests), payroll: new PayrollService(sb, timesheets), announcements: new AnnouncementsService(sb) };
+        return { timesheets, requests, notifications, leave: new LeaveService(sb, timesheets, requests), overtime: new OvertimeService(sb, timesheets, requests), advance: new AdvanceService(sb, timesheets, requests), payroll: new PayrollService(sb, timesheets), announcements: new AnnouncementsService(sb), documents: new DocumentsService(sb) };
       },
     },
     {
@@ -72,7 +73,7 @@ import type { TimesheetServices } from "./timesheet/timesheet.controller.js";
           attendance, schedule, company,
           employees: new EmployeesAdmin(sb, new Mailer(loadConfig().mail), attendance),
           settings: new SettingsAdmin(sb, branding, schedule), rules: new RulesAdmin(schedule), mfa: new MfaAdmin(sb),
-          timesheets: new TimesheetAdmin(ts.timesheets, ts.requests), requests: ts.requests, notifications: ts.notifications, leave: ts.leave, overtime: ts.overtime, advance: ts.advance, payroll: ts.payroll, announcements: ts.announcements,
+          timesheets: new TimesheetAdmin(ts.timesheets, ts.requests), requests: ts.requests, notifications: ts.notifications, leave: ts.leave, overtime: ts.overtime, advance: ts.advance, payroll: ts.payroll, announcements: ts.announcements, documents: ts.documents,
         };
       },
     },

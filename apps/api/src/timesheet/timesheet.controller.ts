@@ -14,9 +14,10 @@ import type { OvertimeService } from "../overtime/overtime.service.js";
 import type { AdvanceService } from "../advance/advance.service.js";
 import type { PayrollService } from "../payroll/payroll.service.js";
 import type { AnnouncementsService } from "../announcements/announcements.service.js";
+import type { DocumentsService } from "../documents/documents.service.js";
 
 export const TIMESHEET_SERVICES = Symbol("TIMESHEET_SERVICES");
-export type TimesheetServices = { timesheets: TimesheetService; requests: RequestsService; notifications: NotificationsService; leave: LeaveService; overtime: OvertimeService; advance: AdvanceService; payroll: PayrollService; announcements: AnnouncementsService };
+export type TimesheetServices = { timesheets: TimesheetService; requests: RequestsService; notifications: NotificationsService; leave: LeaveService; overtime: OvertimeService; advance: AdvanceService; payroll: PayrollService; announcements: AnnouncementsService; documents: DocumentsService };
 
 function bearer(header?: string): string {
   const m = /^Bearer\s+(.+)$/i.exec(header ?? "");
@@ -83,10 +84,14 @@ export class TimesheetController {
   /* Mở file trong trình duyệt hệ thống: không có header Authorization, xác thực bằng chữ ký ngắn hạn từ file-link */
   @Get("announcements/:id/file")
   async announcementFile(@Req() r: CorrelatedRequest, @Param("id") id: string, @Query("e") e: string, @Query("exp") exp: string, @Query("sig") sig: string, @Res({ passthrough: true }) res: Response) {
+    return this.signedFile(r, res, (s) => s.announcements.linkedFile(id, String(e ?? ""), Number(exp), String(sig ?? "")));
+  }
+  /* Trả file nhị phân cho liên kết ký (không có header Authorization): lỗi vẫn theo envelope chung */
+  private async signedFile(r: CorrelatedRequest, res: Response, fn: (s: TimesheetServices, correlationId: string) => Promise<{ data: Buffer; contentType: string; name: string }>) {
     const correlationId = r.correlationId ?? "unknown";
     try {
       if (!this.svc) throw new AuthError("AUTH_NOT_CONFIGURED", "Máy chủ chưa cấu hình Supabase.", 503, true);
-      const f = await this.svc.announcements.linkedFile(id, String(e ?? ""), Number(exp), String(sig ?? ""));
+      const f = await fn(this.svc, correlationId);
       res.setHeader("content-type", f.contentType);
       res.setHeader("content-disposition", `inline; filename*=UTF-8''${encodeURIComponent(f.name)}`);
       res.setHeader("cache-control", "private, no-store");
@@ -97,6 +102,15 @@ export class TimesheetController {
       if (!(err instanceof AuthError)) console.error(`[${correlationId}]`, err);
       throw new HttpException({ data: null, meta: { correlationId }, error: { code: x.code, message: x.message, retryable: x.retryable } } satisfies ApiEnvelope<null>, x.status);
     }
+  }
+  @Get("documents")
+  documents(@Req() r: CorrelatedRequest, @Headers("authorization") a?: string) { return this.run(r, a, (s, emp) => s.documents.mine(emp)); }
+  @Post("documents/:id/file-link") @HttpCode(200)
+  documentLink(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string) { return this.run(r, a, (s, emp) => s.documents.fileLink(emp, id)); }
+  /* Mở tài liệu trong trình duyệt hệ thống: xác thực bằng chữ ký ngắn hạn từ file-link, mỗi lần tải ghi audit */
+  @Get("documents/:id/file")
+  async documentFile(@Req() r: CorrelatedRequest, @Param("id") id: string, @Query("e") e: string, @Query("exp") exp: string, @Query("sig") sig: string, @Res({ passthrough: true }) res: Response) {
+    return this.signedFile(r, res, (s, correlationId) => s.documents.linkedFile(id, String(e ?? ""), Number(exp), String(sig ?? ""), correlationId));
   }
   @Post("requests/:id/cancel") @HttpCode(200)
   cancel(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string) { return this.run(r, a, (s, emp, v) => s.requests.cancel(emp, id, v.correlationId)); }

@@ -746,6 +746,43 @@ export function announcementBlocks(body: string): Array<string | string[]> {
 /* Thời gian đọc ước tính ("1 phút" như prototype): ~200 từ/phút, tối thiểu 1 */
 export const announcementReadMinutes = (body: string) => Math.max(1, Math.round(body.trim().split(/\s+/).filter(Boolean).length / 200));
 
+/* ---------- Tài liệu nhân sự ---------- */
+export type DocumentCategory = "contract" | "appendix" | "decision" | "personal" | "insurance" | "other";
+export const DOCUMENT_CATEGORIES: Record<DocumentCategory, string> = {
+  contract: "Hợp đồng lao động", appendix: "Phụ lục hợp đồng", decision: "Quyết định", personal: "Hồ sơ cá nhân", insurance: "Bảo hiểm", other: "Khác",
+};
+/* hr_employee: HR + nhân viên đó xem được; hr_only: chỉ HR trong phạm vi */
+export type DocumentVisibility = "hr_employee" | "hr_only";
+/* Hết hạn so với ngày của công ty: soon = trong 30 ngày tới */
+export type DocumentExpiry = "none" | "valid" | "soon" | "expired";
+export type DocumentFileType = "application/pdf" | "image/png" | "image/jpeg" | "image/webp";
+export type DocumentVersion = {
+  id: string; versionNo: number; fileName: string; type: DocumentFileType; size: number; sha256: string;
+  scanStatus: "not_scanned" | "clean" | "infected"; note: string | null; createdAt: string;
+};
+export type EmployeeDocument = {
+  id: string; employee: { id: string; code: string; fullName: string; department: string | null };
+  category: DocumentCategory; title: string; docNo: string | null; issuedOn: string | null; expiresOn: string | null; expiry: DocumentExpiry;
+  visibility: DocumentVisibility; current: DocumentVersion; versionCount: number;
+  archivedAt: string | null; archiveReason: string | null; createdAt: string; updatedAt: string;
+};
+export type DocumentBoard = {
+  items: EmployeeDocument[];
+  /* missingContract: nhân viên đang làm trong phạm vi chưa có hợp đồng lao động còn hiệu lực; downloadsWeek: lượt tải 7 ngày (audit) */
+  metrics: { total: number; expiringSoon: number; expired: number; missingContract: number; downloadsWeek: number };
+  canUpload: boolean; canManage: boolean;
+};
+export type DocumentDetail = { item: EmployeeDocument; versions: DocumentVersion[]; canUpload: boolean; canManage: boolean };
+export type DocumentFileInput = { fileName: string; dataBase64: string; note?: string | null };
+export type DocumentMeta = { category: DocumentCategory; title: string; docNo?: string | null; issuedOn?: string | null; expiresOn?: string | null; visibility: DocumentVisibility };
+export type DocumentInput = DocumentMeta & DocumentFileInput & { employeeId: string };
+export type DocumentArchiveInput = { reason: string };
+export type MyDocument = {
+  id: string; category: DocumentCategory; title: string; docNo: string | null; issuedOn: string | null; expiresOn: string | null; expiry: DocumentExpiry;
+  versionNo: number; fileName: string; type: DocumentFileType; size: number; updatedAt: string;
+};
+export type MyDocuments = { items: MyDocument[] };
+
 /* ---------- Làm thêm giờ ---------- */
 export type OvertimePolicy = {
   name: string; versionNo: number;

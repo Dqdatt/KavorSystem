@@ -7,7 +7,7 @@ import { AuthError, type EmployeeRow } from "../auth/auth.service.js";
 import type { SupabaseGateway } from "../auth/supabase.js";
 import { conflict, forbidden, invalid, notFound, type AdminContext } from "../admin/context.js";
 import { oneOf, req, text, type Body } from "../admin/validate.js";
-import { AnnouncementFiles, checkLink, signLink, sniffFile } from "./files.js";
+import { PrivateFiles, checkLink, signLink, sniffFile } from "../files/private-files.js";
 
 type Db = SupabaseGateway["admin"];
 type Row = {
@@ -36,8 +36,8 @@ function dbError(e: unknown): never {
 }
 
 export class AnnouncementsService {
-  private readonly files: AnnouncementFiles;
-  constructor(private readonly sb: SupabaseGateway) { this.files = new AnnouncementFiles(sb); }
+  private readonly files: PrivateFiles;
+  constructor(private readonly sb: SupabaseGateway) { this.files = new PrivateFiles(sb, "announcement-files"); }
 
   private async recipients(db: Db, id: string): Promise<string[]> {
     const { data, error } = await db.rpc("announcement_recipients", { p_announcement: id });
@@ -321,13 +321,13 @@ export class AnnouncementsService {
     await this.requireReader(me);
     const r = await this.row(this.sb.admin, me.tenant_id, id);
     if (!r.attachment_path || !await this.visible(r.id, me.id)) throw notFound("file đính kèm");
-    const { exp, sig } = signLink(r.id, me.id, Date.now());
+    const { exp, sig } = signLink("announcement", r.id, me.id, Date.now());
     return { path: `me/announcements/${r.id}/file?e=${me.id}&exp=${exp}&sig=${sig}`, expiresAt: new Date(exp * 1000).toISOString() };
   }
 
   /* Tải theo liên kết đã ký: kiểm chữ ký rồi kiểm lại người đó vẫn được xem bài */
   async linkedFile(id: string, employeeId: string, exp: number, sig: string) {
-    if (!UUID.test(id) || !UUID.test(employeeId) || !checkLink(id, employeeId, exp, sig)) throw notFound("file đính kèm");
+    if (!UUID.test(id) || !UUID.test(employeeId) || !checkLink("announcement", id, employeeId, exp, sig)) throw notFound("file đính kèm");
     const { data: e, error } = await this.sb.admin.from("employees").select("tenant_id").eq("id", employeeId).maybeSingle();
     if (error) dbError(error);
     if (!e || !await this.visible(id, employeeId)) throw notFound("file đính kèm");
