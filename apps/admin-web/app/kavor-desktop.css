@@ -346,6 +346,12 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .banner-copy b { display: block; font-size: 13px; }
 .banner-copy span { display: block; color: rgba(255,255,255,.72); font-size: 11px; margin-top: 2px; }
 .banner .btn { flex: none; border-color: #fff; }
+/* Banner lỗi nền đỏ nhạt: chữ tối để đọc được (chữ trắng chỉ hợp nền xanh) */
+.banner.error { color: var(--ink); background: var(--red-soft); border: 1px solid #f6ced2; }
+.banner.error .banner-icon { color: var(--red); }
+.banner.error .banner-copy b { color: #b3343f; }
+.banner.error .banner-copy span { color: #5b6660; }
+.banner.error .btn { color: var(--red); border-color: #f6ced2; }
 
 .grid { display: grid; gap: 14px; }
 .grid.metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); margin-bottom: 14px; }

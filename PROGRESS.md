@@ -1,10 +1,17 @@
 # PROGRESS
-_Cập nhật: 2026-10-26 — bởi Codex_
+_Cập nhật: 2026-10-26 — bởi Claude_
 
 ## Mục tiêu đang làm
 Payroll theo `docs/plans/payroll.md`: DB + contracts + API + smoke và phiếu cá nhân mobile đã nối API; đã cài bản sửa thông báo lên iPhone qua Wi-Fi (26/10), người dùng xác nhận các thao tác payroll khác ổn; vòng chờ Face ID đã sửa và cài lại. Ba smoke cũ phụ thuộc ngày đầu kỳ đã sửa sau khi được duyệt; kiểm tra tổng 26/10 TẤT CẢ ĐẠT, DB/Auth và app iPhone đã khôi phục. Web payroll làm ở phiên được giao tiếp. Mọi agent làm theo `docs/AGENT_PLAYBOOK.md`; kiểm tra toàn bộ bằng `bash tools/verify-all.sh`.
 
 ## Đã xong
+- Sửa banner lỗi tải dữ liệu web khó đọc (26/10, Claude): `LoadError` (admin-web + console-web) dùng `.banner` chữ trắng
+  nhưng chỉ đổi nền sang `--red-soft` → tiêu đề/lỗi gần như vô hình. Thêm modifier `.banner.error` trong `kavor-desktop.css`
+  của cả hai app (nền đỏ nhạt + viền, tiêu đề đỏ đậm #b3343f, chữ phụ #5b6660, nút viền đỏ nhạt); banner xanh giữ nguyên.
+  Typecheck admin-web/console-web đạt, build hai app đạt. Kiểm trên Chromium với Supabase + API local thật:
+  Kế toán HD0215 mở `/leave` → 403 "Bạn không có quyền thực hiện thao tác này." đọc rõ (1440 và 760 px); Tổng quan HR Admin
+  HD0007 banner xanh không đổi; Console `/audit` (giả lỗi request danh sách) hiện banner mới. `verify-all --quick`: typecheck +
+  unit đạt, pgTAP không chạy được vì không kéo được image `pg_prove` trong môi trường cloud (registry 429), không do thay đổi.
 - Sửa smoke đầu kỳ công (26/10, Codex; người dùng duyệt đúng 3 script leave/notifications/timesheet):
   - Leave chọn ngày làm việc đã qua gần nhất từ API; khi kỳ mới chưa có ngày đã qua thì đọc kỳ trước,
     đối chiếu bảng công đúng tháng chứa ngày nghỉ. Năm lấy từ `today` của tenant thay ngày máy Mac.
@@ -265,6 +272,7 @@ Payroll theo `docs/plans/payroll.md`: DB + contracts + API + smoke và phiếu c
 - Không có. Người dùng đã duyệt sửa cả 3 smoke leave/notifications/timesheet ngày 26/10.
 
 ## Nhật ký
+- 2026-10-26 — Claude sửa màu banner lỗi `LoadError` (web HR + Console) bằng `.banner.error`; kiểm trình duyệt với 403 thật của HD0215 trên `/leave`. Chỉ đổi CSS/kit, không đụng API/DB.
 - 2026-10-26 — Người dùng yêu cầu commit và push lên main trước khi làm tiếp. Gom phần payroll contracts/API/smoke, phiếu mobile/thông báo, vòng chờ Face ID và ba smoke đầu kỳ đã hoàn tất; verify-all đầy đủ đã đạt; verify-all --quick trước commit đạt typecheck/unit/301 pgTAP, exit 0. Không đưa cấu hình local, thông tin đăng nhập hay snapshot DB/Auth vào Git.
 - 2026-10-26 — Sau khi được duyệt, sửa đúng 3 smoke leave/notifications/timesheet về chọn kỳ/ngày và fixture. Chạy riêng 39/21/48 bước đạt; verify-all đầy đủ TẤT CẢ ĐẠT (payroll 104, pgTAP 301). Khôi phục DB/Auth người dùng, API .3 khỏe, mở lại iPhone thành công. Không commit.
 - 2026-10-26 — Người dùng xác nhận payroll khác ổn, gửi ảnh vòng Face ID xoay méo. Đổi vòng chờ thành tròn, kiểm video simulator, build/cài Wi-Fi đạt. Verify-all phát hiện 3 smoke cũ lỗi đầu kỳ; chờ duyệt sửa test. DB/auth đã khôi phục, không commit.

@@ -134,7 +134,7 @@ export function Empty({ title, text }: { title: string; text?: string }) {
 }
 export function LoadError({ error, retry }: { error: { message: string } | null; retry: () => void }) {
   if (!error) return null;
-  return <div className="banner" style={{ background: "var(--red-soft)" }}><span className="banner-icon"><Icon name="alert" /></span><span className="banner-copy"><b>Chưa tải được dữ liệu</b><span>{error.message}</span></span><button className="btn" onClick={retry}>Thử lại</button></div>;
+  return <div className="banner error"><span className="banner-icon"><Icon name="alert" /></span><span className="banner-copy"><b>Chưa tải được dữ liệu</b><span>{error.message}</span></span><button className="btn" onClick={retry}>Thử lại</button></div>;
 }
 
 /* Nút chạy thao tác bất đồng bộ: khóa khi đang chạy, báo lỗi bằng toast */
