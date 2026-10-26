@@ -3,6 +3,15 @@
   "known_differences": "Khác biệt cố ý: thanh trạng thái/vạch home thật của iOS thay cho hình vẽ; font Montserrat render bằng CoreText nên nét chữ hơi khác Chrome.",
   "states": [
     {
+      "state": "faceid-scanning",
+      "prototype": "prototype/faceid-scanning.png",
+      "native": "native/faceid-scanning.png",
+      "paired": "paired/faceid-scanning.png",
+      "status": "intentional-change",
+      "diff": 5.54,
+      "note": "Sửa theo phản hồi iPhone 26/10: vòng chờ vuông bo góc đổi riêng thành hình tròn 110×110, radius 55; icon Face ID giữ đứng yên. Đã xem ảnh ghép và 8 frame video simulator. Khác prototype có chủ đích; luồng xác thực không đổi. Chờ người dùng xác nhận bản mới trên máy thật."
+    },
+    {
       "state": "login",
       "prototype": "prototype/login.png",
       "native": "native/login.png",
@@ -298,6 +307,24 @@
       "status": "matched",
       "diff": 11.48,
       "note": "Khớp bố cục, màu, chữ và trạng thái."
+    },
+    {
+      "state": "payroll-api-list",
+      "prototype": "prototype/payroll-api-list.png",
+      "native": "native/payroll-api-list.png",
+      "paired": "paired/payroll-api-list.png",
+      "status": "reviewed-existing-differences",
+      "diff": 5.06,
+      "note": "Đã xem ảnh ghép nhánh API. Prototype mở khung 414×896 rồi chuẩn hóa như iPhone 11. Chỉ các tháng đã công bố; không bịa kỳ kế tiếp. Giữ component có sẵn; còn lệch nhỏ padding/font và định dạng ngày của iOS."
+    },
+    {
+      "state": "payroll-api-detail",
+      "prototype": "prototype/payroll-api-detail.png",
+      "native": "native/payroll-api-detail.png",
+      "paired": "paired/payroll-api-detail.png",
+      "status": "reviewed-existing-differences",
+      "diff": 6.9,
+      "note": "Đã xem ảnh ghép nhánh API. Prototype mở khung 414×896; bỏ ngân hàng/chú thích mẫu không có trong API, ngày công từ workDays. Giữ component có sẵn; hàng tổng net native thấp hơn prototype khoảng 12 px, là khác biệt component Ln hiện hữu. Chưa khẳng định khớp pixel."
     },
     {
       "state": "salary-question-sheet",

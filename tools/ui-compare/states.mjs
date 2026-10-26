@@ -2,6 +2,7 @@
 // `proto` chạy trong trang prototype (có sẵn S, R, ACT, go, jump, render, openPin, showErr...).
 // Native dùng cùng tên state qua deep link `kavor://qa/<state>` (xem apps/mobile/src/qa.ts).
 export const STATES = {
+  "faceid-scanning": `document.querySelector("#device").style.cssText="width:414px;height:896px"; jump("home"); openPin(()=>{}); pinSuccess=()=>{}; ACT.faceid()`,
   login: `jump('login')`,
   activate: `jump('login'); S.stack=['login','activate']; render()`,
   "otp-activate": `jump('login'); S.stack=['login','activate','otp']; render()`,
@@ -35,6 +36,8 @@ export const STATES = {
   "done-ot": `jump('home'); go('ot'); ACT.otSubmit()`,
   payslips: `S.pinUntil=Date.now()+3e5; jump('payslips')`,
   "payslip-detail": `S.pinUntil=Date.now()+3e5; jump('payslips'); S.param='0'; go('payslip')`,
+  "payroll-api-list": `document.querySelector("#device").style.cssText="width:414px;height:896px"; S.pinUntil=Date.now()+3e5; jump('payslips'); const sc=document.querySelector('#app .screen:not(.leaving)'); sc.querySelector('.fine').textContent='Công bố 05/10 · đã trả 05/10'; sc.querySelector('.card > .row:last-child').remove()`,
+  "payroll-api-detail": `document.querySelector("#device").style.cssText="width:414px;height:896px"; S.pinUntil=Date.now()+3e5; jump('payslips'); S.param='0'; go('payslip'); const sc=document.querySelector('#app .screen:not(.leaving)'); sc.querySelector('.fine').textContent=parseFloat(PAY[0].work)+' ngày công'; sc.querySelectorAll('.ln small').forEach(x=>x.remove()); sc.querySelectorAll('.fine')[1].textContent='Công bố 05/10 · đã trả 05/10'`,
   "salary-question-sheet": `S.pinUntil=Date.now()+3e5; jump('payslips'); S.param='0'; go('payslip'); ACT.askPay('09/2026')`,
   advance: `S.pinUntil=Date.now()+3e5; jump('advance')`,
   "advance-limit-sheet": `S.pinUntil=Date.now()+3e5; jump('advance'); ACT.advExplain()`,

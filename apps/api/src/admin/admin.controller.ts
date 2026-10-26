@@ -18,6 +18,7 @@ import type { NotificationsService } from "../notifications/notifications.servic
 import type { LeaveService } from "../leave/leave.service.js";
 import type { OvertimeService } from "../overtime/overtime.service.js";
 import type { AdvanceService } from "../advance/advance.service.js";
+import type { PayrollService } from "../payroll/payroll.service.js";
 import type { TimesheetAdmin } from "../timesheet/timesheet-admin.service.js";
 import { date, nullableText, oneOf, type Body as Json } from "./validate.js";
 
@@ -26,6 +27,7 @@ export type AdminServices = {
   employees: EmployeesAdmin; attendance: AttendanceAdmin; schedule: ScheduleAdmin;
   settings: SettingsAdmin; rules: RulesAdmin; mfa: MfaAdmin; company: CompanyService;
   timesheets: TimesheetAdmin; requests: RequestsService; notifications: NotificationsService; leave: LeaveService; overtime: OvertimeService; advance: AdvanceService;
+  payroll: PayrollService;
 };
 
 function bearer(header?: string): string {
@@ -227,6 +229,18 @@ export class AdminController {
   compensations(@Req() r: CorrelatedRequest, @Headers("authorization") a?: string) { return this.run(r, a, (s, c) => s.advance.compensations(c)); }
   @Post("compensations/:employeeId") @HttpCode(200)
   compensationSet(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("employeeId") id: string, @Body() b: Json) { return this.run(r, a, (s, c) => s.advance.setCompensation(c, id, b)); }
+
+  /* Payroll: nhập kết quả CSV và chuyển trạng thái qua SQL nguyên tử */
+  @Get("payroll/cycles")
+  payrollCycles(@Req() r: CorrelatedRequest, @Headers("authorization") a?: string) { return this.run(r, a, (s, c) => s.payroll.board(c)); }
+  @Post("payroll/cycles") @HttpCode(201)
+  payrollCreate(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Body() b: Json) { return this.run(r, a, (s, c) => s.payroll.create(c, b)); }
+  @Get("payroll/cycles/:month")
+  payrollDetail(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("month") m: string) { return this.run(r, a, (s, c) => s.payroll.detail(c, m)); }
+  @Post("payroll/cycles/:month/import") @HttpCode(200)
+  payrollImport(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("month") m: string, @Body() b: Json) { return this.run(r, a, (s, c) => s.payroll.importCsv(c, m, b)); }
+  @Post("payroll/cycles/:month/:action") @HttpCode(200)
+  payrollTransition(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("month") m: string, @Param("action") action: string, @Body() b: Json) { return this.run(r, a, (s, c) => s.payroll.transition(c, m, action, b)); }
 
   /* Thông báo của chính người đăng nhập web (hồ sơ nhân viên gắn với tài khoản) */
   @Get("notifications")

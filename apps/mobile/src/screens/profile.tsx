@@ -68,6 +68,7 @@ export function profileSpec(): ScreenSpec {
 /* Thông báo thật: mới nhất trước; chấm xanh = chưa đọc lúc mở màn; bấm để mở đơn/màn liên quan */
 const NOTIF_ICON: Record<NotificationKind, IconName> = {
   "approval.pending": "file", "approval.due": "hour", "request.approved": "checks", "request.rejected": "alert", "device.approved": "phone", "device.rejected": "phone", "advance.paid": "cash",
+  "payslip.published": "receipt",
 };
 function whenLabel(iso: string) {
   const d = new Date(iso), now = new Date();

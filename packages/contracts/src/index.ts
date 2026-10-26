@@ -667,6 +667,41 @@ export type CompensationRow = {
 export type CompensationBoard = { rows: CompensationRow[]; canManage: boolean };
 export type CompensationInput = { baseSalary: number; effectiveFrom: string; note?: string | null };
 
+/* ---------- Payroll: nhập kết quả từ CSV, không tính lương ---------- */
+export type PayComponent = { id: string; code: string; name: string; kind: "earning" | "deduction" | "net"; displayOrder: number };
+export type PayrollStatus = "open" | "prepared" | "under_review" | "approved" | "published" | "paid" | "closed";
+export type PayrollAction = "submit" | "approve" | "publish" | "paid" | "close" | "reopen";
+export type PayrollCycle = {
+  id: string; month: string; periodStart: string; periodEnd: string; payDate: string; status: PayrollStatus;
+  latestBatchId: string | null; importedBy: string | null; importedAt: string | null; approvedBy: string | null; approvedAt: string | null;
+  publishedAt: string | null; paidAt: string | null; closedAt: string | null;
+};
+/* row = số dòng bắt đầu bản ghi trong CSV (header là 1); null = lỗi/cảnh báo cấp file hoặc kỳ.
+   Chẩn đoán không chép giá trị ô tiền hay nội dung ghi chú. */
+export type PayrollIssue = { severity: "error" | "warning"; code: string; message: string; row: number | null; column: string | null; employeeCode: string | null };
+export type PayrollBatch = {
+  id: string; fileName: string; totalRows: number; errorRows: number; createdBy: string; createdAt: string; applied: boolean;
+  errors: PayrollIssue[]; warnings: PayrollIssue[];
+};
+export type PayrollResultItem = PayComponent & { amount: number; label: string | null };
+export type PayrollResult = {
+  id: string; employee: { id: string; code: string; fullName: string }; batchId: string;
+  gross: number; deduction: number; net: number; workDays: number | null; note: string | null; items: PayrollResultItem[];
+};
+export type PayrollEvent = { id: string; action: string; fromStatus: PayrollStatus | null; toStatus: PayrollStatus; actorUserId: string; employeeId: string | null; reason: string | null; createdAt: string };
+export type PayrollBoard = { cycles: PayrollCycle[]; canCreate: boolean };
+export type PayrollDetail = {
+  cycle: PayrollCycle; components: PayComponent[]; results: PayrollResult[]; batches: PayrollBatch[]; events: PayrollEvent[];
+  errors: PayrollIssue[]; warnings: PayrollIssue[]; canImport: boolean; actions: PayrollAction[];
+};
+export type PayrollCycleInput = { month: string; payDate: string };
+export type PayrollImportInput = { fileName: string; csv: string };
+export type PayrollImportOutcome = { cycle: PayrollCycle; batch: PayrollBatch };
+export type PayrollTransition = { cycle: PayrollCycle };
+export type PayrollReopenInput = { reason: string };
+export type MyPayslips = { items: Array<{ cycle: PayrollCycle; net: number; workDays: number | null; viewedAt: string | null }> };
+export type MyPayslip = { cycle: PayrollCycle; result: PayrollResult; viewedAt: string };
+
 /* ---------- Làm thêm giờ ---------- */
 export type OvertimePolicy = {
   name: string; versionNo: number;
@@ -735,10 +770,10 @@ export type EmployeeLeave = { employee: LeaveRow["employee"]; year: number; bala
 export type LeaveAdjustInput = { year: number; amount: number; reason: string; carry?: boolean; expiresOn?: string | null };
 
 /* ---------- Thông báo trong app ---------- */
-export type NotificationKind = "approval.pending" | "approval.due" | "request.approved" | "request.rejected" | "device.approved" | "device.rejected" | "advance.paid";
+export type NotificationKind = "approval.pending" | "approval.due" | "request.approved" | "request.rejected" | "device.approved" | "device.rejected" | "advance.paid" | "payslip.published";
 export type AppNotification = {
   id: string; kind: NotificationKind; title: string; body: string; createdAt: string; readAt: string | null;
-  link: { type: "request" | "device"; id: string; no: string | null } | null;
+  link: { type: "request" | "device" | "payslip"; id: string; no: string | null } | null;
   /* Thông báo "cần bạn duyệt" mà bước duyệt vẫn đang chờ (bấm vào để duyệt) */
   actionable: boolean;
 };

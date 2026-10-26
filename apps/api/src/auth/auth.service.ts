@@ -84,8 +84,15 @@ export class AuthService {
     if (linkErr || !linked?.length) throw new AuthError(AUTH_ERRORS.alreadyActivated, "Tài khoản đã được kích hoạt.", 409);
     /* Membership có thể đã được tạo trước (HR/Admin được mời và gán role trước khi kích hoạt) */
     const joined = { user_id: userId, status: "active", joined_at: new Date().toISOString() };
-    const { data: invited } = await this.sb.admin.from("memberships").update(joined).eq("tenant_id", emp.tenant_id).eq("employee_id", emp.id).select("id");
-    if (!invited?.length) await this.sb.admin.from("memberships").upsert({ tenant_id: emp.tenant_id, employee_id: emp.id, ...joined }, { onConflict: "tenant_id,user_id" });
+    const { data: invited, error: memberErr } = await this.sb.admin.from("memberships").update(joined).eq("tenant_id", emp.tenant_id).eq("employee_id", emp.id).select("id");
+    if (memberErr) throw new AuthError("AUTH_ACTIVATION_FAILED", "Chưa liên kết được quyền tài khoản. Vui lòng liên hệ quản trị viên.", 500, true);
+    let membershipId = invited?.[0]?.id as string | undefined;
+    if (!membershipId) {
+      const { data, error } = await this.sb.admin.from("memberships").upsert({ tenant_id: emp.tenant_id, employee_id: emp.id, ...joined }, { onConflict: "tenant_id,user_id" }).select("id").single();
+      if (error || !data) throw new AuthError("AUTH_ACTIVATION_FAILED", "Chưa liên kết được quyền tài khoản. Vui lòng liên hệ quản trị viên.", 500, true);
+      membershipId = data.id as string;
+    }
+    await this.assignEmployeeRole(emp, membershipId);
     await this.sb.admin.from("user_profiles").upsert({ id: userId, display_name: emp.full_name });
     await this.audit(emp.tenant_id, userId, "auth.activated", emp.id, correlationId);
     if (consent) {
@@ -97,6 +104,24 @@ export class AuthService {
     }
     return this.passwordLogin(email, password, emp);
     });
+  }
+
+  /* Role tự phục vụ khi kích hoạt, kể cả người đã được mời với role HR/Payroll.
+     Chỉ scope self; giữ phân quyền được gán trước, không tự cấp lại khi đăng nhập/đọc phiếu. */
+  private async assignEmployeeRole(emp: EmployeeRow, membershipId: string) {
+    const db = this.sb.admin;
+    const failure = () => new AuthError("AUTH_ACTIVATION_FAILED", "Chưa cấp được quyền tự phục vụ. Vui lòng liên hệ quản trị viên.", 500, true);
+    const { data: role, error: roleErr } = await db.from("roles").select("id").is("tenant_id", null).eq("is_system", true).eq("code", "employee").single();
+    if (roleErr || !role) throw failure();
+    const [{ data: assigned, error: assignedErr }, { data: today, error: dateErr }] = await Promise.all([
+      db.from("role_assignments").select("id").eq("tenant_id", emp.tenant_id).eq("membership_id", membershipId).eq("role_id", role.id).eq("scope_type", "self").limit(1).maybeSingle(),
+      db.rpc("tenant_today", { p_tenant: emp.tenant_id }),
+    ]);
+    if (assignedErr || dateErr || typeof today !== "string") throw failure();
+    if (!assigned) {
+      const { error } = await db.from("role_assignments").insert({ tenant_id: emp.tenant_id, membership_id: membershipId, role_id: role.id, scope_type: "self", effective_from: today });
+      if (error) throw failure();
+    }
   }
 
   /* ---------- Đăng nhập ---------- */

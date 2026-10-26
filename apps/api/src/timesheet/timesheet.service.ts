@@ -38,17 +38,19 @@ export class TimesheetService {
   }
 
   /* Bảng công của các nhân viên trong một kỳ. fresh: bỏ qua ảnh chụp khóa (dùng khi tạo ảnh chụp) */
-  async build(tenantId: string, employees: EmployeeLite[], month: string, opts: { fresh?: boolean } = {}): Promise<Sheets> {
+  async build(tenantId: string, employees: EmployeeLite[], month: string, opts: { fresh?: boolean; periodStartDay?: number } = {}): Promise<Sheets> {
     const db = this.sb.admin;
     const clock = await this.tenantClock(db, tenantId);
-    const { start, end } = periodOf(month, clock.periodStartDay);
+    // Payroll dùng kỳ đã chụp lúc mở, kể cả khi HR đổi cấu hình kỳ công sau đó.
+    const periodStartDay = opts.periodStartDay ?? clock.periodStartDay;
+    const { start, end } = periodOf(month, periodStartDay);
     const ids = employees.map((e) => e.id);
     const [index, placements, lock] = await Promise.all([
       PolicyIndex.load(db, tenantId),
       loadPlacements(db, tenantId, end < clock.today ? end : clock.today, ids),
       this.activeLock(db, tenantId, start),
     ]);
-    const period = periodView(month, clock.periodStartDay, lock);
+    const period = periodView(month, periodStartDay, lock);
     const sheets = new Map<string, EmployeeSheet>();
     if (!ids.length) return { ...clock, period, sheets, index, lock };
 

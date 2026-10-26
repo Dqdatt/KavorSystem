@@ -36,7 +36,7 @@ function FaceRing() {
   return (
     <View style={{ alignItems: "center", paddingVertical: 16 }}>
       <View style={{ width: 104, height: 104, borderRadius: 30, backgroundColor: C.soft, alignItems: "center", justifyContent: "center" }}>
-        <Animated.View style={{ position: "absolute", top: -3, left: -3, right: -3, bottom: -3, borderRadius: 32, borderWidth: 3, borderColor: "transparent", borderTopColor: C.violet, borderRightColor: C.emerald, transform: [{ rotate: v.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "360deg"] }) }] }} />
+        <Animated.View style={{ position: "absolute", top: -3, left: -3, width: 110, height: 110, borderRadius: 55, borderWidth: 3, borderColor: "transparent", borderTopColor: C.violet, borderRightColor: C.emerald, transform: [{ rotate: v.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "360deg"] }) }] }} />
         <FaceId size={48} color={C.emerald} />
       </View>
     </View>

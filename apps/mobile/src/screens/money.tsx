@@ -1,11 +1,12 @@
 import { Pressable, StyleSheet, TextInput, View } from "react-native";
 import { C, F } from "../theme";
 import { Gi, Ic } from "../icons";
-import { Btn, BtnRow, Card, Chip, Chips, ErrLine, Field, InfoRow, LinkBtn, Ln, Note, Num, Row, RowBtn, RowStrong, SecT, SectionHead, St, T, TbBtn, TextArea, Timeline } from "../ui";
+import { Btn, BtnRow, Card, Chip, Chips, ErrLine, Field, InfoRow, LinkBtn, Ln, Note, Num, Row, RowBtn, RowStrong, SecT, SectionHead, Spinner, St, T, TbBtn, TextArea, Timeline } from "../ui";
 import { Foot, TopBar, type ScreenSpec } from "../screen";
-import { advLimit, groupThousands, netPay, sum, vnd } from "../data";
+import { advLimit, dec, groupThousands, netPay, sum, vnd } from "../data";
 import { ACT, ADV_DAY, ADV_STEPS, S, advEligible, advError, emit, go, money, stamp } from "../store";
 import { REMOTE } from "../api/http";
+import { QA_ENABLED } from "../qa";
 import type { RequestItem } from "@kavor/contracts";
 
 const EyeBtn = () => <TbBtn label="Ẩn hoặc hiện số tiền" onPress={ACT.hideMoney}><Ic n={S.hideMoney ? "eyeOff" : "eye"} s={20} /></TbBtn>;
@@ -15,6 +16,7 @@ const Fine = ({ children, style }: { children: string; style?: object }) => <T s
 const Spacer = () => <View style={{ height: 76 }} />;
 
 export function payslipsSpec(): ScreenSpec {
+  if (REMOTE || (QA_ENABLED && S.payrollData)) return remotePayslipsSpec();
   return {
     head: <TopBar title="Phiếu lương" right={<EyeBtn />} />,
     body: [
@@ -29,6 +31,7 @@ export function payslipsSpec(): ScreenSpec {
 }
 
 export function payslipSpec(): ScreenSpec {
+  if (REMOTE || (QA_ENABLED && S.payslipData)) return remotePayslipSpec();
   const p = S.payslips[+(S.param ?? 0) || 0] ?? S.payslips[0]!;
   return {
     head: <TopBar title={"Tháng " + p.k} right={<EyeBtn />} />,
@@ -50,6 +53,54 @@ export function payslipSpec(): ScreenSpec {
       </BtnRow>,
     ],
   };
+}
+
+/* ---------- Phiếu lương thật: giữ khung prototype, lấy toàn bộ số tiền/nhãn từ API ---------- */
+const payMonth = (month: string) => `${month.slice(5, 7)}/${month.slice(0, 4)}`;
+const payDate = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value.slice(8, 10)}/${value.slice(5, 7)}`
+  : new Date(value).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", ...(S.ts?.timezone ? { timeZone: S.ts.timezone } : {}) });
+const payTimeline = (c: import("@kavor/contracts").PayrollCycle) => `Công bố ${c.publishedAt ? payDate(c.publishedAt) : "—"} · ${c.paidAt ? `đã trả ${payDate(c.paidAt)}` : `dự kiến trả ${payDate(c.payDate)}`}`;
+function payrollWaiting(error: string): ScreenSpec["body"] {
+  return error ? [<Note key="err" icon="info">{error}</Note>, <Btn key="retry" kind="ghost" block onPress={ACT.payrollRetry}>Thử lại</Btn>]
+    : [<Card key="loading"><Row style={{ justifyContent: "center", gap: 10 }}><Spinner /><T>Đang tải phiếu lương…</T></Row></Card>];
+}
+function remotePayslipsSpec(): ScreenSpec {
+  const data = S.payrollData, latest = data?.items[0];
+  const head = <TopBar title="Phiếu lương" right={<EyeBtn />} />;
+  if (!data) return { head, body: payrollWaiting(S.payrollError) };
+  if (!latest) return { head, body: [<Card key="empty" pad><Cap>Chưa có phiếu lương được công bố</Cap><Fine>Phiếu lương sẽ xuất hiện tại đây sau khi công ty công bố.</Fine></Card>] };
+  return { head, body: [
+    <View key="top" style={{ paddingTop: 8 }}><Cap>{`Thực lĩnh tháng ${payMonth(latest.cycle.month)}`}</Cap><Amt>{money(latest.net)}</Amt><Fine>{payTimeline(latest.cycle)}</Fine></View>,
+    <Card key="list">{data.items.map((p) => <RowBtn key={p.cycle.id} icon={<Gi n="receipt" s={24} />} title={`Tháng ${payMonth(p.cycle.month)}`}
+      sub={`Công bố ${p.cycle.publishedAt ? payDate(p.cycle.publishedAt) : "—"}`} right={<RowStrong>{money(p.net)}</RowStrong>}
+      onPress={() => { S.param = p.cycle.month; go("payslip"); }} />)}</Card>,
+    <Note key="n" icon="lock">Đã xác thực trong 5 phút. Sau đó app hỏi lại PIN hoặc Face ID.</Note>,
+  ] };
+}
+function remotePayslipSpec(): ScreenSpec {
+  const data = S.payslipData;
+  const month = data?.cycle.month ?? S.param ?? "";
+  const head = <TopBar title={month ? `Tháng ${payMonth(month)}` : "Phiếu lương"} right={<EyeBtn />} />;
+  if (!data) return { head, body: payrollWaiting(S.payslipError) };
+  const p = data.result, c = data.cycle;
+  return { head, body: [
+    <View key="top"><Cap>Thực lĩnh</Cap><Amt mt={4}>{money(p.net)}</Amt><Fine>{p.workDays === null ? "Chưa cung cấp ngày công" : `${dec(p.workDays)} ngày công`}</Fine></View>,
+    <Card key="c" pad>
+      <SecT>Thu nhập</SecT>
+      {p.items.filter((i) => i.kind === "earning").map((i) => <Ln key={i.id} k={i.label ?? i.name} v={money(i.amount)} />)}
+      <Ln k="Tổng thu nhập" v={money(p.gross)} kind="tot" />
+      <SecT style={{ marginTop: 18 }}>Khấu trừ</SecT>
+      {p.items.filter((i) => i.kind === "deduction").map((i) => <Ln key={i.id} k={i.label ?? i.name} v={"−" + money(i.amount)} vStyle={{ color: C.bad }} />)}
+      <Ln k="Tổng khấu trừ" v={"−" + money(p.deduction)} kind="tot" vStyle={{ color: C.bad }} />
+      <Ln k="Thực lĩnh" v={money(p.net)} kind="net" />
+    </Card>,
+    <Fine key="f" style={{ marginTop: 0 }}>{payTimeline(c)}</Fine>,
+    p.note ? <Note key="note" icon="info">{p.note}</Note> : null,
+    <BtnRow key="b">
+      <Btn kind="ghost" sm icon={<Gi n="download" s={18} />} onPress={() => ACT.toast("Tải PDF phiếu lương sẽ có ở bản sau.")}>Tải PDF</Btn>
+      <Btn kind="ghost" sm icon={<Gi n="msg" s={18} />} onPress={() => ACT.askPay(payMonth(month))}>Hỏi HR</Btn>
+    </BtnRow>,
+  ] };
 }
 
 /* ---------- Tạm ứng (bản dùng API) ---------- */

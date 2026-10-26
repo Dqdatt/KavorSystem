@@ -14,6 +14,14 @@ Bộ ảnh đối chiếu `Kavor HRM Prototype.html` với app React Native tron
 Kết quả lần chụp 22/10/2026: **70/70 trạng thái đã có trên native**, không còn trạng thái "chưa triển khai".
 Điểm `diff` (0–255, bỏ thanh trạng thái và vạch home) cao nhất ≈ 27. Phần lớn đến từ thanh trạng thái thật của iOS, cách CoreText render font Montserrat và thời điểm animation khi chụp, không phải lệch bố cục.
 
+Bổ sung 26/10/2026: `payroll-api-list` và `payroll-api-detail` chụp nhánh UI API bằng dữ liệu fixture của prototype.
+Hai state này mở prototype ở 414×896 (kích thước logic thật của iPhone 11), rồi chuẩn hóa cùng native về 390×844.
+Nội dung bỏ ngân hàng/chú thích giả và kỳ chưa công bố không có trong API. Đã xem ảnh ghép; manifest ghi
+`reviewed-existing-differences`: còn lệch nhỏ padding/font/định dạng ngày, hàng NET của component native cũ thấp hơn khoảng 12 px.
+Không sửa component dùng chung và không khẳng định hai state mới khớp pixel. Hai state mới chưa chụp Android.
+
+Bổ sung 26/10: `faceid-scanning` đổi vòng chờ thành tròn theo phản hồi máy thật; đã xem 8 frame từ video simulator, icon đứng yên. Đây là thay đổi có chủ đích so với vòng vuông bo góc của prototype. Không thay sheet PIN hay luồng xác thực.
+
 ## Chụp lại
 
 ```bash

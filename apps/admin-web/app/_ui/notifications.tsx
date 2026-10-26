@@ -10,6 +10,7 @@ import { Icon, fmtDateTime, useMe } from "./kit";
 const ICON: Record<NotificationKind, [string, string]> = {
   "approval.pending": ["checks", ""], "approval.due": ["clock", "amber"], "request.approved": ["checks", ""], "request.rejected": ["alert", "red"],
   "device.approved": ["phone", "blue"], "device.rejected": ["phone", "red"], "advance.paid": ["pay", ""],
+  "payslip.published": ["pay", ""],
 };
 
 export function NotificationBell() {

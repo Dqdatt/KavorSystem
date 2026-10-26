@@ -5,7 +5,7 @@ import type { SupabaseGateway } from "../auth/supabase.js";
 import { invalid } from "../admin/context.js";
 import type { Body } from "../admin/validate.js";
 
-type Row = { id: string; kind: NotificationKind; title: string; body: string; created_at: string; read_at: string | null; link_type: "request" | "device" | null; link_id: string | null; link_no: string | null; task_id: string | null };
+type Row = { id: string; kind: NotificationKind; title: string; body: string; created_at: string; read_at: string | null; link_type: "request" | "device" | "payslip" | null; link_id: string | null; link_no: string | null; task_id: string | null };
 const COLS = "id, kind, title, body, created_at, read_at, link_type, link_id, link_no, task_id";
 const SWEEP_MS = 10 * 60_000;
 const UUID = /^[0-9a-f-]{36}$/i;

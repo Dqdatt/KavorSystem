@@ -11,9 +11,10 @@ import type { NotificationsService } from "../notifications/notifications.servic
 import type { LeaveService } from "../leave/leave.service.js";
 import type { OvertimeService } from "../overtime/overtime.service.js";
 import type { AdvanceService } from "../advance/advance.service.js";
+import type { PayrollService } from "../payroll/payroll.service.js";
 
 export const TIMESHEET_SERVICES = Symbol("TIMESHEET_SERVICES");
-export type TimesheetServices = { timesheets: TimesheetService; requests: RequestsService; notifications: NotificationsService; leave: LeaveService; overtime: OvertimeService; advance: AdvanceService };
+export type TimesheetServices = { timesheets: TimesheetService; requests: RequestsService; notifications: NotificationsService; leave: LeaveService; overtime: OvertimeService; advance: AdvanceService; payroll: PayrollService };
 
 function bearer(header?: string): string {
   const m = /^Bearer\s+(.+)$/i.exec(header ?? "");
@@ -67,6 +68,10 @@ export class TimesheetController {
   advance(@Req() r: CorrelatedRequest, @Headers("authorization") a?: string) { return this.run(r, a, (s, emp, v) => s.advance.myAdvance(emp, v.correlationId)); }
   @Post("requests/advance") @HttpCode(201)
   advanceRequest(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Body() b: Json) { return this.run(r, a, (s, emp, v) => s.advance.createAdvance(emp, b, v.correlationId)); }
+  @Get("payslips")
+  payslips(@Req() r: CorrelatedRequest, @Headers("authorization") a?: string) { return this.run(r, a, (s, emp, v) => s.payroll.myPayslips(emp, v.correlationId)); }
+  @Get("payslips/:month")
+  payslip(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("month") m: string) { return this.run(r, a, (s, emp, v) => s.payroll.myPayslip(emp, m, v.correlationId)); }
   @Post("requests/:id/cancel") @HttpCode(200)
   cancel(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string) { return this.run(r, a, (s, emp, v) => s.requests.cancel(emp, id, v.correlationId)); }
 

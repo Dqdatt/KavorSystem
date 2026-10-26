@@ -1,4 +1,5 @@
 state,prototype,native,paired,status,diff,note
+faceid-scanning,prototype/faceid-scanning.png,native/faceid-scanning.png,paired/faceid-scanning.png,intentional-change,5.54,"Sửa theo phản hồi iPhone 26/10: vòng chờ vuông bo góc đổi riêng thành hình tròn 110×110, radius 55; icon Face ID giữ đứng yên. Đã xem ảnh ghép và 8 frame video simulator. Khác prototype có chủ đích; luồng xác thực không đổi. Chờ người dùng xác nhận bản mới trên máy thật."
 login,prototype/login.png,native/login.png,paired/login.png,matched,18.23,Khớp. Nút Face ID dùng biểu tượng hệ thống iOS (SF Symbol faceid) theo yêu cầu.
 activate,prototype/activate.png,native/activate.png,paired/activate.png,matched,24.01,"Khớp bố cục, màu, chữ và trạng thái."
 otp-activate,prototype/otp-activate.png,native/otp-activate.png,paired/otp-activate.png,matched,19.75,"Khớp bố cục, màu, chữ và trạng thái."
@@ -32,6 +33,8 @@ ot,prototype/ot.png,native/ot.png,paired/ot.png,matched,10.13,"Khớp bố cục
 done-ot,prototype/done-ot.png,native/done-ot.png,paired/done-ot.png,matched,10.11,"Khớp bố cục, màu, chữ và trạng thái."
 payslips,prototype/payslips.png,native/payslips.png,paired/payslips.png,matched,10.84,"Khớp bố cục, màu, chữ và trạng thái."
 payslip-detail,prototype/payslip-detail.png,native/payslip-detail.png,paired/payslip-detail.png,matched,11.48,"Khớp bố cục, màu, chữ và trạng thái."
+payroll-api-list,prototype/payroll-api-list.png,native/payroll-api-list.png,paired/payroll-api-list.png,reviewed-existing-differences,5.06,Đã xem ảnh ghép nhánh API. Prototype mở khung 414×896 rồi chuẩn hóa như iPhone 11. Chỉ các tháng đã công bố; không bịa kỳ kế tiếp. Giữ component có sẵn; còn lệch nhỏ padding/font và định dạng ngày của iOS.
+payroll-api-detail,prototype/payroll-api-detail.png,native/payroll-api-detail.png,paired/payroll-api-detail.png,reviewed-existing-differences,6.9,"Đã xem ảnh ghép nhánh API. Prototype mở khung 414×896; bỏ ngân hàng/chú thích mẫu không có trong API, ngày công từ workDays. Giữ component có sẵn; hàng tổng net native thấp hơn prototype khoảng 12 px, là khác biệt component Ln hiện hữu. Chưa khẳng định khớp pixel."
 salary-question-sheet,prototype/salary-question-sheet.png,native/salary-question-sheet.png,paired/salary-question-sheet.png,matched,17.26,"Khớp bố cục, màu, chữ và trạng thái."
 advance,prototype/advance.png,native/advance.png,paired/advance.png,matched,13.78,"Khớp bố cục, màu, chữ và trạng thái."
 advance-limit-sheet,prototype/advance-limit-sheet.png,native/advance-limit-sheet.png,paired/advance-limit-sheet.png,matched,12.44,"Khớp bố cục, màu, chữ và trạng thái."

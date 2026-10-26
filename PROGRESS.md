@@ -1,10 +1,97 @@
 # PROGRESS
-_Cập nhật: 2026-10-25 — bởi Codex_
+_Cập nhật: 2026-10-26 — bởi Codex_
 
 ## Mục tiêu đang làm
-Payroll theo `docs/plans/payroll.md`: phần DB đã kiểm tra (25/10); bước tiếp theo là contracts → API → smoke, rồi web/mobile ở phiên được người dùng giao tiếp. Mọi agent làm theo `docs/AGENT_PLAYBOOK.md`; kiểm tra toàn bộ bằng `bash tools/verify-all.sh`.
+Payroll theo `docs/plans/payroll.md`: DB + contracts + API + smoke và phiếu cá nhân mobile đã nối API; đã cài bản sửa thông báo lên iPhone qua Wi-Fi (26/10), người dùng xác nhận các thao tác payroll khác ổn; vòng chờ Face ID đã sửa và cài lại. Ba smoke cũ phụ thuộc ngày đầu kỳ đã sửa sau khi được duyệt; kiểm tra tổng 26/10 TẤT CẢ ĐẠT, DB/Auth và app iPhone đã khôi phục. Web payroll làm ở phiên được giao tiếp. Mọi agent làm theo `docs/AGENT_PLAYBOOK.md`; kiểm tra toàn bộ bằng `bash tools/verify-all.sh`.
 
 ## Đã xong
+- Sửa smoke đầu kỳ công (26/10, Codex; người dùng duyệt đúng 3 script leave/notifications/timesheet):
+  - Leave chọn ngày làm việc đã qua gần nhất từ API; khi kỳ mới chưa có ngày đã qua thì đọc kỳ trước,
+    đối chiếu bảng công đúng tháng chứa ngày nghỉ. Năm lấy từ `today` của tenant thay ngày máy Mac.
+  - Notifications/timesheet tự tạo fixture chấm công 45 ngày gần đây trong DB local vừa reset, dùng `tenant_today`
+    và timezone tenant, bỏ cuối tuần/lễ. Chỉ fixture reset bảng sự kiện rồi nạp mẫu; gửi/duyệt/đọc/khóa/mở vẫn qua API thật.
+    Không đổi API, UI, migration, seed hay quy định. Kỳ của ngày giải trình được chọn rõ ở từng request đọc lại;
+    hai ngày gần nhau có thể thuộc hai kỳ, quota và số đơn được đối chiếu đúng kỳ thay giả định cùng kỳ hiện tại.
+  - `bash -n tools/leave-smoke.sh tools/notifications-smoke.sh tools/timesheet-smoke.sh` đạt.
+    Mỗi script chạy trên DB vừa reset đều exit 0: leave 39, notifications 21, timesheet 48.
+  - `bash tools/verify-all.sh` đầy đủ: TẤT CẢ ĐẠT, exit 0 (ngày đầu kỳ 26/10): typecheck mọi package;
+    unit contracts 6 + API 34 + mobile 6; pgTAP 301; advance 31, attendance 19, auth 15,
+    console 44, HR 64, leave 39, notifications 21, OT 28, payroll 104, settings 74, timesheet 48;
+    build 6/6, lint không lỗi, chỉ cảnh báo cũ `p_actor` chưa dùng.
+  - Sau kiểm tra đã khôi phục snapshot dữ liệu/Auth gốc trong transaction COMMIT exit 0; UUID người dùng,
+    số thiết bị/kỳ/lượt xem/Auth users/sessions khớp bản trước kiểm tra. API và Auth health 200, LAN .3.
+    Đã mở lại Kavor trên iPhone Dqdatt qua devicectl thành công và xác nhận tiến trình còn chạy.
+    Bản Face ID đã cài không thay đổi trong lượt sửa test; chờ người dùng xác nhận riêng animation máy thật. Không commit.
+- Sửa nhẹ vòng chờ Face ID từ PIN (26/10, Codex, theo ảnh iPhone người dùng gửi):
+  - Đổi đúng kiểu dáng vòng `FaceRing`: kích thước cố định 110×110, radius 55 thay khung vuông bo góc quay.
+    Biểu tượng Face ID đứng yên; không sửa luồng xác thực/PIN hay component UI dùng chung.
+  - `pnpm --filter @kavor/mobile typecheck` đạt; 6/6 test hành vi payroll đạt.
+    Thêm QA state `faceid-scanning`, chụp/ghép prototype/native; xem 8 frame từ video simulator thấy vòng tròn ổn định ở các góc quay.
+    Manifest ghi thay đổi có chủ đích so với prototype; ảnh/video không thay xác nhận máy thật.
+  - Release QA=0/API .3: BUILD SUCCEEDED, codesign đạt, cài devicectl qua localNetwork success.
+    Người dùng đã xác nhận thao tác payroll còn lại ổn ở bản trước; cần thử lại riêng vòng chờ trên bản mới.
+  - `bash tools/verify-all.sh` exit 1: typecheck, unit, pgTAP 301, 8 smoke khác (payroll 104), build, lint đạt;
+    leave/notifications/timesheet lỗi do hôm nay 26/10 bắt đầu kỳ công, script giả định kỳ hiện tại có ngày đã qua/dữ liệu chấm công mẫu.
+    Ở lượt này đã xin duyệt đúng 3 script; sau đó người dùng duyệt và cả 3 được sửa/kiểm tra đạt ở mục trên.
+    Lỗi leave và notifications: IndexError khi lấy phần tử đầu của mảng ngày rỗng;
+    timesheet: kiểm số ngày chấm công/thiếu của seed thất bại vì kỳ mới chưa có dữ liệu.
+  - Đã giữ snapshot DB/auth mới nhất trước verify, tạm đóng app khi reset; khôi phục bằng supabase_admin trong transaction COMMIT exit 0.
+    User UUID, thiết bị, kỳ, lượt xem và số Auth user/session khớp trước kiểm tra. Không commit; lỗi kiểm tra tổng của lượt này đã được xử lý và chạy lại đạt ở mục trên.
+- Phiếu lương mobile thật + sửa bấm thông báo (25–26/10, Codex; người dùng duyệt mở rộng phạm vi mobile):
+  - `payslip.published`/link `payslip` mở đúng tháng, đi qua cổng PIN/Face ID sẵn có rồi mới gọi API;
+    không tìm trong danh sách đơn duyệt nên không còn trả toast “đơn đã xử lý”. Danh sách/chi tiết dùng
+    `/me/payslips` và `/me/payslips/:month`, nhãn/item/ngày công từ API, ẩn/hiện tiền giữ nguyên.
+  - Không trộn ngân hàng/phiếu mẫu vào nhánh API; có loading, retry, trống, lỗi/404. Đăng xuất xóa cache lương trong RAM,
+    bỏ phản hồi cũ đang tải. API chỉ có tháng đã công bố nên không bịa kỳ sắp tới; PDF “sẽ có ở bản sau”, Hỏi HR vẫn cục bộ theo plan.
+  - `pnpm --filter @kavor/mobile typecheck` đạt; `pnpm --filter @kavor/mobile test` 6/6 ca thật:
+    thông báo → mở khóa → API đúng tháng, item/ngày công/ẩn tiền, danh sách trống, 404 bỏ dữ liệu cũ,
+    link sai tháng không gọi HTTP, đăng xuất khi request đang chạy. Typecheck api/admin-web/console-web cũng đạt.
+  - `bash tools/verify-all.sh` đầy đủ: TẤT CẢ ĐẠT, exit 0; typecheck mọi package, unit contracts 6 + API 34 + mobile 6,
+    pgTAP 301; advance 31, attendance 19, auth 15, console 44, HR 64, leave 39, notifications 20,
+    OT 28, payroll 104, settings 74, timesheet 47; build đạt, lint chỉ cảnh báo cũ `p_actor` chưa dùng.
+  - Đã chụp/ghép/xem hai state `payroll-api-list`/`payroll-api-detail`; dùng fixture prototype qua contract, không chụp lương thật.
+    Prototype đặt khung 414×896 tương ứng iPhone 11 rồi chuẩn hóa 390×844. Manifest ghi rõ còn lệch component cũ:
+    padding/font và hàng NET thấp hơn khoảng 12 px; không khẳng định khớp pixel, không sửa component dùng chung.
+  - Đã snapshot DB/auth trước verify, tạm dừng app trên iPhone; sau verify khôi phục nguyên dữ liệu bằng transaction.
+    Lần đầu rollback vì postgres local thiếu quyền auth.schema_migrations; khôi phục bằng supabase_admin COMMIT exit 0.
+    UUID HD0142, số thiết bị, kỳ lương và lượt xem khớp snapshot. HD0142 đã kích hoạt; không cần kích hoạt lại.
+  - Release build QA=0, xóa Metro cache, API `http://192.168.1.3:4000/api/v1` (IP LAN mới 26/10), BUILD SUCCEEDED,
+    codesign đạt; bundle có route/API mới, không còn .22. Cài/launch devicectl success qua localNetwork, process còn chạy.
+    Chờ người dùng xác nhận bấm thông báo/PIN/Face ID và số liệu trên máy thật; không commit.
+- Cài Release lên iPhone 11 Dqdatt qua **Wi-Fi** (25/10, Codex):
+  - Xác nhận devicectl `transportType: localNetwork`, tunnel connected. Build bằng xcodebuild Release,
+    API `http://192.168.1.22:4000/api/v1`, `EXPO_PUBLIC_KAVOR_QA=0`, xóa Metro cache trước build; không prebuild/native regenerate.
+    `BUILD SUCCEEDED`, mã 0; codesign verify đạt; bundle chứa API .22, không còn .83.
+  - `xcrun devicectl device install app ...` đạt (JSON outcome success); launch đạt, kiểm sau launch Kavor vẫn chạy trên máy thật.
+    Đây là bằng chứng cài/khởi động, chưa phải người dùng xác nhận thao tác nghiệp vụ/animation/Face ID trên iPhone.
+  - Chuẩn bị dữ liệu qua API thật: kích hoạt hai Kế toán, mở kỳ 2026-10, nhập CSV mẫu không lỗi, người thứ hai duyệt và công bố.
+    HD0142 chưa kích hoạt; thông báo sẵn: "Phiếu lương 10/2026 đã công bố", body không có tiền, icon receipt.
+    Người dùng tự kích hoạt HD0142 trên iPhone, lấy OTP đúng email ở Mailpit và tự đặt mật khẩu; không lưu thông tin đăng nhập.
+  - Kịch bản người dùng thử: cùng Wi-Fi + API Mac đang chạy → kích hoạt → chuông thông báo (icon/body) → Bảo mật và thiết bị,
+    bật Face ID, mở lại app/vào Tạm ứng. Màn Phiếu lương và hành động bấm thông báo payroll chưa nối API, vẫn mẫu; không dùng
+    kết quả màn mẫu để xác nhận CSV nhập. Không sửa mã app trong bước cài, không commit; verify đầy đủ trước đó vẫn đạt.
+- Payroll — **contracts + API + smoke** (25/10, Codex; endpoint/lỗi/cảnh báo/đối chiếu được duyệt trước khi code; không commit):
+  - Contracts cho kỳ lương, thành phần/item snapshot, batch, lỗi/cảnh báo theo dòng/cột, bước chuyển trạng thái và phiếu cá nhân.
+    API `/admin/payroll/cycles` (danh sách/mở kỳ/chi tiết/nhập CSV/submit/approve/publish/paid/close/reopen),
+    `/me/payslips` và `/me/payslips/:month` (ghi lần xem đầu). Nối service vào app.module/admin.controller/timesheet.controller
+    theo khuôn AdvanceService; mọi request kiểm permission + phạm vi, ngoài phạm vi 404, web bắt buộc MFA.
+  - CSV UTF-8/BOM, CRLF, quote/ghi chú nhiều dòng, VND nguyên có/không dấu chấm; earning/deduction không âm, NET được âm.
+    Chặn lỗi header/mã NV/trùng dòng/số/NET/ngày công/ghi chú; batch giữ chẩn đoán `severity` trong JSON `warnings` hiện có,
+    API tách `errors`/`warnings`. File lỗi không thay kết quả cũ và chặn gửi lại; file hợp lệ thay toàn bộ qua SQL nguyên tử.
+  - Cảnh báo không chặn: ADVANCE so tổng đã chi cùng tháng khấu trừ; OT_PAY so OT đã duyệt trong kỳ công; work_days so credited;
+    thiếu NV làm việc trong kỳ; kỳ công chưa khóa. Dùng kỳ đã chụp khi mở payroll, kể cả HR đổi periodStartDay sau đó;
+    kỳ công đã khóa đọc snapshot. Công bố đối chiếu tạm ứng lại trong SQL; khớp mới đánh dấu, lệch/thiếu dòng vẫn công bố và giữ null.
+    Audit đọc/ghi chỉ metadata, không chép tiền/CSV/note; lỗi SQL được làm sạch để không lộ failing row có tiền qua log/API.
+  - Người dùng duyệt sửa tối thiểu auth: kích hoạt gán role hệ thống employee scope self, ngày hiệu lực từ tenant_today;
+    giữ role đã gán trước, không tự cấp lại khi đăng nhập/đọc phiếu sau khi bị thu hồi. Chỉ áp lúc kích hoạt mới, không backfill
+    tài khoản đã active từ trước. UI chỉ thêm đúng một dòng icon payslip.published ở web (pay) và mobile (receipt), theo duyệt.
+  - `bash tools/db-reset.sh && bash tools/payroll-smoke.sh`: **104 bước đạt**, mã 0, không traceback; kịch bản qua API thật,
+    quy định nhận tạm ứng tới cuối tháng, ngày từ API tenant. Kiểm lỗi, hai chiều OT, ngày công, tạm ứng chưa chi/đã chi/lệch/thiếu,
+    khóa kết quả/tách người duyệt/mở lại/phiếu cá nhân/thông báo không có tiền/thu hồi quyền/snapshot sau khi đổi kỳ công.
+  - `bash tools/verify-all.sh` đầy đủ: **TẤT CẢ ĐẠT**, mã 0; typecheck 6/6, unit thật contracts 6 + API 34,
+    pgTAP 301, 11 smoke (advance 31, attendance 19, auth 15, console 44, HR 64, leave 39, notifications 20, OT 28,
+    payroll 104, settings 74, timesheet 47), build 6/6, lint không lỗi (chỉ cảnh báo cũ p_actor chưa dùng ở grant_tenant_admin).
+    Không sửa migration/seed. UI payroll, export/PDF và thử thiết bị thật chưa làm; test UI hiện vẫn là placeholder.
 - Payroll — **chỉ phần DB** (25/10, Codex; phạm vi và bốn quyết định đã được người dùng duyệt trước khi code):
   - Migration mới `202610310001_payroll.sql`: permission + gán vai trò Kế toán (không cấp mặc định reopen), `pay_components`,
     `payroll_cycles`, `payroll_import_batches`, `payroll_results`, `payroll_result_items`, `payroll_cycle_events`, `payslip_views`.
@@ -27,7 +114,7 @@ Payroll theo `docs/plans/payroll.md`: phần DB đã kiểm tra (25/10); bước
   - `bash tools/verify-all.sh` đầy đủ: **TẤT CẢ ĐẠT**, mã 0; typecheck 6/6, unit thật contracts 6 + API 28,
     pgTAP 301, 10 smoke (advance 31, attendance 19, auth 15, console 44, HR 64, leave 39, notifications 20, OT 28,
     settings 74, timesheet 47), build 6/6, lint không có lỗi (chỉ cảnh báo cũ `grant_tenant_admin`: `p_actor` chưa dùng).
-    Test giao diện vẫn là placeholder; chưa có API/smoke/UI payroll, chưa kiểm payroll trên thiết bị thật.
+    Tại phiên DB chưa có API/smoke/UI payroll; phần API/smoke đã làm ở mục trên. Chưa kiểm payroll trên thiết bị thật.
 - Bàn giao cho agent khác (25/10): `docs/AGENT_PLAYBOOK.md` (nguyên tắc, cách port prototype → native có đối chiếu ảnh, khuôn module 11 bước,
   quy tắc nhiều agent: một agent một lúc, ghi "Đang làm", không force-push, không sửa migration đã push), mục bắt buộc ở đầu `AGENTS.md`,
   `tools/verify-all.sh` (typecheck + unit test + pgTAP + mọi smoke trên DB mới + build + lint, một lệnh), kế hoạch `docs/plans/payroll.md`.
@@ -108,18 +195,19 @@ Payroll theo `docs/plans/payroll.md`: phần DB đã kiểm tra (25/10); bước
 - Kiểm tra ngày 22/10: `pnpm turbo run typecheck test build --force` pass 18/18 task (test thật chỉ có contracts 2 + api 2)
 
 ## Đang dở (QUAN TRỌNG NHẤT)
-- Không có agent đang làm. Payroll đã có DB; contracts/API/CSV parsing/smoke/web/mobile chưa triển khai. Mở lại published/paid/closed
-  cần thiết kế phiên bản phiếu công bố ở phiên sau; cảnh báo OT/ngày công/kỳ công và audit khi đọc/export còn ở bước API.
-- DB local vừa reset về dữ liệu mẫu khi chạy `verify-all.sh` (không còn dữ liệu thử payroll/đồng thời; iPhone phải kích hoạt lại HD0142;
-  thử tạm ứng sau ngày 20 cần quy định riêng hạn 31 — xem smoke tạm ứng). API LAN Mac kiểm tra phiên này là
-  `http://192.168.1.22:4000/api/v1`; chưa build/cài lại app (bản trên iPhone bàn giao trước trỏ .83, xem dòng dưới).
+- Payroll DB/contracts/API/smoke đã đạt verify đầy đủ; người dùng đã yêu cầu commit và push các thay đổi hoàn tất lên main ngày 26/10.
+  Mobile phiếu cá nhân đã nối API, người dùng xác nhận các thao tác khác ổn; đã cài bản sửa vòng chờ Face ID. Web payroll chưa triển khai; chưa có export/PDF. Mở lại published/paid/closed
+  cần thiết kế phiên bản phiếu công bố ở phiên sau.
+- DB local có kỳ lương mẫu 2026-10 đã công bố cho HD0142 để thử thông báo, hai tài khoản Kế toán đã kích hoạt qua API;
+  HD0142 đã kích hoạt trên iPhone, dữ liệu/auth được giữ sau verify. Không reset DB nếu người dùng đang thử. Tạm ứng sau ngày 20 cần
+  quy định riêng hạn 31 — xem smoke tạm ứng. API LAN Mac và bản Release vừa cài đều trỏ `http://192.168.1.3:4000/api/v1`.
   Chưa thử từ chối/hủy đơn và duyệt trên app bằng tài khoản quản lý trên máy thật (smoke đã kiểm). Thử duyệt trên app:
   kích hoạt quản lý HDG0003 (huy.le@example.test) ở máy khác/simulator. Thử Console:
   `OPERATOR_PASSWORD='…' bash tools/create-operator.sh <email> "<Họ tên>"` (tạo 2 người để thử duyệt khôi phục),
   `pnpm dev:console` → http://localhost:3001, lần đầu liên kết ứng dụng xác thực.
 - Cài bản mới lên iPhone: build `xcodebuild -workspace ios/Kavor.xcworkspace -scheme Kavor -configuration Release -destination 'generic/platform=iOS' -derivedDataPath ios/build-device -allowProvisioningUpdates build` (trong `apps/mobile`, có `EXPO_PUBLIC_API_URL`, xóa `$TMPDIR/metro-cache` trước) rồi `xcrun devicectl device install app --device 36F8CE4A-8C04-5232-AB9D-0041A426F6A0 ios/build-device/Build/Products/Release-iphoneos/Kavor.app`. Nếu devicectl báo "unavailable": mở khóa iPhone, bấm Tin cậy, cắm cáp dữ liệu.
 - Reset DB local: dùng `bash tools/db-reset.sh` (sau `supabase db reset` Kong giữ IP cũ của Auth → 502).
-- Bản trên iPhone trỏ tới API `http://192.168.1.83:4000/api/v1` (IP LAN của Mac ngày 25/10; trước là 192.168.1.22, 192.168.1.25, 172.17.91.14). App báo "không kết nối máy chủ" thì kiểm tra `ipconfig getifaddr en0` trước — IP đổi thì phải build lại: Mac phải chạy `pnpm dev:backend`, cùng Wi-Fi. IP Mac đổi thì phải build lại app.
+- Bản trên iPhone hiện trỏ tới API `http://192.168.1.3:4000/api/v1` (cài bản sửa payroll qua Wi-Fi 26/10; thay bản .22). App báo "không kết nối máy chủ" thì kiểm tra `ipconfig getifaddr en0` trước — IP đổi thì phải build lại: Mac phải chạy `pnpm dev:backend`, cùng Wi-Fi. IP Mac đổi thì phải build lại app.
 - Chưa có môi trường staging: migration 23/10 **chưa push** lên project Supabase thật; project thật chưa có dữ liệu nhân viên, SMTP riêng và Realtime chưa kiểm tra ở đó.
 - Người dùng cần tự đổi publishable key trên Supabase Dashboard (Settings → API Keys: tạo publishable key mới, xóa key `default` cũ).
 
@@ -152,31 +240,42 @@ Payroll theo `docs/plans/payroll.md`: phần DB đã kiểm tra (25/10); bước
 - Cấp Tenant Admin cho người có tài khoản đang bị khóa thì role được gán nhưng vẫn không đăng nhập được cho tới khi mở khóa.
 - Ca qua đêm, tầng "loại hợp đồng", lịch xếp ca theo ngày, bản đồ chọn vị trí chưa có. Trình duyệt nhúng trong app Claude không cấp quyền vị trí; nút "Dùng vị trí hiện tại của trình duyệt" cần Chrome/Safari thật.
 - Giải trình chưa có đính kèm minh chứng (cần Storage + quét file); Bảng công chưa tính nghỉ phép/OT/ca qua đêm; thiếu cả ngày chỉ giải trình theo giờ ca. Snapshot khóa kỳ chưa có trang xem lịch sử khóa/mở.
-- Thông báo trên mobile không đến tức thì (iPhone trong LAN không nối Realtime của Supabase local; chưa có push) — app hỏi lại mỗi 30 giây khi đang mở, và khi mở/quay lại app; app tắt thì không biết cho tới lần mở sau. E19 vẫn hỏi lại 8 giây/lần. Ngưỡng "sắp quá hạn" 4 giờ và chu kỳ quét 10 phút là hằng số của hệ thống, chưa cấu hình theo tenant. Chưa có nhắc chấm công, thông báo phiếu lương/bản tin (chờ module tương ứng), chưa có dọn thông báo cũ.
+- Thông báo trên mobile không đến tức thì (iPhone trong LAN không nối Realtime của Supabase local; chưa có push) — app hỏi lại mỗi 30 giây khi đang mở, và khi mở/quay lại app; app tắt thì không biết cho tới lần mở sau. E19 vẫn hỏi lại 8 giây/lần. Ngưỡng "sắp quá hạn" 4 giờ và chu kỳ quét 10 phút là hằng số của hệ thống, chưa cấu hình theo tenant. Thông báo phiếu lương đã mở phiếu thật qua PIN/Face ID; chờ xác nhận trên iPhone bản 26/10. Chưa có nhắc chấm công/thông báo bản tin/dọn thông báo cũ.
 - Đơn sửa hồ sơ trên mobile bản dùng API vẫn là dữ liệu cục bộ trong phiên (đơn mẫu bị ẩn) cho tới khi làm module tương ứng.
 - Nghỉ phép chưa có: đính kèm minh chứng, ủy quyền người duyệt khi vắng, nghỉ nửa ngày xét muộn/sớm theo nửa ca, đơn vượt năm (phải tách), sửa loại nghỉ trên web (đang dùng mẫu), tầng "loại hợp đồng"; thâm niên tính tại 01/01 (đủ năm giữa năm thì năm sau mới cộng); phép tồn tự chuyển chỉ khi sổ năm trước có trong Kavor (năm đầu nhập tay).
 - Phạm vi/tầng dùng phân công tổ chức hiện tại; danh sách nhân viên/chấm công lọc trong bộ nhớ API — đủ cho vài nghìn nhân viên, cần phân trang ở SQL khi lớn hơn. RLS `employees` gọi hàm phạm vi theo từng dòng (chậm nếu client đọc trực tiếp nhiều dòng; hiện client không đọc trực tiếp).
 - Khi máy Mac quá tải (build Xcode), GoTrue chậm → web báo "Máy chủ xác thực đang bận" (không còn tự đăng xuất).
 - Ảnh native lấy từ simulator; chưa có ảnh/video từ iPhone 11 thật.
-- Ngoài auth, chấm công, công tháng, giải trình, nghỉ phép, OT và tạm ứng, các màn (phiếu lương, tin tức, tài liệu) vẫn dùng dữ liệu mẫu.
-- Tạm ứng: DB payroll đã có đánh dấu khấu trừ khi công bố và đối chiếu khớp số đã chi; chưa nối API/UI payroll. Chưa có tài khoản ngân hàng nhận tiền (cần mã hóa — `employee_bank_accounts` trong schema), chặn khi kỳ lương đã chốt, nhiều lần/tháng. Quy định mẫu nhận đơn đến ngày 20 nên sau ngày 20 nhân viên không gửi được đơn tháng đó (đúng prototype); thử trên máy sau ngày 20 thì tạo quy định riêng hạn 31.
-- OT chưa có: OT ban đêm (+30%/+20%), OT qua nửa đêm (phải tách hai đơn), đối chiếu giờ OT với chấm công thực tế, ngoại lệ 300 giờ/năm theo ngành (chỉnh trong quy định), payroll input (module payroll đọc `overtime_entries` đã duyệt).
+- Ngoài auth, chấm công, công tháng, giải trình, nghỉ phép, OT, tạm ứng và phiếu lương, các màn tin tức/tài liệu vẫn dùng dữ liệu mẫu.
+- Tạm ứng: DB/API payroll đã nối đối chiếu và đánh dấu khấu trừ khi công bố; chưa có UI payroll web; mobile có phiếu cá nhân. Chưa có tài khoản ngân hàng nhận tiền (cần mã hóa — `employee_bank_accounts` trong schema), chặn khi kỳ lương đã chốt, nhiều lần/tháng. Quy định mẫu nhận đơn đến ngày 20 nên sau ngày 20 nhân viên không gửi được đơn tháng đó (đúng prototype); thử trên máy sau ngày 20 thì tạo quy định riêng hạn 31.
+- OT chưa có: OT ban đêm (+30%/+20%), OT qua nửa đêm (phải tách hai đơn), đối chiếu giờ OT với chấm công thực tế, ngoại lệ 300 giờ/năm theo ngành (chỉnh trong quy định). API payroll đã đọc `overtime_entries` đã duyệt để cảnh báo OT_PAY hai chiều, không tính tiền OT.
 - Android chưa thử luồng chấm công thật (GPS/hàng đợi) trên emulator.
-- Test tự động của admin-web, console-web, mobile, web-ui vẫn là placeholder.
+- Test tự động của admin-web, console-web, web-ui vẫn là placeholder; mobile đã có 6 ca hành vi payroll, chưa có bộ kiểm UI/native đầy đủ.
 - Trên bản dev, gõ phím "r" khi không focus ô nhập sẽ làm Metro reload (chỉ ảnh hưởng dev).
 
 ## Bước tiếp theo
-1. Payroll — DB đã kiểm tra; phiên sau làm contracts → API (CSV parsing, lỗi/cảnh báo OT/công/tạm ứng, audit đọc/export) → smoke
-   trên DB mới, theo hàm SQL trong `docs/plans/payroll.md`; sau đó mới web/mobile và thử iPhone. Chưa làm phần này trong phiên DB.
+1. Người dùng thử lại riêng vòng chờ Face ID trên iPhone. Ba smoke đã sửa và verify-all đã đạt đầy đủ. Phiên tiếp theo được giao làm web theo
+   `docs/plans/payroll.md` để nhập CSV/duyệt/công bố qua UI; contracts/API đã có. Export/PDF để sau.
 2. Bản tin / tài liệu.
 - Push từ máy chủ khi app tắt (APNs/FCM) cần tài khoản Apple Developer trả phí → làm khi mua (xem "Quyết định đã chốt"); lúc đó thay luôn việc E19 hỏi lại 8 giây/lần.
 - Staging: **hoãn tới khi hệ thống hoàn thiện** (quyết định 24/10). Phương án đã phân tích sẵn: Render Singapore cho API + 2 web (~$21/tháng, địa chỉ onrender.com, chưa cần domain), Gmail SMTP như CarRental cho OTP và thư mời, project Supabase `KavorSystem` (Singapore) làm staging, chỉ dùng dữ liệu mẫu; cần đổi các giá trị localhost trong `supabase/config.toml` sang biến môi trường trước khi `config push`.
 - Ngoài luồng chính: test component cho admin-web; Sentry; số liệu luật cần HR/Payroll SME xác nhận trước pilot; pháp lý chuyển dữ liệu ra nước ngoài (Nghị định 13/2023, dữ liệu ở Singapore) trước khi có dữ liệu thật.
 
 ## Câu hỏi đang chờ người dùng trả lời
-- Không có.
+- Không có. Người dùng đã duyệt sửa cả 3 smoke leave/notifications/timesheet ngày 26/10.
 
 ## Nhật ký
+- 2026-10-26 — Người dùng yêu cầu commit và push lên main trước khi làm tiếp. Gom phần payroll contracts/API/smoke, phiếu mobile/thông báo, vòng chờ Face ID và ba smoke đầu kỳ đã hoàn tất; verify-all đầy đủ đã đạt; verify-all --quick trước commit đạt typecheck/unit/301 pgTAP, exit 0. Không đưa cấu hình local, thông tin đăng nhập hay snapshot DB/Auth vào Git.
+- 2026-10-26 — Sau khi được duyệt, sửa đúng 3 smoke leave/notifications/timesheet về chọn kỳ/ngày và fixture. Chạy riêng 39/21/48 bước đạt; verify-all đầy đủ TẤT CẢ ĐẠT (payroll 104, pgTAP 301). Khôi phục DB/Auth người dùng, API .3 khỏe, mở lại iPhone thành công. Không commit.
+- 2026-10-26 — Người dùng xác nhận payroll khác ổn, gửi ảnh vòng Face ID xoay méo. Đổi vòng chờ thành tròn, kiểm video simulator, build/cài Wi-Fi đạt. Verify-all phát hiện 3 smoke cũ lỗi đầu kỳ; chờ duyệt sửa test. DB/auth đã khôi phục, không commit.
+- 2026-10-26 — Sửa mobile mở thông báo payroll → PIN/Face ID → phiếu thật; mobile 6 test đạt, verify-all đầy đủ đạt
+  (payroll 104, pgTAP 301). Khôi phục DB/auth người dùng sau verify, cài/launch Release API .3 qua Wi-Fi đạt; chờ xác nhận thao tác.
+- 2026-10-25 — Build Release API .22, QA tắt, cài và launch trên iPhone Dqdatt qua localNetwork/Wi-Fi thành công;
+  xác nhận tiến trình còn chạy. Tạo kỳ lương mẫu đã công bố + thông báo cho HD0142 qua API, để HD0142 chưa kích hoạt cho
+  người dùng tự thử. Chưa xác nhận thao tác/Face ID hay payroll UI trên máy thật; không sửa mã app, không commit.
+- 2026-10-25 — Codex làm Payroll contracts/API/smoke sau khi người dùng duyệt phạm vi. Bổ sung đúng hai dòng icon theo duyệt;
+  phát hiện kích hoạt chưa gán employee/self, người dùng duyệt sửa API kích hoạt. Payroll smoke 104 bước đạt, unit API 34,
+  pgTAP 301 và verify-all đầy đủ TẤT CẢ ĐẠT (11 smoke, build, lint). DB local đã về seed; API LAN .22; không commit.
 - 2026-10-25 — Codex tiếp quản, Git ban đầu sạch, quick đạt 192 pgTAP; người dùng duyệt phạm vi DB trước khi code.
   Thêm migration payroll mới, 109 pgTAP, Kế toán mẫu thứ hai và cập nhật kế hoạch. Reset + pgTAP 301 PASS;
   thử tranh chấp nhập lại/duyệt bằng hai kết nối DB; verify-all đầy đủ TẤT CẢ ĐẠT. DB local về seed.

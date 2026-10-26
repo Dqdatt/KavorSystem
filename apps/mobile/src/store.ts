@@ -9,12 +9,12 @@ import {
 import type { IllusKind } from "./illus";
 import { api, type Snapshot } from "./api";
 import { authenticate, biometricLabel, clearQuickLogin, clearSession, loadBioPrefs, loadSession, loadSupport, quickLoginEmployee, quickRefreshToken, saveBioPrefs, saveSession, saveSupport, type BioPrefs } from "./auth";
-import { ApiError, REMOTE, advanceApi, attendanceApi, authApi, companyApi, isNetworkError, leaveApi, notificationsApi, overtimeApi, setTokenSource, timesheetApi } from "./api/http";
+import { ApiError, REMOTE, advanceApi, attendanceApi, authApi, companyApi, isNetworkError, leaveApi, notificationsApi, overtimeApi, payslipApi, setTokenSource, timesheetApi } from "./api/http";
 import { clearExplainReminders, onReminderTap, scheduleExplainReminders } from "./notify";
 import { MY_REQ_INIT, SUPPORT_SAMPLE } from "./api/mock-data";
 import {
   EXPLANATION_KINDS, distanceMeters, passwordProblems,
-  type AttendanceEvent, type AttendanceToday, type AuthResult, type ExplanationKind, type AppNotification, type MyAdvance, type MyCompany, type MyLeave, type MyOvertime, type MyTimesheet, type NotificationFeed, type RequestItem, type SupportContact, type TimesheetDay, type WorkLocation,
+  type AttendanceEvent, type AttendanceToday, type AuthResult, type ExplanationKind, type AppNotification, type MyAdvance, type MyCompany, type MyLeave, type MyOvertime, type MyPayslip, type MyPayslips, type MyTimesheet, type NotificationFeed, type RequestItem, type SupportContact, type TimesheetDay, type WorkLocation,
 } from "@kavor/contracts";
 import { currentFix, deviceRegistration, deviceSummary, enqueue, flushQueue, installationId, LocationError, newEventId, quietFix, readQueue, type Fix } from "./attendance";
 
@@ -158,6 +158,9 @@ const makeState = () => ({
   otData: null as MyOvertime | null,
   /* Tạm ứng (bản dùng API) */
   advData: null as MyAdvance | null,
+  /* Lương thật chỉ giữ trong phiên bộ nhớ, chỉ tải sau cổng PIN/Face ID. */
+  payrollData: null as MyPayslips | null, payslipData: null as MyPayslip | null,
+  payrollError: "", payslipError: "",
   otDay: null as string | null,
   /* Thông báo trong app (bản dùng API) */
   notifs: null as NotificationFeed | null,
@@ -341,6 +344,33 @@ export async function loadOvertime(manual = false) {
     else if (manual) toast(e instanceof ApiError ? e.message : "Chưa tải được dữ liệu làm thêm.");
   }
 }
+let payrollRequest = 0;
+function clearPayroll() {
+  payrollRequest++;
+  S.payrollData = null; S.payslipData = null; S.payrollError = ""; S.payslipError = "";
+}
+export async function loadPayslips(month?: string) {
+  if (!REMOTE || !isLoggedIn() || Date.now() > S.pinUntil) return;
+  if (month !== undefined && !/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) { S.payslipData = null; S.payslipError = "Không tìm thấy tháng của phiếu lương."; emit(); return; }
+  const request = ++payrollRequest;
+  if (month) { S.payslipData = null; S.payslipError = ""; }
+  else { S.payrollData = null; S.payrollError = ""; }
+  emit();
+  try {
+    if (month) {
+      const data = await payslipApi.get(month);
+      if (request === payrollRequest && isLoggedIn()) S.payslipData = data;
+    } else {
+      const data = await payslipApi.list();
+      if (request === payrollRequest && isLoggedIn()) S.payrollData = data;
+    }
+  } catch (e) {
+    if (request !== payrollRequest || !isLoggedIn()) return;
+    const message = e instanceof ApiError ? e.message : "Chưa tải được phiếu lương. Vui lòng thử lại.";
+    if (month) S.payslipError = message; else S.payrollError = message;
+    if (e instanceof ApiError && e.status === 401) { clearPayroll(); showErr("session"); }
+  } finally { if (request === payrollRequest) emit(); }
+}
 const refreshWork = () => { void loadTimesheet(S.ts?.period.month); void loadRequests(); void loadNotifications(); void loadLeave(); void loadOvertime(); void loadAdvance(); };
 export const unreadCount = () => (REMOTE ? S.notifs?.unread ?? 0 : 2);
 
@@ -415,8 +445,18 @@ export function go(r: Route) {
   if ((r === "advance" || r === "advanceNew" || r === "advanceDetail") && REMOTE) void loadAdvance(true);
   closeSheet();
   if (S.net === "offline" && NEEDNET[r]) { S.err = { kind: "offline", retry: r, over: { t: "Cần kết nối để xem", p: "Phiếu lương và tạm ứng không lưu trên máy vì lý do bảo mật. Kết nối mạng rồi thử lại." } }; S.stack.push("err"); render("push"); return; }
-  if (GATED[r] && Date.now() > S.pinUntil) { openPin(() => { S.stack.push(r); render("push"); }); return; }
-  S.stack.push(r); render("push");
+  const enter = () => {
+    S.stack.push(r);
+    if (REMOTE && (r === "payslips" || r === "payslip")) {
+      // Không đưa số tiền cũ lên màn hình trong lúc tải tháng mới.
+      if (r === "payslip") { S.payslipData = null; S.payslipError = ""; }
+      else { S.payrollData = null; S.payrollError = ""; }
+      void loadPayslips(r === "payslip" ? S.param ?? "" : undefined);
+    }
+    render("push");
+  };
+  if (GATED[r] && Date.now() > S.pinUntil) { openPin(enter); return; }
+  enter();
 }
 export function back() { closeSheet(); if (S.stack.length > 1) { S.stack.pop(); render("pop"); } }
 export const scrollTopRequests = new Set<() => void>();
@@ -459,6 +499,7 @@ export function openPin(ok: () => void) { S.pin = ""; S.pinOk = ok; openSheet("p
 /* Lưu phiên vào Keychain; thiết bị đã đăng ký thì vào thẳng trang chủ, chưa thì sang bước đăng ký.
    Công ty có điều khoản dữ liệu cá nhân mới chưa đồng ý thì hỏi trước (ADR 0001 §5). */
 async function signIn(employeeId: string, result?: AuthResult) {
+  clearPayroll(); S.pinUntil = 0;
   const session = await saveSession({ employeeId, ...(result ? { auth: result.session, me: result.me } : {}) });
   const target: Route = session.deviceRegistered ? "home" : "device";
   if ((await loadCompany())?.privacy.required) { askConsent(target); return; }
@@ -994,6 +1035,11 @@ export const ACT = {
     S.stack = ["done"]; render("push");
   },
   hideMoney: () => { S.hideMoney = !S.hideMoney; emit(); },
+  payrollRetry: () => {
+    if (!needNet(() => ACT.payrollRetry())) return;
+    const run = () => { void loadPayslips(cur() === "payslip" ? S.param ?? "" : undefined); };
+    if (Date.now() > S.pinUntil) openPin(run); else run();
+  },
   askPay: (a: string) => { S.f.payQ = ""; S.f.payChip = 1; openSheet("askPay", a); },
   payQSend: () => { if (!needNet(() => ACT.payQSend())) return; sync(api.askPayroll(S.sheet?.arg ?? "", String(S.f.payChip), S.f.payQ)); closeSheet(); toast("Đã gửi. Bạn sẽ nhận thông báo khi HR trả lời."); },
   advExplain: () => openSheet("advExplain"),
@@ -1120,7 +1166,7 @@ export const ACT = {
       if (!S.bio.login && sess?.auth) { await authApi.logout(sess.auth.accessToken).catch(() => undefined); await clearQuickLogin(); }
     });
     /* Đăng xuất: bỏ nhắc nhở và thông báo của người vừa dùng máy */
-    if (REMOTE) { void clearExplainReminders().catch(() => undefined); S.notifs = null; S.ts = null; }
+    if (REMOTE) { void clearExplainReminders().catch(() => undefined); S.notifs = null; S.ts = null; clearPayroll(); }
     void clearSession(); S.pinUntil = 0; S.f = freshForms(); closeSheet(); S.stack = ["login"]; render("fade");
   },
   pinkey: (a: string) => {
@@ -1154,6 +1200,11 @@ export const ACT = {
   notifOpen: (n: AppNotification) => {
     if (!n.link) return;
     if (n.link.type === "device") { go("security"); return; }
+    if (n.link.type === "payslip") {
+      const month = n.link.no;
+      if (!month || !/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) { toast("Không tìm thấy tháng của phiếu lương."); return; }
+      S.param = month; go("payslip"); return;
+    }
     const no = n.link.no; if (!no) return;
     remote("notifOpen", async () => {
       await loadRequests();

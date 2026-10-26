@@ -1,6 +1,7 @@
 /* Trạng thái QA dùng để chụp so sánh với prototype: kavor://qa/<state>
    Cùng tên và cùng kịch bản với tools/ui-compare/states.mjs. Chỉ bật khi EXPO_PUBLIC_KAVOR_QA=1. */
-import { ACT, S, go, holdDone, jump, render, resetAll, scrollRequests, setNet, showErr, simNow } from "./store";
+import { ACT, S, go, holdDone, jump, openSheet, render, resetAll, scrollRequests, setNet, showErr, simNow } from "./store";
+import type { MyPayslip, PayrollCycle } from "@kavor/contracts";
 
 declare const process: { env: Record<string, string | undefined> };
 export const QA_ENABLED = process.env.EXPO_PUBLIC_KAVOR_QA === "1";
@@ -8,7 +9,23 @@ export const QA_ENABLED = process.env.EXPO_PUBLIC_KAVOR_QA === "1";
 const unlock = () => { S.pinUntil = Date.now() + 3e5; };
 const later = (ms: number, f: () => void) => setTimeout(f, ms);
 
+/* Dữ liệu của prototype, đặt vào contract API để chụp riêng nhánh màn lương thật.
+   Không gắn tài khoản/token thật và không chạy trên bản QA tắt. */
+function payrollFixture(index: number): MyPayslip {
+  const p = S.payslips[index]!;
+  const month = p.k.slice(3) + "-" + p.k.slice(0, 2);
+  const date = (d: string) => `${month.slice(0, 4)}-${d.slice(3, 5)}-${d.slice(0, 2)}`;
+  const at = `${date(p.pub)}T12:00:00Z`;
+  const cycle: PayrollCycle = { id: `qa-${index}`, month, periodStart:`${month}-01`, periodEnd:`${month}-30`, payDate:date(p.paid), status:"paid",
+    latestBatchId:"qa-batch", importedBy:null, importedAt:null, approvedBy:null, approvedAt:null, publishedAt:at, paidAt:`${date(p.paid)}T12:00:00Z`, closedAt:null };
+  const gross = p.income.reduce((n, i) => n + i[1], 0), deduction = p.deduct.reduce((n, i) => n + i[1], 0);
+  const items = [...p.income.map((i, n) => ({id:`earning-${n}`,code:`E${n}`,name:i[0],kind:"earning" as const,displayOrder:n,amount:i[1],label:null})),
+    ...p.deduct.map((i, n) => ({id:`deduction-${n}`,code:`D${n}`,name:i[0],kind:"deduction" as const,displayOrder:n,amount:i[1],label:null}))];
+  return { cycle, result:{id:"qa-result",employee:{id:"qa-employee",code:"HD0142",fullName:"Trần Thu Hà"},batchId:"qa-batch",gross,deduction,net:gross-deduction,workDays:parseFloat(String(p.work)),note:null,items},viewedAt:at };
+}
+
 export const QA_STATES: Record<string, () => void> = {
+  "faceid-scanning": () => { jump("home"); openSheet("face"); },
   login: () => jump("login"),
   activate: () => { jump("login"); S.stack = ["login", "activate"]; render(); },
   "otp-activate": () => { jump("login"); S.stack = ["login", "activate", "otp"]; render(); },
@@ -42,6 +59,11 @@ export const QA_STATES: Record<string, () => void> = {
   "done-ot": () => { jump("home"); go("ot"); ACT.otSubmit(); },
   payslips: () => { unlock(); jump("payslips"); },
   "payslip-detail": () => { unlock(); jump("payslips"); S.param = "0"; go("payslip"); },
+  "payroll-api-list": () => {
+    unlock(); S.payrollData = { items:S.payslips.map((_, i) => { const d=payrollFixture(i);return {cycle:d.cycle,net:d.result.net,workDays:d.result.workDays,viewedAt:d.viewedAt}; }) };
+    jump("payslips");
+  },
+  "payroll-api-detail": () => { unlock(); S.payslipData=payrollFixture(0); S.param=S.payslipData.cycle.month; S.stack=["home","payslip"]; render(); },
   "salary-question-sheet": () => { unlock(); jump("payslips"); S.param = "0"; go("payslip"); ACT.askPay("09/2026"); },
   advance: () => { unlock(); jump("advance"); },
   "advance-limit-sheet": () => { unlock(); jump("advance"); ACT.advExplain(); },

@@ -29,6 +29,8 @@ import { NotificationsService } from "./notifications/notifications.service.js";
 import { LeaveService } from "./leave/leave.service.js";
 import { OvertimeService } from "./overtime/overtime.service.js";
 import { AdvanceService } from "./advance/advance.service.js";
+import { PayrollService } from "./payroll/payroll.service.js";
+import type { TimesheetServices } from "./timesheet/timesheet.controller.js";
 
 @Module({
   controllers: [AppController, AuthController, AttendanceController, CompanyController, TimesheetController, AdminController, ConsoleController],
@@ -46,7 +48,7 @@ import { AdvanceService } from "./advance/advance.service.js";
         const notifications = new NotificationsService(sb);
         notifications.startDueSweep();
         const requests = new RequestsService(sb, timesheets);
-        return { timesheets, requests, notifications, leave: new LeaveService(sb, timesheets, requests), overtime: new OvertimeService(sb, timesheets, requests), advance: new AdvanceService(sb, timesheets, requests) };
+        return { timesheets, requests, notifications, leave: new LeaveService(sb, timesheets, requests), overtime: new OvertimeService(sb, timesheets, requests), advance: new AdvanceService(sb, timesheets, requests), payroll: new PayrollService(sb, timesheets) };
       },
     },
     {
@@ -61,7 +63,7 @@ import { AdvanceService } from "./advance/advance.service.js";
     { provide: COMPANY_SERVICE, inject: [SupabaseGateway, BrandingStore], useFactory: (sb: SupabaseGateway | null, b: BrandingStore | null) => (sb && b ? new CompanyService(sb, b) : null) },
     {
       provide: ADMIN_SERVICES, inject: [SupabaseGateway, BrandingStore, COMPANY_SERVICE, TIMESHEET_SERVICES],
-      useFactory: (sb: SupabaseGateway | null, branding: BrandingStore | null, company: CompanyService | null, ts: { timesheets: TimesheetService; requests: RequestsService; notifications: NotificationsService; leave: LeaveService; overtime: OvertimeService; advance: AdvanceService } | null) => {
+      useFactory: (sb: SupabaseGateway | null, branding: BrandingStore | null, company: CompanyService | null, ts: TimesheetServices | null) => {
         if (!sb || !branding || !company || !ts) return null;
         const attendance = new AttendanceAdmin(sb);
         const schedule = new ScheduleAdmin(sb);
@@ -69,7 +71,7 @@ import { AdvanceService } from "./advance/advance.service.js";
           attendance, schedule, company,
           employees: new EmployeesAdmin(sb, new Mailer(loadConfig().mail), attendance),
           settings: new SettingsAdmin(sb, branding, schedule), rules: new RulesAdmin(schedule), mfa: new MfaAdmin(sb),
-          timesheets: new TimesheetAdmin(ts.timesheets, ts.requests), requests: ts.requests, notifications: ts.notifications, leave: ts.leave, overtime: ts.overtime, advance: ts.advance,
+          timesheets: new TimesheetAdmin(ts.timesheets, ts.requests), requests: ts.requests, notifications: ts.notifications, leave: ts.leave, overtime: ts.overtime, advance: ts.advance, payroll: ts.payroll,
         };
       },
     },

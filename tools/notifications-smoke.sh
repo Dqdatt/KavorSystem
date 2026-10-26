@@ -9,11 +9,36 @@ EMP=$(activate HD0142 thao.ha@haidang.vn); need "Nhân viên Trần Thu Hà kíc
 MGR=$(activate HDG0003 huy.le@example.test); need "Quản lý Lê Quang Huy kích hoạt" "$MGR"
 HR=$(mfa "$(activate HD0007 thao.mai@haidang.vn)"); need "HR Admin bật MFA" "$HR"
 
+# Chỉ fixture trên DB vừa reset: tạo 45 ngày theo ngày tenant, bỏ cuối tuần/lễ.
+# Không dựa vào seed chỉ sinh từ đầu kỳ; không sửa ca, quy định hay mã API.
+sql() { docker exec -i supabase_db_kavor-system psql -U postgres -d postgres -X -v ON_ERROR_STOP=1 -Atq -c "$1"; }
+SMOKE_DATES=$(sql "
+truncate table public.attendance_events;
+with days as (
+  select d::date d, t.timezone from public.tenants t
+  cross join lateral generate_series(public.tenant_today(t.id)-45, public.tenant_today(t.id)-1, interval '1 day') d
+  where t.id='10000000-0000-4000-8000-000000000001' and extract(isodow from d) between 1 and 5
+    and not exists (select 1 from public.holidays h join public.holiday_calendars c on c.id=h.calendar_id
+      where h.holiday_date=d::date and (c.tenant_id is null or c.tenant_id=t.id))
+), ranked as (
+  select *, row_number() over(order by d desc) n, count(*) over() total from days
+)
+insert into public.attendance_events (tenant_id,employee_id,kind,client_event_id,occurred_at,received_at,status)
+select '10000000-0000-4000-8000-000000000001','60000000-0000-4000-8000-000000000142',k.kind,
+  'smoke-calendar-'||d||'-'||k.kind,(d+k.at) at time zone timezone,(d+k.at) at time zone timezone,'accepted'
+from ranked cross join lateral (values
+  ('in',case when n=2 or n%7=0 then time '08:21' else time '07:52' end),
+  ('out',case when n=1 or n%11=0 or n=total then null::time else time '17:05' end)
+) k(kind,at) where k.at is not null;
+with days as (
+  select distinct (occurred_at at time zone t.timezone)::date d from public.attendance_events e
+  join public.tenants t on t.id=e.tenant_id where e.employee_id='60000000-0000-4000-8000-000000000142'
+), ranked as (select d,row_number() over(order by d desc) n from days)
+select concat_ws(' ',max(d) filter(where n=1),max(d) filter(where n=2),max(d) filter(where n=3),min(d)) from ranked;")
+read -r OUTDAY LATEDAY OKDAY OLDDAY <<< "$SMOKE_DATES"
+need "Fixture có ngày gần đây và ngày quá hạn: $OUTDAY / $LATEDAY / $OLDDAY" "$OLDDAY"
 echo "— Đơn mới → báo quản lý"
 check "Chưa có thông báo" "$(call GET me/notifications "$MGR" | py "(len(d['items']), d['unread'])")" "(0, 0)"
-r=$(call GET me/timesheet "$EMP")
-OUTDAY=$(echo "$r" | py "[x['date'] for x in d['days'] if x['issue']=='missing_out' and x['canExplain']][0]")
-LATEDAY=$(echo "$r" | py "[x['date'] for x in d['days'] if x['issue']=='late' and x['canExplain']][0]")
 B="{\"workDate\":\"$OUTDAY\",\"kind\":\"missing_out\",\"clockOut\":\"17:00\",\"reason\":\"Họp khách tới 17:00, quên chấm ra\"}"
 r=$(call POST me/requests/explanations "$EMP" "$B"); NO=$(echo "$r" | field data.no); T1=$(echo "$r" | field data.steps.0.taskId)
 r=$(call GET me/notifications "$MGR")
