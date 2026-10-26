@@ -9,12 +9,12 @@ import {
 import type { IllusKind } from "./illus";
 import { api, type Snapshot } from "./api";
 import { authenticate, biometricLabel, clearQuickLogin, clearSession, loadBioPrefs, loadSession, loadSupport, quickLoginEmployee, quickRefreshToken, saveBioPrefs, saveSession, saveSupport, type BioPrefs } from "./auth";
-import { ApiError, REMOTE, advanceApi, announcementsApi, attendanceApi, authApi, companyApi, isNetworkError, leaveApi, notificationsApi, overtimeApi, payslipApi, setTokenSource, timesheetApi } from "./api/http";
+import { ApiError, REMOTE, advanceApi, announcementsApi, attendanceApi, documentsApi, authApi, companyApi, isNetworkError, leaveApi, notificationsApi, overtimeApi, payslipApi, setTokenSource, timesheetApi } from "./api/http";
 import { clearExplainReminders, onReminderTap, scheduleExplainReminders } from "./notify";
 import { MY_REQ_INIT, SUPPORT_SAMPLE } from "./api/mock-data";
 import {
   EXPLANATION_KINDS, distanceMeters, passwordProblems,
-  type AttendanceEvent, type AttendanceToday, type AuthResult, type ExplanationKind, type AppNotification, type MyAdvance, type MyAnnouncement, type MyAnnouncements, type MyCompany, type MyLeave, type MyOvertime, type MyPayslip, type MyPayslips, type MyTimesheet, type NotificationFeed, type RequestItem, type SupportContact, type TimesheetDay, type WorkLocation,
+  type AttendanceEvent, type AttendanceToday, type AuthResult, type ExplanationKind, type AppNotification, type MyAdvance, type MyAnnouncement, type MyAnnouncements, type MyDocuments, type MyCompany, type MyLeave, type MyOvertime, type MyPayslip, type MyPayslips, type MyTimesheet, type NotificationFeed, type RequestItem, type SupportContact, type TimesheetDay, type WorkLocation,
 } from "@kavor/contracts";
 import { currentFix, deviceRegistration, deviceSummary, enqueue, flushQueue, installationId, LocationError, newEventId, quietFix, readQueue, type Fix } from "./attendance";
 
@@ -23,7 +23,7 @@ export type Route =
   | "login" | "forgot" | "forgotOtp" | "resetPassword" | "activate" | "otp" | "device"
   | "home" | "attendance" | "requests" | "news" | "clock" | "explain" | "leave" | "leaveNew"
   | "payslips" | "payslip" | "advance" | "advanceNew" | "advanceDetail" | "reqDetail" | "approvalDetail"
-  | "ot" | "newsDetail" | "profile" | "security" | "notifications" | "widgetGuide" | "springHome" | "springLock" | "done" | "err" | "consent";
+  | "ot" | "newsDetail" | "docs" | "profile" | "security" | "notifications" | "widgetGuide" | "springHome" | "springLock" | "done" | "err" | "consent";
 export type ErrKind = "offline" | "server" | "maintenance" | "session" | "disabled" | "device" | "devicePending" | "locPerm" | "gpsOff" | "update";
 export type SheetKind =
   | "pin" | "face" | "receipt" | "help" | "netSend" | "netPunch" | "earlyOut" | "slowCheck" | "blocked" | "day"
@@ -165,6 +165,8 @@ const makeState = () => ({
   /* Bản tin (bản dùng API): danh sách + bài đang mở (mở bài = đã đọc trên máy chủ) */
   annData: null as MyAnnouncements | null, annError: "",
   annDetail: null as MyAnnouncement | null, annDetailError: "",
+  /* Tài liệu HR chia sẻ (bản dùng API): chỉ tải sau cổng PIN/Face ID như phiếu lương (hợp đồng có thông tin lương) */
+  docData: null as MyDocuments | null, docError: "",
   /* Thông báo trong app (bản dùng API) */
   notifs: null as NotificationFeed | null,
   /* Thông báo chưa đọc lúc mở màn Thông báo: vẫn hiện chấm xanh trong lần xem đó dù đã đánh dấu đọc trên máy chủ */
@@ -385,6 +387,21 @@ export async function loadAnnouncement(id: string) {
     if (e instanceof ApiError && e.status === 404 && S.annData) S.annData = { items: S.annData.items.filter((x) => x.id !== id) };
   } finally { if (request === annRequest) emit(); }
 }
+let docRequest = 0;
+function clearDocuments() { docRequest++; S.docData = null; S.docError = ""; }
+export async function loadDocuments() {
+  if (!REMOTE || !isLoggedIn() || Date.now() > S.pinUntil) return;
+  const request = ++docRequest;
+  S.docData = null; S.docError = ""; emit();
+  try {
+    const data = await documentsApi.list();
+    if (request === docRequest && isLoggedIn()) S.docData = data;
+  } catch (e) {
+    if (request !== docRequest || !isLoggedIn()) return;
+    if (e instanceof ApiError && e.status === 401) { clearDocuments(); showErr("session"); return; }
+    S.docError = e instanceof ApiError ? e.message : "Chưa tải được tài liệu. Vui lòng thử lại.";
+  } finally { if (request === docRequest) emit(); }
+}
 let payrollRequest = 0;
 function clearPayroll() {
   payrollRequest++;
@@ -458,7 +475,7 @@ export function dayInfo(o: OctDay) {
 
 /* ---------- router ---------- */
 export const TABS: Route[] = ["home", "attendance", "requests", "news"];
-const GATED: Partial<Record<Route, 1>> = { payslips: 1, payslip: 1, advance: 1, advanceNew: 1, advanceDetail: 1 };
+const GATED: Partial<Record<Route, 1>> = { payslips: 1, payslip: 1, advance: 1, advanceNew: 1, advanceDetail: 1, docs: 1 };
 const NEEDNET = GATED;
 export const SKEL: Route[] = ["home", "attendance", "requests", "news", "payslips", "leave", "advance", "notifications"];
 export const cur = (): Route => S.stack[S.stack.length - 1] ?? "home";
@@ -485,7 +502,7 @@ export function go(r: Route) {
   if (r === "ot" && REMOTE) void loadOvertime(true);
   if ((r === "advance" || r === "advanceNew" || r === "advanceDetail") && REMOTE) void loadAdvance(true);
   closeSheet();
-  if (S.net === "offline" && NEEDNET[r]) { S.err = { kind: "offline", retry: r, over: { t: "Cần kết nối để xem", p: "Phiếu lương và tạm ứng không lưu trên máy vì lý do bảo mật. Kết nối mạng rồi thử lại." } }; S.stack.push("err"); render("push"); return; }
+  if (S.net === "offline" && NEEDNET[r]) { S.err = { kind: "offline", retry: r, over: { t: "Cần kết nối để xem", p: r === "docs" ? "Hợp đồng và quyết định không lưu trên máy vì lý do bảo mật. Kết nối mạng rồi thử lại." : "Phiếu lương và tạm ứng không lưu trên máy vì lý do bảo mật. Kết nối mạng rồi thử lại." } }; S.stack.push("err"); render("push"); return; }
   const enter = () => {
     S.stack.push(r);
     if (REMOTE && (r === "payslips" || r === "payslip")) {
@@ -495,6 +512,7 @@ export function go(r: Route) {
       void loadPayslips(r === "payslip" ? S.param ?? "" : undefined);
     }
     if (REMOTE && r === "newsDetail") void loadAnnouncement(S.param ?? "");
+    if (REMOTE && r === "docs") void loadDocuments();
     render("push");
   };
   if (GATED[r] && Date.now() > S.pinUntil) { openPin(enter); return; }
@@ -542,7 +560,7 @@ export function openPin(ok: () => void) { S.pin = ""; S.pinOk = ok; openSheet("p
 /* Lưu phiên vào Keychain; thiết bị đã đăng ký thì vào thẳng trang chủ, chưa thì sang bước đăng ký.
    Công ty có điều khoản dữ liệu cá nhân mới chưa đồng ý thì hỏi trước (ADR 0001 §5). */
 async function signIn(employeeId: string, result?: AuthResult) {
-  clearPayroll(); clearAnnouncements(); S.pinUntil = 0;
+  clearPayroll(); clearAnnouncements(); clearDocuments(); S.pinUntil = 0;
   const session = await saveSession({ employeeId, ...(result ? { auth: result.session, me: result.me } : {}) });
   const target: Route = session.deviceRegistered ? "home" : "device";
   if ((await loadCompany())?.privacy.required) { askConsent(target); return; }
@@ -1123,6 +1141,8 @@ export const ACT = {
   reqFilter: (a: string) => { S.reqFilter = a; emit(); },
   newsCat: (a: string) => { S.newsCat = a; emit(); },
   openNews: (id: string) => { S.param = id; go("newsDetail"); },
+  /* Hợp đồng/quyết định: mở bằng trình duyệt hệ thống (mỗi lần mở ghi audit trên máy chủ) */
+  openDoc: (id: string) => { remote("openDoc", async () => { await Linking.openURL(await documentsApi.fileUrl(id)); }); },
   /* File đính kèm: bản dùng API mở bằng trình duyệt hệ thống (PDF/ảnh xem được ngay); bản mẫu giữ toast như prototype */
   openNewsFile: (id: string, name: string) => {
     if (!REMOTE) { toast(`Mở ${name} trong trình xem PDF`); return; }
@@ -1215,7 +1235,7 @@ export const ACT = {
       if (!S.bio.login && sess?.auth) { await authApi.logout(sess.auth.accessToken).catch(() => undefined); await clearQuickLogin(); }
     });
     /* Đăng xuất: bỏ nhắc nhở và thông báo của người vừa dùng máy */
-    if (REMOTE) { void clearExplainReminders().catch(() => undefined); S.notifs = null; S.ts = null; clearPayroll(); clearAnnouncements(); }
+    if (REMOTE) { void clearExplainReminders().catch(() => undefined); S.notifs = null; S.ts = null; clearPayroll(); clearAnnouncements(); clearDocuments(); }
     void clearSession(); S.pinUntil = 0; S.f = freshForms(); closeSheet(); S.stack = ["login"]; render("fade");
   },
   pinkey: (a: string) => {

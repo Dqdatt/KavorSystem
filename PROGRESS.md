@@ -2,11 +2,27 @@
 _Cập nhật: 2026-10-26 — bởi Claude_
 
 ## Mục tiêu đang làm
-Payroll (web `/payroll`) và **Bản tin** (`docs/plans/announcements.md`: DB → API → smoke → web `/announcements` → mobile) đã xong trên nhánh
+Payroll (web `/payroll`), **Bản tin** (`docs/plans/announcements.md`) và **Tài liệu nhân sự** (`docs/plans/documents.md`) đã xong trên nhánh
 `claude/ecstatic-pascal-dblg7v` (phiên cloud: web thử bằng trình duyệt tự động; mobile chỉ typecheck + test hành vi trong Node, **chưa build/chụp trên
-simulator hay iPhone** vì phiên cloud không có Mac). Tiếp theo: Tài liệu. Mọi agent làm theo `docs/AGENT_PLAYBOOK.md`; kiểm tra toàn bộ bằng `bash tools/verify-all.sh`.
+simulator hay iPhone** vì phiên cloud không có Mac). Người dùng giao "cứ làm tiếp, review sau" (26/10): các quyết định mặc định của module Tài liệu
+ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AGENT_PLAYBOOK.md`; kiểm tra toàn bộ bằng `bash tools/verify-all.sh`.
 
 ## Đã xong
+- Tài liệu nhân sự (26/10, Claude; quyết định mặc định chờ người dùng review — xem `docs/plans/documents.md`):
+  - DB `202611020001_documents.sql`: tài liệu gắn nhân viên (6 danh mục, số văn bản, hiệu lực/hết hạn, quyền xem "HR + Nhân viên"/"Chỉ HR"),
+    phiên bản bất biến kèm SHA-256 + `scan_status` (chưa có dịch vụ quét → `not_scanned`), gỡ có lý do thay cho xóa; quyền
+    `document.self.read` (Nhân viên) / `document.read|upload|manage` (HR Operations, Tenant Admin) theo phạm vi, hàm SQL kiểm lại phạm vi. pgTAP 32 test.
+  - API `/admin/documents*` (bảng + 4 chỉ số, tạo kèm file, phiên bản mới, sửa, gỡ, tải từng phiên bản) và `/me/documents*` (danh sách, liên kết ký
+    5 phút). Mọi lần tải ghi audit `document.downloaded` (HR/nhân viên). Lưu file riêng tư + liên kết ký gom vào `apps/api/src/files/` dùng chung với
+    Bản tin (chữ ký gắn loại tài nguyên). Bucket `employee-documents`.
+  - Web `/documents` (menu Vận hành theo prototype: Đơn & phê duyệt, Lương & tạm ứng, Tài liệu, Bản tin): bám `page-documents` (4 chỉ số, bảng
+    Tài liệu/Nhân viên/Danh mục/Version/Hết hạn/Quyền, "Tải tài liệu"); "Thiếu hồ sơ" = nhân viên đang làm chưa có hợp đồng còn hiệu lực;
+    "Tạo từ mẫu" chưa làm (không hiện nút). Thiết kế bổ sung: lọc trạng thái, chi tiết + lịch sử phiên bản, tải phiên bản mới, sửa, gỡ.
+  - Mobile: Hồ sơ → "Hợp đồng và quyết định" (bản dùng API; prototype chỉ có toast P05–P06 → thiết kế bổ sung), qua cổng PIN/Face ID như phiếu
+    lương, bấm mở file bằng trình xem của máy. Bản mẫu/QA giữ toast.
+  - Kiểm tra: smoke tài liệu 40 bước (fixture vai trò riêng chỉ có quyền tài liệu để không ảnh hưởng test RLS khác); test mobile 14
+    (`tools/content-mobile-test.mjs`: bản tin 5 + tài liệu 3); E2E Playwright web (tải hợp đồng → nhân viên thấy qua API → phiên bản 2 → đổi Chỉ HR
+    → nhân viên không còn thấy → gỡ). Verify-all đầy đủ: xem Nhật ký.
 - Bản tin nội bộ (26/10, Claude; người dùng chốt: đính kèm file tùy bài, chỉ tính "đã mở", HR chọn gửi thông báo từng bài):
   - DB `202611010001_announcements.sql`: bài (danh mục, quan trọng, ghim, người/bộ phận đăng, một file PDF/ảnh ≤ 5 MB), người nhận toàn công ty
     hoặc chi nhánh/phòng ban (gồm phòng con, tính lúc đọc), nháp/hẹn giờ/xuất bản/gỡ (đã xuất bản không xóa, đã gỡ không sửa), lượt đọc bất biến,
@@ -232,7 +248,6 @@ simulator hay iPhone** vì phiên cloud không có Mac). Tiếp theo: Tài liệ
 - Kiểm tra ngày 22/10: `pnpm turbo run typecheck test build --force` pass 18/18 task (test thật chỉ có contracts 2 + api 2)
 
 ## Đang dở (QUAN TRỌNG NHẤT)
-- Đang làm: Claude — module Tài liệu theo `docs/plans/documents.md` — từ 26/10 (phiên cloud, nhánh `claude/ecstatic-pascal-dblg7v`).
 - Web payroll `/payroll` và module Bản tin nằm trên nhánh `claude/ecstatic-pascal-dblg7v` (phiên cloud), **chưa vào main**; người dùng cần thử trên
   Mac (`pnpm dev:admin`, Kế toán HD0215 nhập + HD0216 duyệt) rồi quyết định merge. DB của phiên cloud là container riêng — DB local
   trên Mac không bị đụng tới. Vòng chờ Face ID trên iPhone vẫn chờ người dùng thử lại.
@@ -287,21 +302,24 @@ simulator hay iPhone** vì phiên cloud không có Mac). Tiếp theo: Tài liệ
 - Phạm vi/tầng dùng phân công tổ chức hiện tại; danh sách nhân viên/chấm công lọc trong bộ nhớ API — đủ cho vài nghìn nhân viên, cần phân trang ở SQL khi lớn hơn. RLS `employees` gọi hàm phạm vi theo từng dòng (chậm nếu client đọc trực tiếp nhiều dòng; hiện client không đọc trực tiếp).
 - Khi máy Mac quá tải (build Xcode), GoTrue chậm → web báo "Máy chủ xác thực đang bận" (không còn tự đăng xuất).
 - Ảnh native lấy từ simulator; chưa có ảnh/video từ iPhone 11 thật.
-- Ngoài auth, chấm công, công tháng, giải trình, nghỉ phép, OT, tạm ứng, phiếu lương và bản tin, màn tài liệu vẫn dùng dữ liệu mẫu.
+- Mobile: đề nghị sửa hồ sơ (HS-0221) và phần thông tin cá nhân/công việc trên màn Hồ sơ vẫn là dữ liệu mẫu.
+- Tài liệu: chưa có "Tạo từ mẫu", quét virus, nhắc hạn tự động (`document.expiring`), danh mục do công ty định nghĩa, quyền xem giới hạn cho Kế toán/Kiểm soát,
+  nhân viên tự tải hồ sơ; mobile chưa thử trên thiết bị. Web chưa có mục tài liệu trong hồ sơ nhân viên (chỉ ở trang Tài liệu).
 - Bản tin: mobile chưa build/chụp trên simulator/iPhone (cần Mac: build Release mới, thử tab Bản tin, mở file PDF, bấm thông báo). Chưa có quét virus file
   đính kèm (chỉ nhận PDF/PNG/JPEG/WebP theo byte đầu), chọn người nhận theo vai trò, người đăng phạm vi phòng ban, nhiều file/bài, "Lưu tin" theo người dùng.
   Thống kê người nhận gọi hàm SQL theo từng bài (≤ 200 bài/trang) — đủ cho pilot, cần gộp khi công ty lớn.
 - Tạm ứng: DB/API payroll đã nối đối chiếu và đánh dấu khấu trừ khi công bố; chưa có UI payroll web; mobile có phiếu cá nhân. Chưa có tài khoản ngân hàng nhận tiền (cần mã hóa — `employee_bank_accounts` trong schema), chặn khi kỳ lương đã chốt, nhiều lần/tháng. Quy định mẫu nhận đơn đến ngày 20 nên sau ngày 20 nhân viên không gửi được đơn tháng đó (đúng prototype); thử trên máy sau ngày 20 thì tạo quy định riêng hạn 31.
 - OT chưa có: OT ban đêm (+30%/+20%), OT qua nửa đêm (phải tách hai đơn), đối chiếu giờ OT với chấm công thực tế, ngoại lệ 300 giờ/năm theo ngành (chỉnh trong quy định). API payroll đã đọc `overtime_entries` đã duyệt để cảnh báo OT_PAY hai chiều, không tính tiền OT.
 - Android chưa thử luồng chấm công thật (GPS/hàng đợi) trên emulator.
-- Test tự động của admin-web, console-web, web-ui vẫn là placeholder; mobile có 11 ca hành vi (payroll 6, bản tin 5), chưa có bộ kiểm UI/native đầy đủ.
+- Test tự động của admin-web, console-web, web-ui vẫn là placeholder; mobile có 14 ca hành vi (payroll 6, bản tin 5, tài liệu 3), chưa có bộ kiểm UI/native đầy đủ.
 - Trên bản dev, gõ phím "r" khi không focus ô nhập sẽ làm Metro reload (chỉ ảnh hưởng dev).
 
 ## Bước tiếp theo
 1. Người dùng thử trên Mac (nhánh `claude/ecstatic-pascal-dblg7v`): web `/payroll` (file mẫu `sample-data/payroll_import_2026-10.csv`) và
-   `/announcements`; build Release iPhone mới để thử tab Bản tin + mở file + bấm thông báo; thử lại vòng chờ Face ID. Ổn thì merge vào main.
-   Export/PDF phiếu lương và mở lại kỳ đã công bố để sau.
-2. Tài liệu (hợp đồng, quyết định — `documents`, `document_versions`, `employee_documents`; tái dùng cách lưu file riêng tư + liên kết ký của bản tin).
+   `/announcements`, `/documents`; build Release iPhone mới để thử tab Bản tin, Hồ sơ → Hợp đồng và quyết định, mở file, bấm thông báo; thử lại vòng
+   chờ Face ID. Review quyết định mặc định trong `docs/plans/documents.md`. Ổn thì merge vào main. Export/PDF phiếu lương và mở lại kỳ đã công bố để sau.
+2. Đề nghị sửa hồ sơ nhân viên (mobile HS-0221 → HR duyệt trên web) và hồ sơ cá nhân trên app đọc từ API.
+3. Phần còn lại của Kavor Console (khóa/đóng tenant, gói dịch vụ + giới hạn nhân viên, support access có thời hạn).
 - Push từ máy chủ khi app tắt (APNs/FCM) cần tài khoản Apple Developer trả phí → làm khi mua (xem "Quyết định đã chốt"); lúc đó thay luôn việc E19 hỏi lại 8 giây/lần.
 - Staging: **hoãn tới khi hệ thống hoàn thiện** (quyết định 24/10). Phương án đã phân tích sẵn: Render Singapore cho API + 2 web (~$21/tháng, địa chỉ onrender.com, chưa cần domain), Gmail SMTP như CarRental cho OTP và thư mời, project Supabase `KavorSystem` (Singapore) làm staging, chỉ dùng dữ liệu mẫu; cần đổi các giá trị localhost trong `supabase/config.toml` sang biến môi trường trước khi `config push`.
 - Ngoài luồng chính: test component cho admin-web; Sentry; số liệu luật cần HR/Payroll SME xác nhận trước pilot; pháp lý chuyển dữ liệu ra nước ngoài (Nghị định 13/2023, dữ liệu ở Singapore) trước khi có dữ liệu thật.
@@ -310,6 +328,8 @@ simulator hay iPhone** vì phiên cloud không có Mac). Tiếp theo: Tài liệ
 - Không có. Người dùng đã duyệt sửa cả 3 smoke leave/notifications/timesheet ngày 26/10.
 
 ## Nhật ký
+- 2026-10-26 — Claude (phiên cloud) làm module Tài liệu nhân sự trọn vòng (DB, pgTAP 32, API, smoke 40, web, mobile REMOTE + 3 test hành vi).
+  Verify-all đầy đủ TẤT CẢ ĐẠT: pgTAP 376, 13 smoke (documents 40, announcements 51, payroll 105, …), build, lint. Mobile chưa thử trên thiết bị.
 - 2026-10-26 — Claude (phiên cloud) làm module Bản tin trọn vòng (DB, pgTAP 43, API, smoke 51, web, mobile REMOTE + 5 test hành vi) và file CSV mẫu
   payroll. Verify-all đầy đủ TẤT CẢ ĐẠT. Mobile chưa thử trên thiết bị. Commit + push nhánh `claude/ecstatic-pascal-dblg7v`.
 - 2026-10-26 — Claude (phiên cloud) làm web payroll `/payroll` + sửa API hiện lỗi mã nhân viên không thuộc công ty. Dựng Docker/Supabase/API/web

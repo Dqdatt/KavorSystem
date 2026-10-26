@@ -9,8 +9,8 @@ import { NotificationBell } from "../_ui/notifications";
 
 /* perm dạng mảng = có một trong các quyền là thấy mục */
 type NavItem = { href: string; label: string; icon: string; perm?: string | string[] };
-/* Chỉ hiện trang của module đã làm (chấm công, nghỉ phép, đơn & phê duyệt, lương & tạm ứng, bản tin, cài đặt doanh nghiệp). Các mục
-   khác của prototype (Tổ chức, Tài liệu, Tích hợp, Báo cáo, Phân quyền) sẽ thêm khi module tương ứng tới lượt. */
+/* Chỉ hiện trang của module đã làm (chấm công, nghỉ phép, đơn & phê duyệt, lương & tạm ứng, tài liệu, bản tin, cài đặt doanh nghiệp). Các
+   mục khác của prototype (Tổ chức, Tích hợp, Báo cáo, Phân quyền) sẽ thêm khi module tương ứng tới lượt. */
 const NAV: Array<{ label?: string; items: NavItem[] }> = [
   { items: [{ href: "/", label: "Tổng quan", icon: "home" }] },
   { label: "Nhân sự", items: [{ href: "/employees", label: "Nhân viên", icon: "users", perm: "employee.read" }] },
@@ -22,10 +22,11 @@ const NAV: Array<{ label?: string; items: NavItem[] }> = [
   { label: "Vận hành", items: [
     { href: "/requests", label: "Đơn & phê duyệt", icon: "checks", perm: "request.read" },
     { href: "/payroll", label: "Lương & tạm ứng", icon: "pay", perm: ["payroll.read", "salary_advance.process", "compensation.read"] },
+    { href: "/documents", label: "Tài liệu", icon: "file", perm: "document.read" },
     { href: "/announcements", label: "Bản tin", icon: "news", perm: "announcement.publish" },
   ] },
 ];
-const TITLES: Record<string, string> = { "/": "Tổng quan", "/employees": "Nhân viên", "/attendance": "Chấm công", "/schedules": "Ca & địa điểm", "/settings": "Cài đặt doanh nghiệp", "/requests": "Đơn & phê duyệt", "/leave": "Nghỉ phép", "/payroll": "Lương & tạm ứng", "/announcements": "Bản tin" };
+const TITLES: Record<string, string> = { "/": "Tổng quan", "/employees": "Nhân viên", "/attendance": "Chấm công", "/schedules": "Ca & địa điểm", "/settings": "Cài đặt doanh nghiệp", "/requests": "Đơn & phê duyệt", "/leave": "Nghỉ phép", "/payroll": "Lương & tạm ứng", "/announcements": "Bản tin", "/documents": "Tài liệu" };
 
 function today(tz: string) {
   return new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());

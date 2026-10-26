@@ -34,7 +34,7 @@ Cột **Schema**: thiết kế trong `DATABASE_SCHEMA.md` (đã có migration ha
 | Bảng công tháng | Chấm công (bảng công, khóa kỳ) | `daily_timesheets`, `monthly_timesheets`, `timesheet_locks` |
 | Ca cố định/linh hoạt | Lịch làm (mẫu ca, cảnh báo) | `shift_definitions`, `work_schedules`, `shift_assignments` |
 | Phiếu lương | Payroll | `payroll_*`, `payslips` |
-| Hợp đồng và quyết định (P05–P06, toast) | Tài liệu | `documents`, `document_versions`, `employee_documents` |
+| Hợp đồng và quyết định (P05–P06, toast) | Tài liệu — xong 26/10 (chưa có Tạo từ mẫu) | `employee_documents`, `document_versions` |
 | Quản lý duyệt đơn | Phân quyền, Tổ chức | `role_assignments` (scope) |
 
 ## 3. Thuộc Kavor Console

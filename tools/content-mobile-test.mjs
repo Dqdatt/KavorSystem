@@ -1,5 +1,6 @@
 // Chạy store/router và màn Bản tin thật trong Node; chỉ thay native bridge và HTTP (khuôn như payroll-mobile-test.mjs).
-// Kiểm: mở từ thông báo, mở bài = gọi máy chủ, bài bị gỡ không hiện nội dung cũ, lọc danh mục, mở file, đăng xuất xóa dữ liệu.
+// Bản tin: mở từ thông báo, mở bài = gọi máy chủ, bài bị gỡ không hiện nội dung cũ, lọc danh mục, mở file, đăng xuất xóa dữ liệu.
+// Tài liệu (Hợp đồng và quyết định): qua cổng PIN/Face ID mới tải, mở file qua liên kết ký, lỗi hiển thị, đăng xuất xóa.
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { realpathSync } from 'node:fs';
@@ -16,7 +17,11 @@ const post = (id, extra = {}) => ({ id, category: 'notice', title: `Bài ${id}`,
   important: false, pinned: false, publishAt: today, attachment: null, readAt: null, ...extra });
 let list = async () => ({ items: [post('a1', { category: 'policy', important: true, attachment: { name: 'Quy-dinh.pdf', type: 'application/pdf', size: 412 * 1024 } }), post('a2', { category: 'event' }), post('a3', { publishAt: new Date(Date.now() - 5 * 86400_000).toISOString() })] });
 let get = async (id) => ({ ...post(id, { title: 'Quy định mới', attachment: { name: 'Quy-dinh.pdf', type: 'application/pdf', size: 412 * 1024 } }), readAt: today });
-globalThis.__newsTest = { React, ApiError, opened, announcementsApi: {
+let docList = async () => ({ items: [{ id: 'd1', category: 'contract', title: 'HĐLĐ', docNo: null, issuedOn: '2026-01-01', expiresOn: null, expiry: 'none', versionNo: 2, fileName: 'a.pdf', type: 'application/pdf', size: 10, updatedAt: today }] });
+globalThis.__newsTest = { React, ApiError, opened, documentsApi: {
+  list: async () => { calls.push('docs'); return docList(); },
+  fileUrl: async (id) => { calls.push(`docfile:${id}`); return `http://api.test/api/v1/me/documents/${id}/file?sig=y`; },
+}, announcementsApi: {
   list: async () => { calls.push('list'); return list(); },
   get: async (id) => { calls.push(`get:${id}`); return get(id); },
   fileUrl: async (id) => { calls.push(`file:${id}`); return `http://api.test/api/v1/me/announcements/${id}/file?sig=x`; },
@@ -27,7 +32,7 @@ const mocks = new Map([
   ['./auth', `${noop} export const authenticate=async()=>({ok:true}), biometricLabel=async()=> 'Face ID', loadSession=async()=>null, quickLoginEmployee=empty,quickRefreshToken=empty,clearQuickLogin=empty,clearSession=empty,loadBioPrefs=empty,loadSupport=empty,saveBioPrefs=empty,saveSession=empty,saveSupport=empty;`],
   ['./attendance', `${noop} export const currentFix=empty,deviceRegistration=empty,deviceSummary=empty,enqueue=empty,flushQueue=empty,installationId=empty,newEventId=empty,quietFix=empty,readQueue=empty;export class LocationError extends Error {}`],
   ['./notify', `${noop} export const clearExplainReminders=empty,scheduleExplainReminders=empty,onReminderTap=()=>()=>{};`],
-  ['./api/http', `export const REMOTE=true,ApiError=globalThis.__newsTest.ApiError,announcementsApi=globalThis.__newsTest.announcementsApi;
+  ['./api/http', `export const REMOTE=true,ApiError=globalThis.__newsTest.ApiError,announcementsApi=globalThis.__newsTest.announcementsApi,documentsApi=globalThis.__newsTest.documentsApi;
     export const advanceApi={},attendanceApi={},authApi={},companyApi={},leaveApi={},notificationsApi={},overtimeApi={},payslipApi={},timesheetApi={},setTokenSource=()=>{},isNetworkError=()=>false;`],
   ['../api/http', `export const REMOTE=true;`],
   ['../qa', `export const QA_ENABLED=false;`],
@@ -90,4 +95,20 @@ let release;list=()=>new Promise(r=>{release=r;});
 const slow=loadAnnouncements();ACT.logoutGo();release({items:[post('z9')]});await slow;
 assert.equal(S.annData,null);assert.equal(S.annDetail,null);
 console.log('✔ Đăng xuất xóa bản tin và bỏ qua phản hồi cũ đang tải');
+S.stack=['login'];S.stack=['profile'];S.pinUntil=0;calls.length=0;
+module.exports.go('docs');
+assert.equal(S.sheet?.kind,'pin','tài liệu cần PIN/Face ID như phiếu lương');assert.deepEqual(calls,[]);
+await ACT.faceid();await delay(0);
+assert.equal(cur(),'docs');assert.deepEqual(calls,['docs']);assert.equal(S.docData.items[0].title,'HĐLĐ');
+console.log('✔ Hợp đồng và quyết định chỉ tải sau PIN/Face ID');
+ACT.openDoc('d1');await delay(0);await delay(0);
+assert.equal(opened.at(-1),'http://api.test/api/v1/me/documents/d1/file?sig=y');
+console.log('✔ Mở tài liệu bằng liên kết ký qua trình duyệt hệ thống');
+docList=async()=>{throw new ApiError('INTERNAL_ERROR','Hệ thống đang gặp sự cố.',500);};
+await module.exports.loadDocuments();
+assert.equal(S.docData,null);assert.equal(S.docError,'Hệ thống đang gặp sự cố.');
+let releaseDoc;docList=()=>new Promise(r=>{releaseDoc=r;});
+const slowDoc=module.exports.loadDocuments();ACT.logoutGo();releaseDoc({items:[{id:'z'}]});await slowDoc;
+assert.equal(S.docData,null);
+console.log('✔ Lỗi tải tài liệu không giữ danh sách cũ; đăng xuất bỏ phản hồi đang tải');
 globalThis.setInterval=nativeInterval;

@@ -8,11 +8,11 @@ import { C, F, GL, SPRING, glass } from "../theme";
 import { Gi, Ic, Logo, type IconName } from "../icons";
 import { Illus } from "../illus";
 import { Rise, useShake } from "../motion";
-import { Avatar, Balanced, Btn, BtnRow, Card, InfoRow, Note, Notice, Row, RowBtn, SectionHead, Spinner, T, Timeline } from "../ui";
+import { Avatar, Balanced, Btn, BtnRow, Card, InfoRow, Note, Notice, Row, RowBtn, SectionHead, Spinner, St, T, Timeline } from "../ui";
 import { Foot, TopBar, type ScreenSpec } from "../screen";
 import { useClock } from "../clock";
 import { REMOTE } from "../api/http";
-import type { NotificationKind } from "@kavor/contracts";
+import { DOCUMENT_CATEGORIES, type NotificationKind } from "@kavor/contracts";
 import { dec, gh, hm } from "../data";
 import { ACT, S, go, jump, setBioPref, lvAvail, phase, shiftMinutes, toast, worked, type ErrKind, type Route } from "../store";
 
@@ -55,7 +55,7 @@ export function profileSpec(): ScreenSpec {
       <SectionHead key="sh2" title="Cá nhân" link="Đề nghị sửa" onLink={ACT.editProfile} />,
       <Card key="me"><InfoRow k="Điện thoại" v="0912 ••• 468" strong /><InfoRow k="Email" v="ha.tran@haidang.vn" strong /><InfoRow k="Địa chỉ" v="Tân Định, TP.HCM" strong /><InfoRow k="Liên hệ khẩn cấp" v="Trần Văn Bình" strong /><InfoRow k="Ngân hàng" v="Vietcombank •6789" strong /></Card>,
       <Card key="links">
-        <RowBtn icon={<Gi n="doc" s={24} />} title="Hợp đồng và quyết định" onPress={() => toast("P05–P06: hợp đồng, quyết định và trình xem PDF")} />
+        <RowBtn icon={<Gi n="doc" s={24} />} title="Hợp đồng và quyết định" onPress={() => REMOTE ? go("docs") : toast("P05–P06: hợp đồng, quyết định và trình xem PDF")} />
         <RowBtn icon={<Gi n="grid" s={24} />} title="Widget chấm công" onPress={() => go("widgetGuide")} />
         <RowBtn icon={<Gi n="shield" s={24} />} title="Bảo mật và thiết bị" onPress={() => go("security")} />
         <RowBtn icon={<Gi n="bell" s={24} />} title="Thông báo" onPress={() => REMOTE ? go("notifications") : toast("U02: nhắc chấm công, hạn giải trình, kết quả duyệt, phiếu lương, bản tin.")} />
@@ -387,6 +387,30 @@ const styles = StyleSheet.create({
 function Toggle({ on, onChange, label }: { on: boolean; onChange: (v: boolean) => void; label: string }) {
   return <Switch accessibilityLabel={label} value={on} onValueChange={onChange} trackColor={{ true: C.emerald, false: C.line2 }} ios_backgroundColor={C.line2} />;
 }
+/* Hợp đồng và quyết định (bản dùng API) — thiết kế bổ sung: prototype chỉ có toast P05–P06. Danh sách tài liệu HR chia sẻ,
+   bấm để mở file bằng trình xem của máy (liên kết 5 phút, mỗi lần mở ghi audit). Vào qua cổng PIN/Face ID như phiếu lương. */
+const fmtD = (d: string) => d.split("-").reverse().join("/");
+export function docsSpec(): ScreenSpec {
+  const d = S.docData;
+  return {
+    head: <TopBar title="Hợp đồng và quyết định" right={null} />,
+    body: [
+      !d && S.docError ? <Card key="err"><View style={{ alignItems: "center", gap: 10, paddingVertical: 36, paddingHorizontal: 20 }}>
+          <Gi n="doc" s={40} /><T style={{ fontFamily: F.bold, fontSize: 16 }}>Chưa tải được tài liệu</T><T style={{ color: C.ink2, textAlign: "center" }}>{S.docError}</T></View></Card>
+        : !d ? <Card key="l"><Row style={{ justifyContent: "center", paddingVertical: 28 }}><Spinner color={C.emerald} /></Row></Card>
+        : !d.items.length ? <Card key="e"><View style={{ alignItems: "center", gap: 10, paddingVertical: 36, paddingHorizontal: 20 }}>
+          <Gi n="doc" s={40} /><T style={{ fontFamily: F.bold, fontSize: 16 }}>Chưa có tài liệu</T>
+          <T style={{ color: C.ink2, textAlign: "center" }}>Hợp đồng, phụ lục và quyết định HR chia sẻ với bạn sẽ hiện ở đây.</T></View></Card>
+        : <Card key="list">{d.items.map((x) => (
+          <RowBtn key={x.id} icon={<Gi n="doc" s={24} />} title={x.title} disabled={S.spin === "openDoc"} onPress={() => ACT.openDoc(x.id)}
+            sub={[DOCUMENT_CATEGORIES[x.category], x.docNo, x.issuedOn ? `hiệu lực ${fmtD(x.issuedOn)}` : null, x.versionNo > 1 ? `bản ${x.versionNo}` : null].filter(Boolean).join(" · ")}
+            right={x.expiry === "expired" ? <St s="bad">Hết hạn</St> : x.expiry === "soon" && x.expiresOn ? <St s="warn">Hết hạn {fmtD(x.expiresOn).slice(0, 5)}</St> : null} />
+        ))}</Card>,
+      d ? <Note key="note" icon="info">File mở trong trình xem của máy; liên kết chỉ dùng được 5 phút. Cần bản giấy hoặc tài liệu khác, liên hệ HR.</Note> : null,
+    ],
+  };
+}
+
 export function securitySpec(): ScreenSpec {
   const bio = S.bioLabel;
   return {
