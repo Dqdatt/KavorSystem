@@ -112,6 +112,7 @@
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, .3), 0 6px 18px rgba(0, 0, 0, .25);
   --shadow: 0 24px 70px rgba(0, 0, 0, .5);
   --focus: 0 0 0 3px rgba(52, 211, 153, .25);
+  --map-filter: brightness(.72) contrast(1.1) saturate(.75);
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]):not([data-theme="dark"]) {
@@ -124,7 +125,7 @@
     --blue: #7aa7f5; --blue-soft: rgba(122, 167, 245, .14); --violet: #b19cf6; --violet-soft: rgba(177, 156, 246, .16);
     --status-muted: #a2b1a9; --status-muted-bg: rgba(255, 255, 255, .06); --scrim: rgba(0, 0, 0, .55); --tooltip: #e7efea; --on-tooltip: #0b1210;
     --banner-from: #0b4a37; --banner-to: #07362a; --banner-glow: rgba(52, 211, 153, .22);
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, .3), 0 6px 18px rgba(0, 0, 0, .25); --shadow: 0 24px 70px rgba(0, 0, 0, .5); --focus: 0 0 0 3px rgba(52, 211, 153, .25);
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, .3), 0 6px 18px rgba(0, 0, 0, .25); --shadow: 0 24px 70px rgba(0, 0, 0, .5); --focus: 0 0 0 3px rgba(52, 211, 153, .25); --map-filter: brightness(.72) contrast(1.1) saturate(.75);
   }
 }
 
@@ -539,6 +540,21 @@ a.nav-item, a.quick-item { text-decoration: none; }
 .num { font-variant-numeric: tabular-nums; }
 .nowrap { white-space: nowrap; }
 .hidden { display: none !important; }
+/* Bản đồ chọn vị trí chấm công (Leaflet) */
+.location-map { display: grid; gap: 8px; grid-column: 1 / -1; min-width: 0; }
+.location-map-search { display: flex; gap: 8px; align-items: center; }
+.location-map-search .search { flex: 1; height: 36px; }
+.location-map-hits { display: grid; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface); overflow: hidden; }
+.location-map-hits button { display: flex; gap: 8px; align-items: flex-start; padding: 8px 12px; border: 0; border-bottom: 1px solid var(--line-soft); background: none; color: var(--ink); font: inherit; font-size: 12.5px; text-align: left; cursor: pointer; }
+.location-map-hits button:last-child { border-bottom: 0; }
+.location-map-hits button:hover { background: var(--hover); }
+.location-map-hits svg { flex: none; margin-top: 2px; color: var(--muted); }
+.location-map-canvas { height: 300px; border: 1px solid var(--line); border-radius: var(--radius-sm); overflow: hidden; background: var(--surface-2); z-index: 0; }
+.location-map-canvas .leaflet-tile-pane { filter: var(--map-filter, none); }
+.location-map-canvas .leaflet-container, .location-map .leaflet-container { font-family: var(--font); }
+.location-map .leaflet-control-attribution { font-size: 10.5px; }
+.map-pin span { position: absolute; left: 0; top: 0; width: 28px; height: 28px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); background: var(--primary); border: 3px solid #fff; box-shadow: 0 4px 12px rgba(0, 0, 0, .3); }
+.map-pin span::after { content: ""; position: absolute; left: 8px; top: 8px; width: 7px; height: 7px; border-radius: 50%; background: #fff; }
 .org-root { display: inline-block; padding: 12px 28px; border: 1px solid var(--accent-line); border-radius: 10px; background: var(--accent-2); font-weight: 800; }
 .note-amber { padding: 12px 14px; border-radius: var(--radius-sm); background: var(--amber-soft); color: var(--amber-ink); font-size: 12.5px; line-height: 1.5; }
 .note-soft { padding: 12px 14px; border-radius: var(--radius-sm); background: var(--surface-2); color: var(--muted); font-size: 12.5px; line-height: 1.5; }

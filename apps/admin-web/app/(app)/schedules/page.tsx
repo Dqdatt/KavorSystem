@@ -1,5 +1,6 @@
 "use client";
 import { Suspense, useState } from "react";
+import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { LocationDef, OrgOptions, PolicyAssignment, PolicyKind, PolicyScopeType, ShiftDef, ShiftVersion } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
@@ -8,6 +9,8 @@ import { ReasonModal } from "../../_ui/reason-modal";
 import { Select } from "@kavor/web-ui";
 
 type Tab = "shifts" | "locations" | "assignments";
+/* Leaflet cần window → chỉ tải phía trình duyệt */
+const LocationMap = dynamic(() => import("../../_ui/location-map"), { ssr: false, loading: () => <div className="location-map-canvas" /> });
 
 function SchedulesPage() {
   const router = useRouter();
@@ -118,7 +121,7 @@ function Locations() {
               <tr key={l.id}>
                 <td className="wrap"><b>{l.code} · {l.name}</b><br /><small className="muted">{l.address ?? "—"}</small></td>
                 <td className="wrap">{l.branch?.name ?? "—"}</td>
-                <td>{l.current ? <a href={`https://www.openstreetmap.org/?mlat=${l.current.latitude}&mlon=${l.current.longitude}#map=18/${l.current.latitude}/${l.current.longitude}`} target="_blank" rel="noreferrer">{l.current.latitude.toFixed(6)}, {l.current.longitude.toFixed(6)}</a> : "—"}</td>
+                <td>{l.current ? <a href={`https://www.google.com/maps?q=${l.current.latitude},${l.current.longitude}`} target="_blank" rel="noreferrer">{l.current.latitude.toFixed(6)}, {l.current.longitude.toFixed(6)}</a> : "—"}</td>
                 <td>{l.current ? `${l.current.radiusM} m · ±${l.current.maxAccuracyM} m` : "—"}{l.next ? <><br /><small className="status info">Từ {fmtDate(l.next.effectiveFrom)}: {l.next.radiusM} m</small></> : null}</td>
                 <td>v{l.current?.versionNo ?? "—"} · từ {fmtDate(l.current?.effectiveFrom)}</td>
                 <td>{l.active ? <Status v={["Đang dùng", ""]} /> : <Status v={["Ngừng dùng", "muted"]} />}</td>
@@ -152,6 +155,8 @@ function LocationForm({ loc, onClose, onSaved }: { loc: LocationDef | null; onCl
       (e) => { setLocating(false); setErr(e.code === 1 ? "Bạn chưa cho phép trình duyệt truy cập vị trí." : "Không lấy được vị trí."); },
       { enableHighAccuracy: true, timeout: 15000 });
   };
+  const lat = Number(f.latitude), lng = Number(f.longitude);
+  const point = f.latitude !== "" && f.longitude !== "" && Math.abs(lat) <= 90 && Math.abs(lng) <= 180 ? { lat, lng } : null;
   async function save() {
     const v = { latitude: Number(f.latitude), longitude: Number(f.longitude), radiusM: Number(f.radiusM), maxAccuracyM: Number(f.maxAccuracyM), effectiveFrom: f.effectiveFrom, note: f.note || null };
     if (!Number.isFinite(v.latitude) || !Number.isFinite(v.longitude) || f.latitude === "" || f.longitude === "") { setErr("Nhập vĩ độ và kinh độ."); return; }
@@ -168,6 +173,7 @@ function LocationForm({ loc, onClose, onSaved }: { loc: LocationDef | null; onCl
           <Field label="Địa chỉ" full><input value={f.address} onChange={set("address")} /></Field>
           <Field label="Chi nhánh"><Select value={f.branchId} onChange={set("branchId")}><option value="">Không gắn</option>{org.data?.branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</Select></Field>
         </> : null}
+        <LocationMap value={point} radius={Number(f.radiusM) || 0} onPick={(p) => { setF((x) => ({ ...x, latitude: p.lat.toFixed(6), longitude: p.lng.toFixed(6) })); setErr(null); }} />
         <Field label="Vĩ độ"><input inputMode="decimal" value={f.latitude} onChange={set("latitude")} placeholder="10.774390" /></Field>
         <Field label="Kinh độ"><input inputMode="decimal" value={f.longitude} onChange={set("longitude")} placeholder="106.703940" /></Field>
         <div className="field full"><button className="btn small" type="button" onClick={here} disabled={locating}><Icon name="pin" /> {locating ? "Đang lấy vị trí…" : "Dùng vị trí hiện tại của trình duyệt"}</button></div>
