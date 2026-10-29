@@ -8,6 +8,7 @@ import { ANNOUNCEMENT_CATEGORIES, ANNOUNCEMENT_MAX_BYTES, announcementBlocks, ty
   type AnnouncementDetail, type AnnouncementInput, type AnnouncementStatus, type AnnouncementUnit } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
 import { Drawer, Empty, ErrorLine, Field, Icon, LoadError, Modal, Person, Status, fmtDateTime, num, useAction, useMe } from "../../_ui/kit";
+import { Select } from "@kavor/web-ui";
 
 const STATUS: Record<AnnouncementStatus, [string, string]> = { draft: ["Nháp", "muted"], scheduled: ["Hẹn giờ", "info"], published: ["Đang hiện", ""], archived: ["Đã gỡ", "muted"] };
 const FILTERS: Array<[AnnouncementStatus | "all", string]> = [["all", "Tất cả"], ["published", "Đang hiện"], ["scheduled", "Hẹn giờ"], ["draft", "Nháp"], ["archived", "Đã gỡ"]];
@@ -70,7 +71,7 @@ function AnnouncementsPage() {
         <article className="card"><div className="card-head"><h3>Lịch xuất bản</h3></div>
           {b && !scheduled.length ? <Empty title="Chưa có bài hẹn giờ" text="Khi xuất bản, chọn “Hẹn giờ” để bài tự hiện đúng lúc." /> : (
             <div className="detail-list">{scheduled.map((a) => (
-              <button key={a.id} className="detail-row" style={{ font: "inherit", width: "100%", background: "none", border: 0, borderBottom: "1px solid #edf0ed", cursor: "pointer", textAlign: "left" }} onClick={() => open(a.id)}>
+              <button key={a.id} className="detail-row" style={{ font: "inherit", width: "100%", background: "none", border: 0, borderBottom: "1px solid var(--line-soft)", cursor: "pointer", textAlign: "left" }} onClick={() => open(a.id)}>
                 <span>{fmtDateTime(a.publishAt, tz).slice(0, 5)} · {a.title}</span><b>{fmtDateTime(a.publishAt, tz).slice(-5)}</b>
               </button>
             ))}</div>
@@ -221,8 +222,8 @@ function Editor({ a, units, onClose, onSaved }: { a: AnnouncementAdmin | null; u
         {draftish ? <button className="btn primary" disabled={!!busy} onClick={() => void save(true)}>Lưu & xuất bản…</button> : null}</>}>
       <div className="form-grid">
         <Field label="Tiêu đề" full><input value={f.title} maxLength={200} onChange={(e) => setF({ ...f, title: e.target.value })} placeholder="Ví dụ: Lịch nghỉ Tết Dương lịch 2027" autoFocus /></Field>
-        <Field label="Danh mục"><select value={f.category} onChange={(e) => setF({ ...f, category: e.target.value as AnnouncementCategory })}>
-          {(Object.keys(ANNOUNCEMENT_CATEGORIES) as AnnouncementCategory[]).map((k) => <option key={k} value={k}>{ANNOUNCEMENT_CATEGORIES[k]}</option>)}</select></Field>
+        <Field label="Danh mục"><Select value={f.category} onChange={(e) => setF({ ...f, category: e.target.value as AnnouncementCategory })}>
+          {(Object.keys(ANNOUNCEMENT_CATEGORIES) as AnnouncementCategory[]).map((k) => <option key={k} value={k}>{ANNOUNCEMENT_CATEGORIES[k]}</option>)}</Select></Field>
         <Field label="Người/bộ phận đăng"><input value={f.authorLabel} maxLength={80} onChange={(e) => setF({ ...f, authorLabel: e.target.value })} /></Field>
         <Field label="Người nhận" full>
           <div style={{ display: "flex", gap: 18, flexWrap: "wrap" }}>

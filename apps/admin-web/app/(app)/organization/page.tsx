@@ -6,6 +6,7 @@ import { useMemo, useState } from "react";
 import { ORG_UNIT_KINDS, type OrgTree, type OrgUnit, type OrgUnitKind } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
 import { Empty, ErrorLine, Field, Icon, LoadError, Modal, Status, fmtDate, num, useAction, useMe } from "../../_ui/kit";
+import { Select } from "@kavor/web-ui";
 
 type Edit = { mode: "create"; kind: OrgUnitKind; parent?: OrgUnit } | { mode: "edit"; unit: OrgUnit };
 
@@ -40,7 +41,7 @@ export default function OrganizationPage() {
           </div></div>
         {!t ? null : list ? <UnitList t={t} units={units} total={total} onEdit={setEdit} onEnd={setEnding} /> : (
           <div className="card-body" style={{ overflow: "auto" }}><div style={{ minWidth: 760, textAlign: "center", padding: "8px 0 22px" }}>
-            <div style={{ display: "inline-block", padding: "12px 28px", border: "1px solid #bddfce", borderRadius: 10, background: "#edf9f3", fontWeight: 800 }}>{me.tenant.name}
+            <div className="org-root">{me.tenant.name}
               <small style={{ display: "block", color: "var(--muted)", fontWeight: 500 }}>{num(m?.employees ?? 0)} nhân sự</small></div>
             {tops.length ? <>
               <div style={{ width: 1, height: 28, background: "var(--line-strong)", margin: "auto" }} /><div style={{ height: 1, background: "var(--line-strong)", width: "70%", margin: "auto" }} />
@@ -142,14 +143,14 @@ function UnitModal({ t, edit, onClose, onDone }: { t: OrgTree; edit: Edit; onClo
     <Modal title={u ? `Sửa ${ORG_UNIT_KINDS[u.kind].toLowerCase()} ${u.name}` : "Thêm đơn vị"} sub={u ? "Đổi tên/mã được ghi vào nhật ký hoạt động." : "Đơn vị có hiệu lực từ ngày chọn; không thêm lùi về quá khứ."} onClose={onClose}
       foot={<><button className="btn" onClick={onClose}>Hủy</button><button className="btn primary" disabled={!!busy} onClick={save}>{busy ? "Đang lưu…" : "Lưu"}</button></>}>
       <div className="form-grid">
-        {!u ? <Field label="Loại đơn vị"><select value={kind} onChange={(e) => { setKind(e.target.value as OrgUnitKind); setErr(null); }}>{(Object.keys(ORG_UNIT_KINDS) as OrgUnitKind[]).map((k) => <option key={k} value={k}>{ORG_UNIT_KINDS[k]}</option>)}</select></Field> : null}
+        {!u ? <Field label="Loại đơn vị"><Select value={kind} onChange={(e) => { setKind(e.target.value as OrgUnitKind); setErr(null); }}>{(Object.keys(ORG_UNIT_KINDS) as OrgUnitKind[]).map((k) => <option key={k} value={k}>{ORG_UNIT_KINDS[k]}</option>)}</Select></Field> : null}
         {!u ? <Field label="Hiệu lực từ"><input type="date" min={t.today} value={f.effectiveFrom} onChange={set("effectiveFrom")} /></Field> : null}
         <Field label="Mã"><input value={f.code} onChange={set("code")} placeholder="MKT-DIG" /></Field>
         <Field label="Tên"><input value={f.name} onChange={set("name")} placeholder={kind === "position" ? "Chuyên viên dữ liệu" : "Digital Marketing"} /></Field>
-        {!u && kind === "branch" ? <Field label="Thuộc pháp nhân" full><select value={f.legalEntityId} onChange={set("legalEntityId")}><option value="">Chọn…</option>{live.filter((x) => x.kind === "legal_entity").map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</select></Field> : null}
+        {!u && kind === "branch" ? <Field label="Thuộc pháp nhân" full><Select value={f.legalEntityId} onChange={set("legalEntityId")}><option value="">Chọn…</option>{live.filter((x) => x.kind === "legal_entity").map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</Select></Field> : null}
         {!u && kind === "department" ? <>
-          <Field label="Chi nhánh"><select value={f.branchId} onChange={set("branchId")}><option value="">Chọn…</option>{live.filter((x) => x.kind === "branch").map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</select></Field>
-          <Field label="Phòng ban cha (không bắt buộc)"><select value={f.parentId} onChange={set("parentId")} disabled={!f.branchId}><option value="">— Cấp cao nhất —</option>{live.filter((x) => x.kind === "department" && x.branchId === f.branchId).map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</select></Field>
+          <Field label="Chi nhánh"><Select value={f.branchId} onChange={set("branchId")}><option value="">Chọn…</option>{live.filter((x) => x.kind === "branch").map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</Select></Field>
+          <Field label="Phòng ban cha (không bắt buộc)"><Select value={f.parentId} onChange={set("parentId")} disabled={!f.branchId}><option value="">— Cấp cao nhất —</option>{live.filter((x) => x.kind === "department" && x.branchId === f.branchId).map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</Select></Field>
         </> : null}
         {(u?.kind ?? kind) === "legal_entity" ? <Field label="Mã số thuế"><input value={f.taxCode} onChange={set("taxCode")} inputMode="numeric" /></Field> : null}
         {(u?.kind ?? kind) === "position" ? <Field label="Cấp bậc (không bắt buộc)"><input value={f.jobLevel} onChange={set("jobLevel")} placeholder="L2" /></Field> : null}

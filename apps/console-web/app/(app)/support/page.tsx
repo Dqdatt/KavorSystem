@@ -8,6 +8,7 @@ import { SUPPORT_MINUTES, SUPPORT_SCOPES, type ConsoleTenant, type SupportScope,
 import { call, useApi } from "../../_lib/client";
 import { Empty, ErrorLine, Field, Icon, LoadError, Modal, Status, fmtDateTime, num, useAction } from "../../_ui/kit";
 import { SSTATUS } from "../../_ui/labels";
+import { Select } from "@kavor/web-ui";
 
 const TZ = "Asia/Ho_Chi_Minh";
 
@@ -35,7 +36,7 @@ export default function SupportPage() {
       </div>
       <article className="card">
         {data && !all.length ? <Empty title="Chưa có yêu cầu hỗ trợ nào" text="Tạo yêu cầu khi cần xem cấu hình hoặc danh sách nhân sự của khách để xử lý ticket." /> : (
-          <div className="table-wrap"><table className="data-table" style={{ minWidth: 980 }}><thead><tr><th>Tenant</th><th>Kỹ sư</th><th>Lý do</th><th>Phạm vi</th><th>Hết hạn</th><th>Trạng thái</th><th /></tr></thead><tbody>
+          <div className="table-wrap"><table className="data-table" style={{ minWidth: 960 }}><thead><tr><th>Tenant</th><th>Kỹ sư</th><th>Lý do</th><th>Phạm vi</th><th>Hết hạn</th><th>Trạng thái</th><th /></tr></thead><tbody>
             {all.map((s) => (
               <tr key={s.id}>
                 <td><b>{s.tenant.name}</b><div className="muted" style={{ fontSize: 10.5 }}>{s.tenant.code}</div></td>
@@ -76,9 +77,9 @@ function RequestModal({ onClose, onSaved }: { onClose: () => void; onSaved: (s: 
     <Modal title="Yêu cầu support access" sub="Quyền có thời hạn và mọi thao tác đều được audit." onClose={onClose}
       foot={<><button className="btn" onClick={onClose}>Hủy</button><button className="btn primary" disabled={!!busy} onClick={save}>{busy ? "Đang gửi…" : "Gửi tenant phê duyệt"}</button></>}>
       <div className="form-grid">
-        <Field label="Tenant" full><select value={f.tenantId} onChange={(e) => { setF({ ...f, tenantId: e.target.value }); setErr(null); }}><option value="">Chọn…</option>{tenants.map((t) => <option key={t.id} value={t.id}>{t.name} · {t.code}</option>)}</select></Field>
+        <Field label="Tenant" full><Select value={f.tenantId} onChange={(e) => { setF({ ...f, tenantId: e.target.value }); setErr(null); }}><option value="">Chọn…</option>{tenants.map((t) => <option key={t.id} value={t.id}>{t.name} · {t.code}</option>)}</Select></Field>
         <Field label="Mã ticket"><input value={f.ticket} onChange={(e) => { setF({ ...f, ticket: e.target.value }); setErr(null); }} placeholder="SUP-1024" /></Field>
-        <Field label="Thời hạn"><select value={f.minutes} onChange={(e) => setF({ ...f, minutes: Number(e.target.value) })}>{SUPPORT_MINUTES.map((m) => <option key={m} value={m}>{m} phút</option>)}</select></Field>
+        <Field label="Thời hạn"><Select value={f.minutes} onChange={(e) => setF({ ...f, minutes: Number(e.target.value) })}>{SUPPORT_MINUTES.map((m) => <option key={m} value={m}>{m} phút</option>)}</Select></Field>
         <Field label="Lý do" full><textarea value={f.reason} onChange={(e) => { setF({ ...f, reason: e.target.value }); setErr(null); }} placeholder="Mã ticket và nội dung cần hỗ trợ" /></Field>
         <Field label="Phạm vi tối thiểu" full>
           <div style={{ display: "grid", gap: 8 }}>
@@ -89,7 +90,7 @@ function RequestModal({ onClose, onSaved }: { onClose: () => void; onSaved: (s: 
           </div>
         </Field>
       </div>
-      <div style={{ marginTop: 14, padding: 11, borderRadius: 10, background: "var(--amber-soft)", fontSize: 11, color: "#79510e" }}>Không yêu cầu quyền xem payroll hoặc thông tin cá nhân nếu ticket không cần thiết. Thời hạn tính từ lúc Tenant Admin duyệt.</div>
+      <div className="note-amber" style={{ marginTop: 14 }}>Không yêu cầu quyền xem payroll hoặc thông tin cá nhân nếu ticket không cần thiết. Thời hạn tính từ lúc Tenant Admin duyệt.</div>
       <ErrorLine text={err} />
     </Modal>
   );

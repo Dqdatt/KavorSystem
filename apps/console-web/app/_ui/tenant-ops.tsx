@@ -5,6 +5,7 @@ import { useState } from "react";
 import { NEAR_LIMIT_RATIO, type ConsoleTenant, type ConsoleTenantDetail, type PlanCode, type PlatformPlan, type TenantStatusAction } from "@kavor/contracts";
 import { call, useApi } from "../_lib/client";
 import { ErrorLine, Field, Modal, num, useAction } from "./kit";
+import { Select } from "@kavor/web-ui";
 
 export const nearLimit = (t: Pick<ConsoleTenant, "employees" | "employeeLimit">) => t.employees >= t.employeeLimit * NEAR_LIMIT_RATIO;
 export const usageTone = (t: Pick<ConsoleTenant, "employees" | "employeeLimit">) => (t.employees >= t.employeeLimit ? "text-red" : nearLimit(t) ? "text-amber" : "");
@@ -31,7 +32,7 @@ export function PlanModal({ t, onClose, onDone }: { t: ConsoleTenant; onClose: (
     <Modal title={`Đổi gói · ${t.name}`} sub="Áp dụng ngay. Giới hạn chỉ chặn thêm nhân sự mới, không ảnh hưởng hồ sơ đang có." onClose={onClose}
       foot={<><button className="btn" onClick={onClose}>Hủy</button><button className="btn primary" disabled={!!busy} onClick={save}>{busy ? "Đang lưu…" : "Lưu"}</button></>}>
       <div className="form-grid">
-        <Field label="Gói dịch vụ"><select value={plan} onChange={(e) => pick(e.target.value as PlanCode)}>{plans.map((p) => <option key={p.code} value={p.code}>{p.name}{p.employeeLimit ? ` · tối đa ${num(p.employeeLimit)}` : " · theo hợp đồng"}</option>)}</select></Field>
+        <Field label="Gói dịch vụ"><Select value={plan} onChange={(e) => pick(e.target.value as PlanCode)}>{plans.map((p) => <option key={p.code} value={p.code}>{p.name}{p.employeeLimit ? ` · tối đa ${num(p.employeeLimit)}` : " · theo hợp đồng"}</option>)}</Select></Field>
         <Field label="Giới hạn nhân sự" hint={`Đang dùng ${num(t.employees)}`}><input type="number" min={1} value={limit} onChange={(e) => { setLimit(e.target.value); setErr(null); }} /></Field>
         <Field label="Lý do / hợp đồng" full><input value={reason} onChange={(e) => { setReason(e.target.value); setErr(null); }} placeholder="Ví dụ: Phụ lục HĐ số 12 nâng lên Growth" /></Field>
       </div>

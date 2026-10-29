@@ -6,6 +6,7 @@ import type { OvertimeBoard, RequestItem } from "@kavor/contracts";
 import { useApi } from "../../_lib/client";
 import { Empty, Icon, LoadError, Person, Status, fmtDateTime, useMe } from "../../_ui/kit";
 import { REQUEST_STATUS, RequestModal, requestSummary } from "../../_ui/request";
+import { Select } from "@kavor/web-ui";
 
 const h = (n: number) => n.toLocaleString("vi-VN", { maximumFractionDigits: 1 });
 const shift = (m: string, n: number) => { const [y, mo] = m.split("-").map(Number) as [number, number]; const d = new Date(Date.UTC(y, mo - 1 + n, 1)); return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`; };
@@ -30,9 +31,9 @@ export function OvertimeTab() {
         <div className="toolbar">
           <b style={{ fontSize: 12 }}>Tổng hợp theo nhân viên</b>
           <span className="toolbar-spacer" />
-          <select className="select" value={cur ?? ""} onChange={(e) => setMonth(e.target.value)} aria-label="Tháng">
+          <Select className="select" value={cur ?? ""} onChange={(e) => setMonth(e.target.value)} aria-label="Tháng">
             {cur ? [0, -1, -2, -3, -4, -5].map((n) => shift(cur === b?.month && !month ? cur : cur, n)).map((x) => <option key={x} value={x}>Tháng {Number(x.slice(5))}/{x.slice(0, 4)}</option>) : null}
-          </select>
+          </Select>
         </div>
         {b && !b.rows.length ? <Empty title="Chưa có ai đăng ký làm thêm" text="Nhân viên đăng ký OT trên app; đơn đi qua luồng Quản lý → HR." /> : (
           <div className="table-wrap"><table className="data-table" style={{ minWidth: 900 }}><thead><tr><th>Nhân viên</th><th>Phòng ban</th><th>Đã duyệt</th><th>Ngày thường</th><th>Ngày nghỉ</th><th>Ngày lễ</th><th>Đang chờ</th><th>So với giới hạn tháng</th><th>Cả năm</th></tr></thead><tbody>

@@ -102,7 +102,7 @@ function LoginForm() {
               {mfa?.enroll ? (
                 <>
                   <p className="muted" style={{ margin: "0 0 14px", fontSize: 13 }}>Tài khoản quản trị bắt buộc dùng ứng dụng xác thực (Google Authenticator, Microsoft Authenticator, 1Password…). Quét mã dưới đây, rồi nhập mã 6 số ứng dụng hiển thị.</p>
-                  <div style={{ display: "grid", placeItems: "center", padding: 12, border: "1px solid var(--line)", borderRadius: 12, background: "#fff" }}>
+                  <div style={{ display: "grid", placeItems: "center", padding: 12, border: "1px solid var(--line)", borderRadius: 12, background: "#fff" /* QR luôn nền trắng để quét được cả ở theme tối */ }}>
                     <img src={mfa.enroll.qrCode} alt="Mã QR liên kết ứng dụng xác thực" width={180} height={180} />
                   </div>
                   <p className="muted" style={{ fontSize: 12, margin: "10px 0 14px", wordBreak: "break-all" }}>Không quét được? Nhập khóa thủ công: <b style={{ color: "var(--ink)", fontFamily: "ui-monospace, monospace" }}>{mfa.enroll.secret}</b></p>

@@ -16,12 +16,12 @@ function PresenceChart({ days }: { days: OverviewDay[] }) {
   const ticks = [0, 1, 2, 3, 4].map((k) => (top / 4) * k);
   return (
     <svg className="chart-svg" viewBox="0 0 720 240" role="img" aria-label="Biểu đồ có mặt và đi muộn 7 ngày">
-      <defs><pattern id="dotsHR" width="16" height="16" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r="1" fill="#e8ede9" /></pattern></defs>
+      <defs><pattern id="dotsHR" width="16" height="16" patternUnits="userSpaceOnUse"><circle className="dots" cx="1" cy="1" r="1" /></pattern></defs>
       <rect x="42" y="12" width="650" height="186" fill="url(#dotsHR)" />
-      <g stroke="#edf1ee">{ticks.map((t) => <path key={t} d={`M42 ${y(t)}h650`} />)}</g>
-      <g fill="#35c88a" opacity=".95">{days.map((d, i) => <rect key={d.date} x={cx(i) - 23} y={y(d.present)} width="46" height={Math.max(0, 198 - y(d.present))} rx="5"><title>{`${fmtDate(d.date)}: có mặt ${d.present}, đi muộn ${d.late}, bị từ chối ${d.rejected}`}</title></rect>)}</g>
-      <path d={days.map((d, i) => `${i ? "L" : "M"}${cx(i)} ${y(d.late)}`).join(" ")} fill="none" stroke="#075e43" strokeWidth="2.2" />
-      <g fill="#fff" stroke="#075e43" strokeWidth="2">{days.map((d, i) => <circle key={d.date} cx={cx(i)} cy={y(d.late)} r="4" />)}</g>
+      <g className="grid">{ticks.map((t) => <path key={t} d={`M42 ${y(t)}h650`} />)}</g>
+      <g className="bars">{days.map((d, i) => <rect key={d.date} x={cx(i) - 23} y={y(d.present)} width="46" height={Math.max(0, 198 - y(d.present))} rx="5"><title>{`${fmtDate(d.date)}: có mặt ${d.present}, đi muộn ${d.late}, bị từ chối ${d.rejected}`}</title></rect>)}</g>
+      <path d={days.map((d, i) => `${i ? "L" : "M"}${cx(i)} ${y(d.late)}`).join(" ")} className="line" strokeWidth="2.2" />
+      <g className="points" strokeWidth="2">{days.map((d, i) => <circle key={d.date} cx={cx(i)} cy={y(d.late)} r="4" />)}</g>
       <g>
         {ticks.map((t) => <text key={t} x="10" y={y(t) + 4}>{t}</text>)}
         {days.map((d, i) => { const dt = new Date(`${d.date}T12:00:00Z`); return <text key={d.date} x={cx(i) - 16} y="222">{`${WD[dt.getUTCDay()]} ${dt.getUTCDate()}`}</text>; })}

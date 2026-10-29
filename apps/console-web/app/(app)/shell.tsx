@@ -3,6 +3,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, type ReactNode } from "react";
 import type { OperatorMe } from "@kavor/contracts";
+import { ThemeToggle } from "@kavor/web-ui";
 import { Icon, MeContext, ToastProvider, initials, longDate, tenantToday } from "../_ui/kit";
 
 type NavItem = { href: string; label: string; icon: string };
@@ -62,6 +63,7 @@ export function Shell({ me, children }: { me: OperatorMe; children: ReactNode })
               <div className="title-copy"><h1>{TITLES[path] ?? (path.startsWith("/support/") ? "Chế độ hỗ trợ" : "Kavor Console")}</h1><span className="topbar-sub">{longDate(tenantToday("Asia/Ho_Chi_Minh"))}</span></div>
               <span />
               <div className="top-actions">
+                <ThemeToggle />
                 <span className="account-chip" title={me.email}><span className="avatar purple">{initials(me.fullName)}</span><span>{process.env.NEXT_PUBLIC_KAVOR_ENV ?? "Local dev"}</span></span>
               </div>
             </header>

@@ -18,7 +18,7 @@ export default function AuditPage() {
       <article className="card">
         <div className="toolbar"><label className="search"><Icon name="search" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Actor, tenant, action hoặc resource…" /></label></div>
         {data && !rows.length ? <Empty title="Không có dòng audit phù hợp" /> : (
-          <div className="table-wrap"><table className="data-table" style={{ minWidth: 980 }}><thead><tr><th>Thời gian</th><th>Actor</th><th>Tenant</th><th>Action</th><th>Resource</th><th>Lý do</th></tr></thead><tbody>
+          <div className="table-wrap"><table className="data-table" style={{ minWidth: 960 }}><thead><tr><th>Thời gian</th><th>Actor</th><th>Tenant</th><th>Action</th><th>Resource</th><th>Lý do</th></tr></thead><tbody>
             {rows.map((a) => (
               <tr key={a.id}>
                 <td className="nowrap">{fmtDateTime(a.createdAt, "Asia/Ho_Chi_Minh")}</td>

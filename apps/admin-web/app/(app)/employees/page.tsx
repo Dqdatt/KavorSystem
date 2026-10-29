@@ -9,6 +9,7 @@ import {
 } from "../../_ui/kit";
 import { ReasonModal } from "../../_ui/reason-modal";
 import { ImportModal } from "../../_ui/employee-import";
+import { Select } from "@kavor/web-ui";
 
 const AUDIT: Record<string, string> = {
   "employee.created": "Tạo hồ sơ", "employee.updated": "Sửa hồ sơ", "employee.invited": "Gửi lời mời kích hoạt", "account.locked": "Khóa tài khoản", "account.unlocked": "Mở khóa tài khoản",
@@ -55,11 +56,11 @@ function EmployeesPage() {
       <article className="card">
         <div className="toolbar">
           <label className="search"><Icon name="search" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Tên, mã hoặc email…" /></label>
-          <select className="select" value={dept} onChange={(e) => setDept(e.target.value)} aria-label="Phòng ban">
+          <Select className="select" value={dept} onChange={(e) => setDept(e.target.value)} aria-label="Phòng ban">
             <option value="">Tất cả phòng ban</option>{org.data?.departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
-          </select>
-          <select className="select" value={status} onChange={(e) => setStatus(e.target.value)} aria-label="Trạng thái"><option value="working">Đang làm việc</option><option value="terminated">Đã nghỉ việc</option><option value="all">Tất cả trạng thái</option></select>
-          <select className="select" value={account} onChange={(e) => setAccount(e.target.value)} aria-label="Tài khoản"><option value="all">Mọi tài khoản</option><option value="pending">Chưa kích hoạt</option><option value="active">Đã kích hoạt</option><option value="locked">Đã khóa</option></select>
+          </Select>
+          <Select className="select" value={status} onChange={(e) => setStatus(e.target.value)} aria-label="Trạng thái"><option value="working">Đang làm việc</option><option value="terminated">Đã nghỉ việc</option><option value="all">Tất cả trạng thái</option></Select>
+          <Select className="select" value={account} onChange={(e) => setAccount(e.target.value)} aria-label="Tài khoản"><option value="all">Mọi tài khoản</option><option value="pending">Chưa kích hoạt</option><option value="active">Đã kích hoạt</option><option value="locked">Đã khóa</option></Select>
           <span className="toolbar-spacer" />
           {/* Gửi lời mời cho người chưa mời lần nào trong danh sách đang lọc (thường sau khi nhập từ file) */}
           {can(me, "membership.invite") && uninvited.length ? <button className="btn small" onClick={() => setBulk(true)}><Icon name="mail" /> Gửi lời mời ({uninvited.length})</button> : null}
@@ -69,7 +70,7 @@ function EmployeesPage() {
             {rows.map((e) => (
               <tr key={e.id} className="clickable" onClick={() => open(e.id)}>
                 <td><Person name={e.fullName} sub={`${e.email ?? "chưa có email"} · ${e.code}`} seed={e.code} /></td>
-                <td>{e.department?.name ?? "—"}</td><td>{e.position?.name ?? "—"}</td><td>{fmtDate(e.hireDate)}</td><td>{EMPLOYMENT[e.employmentType]}</td>
+                <td className="wrap">{e.department?.name ?? "—"}</td><td className="wrap">{e.position?.name ?? "—"}</td><td>{fmtDate(e.hireDate)}</td><td>{EMPLOYMENT[e.employmentType]}</td>
                 <td><Status v={ACCOUNT[e.account]} />{e.devicePending ? <span className="source-tag" title="Có thiết bị chờ duyệt">Máy chờ duyệt</span> : null}</td>
                 <td><Status v={EMP_STATUS[e.status]} /></td>
                 <td><Icon name="arrow" size={16} className="icon" /></td>
@@ -250,12 +251,12 @@ function EmployeeForm({ org, employee, onClose, onSaved }: { org: OrgOptions; em
           <input type="email" value={f.workEmail} onChange={set("workEmail")} disabled={employee?.account === "active" || employee?.account === "locked"} />
         </Field>
         <Field label="Điện thoại"><input value={f.phone} onChange={set("phone")} /></Field>
-        <Field label="Phòng ban"><select value={f.departmentId} onChange={set("departmentId")}><option value="">Chọn phòng ban</option>{org.departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}</select></Field>
-        <Field label="Chức danh"><select value={f.positionId} onChange={set("positionId")}><option value="">Chọn chức danh</option>{org.positions.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></Field>
-        <Field label="Quản lý trực tiếp"><select value={f.managerEmployeeId} onChange={set("managerEmployeeId")}><option value="">Không có</option>{org.employees.filter((x) => x.id !== employee?.id).map((x) => <option key={x.id} value={x.id}>{x.name} · {x.code}</option>)}</select></Field>
+        <Field label="Phòng ban"><Select value={f.departmentId} onChange={set("departmentId")}><option value="">Chọn phòng ban</option>{org.departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}</Select></Field>
+        <Field label="Chức danh"><Select value={f.positionId} onChange={set("positionId")}><option value="">Chọn chức danh</option>{org.positions.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</Select></Field>
+        <Field label="Quản lý trực tiếp"><Select value={f.managerEmployeeId} onChange={set("managerEmployeeId")}><option value="">Không có</option>{org.employees.filter((x) => x.id !== employee?.id).map((x) => <option key={x.id} value={x.id}>{x.name} · {x.code}</option>)}</Select></Field>
         <Field label="Ngày vào làm"><input type="date" value={f.hireDate} onChange={set("hireDate")} /></Field>
-        <Field label="Loại hợp đồng"><select value={f.employmentType} onChange={set("employmentType")}>{Object.entries(EMPLOYMENT).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></Field>
-        {employee ? <Field label="Trạng thái làm việc"><select value={f.status} onChange={set("status")}>{Object.entries(EMP_STATUS).map(([k, v]) => <option key={k} value={k}>{v[0]}</option>)}</select></Field> : null}
+        <Field label="Loại hợp đồng"><Select value={f.employmentType} onChange={set("employmentType")}>{Object.entries(EMPLOYMENT).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</Select></Field>
+        {employee ? <Field label="Trạng thái làm việc"><Select value={f.status} onChange={set("status")}>{Object.entries(EMP_STATUS).map(([k, v]) => <option key={k} value={k}>{v[0]}</option>)}</Select></Field> : null}
         {placementChanged ? <Field label="Hiệu lực thay đổi phòng ban/chức danh từ"><input type="date" value={f.effectiveFrom} onChange={set("effectiveFrom")} /></Field> : null}
         {!employee ? <label className="check-row" style={{ gridColumn: "1 / -1" }}><input type="checkbox" checked={f.sendInvite} onChange={(e) => setF({ ...f, sendInvite: e.target.checked })} /> Gửi email mời kích hoạt ngay</label> : null}
       </div>

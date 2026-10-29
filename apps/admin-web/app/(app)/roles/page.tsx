@@ -6,6 +6,7 @@ import { useState } from "react";
 import type { OrgOptions, RoleAssignmentRow, RoleInfo, RolesBoard, ScopeType } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
 import { ACCOUNT, Drawer, Empty, ErrorLine, Field, Icon, LoadError, Modal, Person, Status, fmtDate, num, useAction, useMe } from "../../_ui/kit";
+import { Select } from "@kavor/web-ui";
 
 const SCOPE: Record<string, string> = { tenant: "Toàn công ty", legal_entity: "Pháp nhân", branch: "Chi nhánh", department: "Phòng ban", direct_reports: "Nhân viên trực tiếp", self: "Bản thân" };
 const STATE: Record<RoleAssignmentRow["state"], [string, string]> = { active: ["Đang hiệu lực", ""], future: ["Sắp hiệu lực", "info"], ended: ["Đã kết thúc", "muted"] };
@@ -96,14 +97,14 @@ function AssignModal({ board, roleCode, onClose, onDone }: { board: RolesBoard; 
       foot={<><button className="btn" onClick={onClose}>Hủy</button><button className="btn primary" disabled={!!busy} onClick={save}>{busy ? "Đang lưu…" : "Gán vai trò"}</button></>}>
       <div className="form-grid">
         <Field label="Tìm nhân viên" full><input value={f.q} onChange={set("q")} placeholder="Lọc theo tên hoặc mã…" /></Field>
-        <Field label="Nhân viên" full><select value={f.employeeId} onChange={set("employeeId")}><option value="">Chọn…</option>{emps.map((e) => <option key={e.id} value={e.id}>{e.name} · {e.code}</option>)}</select></Field>
-        <Field label="Vai trò"><select value={f.roleCode} onChange={set("roleCode")}>{board.roles.map((r) => <option key={r.code} value={r.code}>{r.name}</option>)}</select></Field>
-        <Field label="Phạm vi"><select value={scopeType} onChange={set("scopeType")}>{role.allowedScopes.map((s) => <option key={s} value={s}>{SCOPE[s]}</option>)}</select></Field>
-        {units ? <Field label={SCOPE[scopeType]!} full><select value={f.scopeId} onChange={set("scopeId")}><option value="">Chọn…</option>{units.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}</select></Field> : null}
+        <Field label="Nhân viên" full><Select value={f.employeeId} onChange={set("employeeId")}><option value="">Chọn…</option>{emps.map((e) => <option key={e.id} value={e.id}>{e.name} · {e.code}</option>)}</Select></Field>
+        <Field label="Vai trò"><Select value={f.roleCode} onChange={set("roleCode")}>{board.roles.map((r) => <option key={r.code} value={r.code}>{r.name}</option>)}</Select></Field>
+        <Field label="Phạm vi"><Select value={scopeType} onChange={set("scopeType")}>{role.allowedScopes.map((s) => <option key={s} value={s}>{SCOPE[s]}</option>)}</Select></Field>
+        {units ? <Field label={SCOPE[scopeType]!} full><Select value={f.scopeId} onChange={set("scopeId")}><option value="">Chọn…</option>{units.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}</Select></Field> : null}
         <Field label="Hiệu lực từ"><input type="date" min={board.today} value={f.effectiveFrom} onChange={set("effectiveFrom")} /></Field>
         <Field label="Đến (không bắt buộc)"><input type="date" min={f.effectiveFrom} value={f.effectiveTo} onChange={set("effectiveTo")} /></Field>
       </div>
-      {role.sensitive ? <div style={{ marginTop: 14, padding: 11, borderRadius: 10, background: "var(--amber-soft)", fontSize: 11, color: "#79510e" }}>
+      {role.sensitive ? <div className="note-amber" style={{ marginTop: 14 }}>
         {role.name} có quyền nhạy cảm ({role.code === "payroll" ? "lương, tạm ứng, tài khoản ngân hàng" : "toàn quyền quản trị công ty, gán vai trò"}). Chỉ gán cho người đã được công ty chấp thuận.</div> : null}
       <ErrorLine text={err} />
     </Modal>

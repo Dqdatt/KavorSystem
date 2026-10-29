@@ -13,6 +13,7 @@ import { call, useApi } from "../../_lib/client";
 import { SupportPanel } from "../../_ui/support";
 import { Empty, ErrorLine, Field, Icon, LoadError, Modal, SCOPE, Status, can, fmtDate, fmtDateTime, num, tenantToday, useAction, useMe } from "../../_ui/kit";
 import { ReasonModal } from "../../_ui/reason-modal";
+import { Select } from "@kavor/web-ui";
 
 type Tab = "company" | "setup" | "rules" | "holidays" | "privacy" | "support";
 const TABS: Array<[Tab, string, string | null]> = [
@@ -94,8 +95,8 @@ function Company({ setAction }: { setAction: SetAction }) {
           <Field label="Mã tenant"><input value={data.tenant.code} disabled /></Field>
           <Field label="Tên pháp lý"><input value={f.legalName} onChange={set("legalName")} disabled={!manage} placeholder="Công ty Cổ phần …" /></Field>
           <Field label="Mã số thuế"><input value={f.taxCode} onChange={set("taxCode")} disabled={!manage} inputMode="numeric" placeholder="10 chữ số" /></Field>
-          <Field label="Múi giờ"><select disabled value={data.tenant.timezone}><option>{data.tenant.timezone}</option></select></Field>
-          <Field label="Tiền tệ"><select disabled value={data.tenant.currency}><option value={data.tenant.currency}>{data.tenant.currency === "VND" ? "VND — Việt Nam đồng" : data.tenant.currency}</option></select></Field>
+          <Field label="Múi giờ"><Select disabled value={data.tenant.timezone}><option>{data.tenant.timezone}</option></Select></Field>
+          <Field label="Tiền tệ"><Select disabled value={data.tenant.currency}><option value={data.tenant.currency}>{data.tenant.currency === "VND" ? "VND — Việt Nam đồng" : data.tenant.currency}</option></Select></Field>
           {/* Gói do Kavor gán (Kavor Console); nhân sự = hồ sơ chưa nghỉ việc */}
           <Field label="Gói dịch vụ" hint={data.tenant.plan.employees >= data.tenant.plan.employeeLimit * NEAR_LIMIT_RATIO ? "Sắp hết chỗ — liên hệ Kavor để nâng gói" : "Do Kavor cấu hình theo hợp đồng"}>
             <input disabled value={`${data.tenant.plan.name} · ${data.tenant.plan.employees.toLocaleString("vi-VN")}/${data.tenant.plan.employeeLimit.toLocaleString("vi-VN")} nhân sự`} /></Field>
@@ -231,7 +232,7 @@ function Rules({ setAction }: { setAction: SetAction }) {
                 <div style={{ marginTop: 10, fontSize: 12 }}>
                   <b style={{ fontSize: 11, color: "var(--muted)", textTransform: "uppercase", letterSpacing: ".04em" }}>Áp dụng</b>
                   {live.length ? live.map((a) => (
-                    <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 0", borderBottom: "1px solid #edf0ed" }}>
+                    <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 0", borderBottom: "1px solid var(--line-soft)" }}>
                       <span style={{ flex: 1 }}>{SCOPE[a.scopeType]}{a.scope ? `: ${a.scope.name}` : ""} <span className="muted">· {fmtDate(a.effectiveFrom)} → {a.effectiveTo ? fmtDate(a.effectiveTo) : "không thời hạn"}</span></span>
                       <Status v={ASSIGN_STATE[a.state]} />
                       {manage ? <button className="btn small" onClick={() => setEnding(a)}>{a.state === "scheduled" ? "Hủy" : "Kết thúc"}</button> : null}
@@ -278,7 +279,7 @@ function RuleForm({ rule, kind: initialKind, onClose, onSaved }: { rule: RulePol
       foot={<><button className="btn" onClick={onClose}>Hủy</button><button className="btn primary" disabled={!!busy} onClick={save}>{busy ? "Đang lưu…" : "Lưu"}</button></>}>
       <div className="form-grid">
         {!rule ? <>
-          <Field label="Loại quy định"><select value={kind} onChange={(e) => { const k = e.target.value as RuleKind; setKind(k); setConfig(defaults(k)); setErr(null); }}>{(Object.keys(RULE_KINDS) as RuleKind[]).map((k) => <option key={k} value={k}>{RULE_KINDS[k].label}</option>)}</select></Field>
+          <Field label="Loại quy định"><Select value={kind} onChange={(e) => { const k = e.target.value as RuleKind; setKind(k); setConfig(defaults(k)); setErr(null); }}>{(Object.keys(RULE_KINDS) as RuleKind[]).map((k) => <option key={k} value={k}>{RULE_KINDS[k].label}</option>)}</Select></Field>
           <Field label="Mã"><input value={meta.code} onChange={(e) => setMeta({ ...meta, code: e.target.value })} placeholder="GT-MKT" /></Field>
           <Field label="Tên" full><input value={meta.name} onChange={(e) => setMeta({ ...meta, name: e.target.value })} placeholder="Giải trình khối Marketing" /></Field>
         </> : null}
@@ -315,8 +316,8 @@ function RuleAssign({ rule, onClose, onSaved }: { rule: RulePolicy; onClose: () 
     <Modal wide title={`Áp dụng ${rule.name}`} sub="Nhân viên theo quy định của tầng ưu tiên cao nhất khớp với họ; tra theo ngày, không sao chép vào hồ sơ." onClose={onClose}
       foot={<><button className="btn" onClick={onClose}>Hủy</button><button className="btn primary" disabled={!!busy} onClick={save}>{busy ? "Đang lưu…" : "Áp dụng"}</button></>}>
       <div className="form-grid">
-        <Field label="Tầng"><select value={f.scopeType} onChange={set("scopeType")}>{(["tenant", "legal_entity", "branch", "department", "employee"] as const).map((s) => <option key={s} value={s}>{SCOPE[s]}</option>)}</select></Field>
-        {f.scopeType !== "tenant" ? <Field label="Đối tượng"><select value={f.scopeId} onChange={set("scopeId")}><option value="">Chọn…</option>{(scopes ?? []).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></Field> : <div />}
+        <Field label="Tầng"><Select value={f.scopeType} onChange={set("scopeType")}>{(["tenant", "legal_entity", "branch", "department", "employee"] as const).map((s) => <option key={s} value={s}>{SCOPE[s]}</option>)}</Select></Field>
+        {f.scopeType !== "tenant" ? <Field label="Đối tượng"><Select value={f.scopeId} onChange={set("scopeId")}><option value="">Chọn…</option>{(scopes ?? []).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</Select></Field> : <div />}
         <Field label="Hiệu lực từ"><input type="date" min={tenantToday(me.tenant.timezone)} value={f.effectiveFrom} onChange={set("effectiveFrom")} /></Field>
         <Field label="Đến (bỏ trống = không thời hạn)"><input type="date" value={f.effectiveTo} onChange={set("effectiveTo")} /></Field>
         <Field label={f.scopeType === "employee" ? "Lý do (bắt buộc với ngoại lệ cá nhân)" : "Lý do"} full><input value={f.reason} onChange={set("reason")} /></Field>
@@ -397,7 +398,7 @@ function HolidayForm({ onClose, onSaved }: { onClose: () => void; onSaved: (year
       foot={<><button className="btn" onClick={onClose}>Hủy</button><button className="btn primary" disabled={!!busy} onClick={save}>{busy ? "Đang lưu…" : "Thêm"}</button></>}>
       <div className="form-grid">
         <Field label="Ngày"><input type="date" min={today} value={f.date} onChange={(e) => setF({ ...f, date: e.target.value })} /></Field>
-        <Field label="Loại"><select value={f.kind} onChange={(e) => setF({ ...f, kind: e.target.value as "company" | "compensatory" })}><option value="company">Nghỉ riêng công ty</option><option value="compensatory">Nghỉ bù</option></select></Field>
+        <Field label="Loại"><Select value={f.kind} onChange={(e) => setF({ ...f, kind: e.target.value as "company" | "compensatory" })}><option value="company">Nghỉ riêng công ty</option><option value="compensatory">Nghỉ bù</option></Select></Field>
         <Field label="Tên" full><input value={f.name} onChange={(e) => { setF({ ...f, name: e.target.value }); setErr(null); }} placeholder="Ngày thành lập công ty" /></Field>
         <label className="check-row field full"><input type="checkbox" checked={f.paid} onChange={(e) => setF({ ...f, paid: e.target.checked })} /> Hưởng nguyên lương</label>
       </div>

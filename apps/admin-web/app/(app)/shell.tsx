@@ -3,6 +3,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
 import type { AdminMe } from "@kavor/contracts";
+import { ThemeToggle } from "@kavor/web-ui";
 import { useRealtimeStatus } from "../_lib/client";
 import { Icon, MeContext, ToastProvider, can, initials, longDate } from "../_ui/kit";
 import { NotificationBell } from "../_ui/notifications";
@@ -97,6 +98,7 @@ export function Shell({ me, children }: { me: AdminMe; children: ReactNode }) {
               ) : <span />}
               <div className="top-actions">
                 <span className={`realtime-dot ${live ? "on" : ""}`} title={live ? "Đang nhận cập nhật trực tiếp" : "Cập nhật mỗi 30 giây"}><i />{live ? "Trực tiếp" : "30 giây"}</span>
+                <ThemeToggle />
                 <NotificationBell />
                 <span className="account-chip" title={`Tenant ${me.tenant.code}`}><span className="avatar">{initials(me.fullName)}</span><span>{me.tenant.name}</span></span>
               </div>

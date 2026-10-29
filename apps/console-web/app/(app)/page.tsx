@@ -35,7 +35,7 @@ export default function Overview() {
       <div className="grid two-one">
         <article className="card"><div className="card-head"><div><h3>Tenant cần chú ý</h3><p>Dưới 2 Tenant Admin, gần giới hạn nhân sự hoặc đang tạm khóa</p></div><Link className="btn small" href="/tenants">Xem tất cả</Link></div>
           {tenants && !attention.length ? <Empty title="Không có tenant cần chú ý" /> : (
-            <div className="table-wrap"><table className="data-table"><thead><tr><th>Doanh nghiệp</th><th>Gói</th><th>Nhân sự</th><th>Tình trạng</th></tr></thead><tbody>
+            <div className="table-wrap"><table className="data-table" style={{ minWidth: 600 }}><thead><tr><th>Doanh nghiệp</th><th>Gói</th><th>Nhân sự</th><th>Tình trạng</th></tr></thead><tbody>
               {attention.map((t) => (
                 <tr key={t.id} className="clickable" onClick={() => { location.href = `/tenants?id=${t.id}`; }}>
                   <td><Person name={t.name} seed={t.code} sub={t.code} /></td><td>{PLAN[t.plan]}</td><td className={`num ${usageTone(t)}`}>{num(t.employees)}/{num(t.employeeLimit)}</td><td><Status v={issue(t)} /></td>

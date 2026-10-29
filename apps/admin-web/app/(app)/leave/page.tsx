@@ -7,6 +7,7 @@ import { LEAVE_TX_KINDS, type EmployeeLeave, type LeaveBalance, type LeaveBoard,
 import { call, useApi } from "../../_lib/client";
 import { Drawer, Empty, ErrorLine, Field, Icon, LoadError, Person, Status, fmtDate, fmtDateTime, useAction, useMe } from "../../_ui/kit";
 import { REQUEST_STATUS, RequestModal, requestSummary } from "../../_ui/request";
+import { Select } from "@kavor/web-ui";
 
 const d1 = (n: number) => n.toLocaleString("vi-VN", { maximumFractionDigits: 2 });
 const signed = (n: number) => `${n > 0 ? "+" : ""}${d1(n)}`;
@@ -36,7 +37,7 @@ export default function LeavePage() {
         <div className="toolbar">
           <label className="search"><Icon name="search" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Tìm nhân viên…" /></label>
           <span className="toolbar-spacer" />
-          <select className="select" value={year} onChange={(e) => setYear(Number(e.target.value))} aria-label="Năm">{[thisYear, thisYear - 1].map((y) => <option key={y} value={y}>Năm {y}</option>)}</select>
+          <Select className="select" value={year} onChange={(e) => setYear(Number(e.target.value))} aria-label="Năm">{[thisYear, thisYear - 1].map((y) => <option key={y} value={y}>Năm {y}</option>)}</Select>
         </div>
         {b && !rows.length ? <Empty title="Không có nhân viên phù hợp" /> : (
           <div className="table-wrap"><table className="data-table" style={{ minWidth: 900 }}><thead><tr><th>Nhân viên</th><th>Phòng ban</th><th>Được cấp</th><th>Tồn năm trước</th><th>Đã nghỉ</th><th>Đang chờ</th><th>Còn lại</th><th /></tr></thead><tbody>
@@ -146,7 +147,7 @@ function AdjustForm({ id, year, onDone }: { id: string; year: number; onDone: (e
       <div className="card card-body">
         <div className="form-grid">
           <Field label="Số ngày (+/−)"><input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="Ví dụ 1 hoặc -0,5" /></Field>
-          <Field label="Loại"><select className="select" value={carry ? "carry" : "adjust"} onChange={(e) => setCarry(e.target.value === "carry")}><option value="adjust">Điều chỉnh</option><option value="carry">Phép tồn năm trước</option></select></Field>
+          <Field label="Loại"><Select value={carry ? "carry" : "adjust"} onChange={(e) => setCarry(e.target.value === "carry")}><option value="adjust">Điều chỉnh</option><option value="carry">Phép tồn năm trước</option></Select></Field>
           {carry ? <Field label="Dùng đến ngày"><input type="date" min={`${year}-01-01`} max={`${year}-12-31`} value={expires} onChange={(e) => setExpires(e.target.value)} /></Field> : null}
           <Field label="Lý do" full><input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Ví dụ: Thưởng phép dự án, nhập số dư từ bảng tính" /></Field>
         </div>

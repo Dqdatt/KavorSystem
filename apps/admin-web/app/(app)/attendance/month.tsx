@@ -7,6 +7,7 @@ import { call, useApi } from "../../_lib/client";
 import { Drawer, Empty, Field, Icon, LoadError, Modal, Person, Status, dur, fmtDate, fmtDateTime, num, tenantToday, useAction, useMe } from "../../_ui/kit";
 import { ReasonModal } from "../../_ui/reason-modal";
 import { REQUEST_STATUS, RequestModal, requestSummary } from "../../_ui/request";
+import { Select } from "@kavor/web-ui";
 
 const ROW: Record<TimesheetRow["status"], [string, string]> = { ok: ["Đủ dữ liệu", ""], needs_action: ["Cần xử lý", "warn"], short: ["Thiếu công", "bad"] };
 const ISSUE: Record<string, [string, string]> = {
@@ -57,10 +58,10 @@ export function MonthTab({ setAction }: { setAction: (n: ReactNode) => void }) {
           <button className={`filter-chip ${filter === "short" ? "active" : ""}`} onClick={() => setFilter("short")}>Thiếu công {m?.short ?? 0}</button>
           <button className={`filter-chip ${filter === "late" ? "active" : ""}`} onClick={() => setFilter("late")}>Đi muộn {m?.lateEmployees ?? 0}</button>
           <span className="toolbar-spacer" />
-          <select className="select" value={cur ?? ""} onChange={(e) => setMonth(e.target.value)} aria-label="Kỳ công">{months.map((x) => <option key={x} value={x}>{monthLabel(x)}</option>)}</select>
+          <Select className="select" value={cur ?? ""} onChange={(e) => setMonth(e.target.value)} aria-label="Kỳ công">{months.map((x) => <option key={x} value={x}>{monthLabel(x)}</option>)}</Select>
         </div>
         {b && !rows.length ? <Empty title="Không có nhân viên phù hợp" /> : (
-          <div className="table-wrap"><table className="data-table" style={{ minWidth: 980 }}><thead><tr><th>Nhân viên</th><th>Phòng ban</th><th>Ngày công</th><th>Đi muộn</th><th>Thiếu bản ghi</th><th>Giải trình chờ</th><th>Trạng thái kỳ</th><th /></tr></thead><tbody>
+          <div className="table-wrap"><table className="data-table" style={{ minWidth: 960 }}><thead><tr><th>Nhân viên</th><th>Phòng ban</th><th>Ngày công</th><th>Đi muộn</th><th>Thiếu bản ghi</th><th>Giải trình chờ</th><th>Trạng thái kỳ</th><th /></tr></thead><tbody>
             {rows.map((r) => (
               <tr key={r.employee.id} className="clickable" onClick={() => setOpen(r.employee.id)}>
                 <td><Person name={r.employee.fullName} seed={r.employee.code} sub={r.employee.code} /></td>

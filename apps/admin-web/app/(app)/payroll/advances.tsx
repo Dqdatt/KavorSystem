@@ -7,6 +7,7 @@ import type { AdvanceBoard, CompensationBoard, CompensationRow, RequestItem } fr
 import { call, useApi } from "../../_lib/client";
 import { Empty, ErrorLine, Field, Icon, LoadError, Modal, Person, Status, fmtDate, fmtDateTime, tenantToday, useAction, useMe } from "../../_ui/kit";
 import { REQUEST_STATUS, RequestModal, money } from "../../_ui/request";
+import { Select } from "@kavor/web-ui";
 
 const shift = (m: string, n: number) => { const [y, mo] = m.split("-").map(Number) as [number, number]; const d = new Date(Date.UTC(y, mo - 1 + n, 1)); return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`; };
 
@@ -37,9 +38,9 @@ export function Advances() {
         <div className="toolbar">
           <b style={{ fontSize: 12 }}>Đơn trừ vào lương tháng</b>
           <span className="toolbar-spacer" />
-          <select className="select" value={cur ?? ""} onChange={(e) => setMonth(e.target.value)} aria-label="Tháng khấu trừ">
+          <Select className="select" value={cur ?? ""} onChange={(e) => setMonth(e.target.value)} aria-label="Tháng khấu trừ">
             {cur ? [1, 0, -1, -2, -3, -4, -5].map((n) => shift(cur === b?.month && !month ? cur : cur, n)).map((x) => <option key={x} value={x}>Tháng {Number(x.slice(5))}/{x.slice(0, 4)}</option>) : null}
-          </select>
+          </Select>
         </div>
         {b && !b.rows.length ? <Empty title="Chưa có đơn tạm ứng nào" text="Nhân viên gửi đơn trên app; đơn qua Quản lý (và HR khi vượt ngưỡng) rồi tới Kế toán." /> : (
           <div className="table-wrap"><table className="data-table" style={{ minWidth: 900 }}><thead><tr><th>Mã đơn</th><th>Nhân viên</th><th>Số tiền</th><th>Gửi lúc</th><th>Trạng thái</th><th>Đã chi</th><th /></tr></thead><tbody>

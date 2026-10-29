@@ -9,6 +9,7 @@ import { DOCUMENT_CATEGORIES, type DocumentBoard, type DocumentCategory, type Do
 import { call, useApi } from "../../_lib/client";
 import { Drawer, Empty, ErrorLine, Field, Icon, LoadError, Modal, Person, Status, fmtDate, fmtDateTime, num, useAction, useMe } from "../../_ui/kit";
 import { ReasonModal } from "../../_ui/reason-modal";
+import { Select } from "@kavor/web-ui";
 
 const MAX = 5 * 1024 * 1024;
 const VIS: Record<DocumentVisibility, [string, string]> = { hr_employee: ["HR + Nhân viên", ""], hr_only: ["Chỉ HR", "info"] };
@@ -52,13 +53,13 @@ function DocumentsPage() {
       <article className="card">
         <div className="toolbar">
           <label className="search"><Icon name="search" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Tên tài liệu hoặc nhân viên…" /></label>
-          <select className="select" value={cat} onChange={(e) => setCat(e.target.value as DocumentCategory | "all")} aria-label="Danh mục">
+          <Select className="select" value={cat} onChange={(e) => setCat(e.target.value as DocumentCategory | "all")} aria-label="Danh mục">
             <option value="all">Tất cả danh mục</option>{(Object.keys(DOCUMENT_CATEGORIES) as DocumentCategory[]).map((k) => <option key={k} value={k}>{DOCUMENT_CATEGORIES[k]}</option>)}
-          </select>
+          </Select>
           <span className="toolbar-spacer" />
-          <select className="select" value={state} onChange={(e) => setState(e.target.value as keyof typeof STATE)} aria-label="Trạng thái">
+          <Select className="select" value={state} onChange={(e) => setState(e.target.value as keyof typeof STATE)} aria-label="Trạng thái">
             {(Object.keys(STATE) as Array<keyof typeof STATE>).map((k) => <option key={k} value={k}>{STATE[k]}</option>)}
-          </select>
+          </Select>
         </div>
         {b && !rows.length ? <Empty title={b.items.length ? "Không có tài liệu phù hợp" : "Chưa có tài liệu nào"} text={b.items.length ? undefined : "Bấm “Tải tài liệu” để lưu hợp đồng, quyết định hoặc hồ sơ của nhân viên."} /> : (
           <div className="table-wrap"><table className="data-table" style={{ minWidth: 900 }}><thead><tr><th>Tài liệu</th><th>Nhân viên</th><th>Danh mục</th><th>Version</th><th>Hết hạn</th><th>Quyền</th></tr></thead><tbody>
@@ -137,8 +138,8 @@ function DetailDrawer({ id, onClose, onChanged }: { id: string; onClose: () => v
 function MetaFields({ f, setF }: { f: DocumentMeta; setF: (f: DocumentMeta) => void }) {
   return (
     <>
-      <Field label="Danh mục"><select value={f.category} onChange={(e) => setF({ ...f, category: e.target.value as DocumentCategory })}>
-        {(Object.keys(DOCUMENT_CATEGORIES) as DocumentCategory[]).map((k) => <option key={k} value={k}>{DOCUMENT_CATEGORIES[k]}</option>)}</select></Field>
+      <Field label="Danh mục"><Select value={f.category} onChange={(e) => setF({ ...f, category: e.target.value as DocumentCategory })}>
+        {(Object.keys(DOCUMENT_CATEGORIES) as DocumentCategory[]).map((k) => <option key={k} value={k}>{DOCUMENT_CATEGORIES[k]}</option>)}</Select></Field>
       <Field label="Số văn bản (không bắt buộc)"><input value={f.docNo ?? ""} maxLength={80} onChange={(e) => setF({ ...f, docNo: e.target.value })} placeholder="Ví dụ: HĐLĐ-0142/2026" /></Field>
       <Field label="Tiêu đề" full><input value={f.title} maxLength={200} onChange={(e) => setF({ ...f, title: e.target.value })} placeholder="Ví dụ: Hợp đồng lao động không xác định thời hạn" /></Field>
       <Field label="Ngày hiệu lực"><input type="date" value={f.issuedOn ?? ""} onChange={(e) => setF({ ...f, issuedOn: e.target.value || null })} /></Field>
@@ -194,10 +195,10 @@ function UploadModal({ onClose, onDone }: { onClose: () => void; onDone: (d: Doc
         <Field label="Nhân viên" full>
           <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1.4fr)", gap: 8 }}>
             <input value={eq} onChange={(e) => setEq(e.target.value)} placeholder="Lọc theo tên hoặc mã…" />
-            <select value={employeeId} onChange={(e) => setEmployeeId(e.target.value)}>
+            <Select value={employeeId} onChange={(e) => setEmployeeId(e.target.value)}>
               <option value="">{emps.data ? "Chọn nhân viên" : "Đang tải…"}</option>
               {list.map((x) => <option key={x.id} value={x.id}>{x.fullName} · {x.code}</option>)}
-            </select>
+            </Select>
           </div>
         </Field>
         <MetaFields f={f} setF={setF} />

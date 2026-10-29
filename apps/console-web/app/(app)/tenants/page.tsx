@@ -9,6 +9,7 @@ import { ACCOUNT, Drawer, Empty, ErrorLine, Field, Icon, LoadError, Modal, Perso
 import { DecideModal, KIND, RSTATUS, RecoveryForm } from "../../_ui/recovery";
 import { ACTION, PLAN, TSTATUS, adminHealth } from "../../_ui/labels";
 import { PlanModal, StatusModal, usageTone } from "../../_ui/tenant-ops";
+import { Select } from "@kavor/web-ui";
 
 function TenantsPage() {
   const router = useRouter();
@@ -35,11 +36,11 @@ function TenantsPage() {
       <article className="card">
         <div className="toolbar">
           <label className="search"><Icon name="search" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Tên, mã tenant hoặc tên pháp lý…" /></label>
-          <select className="select" value={plan} onChange={(e) => setPlan(e.target.value)} aria-label="Gói"><option value="all">Tất cả gói</option>{(Object.keys(PLAN) as PlanCode[]).map((p) => <option key={p} value={p}>{PLAN[p]}</option>)}</select>
+          <Select className="select" value={plan} onChange={(e) => setPlan(e.target.value)} aria-label="Gói"><option value="all">Tất cả gói</option>{(Object.keys(PLAN) as PlanCode[]).map((p) => <option key={p} value={p}>{PLAN[p]}</option>)}</Select>
           <span className="toolbar-spacer" />
         </div>
         {data && !rows.length ? <Empty title="Không có tenant phù hợp" /> : (
-          <div className="table-wrap"><table className="data-table" style={{ minWidth: 980 }}><thead><tr><th>Doanh nghiệp</th><th>Gói</th><th>Nhân sự</th><th>Đã kích hoạt</th><th>Tenant Admin</th><th>Trạng thái</th><th>Tạo ngày</th><th /></tr></thead><tbody>
+          <div className="table-wrap"><table className="data-table" style={{ minWidth: 960 }}><thead><tr><th>Doanh nghiệp</th><th>Gói</th><th>Nhân sự</th><th>Đã kích hoạt</th><th>Tenant Admin</th><th>Trạng thái</th><th>Tạo ngày</th><th /></tr></thead><tbody>
             {rows.map((t) => (
               <tr key={t.id} className="clickable" onClick={() => show(t.id)}>
                 <td><Person name={t.name} seed={t.code} sub={t.code} /></td>
@@ -84,8 +85,8 @@ function CreateTenant({ onClose, onSaved }: { onClose: () => void; onSaved: (r: 
         <Field label="Tên doanh nghiệp" full><input value={f.name} onChange={set("name")} placeholder="An Phú Retail" autoFocus /></Field>
         <Field label="Tên pháp lý" full><input value={f.legalName} onChange={set("legalName")} placeholder="Công ty Cổ phần…" /></Field>
         <Field label="Mã tenant"><input value={f.code} onChange={set("code")} placeholder="ANP-002" /></Field>
-        <Field label="Gói dịch vụ"><select value={f.plan} onChange={set("plan")}>{(Object.keys(PLAN) as PlanCode[]).map((p) => <option key={p} value={p}>{PLAN[p]}</option>)}</select></Field>
-        <Field label="Primary region"><select disabled><option>Singapore</option></select></Field>
+        <Field label="Gói dịch vụ"><Select value={f.plan} onChange={set("plan")}>{(Object.keys(PLAN) as PlanCode[]).map((p) => <option key={p} value={p}>{PLAN[p]}</option>)}</Select></Field>
+        <Field label="Primary region"><Select disabled><option>Singapore</option></Select></Field>
         <Field label="Giới hạn nhân sự"><input type="number" min={1} value={f.employeeLimit} onChange={set("employeeLimit")} /></Field>
         <Field label="Họ tên Tenant Admin"><input value={f.adminName} onChange={set("adminName")} /></Field>
         <Field label="Email Tenant Admin"><input type="email" value={f.adminEmail} onChange={set("adminEmail")} placeholder="admin@company.vn" /></Field>

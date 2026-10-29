@@ -8,6 +8,7 @@ import { call, useApi } from "../../_lib/client";
 import { Empty, ErrorLine, Field, Icon, LoadError, Modal, Person, Status, can, fmtDate, fmtDateTime, num, tenantToday, useAction, useMe, useToast } from "../../_ui/kit";
 import { ReasonModal } from "../../_ui/reason-modal";
 import { money } from "../../_ui/request";
+import { Select } from "@kavor/web-ui";
 
 const ORDER: PayrollStatus[] = ["open", "prepared", "under_review", "approved", "published", "paid", "closed"];
 const STATUS: Record<PayrollStatus, [string, string]> = {
@@ -67,9 +68,9 @@ export function Cycles({ tabs }: { tabs: ReactNode }) {
         <div className="head-actions">
           {tabs}
           {board?.cycles.length ? (
-            <select className="select" value={cur ?? ""} onChange={(e) => setMonth(e.target.value)} aria-label="Kỳ lương">
+            <Select className="select" value={cur ?? ""} onChange={(e) => setMonth(e.target.value)} aria-label="Kỳ lương">
               {board.cycles.map((x) => <option key={x.id} value={x.month}>Kỳ {mm(x.month)} · {STATUS[x.status][0]}</option>)}
-            </select>
+            </Select>
           ) : null}
           {board?.canCreate ? <button className="btn" onClick={() => setModal("create")}><Icon name="plus" /> Mở kỳ lương</button> : null}
           {d?.canImport ? <button className="btn" onClick={() => setModal("import")}><Icon name="upload" /> Import kết quả</button> : null}

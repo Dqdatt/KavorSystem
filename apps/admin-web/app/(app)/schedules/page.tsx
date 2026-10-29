@@ -5,6 +5,7 @@ import type { LocationDef, OrgOptions, PolicyAssignment, PolicyKind, PolicyScope
 import { call, useApi } from "../../_lib/client";
 import { Empty, ErrorLine, Field, Icon, LoadError, Modal, SCOPE, Status, can, fmtDate, tenantToday, useAction, useMe } from "../../_ui/kit";
 import { ReasonModal } from "../../_ui/reason-modal";
+import { Select } from "@kavor/web-ui";
 
 type Tab = "shifts" | "locations" | "assignments";
 
@@ -113,11 +114,11 @@ function Locations() {
       {manage ? <div className="head-actions" style={{ marginBottom: 12 }}><button className="btn primary" onClick={() => setForm("new")}><Icon name="plus" /> Thêm địa điểm</button></div> : null}
       <article className="card">
         {data && !data.length ? <Empty title="Chưa có địa điểm chấm công" /> : (
-          <div className="table-wrap"><table className="data-table" style={{ minWidth: 900 }}><thead><tr><th>Địa điểm</th><th>Chi nhánh</th><th>Tọa độ</th><th>Bán kính · sai số GPS tối đa</th><th>Phiên bản</th><th>Trạng thái</th><th /></tr></thead><tbody>
+          <div className="table-wrap"><table className="data-table" style={{ minWidth: 900 }}><thead><tr><th>Địa điểm</th><th>Chi nhánh</th><th>Tọa độ</th><th title="Bán kính · sai số GPS tối đa">Bán kính · sai số</th><th>Phiên bản</th><th>Trạng thái</th><th /></tr></thead><tbody>
             {(data ?? []).map((l) => (
               <tr key={l.id}>
-                <td><b>{l.code} · {l.name}</b><br /><small className="muted">{l.address ?? "—"}</small></td>
-                <td>{l.branch?.name ?? "—"}</td>
+                <td className="wrap"><b>{l.code} · {l.name}</b><br /><small className="muted">{l.address ?? "—"}</small></td>
+                <td className="wrap">{l.branch?.name ?? "—"}</td>
                 <td>{l.current ? <a href={`https://www.openstreetmap.org/?mlat=${l.current.latitude}&mlon=${l.current.longitude}#map=18/${l.current.latitude}/${l.current.longitude}`} target="_blank" rel="noreferrer">{l.current.latitude.toFixed(6)}, {l.current.longitude.toFixed(6)}</a> : "—"}</td>
                 <td>{l.current ? `${l.current.radiusM} m · ±${l.current.maxAccuracyM} m` : "—"}{l.next ? <><br /><small className="status info">Từ {fmtDate(l.next.effectiveFrom)}: {l.next.radiusM} m</small></> : null}</td>
                 <td>v{l.current?.versionNo ?? "—"} · từ {fmtDate(l.current?.effectiveFrom)}</td>
@@ -166,7 +167,7 @@ function LocationForm({ loc, onClose, onSaved }: { loc: LocationDef | null; onCl
           <Field label="Mã địa điểm"><input value={f.code} onChange={set("code")} placeholder="HCM-Q3" /></Field>
           <Field label="Tên"><input value={f.name} onChange={set("name")} placeholder="Văn phòng Quận 3" /></Field>
           <Field label="Địa chỉ" full><input value={f.address} onChange={set("address")} /></Field>
-          <Field label="Chi nhánh"><select value={f.branchId} onChange={set("branchId")}><option value="">Không gắn</option>{org.data?.branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</select></Field>
+          <Field label="Chi nhánh"><Select value={f.branchId} onChange={set("branchId")}><option value="">Không gắn</option>{org.data?.branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</Select></Field>
         </> : null}
         <Field label="Vĩ độ"><input inputMode="decimal" value={f.latitude} onChange={set("latitude")} placeholder="10.774390" /></Field>
         <Field label="Kinh độ"><input inputMode="decimal" value={f.longitude} onChange={set("longitude")} placeholder="106.703940" /></Field>
@@ -207,10 +208,10 @@ function Assignments() {
               <tr key={a.id}>
                 <td>{a.kind === "shift" ? "Ca làm" : "Địa điểm"}</td>
                 <td><b>{a.target.name}</b></td>
-                <td>{SCOPE[a.scopeType]}{a.scope ? `: ${a.scope.name}` : ""}</td>
+                <td className="wrap">{SCOPE[a.scopeType]}{a.scope ? `: ${a.scope.name}` : ""}</td>
                 <td className="nowrap">{fmtDate(a.effectiveFrom)} → {a.effectiveTo ? fmtDate(a.effectiveTo) : "không thời hạn"}</td>
                 <td><Status v={STATE[a.state]} /></td>
-                <td><small>{a.reason ?? "—"}<br /><span className="muted">{a.createdBy ?? "Dữ liệu mẫu"}</span></small></td>
+                <td className="wrap"><small>{a.reason ?? "—"}<br /><span className="muted">{a.createdBy ?? "Dữ liệu mẫu"}</span></small></td>
                 <td>{manage && (a.state === "active" || a.state === "scheduled") ? <button className="btn small" onClick={() => setEnding(a)}>{a.state === "scheduled" ? "Hủy" : "Kết thúc"}</button> : null}</td>
               </tr>
             ))}
@@ -244,10 +245,10 @@ function AssignmentForm({ onClose, onSaved }: { onClose: () => void; onSaved: ()
     <Modal wide title="Áp dụng ca / địa điểm" sub={f.kind === "work_location" ? "Ở cùng một tầng có thể áp dụng nhiều địa điểm; nhân viên chấm công ở địa điểm gần nhất." : "Mỗi nhân viên theo ca của tầng ưu tiên cao nhất khớp với họ."} onClose={onClose}
       foot={<><button className="btn" onClick={onClose}>Hủy</button><button className="btn primary" disabled={!!busy} onClick={save}>{busy ? "Đang lưu…" : "Áp dụng"}</button></>}>
       <div className="form-grid">
-        <Field label="Loại"><select value={f.kind} onChange={set("kind")}><option value="shift">Ca làm</option><option value="work_location">Địa điểm chấm công</option></select></Field>
-        <Field label={f.kind === "shift" ? "Ca" : "Địa điểm"}><select value={f.targetId} onChange={set("targetId")}><option value="">Chọn…</option>{targets.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}</select></Field>
-        <Field label="Tầng"><select value={f.scopeType} onChange={set("scopeType")}>{(["tenant", "legal_entity", "branch", "department", "employee"] as const).map((s) => <option key={s} value={s}>{SCOPE[s]}</option>)}</select></Field>
-        {f.scopeType !== "tenant" ? <Field label="Đối tượng"><select value={f.scopeId} onChange={set("scopeId")}><option value="">Chọn…</option>{(scopes ?? []).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></Field> : <div />}
+        <Field label="Loại"><Select value={f.kind} onChange={set("kind")}><option value="shift">Ca làm</option><option value="work_location">Địa điểm chấm công</option></Select></Field>
+        <Field label={f.kind === "shift" ? "Ca" : "Địa điểm"}><Select value={f.targetId} onChange={set("targetId")}><option value="">Chọn…</option>{targets.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}</Select></Field>
+        <Field label="Tầng"><Select value={f.scopeType} onChange={set("scopeType")}>{(["tenant", "legal_entity", "branch", "department", "employee"] as const).map((s) => <option key={s} value={s}>{SCOPE[s]}</option>)}</Select></Field>
+        {f.scopeType !== "tenant" ? <Field label="Đối tượng"><Select value={f.scopeId} onChange={set("scopeId")}><option value="">Chọn…</option>{(scopes ?? []).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</Select></Field> : <div />}
         <Field label="Hiệu lực từ"><input type="date" min={tenantToday(me.tenant.timezone)} value={f.effectiveFrom} onChange={set("effectiveFrom")} /></Field>
         <Field label="Đến (bỏ trống = không thời hạn)"><input type="date" value={f.effectiveTo} onChange={set("effectiveTo")} /></Field>
         <Field label={f.scopeType === "employee" ? "Lý do (bắt buộc với ngoại lệ cá nhân)" : "Lý do"} full><input value={f.reason} onChange={set("reason")} /></Field>

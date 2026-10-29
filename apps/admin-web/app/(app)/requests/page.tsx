@@ -7,6 +7,7 @@ import { STEP_RESOLVERS, type RequestItem, type RequestQueue, type RequestType, 
 import { call, useApi } from "../../_lib/client";
 import { Empty, ErrorLine, Field, Icon, LoadError, Modal, Person, Status, can, fmtDate, fmtDateTime, tenantToday, useAction, useMe } from "../../_ui/kit";
 import { REQUEST_STATUS, REQUEST_TYPE, RequestModal, requestSummary, slaLabel } from "../../_ui/request";
+import { Select } from "@kavor/web-ui";
 
 export default function Page() { return <Suspense><RequestsPage /></Suspense>; }
 
@@ -41,12 +42,12 @@ function RequestsPage() {
           <button className={`filter-chip ${filter === "mine" ? "active" : ""}`} onClick={() => setFilter("mine")}>Chờ tôi duyệt {c?.mine ?? 0}</button>
           <button className={`filter-chip ${filter === "overdue" ? "active" : ""}`} onClick={() => setFilter("overdue")}>Quá SLA {c?.overdue ?? 0}</button>
           <span className="toolbar-spacer" />
-          <select className="select" value={status} onChange={(e) => setStatus(e.target.value)} aria-label="Trạng thái">
+          <Select className="select" value={status} onChange={(e) => setStatus(e.target.value)} aria-label="Trạng thái">
             <option value="pending">Đang chờ</option><option value="approved">Đã duyệt</option><option value="rejected">Từ chối</option><option value="cancelled">Đã hủy</option><option value="all">Tất cả</option>
-          </select>
+          </Select>
         </div>
         {data && !items.length ? <Empty title={status === "pending" ? "Không còn đơn nào chờ duyệt" : "Không có đơn phù hợp"} /> : (
-          <div className="table-wrap"><table className="data-table" style={{ minWidth: 980 }}><thead><tr><th>Mã đơn</th><th>Người gửi</th><th>Loại</th><th>Nội dung</th><th>Gửi lúc</th><th>{status === "pending" ? "SLA" : "Trạng thái"}</th><th /></tr></thead><tbody>
+          <div className="table-wrap"><table className="data-table" style={{ minWidth: 960 }}><thead><tr><th>Mã đơn</th><th>Người gửi</th><th>Loại</th><th>Nội dung</th><th>Gửi lúc</th><th>{status === "pending" ? "SLA" : "Trạng thái"}</th><th /></tr></thead><tbody>
             {items.map((r) => (
               <tr key={r.id} className="clickable" onClick={() => setOpen(r)}>
                 <td><b>{r.no}</b></td>
@@ -100,9 +101,9 @@ function WorkflowModal({ onClose }: { onClose: () => void }) {
         {list.map((s, i) => (
           <div key={i} className="detail-row" style={{ gridTemplateColumns: type === "leave" || type === "salary_advance" ? "60px 1fr 130px 230px auto" : "60px 1fr 130px auto", minHeight: 52 }}>
             <span style={{ color: "var(--ink)", fontSize: 12, fontWeight: 700 }}>Bước {i + 1}</span>
-            <select className="select" disabled={!manage} value={s.resolver} onChange={(e) => set(i, { resolver: e.target.value as StepResolver })}>
+            <Select className="select" disabled={!manage} value={s.resolver} onChange={(e) => set(i, { resolver: e.target.value as StepResolver })}>
               {(Object.keys(STEP_RESOLVERS) as StepResolver[]).filter((k) => k !== "payroll" || type === "salary_advance").map((k) => <option key={k} value={k}>{STEP_RESOLVERS[k]}</option>)}
-            </select>
+            </Select>
             <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11.5 }}>SLA <input type="number" min={1} max={240} disabled={!manage} value={s.slaHours} onChange={(e) => set(i, { slaHours: Number(e.target.value) || 1 })} style={{ width: 64 }} /> giờ</label>
             {type === "leave" ? <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11.5 }}>
               <input type="checkbox" disabled={!manage} checked={s.daysOver != null} onChange={(e) => set(i, { daysOver: e.target.checked ? 2 : null })} />Chỉ khi nghỉ trên
