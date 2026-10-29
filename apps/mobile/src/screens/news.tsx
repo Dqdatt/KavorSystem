@@ -90,7 +90,8 @@ export function newsDetailSpec(): ScreenSpec {
         </View>
         <View style={[styles.heroIcon, n.important && { backgroundColor: "rgba(255,255,255,0.76)" }]}><Gi n={CAT[n.cat][1]} s={27} w={1.55} /></View>
         <Balanced style={[styles.h1, { alignSelf: "flex-start" }]}>{n.title}</Balanced>
-        <View style={{ marginTop: "auto", flexDirection: "row", alignItems: "center", gap: 10 }}>
+        {/* Người đăng + thời gian luôn căn trái, kể cả tin Thông báo (khung căn giữa) — phản hồi người dùng 26/10 */}
+        <View style={{ marginTop: "auto", alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 10 }}>
           <View style={styles.byAva}><T style={{ color: "#fff", fontSize: 10, fontFamily: F.bold, letterSpacing: 0.4 }}>{ini}</T></View>
           <View style={{ gap: 1, minWidth: 0 }}>
             <T style={{ fontSize: 12.5, fontFamily: F.bold }}>{n.by}</T>

@@ -8,7 +8,7 @@ import {
 } from "./data";
 import type { IllusKind } from "./illus";
 import { api, type Snapshot } from "./api";
-import { authenticate, biometricLabel, clearQuickLogin, clearSession, loadBioPrefs, loadSession, loadSupport, quickLoginEmployee, quickRefreshToken, saveBioPrefs, saveSession, saveSupport, type BioPrefs } from "./auth";
+import { authenticate, biometricKind, clearQuickLogin, clearSession, loadBioPrefs, loadSession, loadSupport, quickLoginEmployee, quickRefreshToken, saveBioPrefs, saveSession, saveSupport, type BioPrefs , type BioKind } from "./auth";
 import { ApiError, REMOTE, advanceApi, announcementsApi, attendanceApi, documentsApi, authApi, companyApi, isNetworkError, leaveApi, notificationsApi, overtimeApi, payslipApi, setTokenSource, timesheetApi } from "./api/http";
 import { clearExplainReminders, onReminderTap, scheduleExplainReminders } from "./notify";
 import { PIN_LENGTH, PIN_MAX_ATTEMPTS, checkPin, clearPin, hasPin, resetPinFailures, setPin, weakPin } from "./pin";
@@ -189,7 +189,7 @@ const makeState = () => ({
   leavingCard: null as string | null,
   notifShow: false,
   bio: { login: true, unlock: true } as BioPrefs,
-  bioLabel: "Face ID",
+  bioLabel: "Face ID", bioKind: "face" as BioKind,
   /* Chấm công: giá trị mặc định là dữ liệu mẫu của prototype; bản API thật ghi đè bằng địa điểm/khoảng cách thật */
   att: {
     loc: { id: "", name: "Văn phòng Quận 1", address: "12 Nguyễn Huệ", latitude: 0, longitude: 0, radiusM: 3, maxAccuracyM: 60 } as WorkLocation,
@@ -812,10 +812,12 @@ export async function setBioPref(key: keyof BioPrefs, on: boolean) {
 }
 
 /* Mở app: còn phiên hợp lệ thì bỏ qua màn đăng nhập */
+/* Tên + biểu tượng sinh trắc học theo phần cứng/hệ điều hành (bản QA không gọi restoreSession nên gọi riêng hàm này) */
+export async function loadBioKind() { const bio = await biometricKind(); S.bioLabel = bio.label; S.bioKind = bio.kind; emit(); }
 export async function restoreSession() {
   S.bio = await loadBioPrefs();
   if (REMOTE) S.supportCache = await loadSupport();
-  S.bioLabel = await biometricLabel().then((l) => (l === "vân tay" ? "vân tay" : l === "Face ID" ? "Face ID" : "sinh trắc học"));
+  await loadBioKind();
   const session = await loadSession();
   if (!session) return;
   if (REMOTE) {
@@ -978,9 +980,9 @@ export const ACT = {
   faceLogin: async () => {
     const employeeId = await quickLoginEmployee();
     if (!S.bio.login) { toast(`Đăng nhập bằng ${S.bioLabel} đang tắt. Bật lại trong Hồ sơ → Bảo mật và thiết bị.`); return; }
-    if (!employeeId) { toast("Đăng nhập bằng mật khẩu một lần để bật đăng nhập nhanh bằng Face ID"); return; }
+    if (!employeeId) { toast(`Đăng nhập bằng mật khẩu một lần để bật đăng nhập nhanh bằng ${S.bioLabel}`); return; }
     const refreshToken = REMOTE ? await quickRefreshToken() : null;
-    if (REMOTE && !refreshToken) { toast("Đăng nhập bằng mật khẩu một lần để bật đăng nhập nhanh bằng Face ID"); return; }
+    if (REMOTE && !refreshToken) { toast(`Đăng nhập bằng mật khẩu một lần để bật đăng nhập nhanh bằng ${S.bioLabel}`); return; }
     const r = await authenticate("Đăng nhập Kavor");
     if (!r.ok) { if (r.reason !== "cancelled") toast(r.message); return; }
     if (!REMOTE) { await signIn(employeeId); return; }

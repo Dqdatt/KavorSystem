@@ -13,6 +13,8 @@ export const P = {
   bell: '<path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>',
   chevL: '<path d="m15 18-6-6 6-6"/>',
   chevR: '<path d="m9 18 6-6-6-6"/>',
+  /* Vân tay (lucide, ISC) — sinh trắc học trên Android / Touch ID */
+  finger: '<path d="M12 10a2 2 0 0 0-2 2c0 1.02-.1 2.51-.26 4"/><path d="M14 13.12c0 2.38 0 6.38-1 8.88"/><path d="M17.29 21.02c.12-.6.43-2.3.5-3.02"/><path d="M2 12a10 10 0 0 1 18-6"/><path d="M2 16h.01"/><path d="M21.8 16c.2-2 .131-5.354 0-6"/><path d="M5 19.5C5.5 18 6 15 6 12a6 6 0 0 1 .34-2"/><path d="M8.65 22c.21-.66.45-1.32.57-2"/><path d="M9 6.8a6 6 0 0 1 9 5.2v2"/>',
   help: '<circle cx="12" cy="12" r="9"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3M12 17h.01"/>',
   info: '<circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/>',
   pin: '<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/>',
@@ -88,8 +90,16 @@ export function Logo({ size = 44, plain = false }: { size?: number; plain?: bool
   return <View style={{ width: size, height: size, borderRadius: plain ? 0 : size * 0.28, backgroundColor: plain ? "transparent" : "#EAF7F1", overflow: "hidden" }}><SvgXml xml={xml} width={size} height={size} /></View>;
 }
 
-/* Biểu tượng Face ID hệ thống trên iOS; nền tảng khác dùng icon `face` của prototype */
+/* Biểu tượng Face ID hệ thống trên iOS; nền tảng khác dùng icon `face` của prototype. Chỉ dùng trực tiếp cho màn QA đối chiếu prototype;
+   nơi khác dùng BioIcon (theo loại sinh trắc học thật của máy) */
 export function FaceId({ size = 26, color = "#065F46", gradient = true }: { size?: number; color?: string; gradient?: boolean }) {
   if (Platform.OS === "ios") return <SymbolView name="faceid" size={size} tintColor={color} weight="regular" style={{ width: size, height: size }} />;
   return <Ic n="face" s={size} w={1.8} g={gradient} color={color} />;
+}
+
+/* Sinh trắc học của máy: khuôn mặt → Face ID (iOS) / icon mặt; vân tay → Touch ID (iOS) / icon vân tay (Android) */
+export function BioIcon({ kind, size = 26, color = "#065F46" }: { kind: "face" | "finger" | "none"; size?: number; color?: string }) {
+  if (kind === "face") return <FaceId size={size} color={color} />;
+  if (Platform.OS === "ios") return <SymbolView name={kind === "finger" ? "touchid" : "lock"} size={size} tintColor={color} weight="regular" style={{ width: size, height: size }} />;
+  return <Ic n={kind === "finger" ? "finger" : "lock"} s={size} w={1.8} g color={color} />;
 }

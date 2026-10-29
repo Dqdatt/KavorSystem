@@ -25,7 +25,7 @@ export function payslipsSpec(): ScreenSpec {
         {S.payslips.map((p, i) => <RowBtn key={p.k} icon={<Gi n="receipt" s={24} />} title={`Tháng ${p.k}`} sub={`Công bố ${p.pub}`} right={<RowStrong>{money(netPay(p))}</RowStrong>} onPress={() => { S.param = String(i); go("payslip"); }} />)}
         <Row><Ic n="hour" s={24} w={1.6} /><View style={{ flex: 1 }}><T style={{ fontFamily: F.semibold, color: C.ink3 }}>Tháng 10/2026</T><T style={{ color: C.ink2, fontSize: 12.5, marginTop: 2 }}>Chưa công bố · dự kiến 05/11</T></View></Row>
       </Card>,
-      <Note key="n" icon="lock">Đã xác thực trong 5 phút. Sau đó app hỏi lại PIN hoặc Face ID.</Note>,
+      <Note key="n" icon="lock">{`Đã xác thực trong 5 phút. Sau đó app hỏi lại PIN hoặc ${S.bioLabel}.`}</Note>,
     ],
   };
 }
@@ -74,7 +74,7 @@ function remotePayslipsSpec(): ScreenSpec {
     <Card key="list">{data.items.map((p) => <RowBtn key={p.cycle.id} icon={<Gi n="receipt" s={24} />} title={`Tháng ${payMonth(p.cycle.month)}`}
       sub={`Công bố ${p.cycle.publishedAt ? payDate(p.cycle.publishedAt) : "—"}`} right={<RowStrong>{money(p.net)}</RowStrong>}
       onPress={() => { S.param = p.cycle.month; go("payslip"); }} />)}</Card>,
-    <Note key="n" icon="lock">Đã xác thực trong 5 phút. Sau đó app hỏi lại PIN hoặc Face ID.</Note>,
+    <Note key="n" icon="lock">{`Đã xác thực trong 5 phút. Sau đó app hỏi lại PIN hoặc ${S.bioLabel}.`}</Note>,
   ] };
 }
 function remotePayslipSpec(): ScreenSpec {

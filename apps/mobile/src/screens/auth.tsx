@@ -3,7 +3,7 @@ import { Animated, Pressable, ScrollView, StyleSheet, TextInput, View } from "re
 import { Blur } from "../blur";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { C, EASE, F } from "../theme";
-import { FaceId, Gi, Ic, Logo, type IconName } from "../icons";
+import { BioIcon, Gi, Ic, Logo, type IconName } from "../icons";
 import { Illus } from "../illus";
 import { useReducedMotion, useShake } from "../motion";
 import { Balanced, Btn, Card, ErrLine, InfoRow, T } from "../ui";
@@ -102,8 +102,8 @@ export function Login() {
         </View>
         <View style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
           <Btn kind="auth" flex spinKey="login" onPress={ACT.login}>Đăng nhập</Btn>
-          <Pressable accessibilityLabel="Đăng nhập bằng Face ID" onPress={() => { void ACT.faceLogin(); }} style={({ pressed }) => [styles.face, pressed && { transform: [{ scale: 0.94 }], backgroundColor: "#EAF7F1", boxShadow: undefined }]}>
-            <FaceId size={26} color={C.emerald} />
+          <Pressable accessibilityLabel={`Đăng nhập bằng ${S.bioLabel}`} onPress={() => { void ACT.faceLogin(); }} style={({ pressed }) => [styles.face, pressed && { transform: [{ scale: 0.94 }], backgroundColor: "#EAF7F1", boxShadow: undefined }]}>
+            <BioIcon kind={S.bioKind} size={26} color={C.emerald} />
           </Pressable>
         </View>
         <View style={styles.or}><View style={styles.orLine} /><T style={{ fontSize: 12, color: C.ink3 }}>Hoặc</T><View style={styles.orLine} /></View>

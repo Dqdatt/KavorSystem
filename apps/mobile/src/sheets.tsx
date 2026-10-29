@@ -1,7 +1,7 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import { Animated, Easing, Pressable, StyleSheet, View } from "react-native";
 import { C, F, glass, tint } from "./theme";
-import { FaceId, Gi, Ic } from "./icons";
+import { BioIcon, FaceId, Gi, Ic } from "./icons";
 import { Illus } from "./illus";
 import { Appear } from "./motion";
 import { Btn, BtnRow, Chip, Chips, ErrLine, Field, Inp, Ln, Note, SecT, T, TextArea } from "./ui";
@@ -66,7 +66,7 @@ export function SheetContent({ kind, arg }: { kind: SheetKind; arg?: string }) {
         {S.pinErr ? <T style={{ color: C.bad, textAlign: "center", fontFamily: F.medium, marginTop: -6 }}>{S.pinErr}</T> : null}
         <View style={styles.keypad}>
           {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => <Key key={n} onPress={() => ACT.pinkey(String(n))}>{String(n)}</Key>)}
-          {canBio ? <Key plain label="Dùng Face ID" onPress={() => { void ACT.faceid(); }}><FaceId size={30} color={C.emerald} /></Key> : <View style={[styles.key, styles.keyPlain]} />}
+          {canBio ? <Key plain label={`Dùng ${S.bioLabel}`} onPress={() => { void ACT.faceid(); }}><BioIcon kind={S.bioKind} size={30} color={C.emerald} /></Key> : <View style={[styles.key, styles.keyPlain]} />}
           <Key onPress={() => ACT.pinkey("0")}>0</Key>
           <Key plain label="Xóa" onPress={() => ACT.pinkey("del")}><Ic n="chevL" s={24} w={2} color={C.ink2} /></Key>
         </View>

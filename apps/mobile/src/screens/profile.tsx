@@ -439,14 +439,16 @@ export function securitySpec(): ScreenSpec {
   return {
     head: <TopBar title="Bảo mật và thiết bị" right={null} />,
     body: [
-      <SectionHead key="sh1" title={bio} />,
+      <SectionHead key="sh1" title={`${bio[0]!.toUpperCase()}${bio.slice(1)}`} />,
       <Card key="bio">
-        <Row><Gi n="face" s={24} /><View style={{ flex: 1 }}><T style={{ fontFamily: F.semibold }}>Đăng nhập bằng {bio}</T><T style={{ color: C.ink2, fontSize: 12.5, marginTop: 2 }}>Không cần nhập mật khẩu khi mở app</T></View><Toggle label={`Đăng nhập bằng ${bio}`} on={S.bio.login} onChange={(v) => { void setBioPref("login", v); }} /></Row>
+        <Row><Gi n={S.bioKind === "finger" ? "finger" : "face"} s={24} /><View style={{ flex: 1 }}><T style={{ fontFamily: F.semibold }}>Đăng nhập bằng {bio}</T><T style={{ color: C.ink2, fontSize: 12.5, marginTop: 2 }}>Không cần nhập mật khẩu khi mở app</T></View><Toggle label={`Đăng nhập bằng ${bio}`} on={S.bio.login} onChange={(v) => { void setBioPref("login", v); }} /></Row>
         <Row><Gi n="lock" s={24} /><View style={{ flex: 1 }}><T style={{ fontFamily: F.semibold }}>Mở khóa lương và tạm ứng</T><T style={{ color: C.ink2, fontSize: 12.5, marginTop: 2 }}>Dùng {bio} thay cho mã PIN</T></View><Toggle label={`Mở khóa bằng ${bio}`} on={S.bio.unlock} onChange={(v) => { void setBioPref("unlock", v); }} /></Row>
       </Card>,
       <SectionHead key="shp" title="Mã PIN" />,
       <Card key="pin"><RowBtn icon={<Gi n="lock" s={24} />} title="Đổi mã PIN" sub="6 số mở lương, tạm ứng và tài liệu trên máy này" onPress={ACT.changePin} /></Card>,
-      <Note key="n" icon="info">{`Quyền dùng ${bio} của Kavor do iOS quản lý tại Cài đặt → Face ID & Mật mã → Ứng dụng khác. Nếu tắt ở đó, Kavor sẽ chỉ dùng mã PIN.`}</Note>,
+      <Note key="n" icon="info">{Platform.OS === "ios"
+        ? `Quyền dùng ${bio} của Kavor do iOS quản lý tại Cài đặt → ${S.bioKind === "finger" ? "Touch ID" : "Face ID"} & Mật mã. Nếu tắt ở đó, Kavor sẽ chỉ dùng mã PIN.`
+        : `${bio[0]!.toUpperCase()}${bio.slice(1)} do Android quản lý tại Cài đặt → Bảo mật. Nếu xóa hết ${bio} ở đó, Kavor sẽ chỉ dùng mã PIN.`}</Note>,
       <SectionHead key="sh2" title="Thiết bị chấm công" />,
       <Card key="dev"><InfoRow k="Thiết bị" v="iPhone 15 · iOS 26" strong /><InfoRow k="Đăng ký từ" v="16/10/2026" strong /><InfoRow k="Trạng thái" v="Đang hoạt động" strong /></Card>,
       <Btn key="reset" kind="ghost" block onPress={() => toast("Đã gửi yêu cầu reset thiết bị cho HR (mô phỏng)")}>Yêu cầu reset khi đổi máy</Btn>,

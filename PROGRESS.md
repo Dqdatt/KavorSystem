@@ -425,7 +425,7 @@ ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AG
 
 ## Nhật ký
 - 2026-10-29 — Claude (Desktop): mã PIN thật + Face ID gọi thẳng hộp thoại hệ thống. Mobile typecheck, test mobile 25 ca (PIN 7). Người dùng thử PIN trên iPhone:
-  ổn; bản sửa Face ID đã cài, chờ xác nhận. verify-all --quick (không reset để giữ tài khoản trên iPhone); bản đầy đủ chạy lần trước TẤT CẢ ĐẠT.
+  ổn; Face ID gọi thẳng hộp thoại hệ thống: người dùng xác nhận đúng ý. verify-all --quick (không reset để giữ tài khoản trên iPhone); bản đầy đủ chạy lần trước TẤT CẢ ĐẠT.
 - 2026-10-29 — Claude (Desktop): tìm ra lỗi smoke trên Mac: macOS dùng bash 3.2, bung ngoặc nhọn của JSON có `\"` bên trong `"$( … )"` → lệnh gọi API
   bị tách làm nhiều lần với body hỏng, và `check` nhận chuỗi rỗng ở cả hai vế nên có bước **đạt giả** (vd. "Đính kèm PDF"). Sửa 27 dòng ở 6 smoke
   (gán `_sN=$( … )` trước rồi `check "$_sN"`), kiểm bằng harness bash 3.2 (mọi `check` đủ 3 tham số). Verify-all đầy đủ TẤT CẢ ĐẠT (pgTAP 460,

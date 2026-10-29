@@ -13,7 +13,7 @@ import { T } from "./ui";
 import { ScreenView, dockTuck, setTuck, type ScreenSpec } from "./screen";
 import { SheetContent } from "./sheets";
 import { hm } from "./data";
-import { ACT, S, SKEL, TABS, closeSheet, cur, getVersion, jump, quickClose, quickItems, restoreSession, simNow, subscribe, tab, toast, type Anim, type Route } from "./store";
+import { ACT, S, SKEL, TABS, closeSheet, cur, getVersion, jump, quickClose, quickItems, loadBioKind, restoreSession, simNow, subscribe, tab, toast, type Anim, type Route } from "./store";
 import { QA_ENABLED, runQA } from "./qa";
 import { NativeSplashGone, SplashOverlay } from "./splash";
 import { CrashBoundary, installCrashHandler, takeLastCrash } from "./crash";
@@ -313,7 +313,7 @@ function KavorApp() {
   useStore();
   const [splash, setSplash] = useState(!QA_ENABLED);
   const [booted, setBooted] = useState(QA_ENABLED);
-  useEffect(() => { if (!QA_ENABLED) restoreSession().finally(() => setBooted(true)); }, []);
+  useEffect(() => { if (!QA_ENABLED) restoreSession().finally(() => setBooted(true)); else void loadBioKind(); }, []);
   /* Báo lỗi của lần chạy trước (sau khi splash xong để toast không bị che) */
   useEffect(() => {
     if (splash || QA_ENABLED) return;

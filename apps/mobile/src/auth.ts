@@ -1,5 +1,6 @@
 /* Xác thực sinh trắc học thật (Face ID / Touch ID / vân tay) và lưu phiên trong Keychain/Keystore.
    Có API (REMOTE): phiên chứa access/refresh token thật. Chế độ dữ liệu mẫu: token giả lập. */
+import { Platform } from "react-native";
 import * as LocalAuthentication from "expo-local-authentication";
 import * as SecureStore from "expo-secure-store";
 
@@ -63,12 +64,18 @@ export async function quickLoginEmployee(): Promise<string | null> {
   return SecureStore.getItemAsync(QUICK_LOGIN_KEY, opts).catch(() => null);
 }
 
-/* Tên gọi theo phần cứng: "Face ID" trên iPhone có Face ID, "Touch ID"/"vân tay" khi chỉ có cảm biến vân tay */
-export async function biometricLabel(): Promise<string> {
+export type BioKind = "face" | "finger" | "none";
+/* Loại sinh trắc học theo phần cứng + tên gọi theo hệ điều hành: iPhone → Face ID / Touch ID; Android ưu tiên vân tay
+   (nhận diện khuôn mặt trên đa số máy Android là loại yếu, không dùng để mở khóa ứng dụng) */
+export async function biometricKind(): Promise<{ kind: BioKind; label: string }> {
   const types: LocalAuthentication.AuthenticationType[] = await LocalAuthentication.supportedAuthenticationTypesAsync().catch(() => []);
-  if (types.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION)) return "Face ID";
-  if (types.includes(LocalAuthentication.AuthenticationType.FINGERPRINT)) return "vân tay";
-  return "sinh trắc học";
+  const face = types.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION);
+  const finger = types.includes(LocalAuthentication.AuthenticationType.FINGERPRINT);
+  if (Platform.OS === "ios") return face ? { kind: "face", label: "Face ID" } : finger ? { kind: "finger", label: "Touch ID" } : { kind: "none", label: "sinh trắc học" };
+  return finger ? { kind: "finger", label: "vân tay" } : face ? { kind: "face", label: "khuôn mặt" } : { kind: "none", label: "sinh trắc học" };
+}
+export async function biometricLabel(): Promise<string> {
+  return (await biometricKind()).label;
 }
 
 export async function authenticate(promptMessage: string): Promise<BiometricResult> {
