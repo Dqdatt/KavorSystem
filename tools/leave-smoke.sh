@@ -34,11 +34,16 @@ fi
 need "Ngày làm việc sắp tới: $D1 … $D9; ngày nghỉ $OFF; ngày đã qua $PAST" "$D9"
 
 echo "— Kiểm tra đơn"
-check "Loại nghỉ không có → 400" "$(status POST me/requests/leave "$EMP" "{\"leaveType\":\"XX\",\"from\":\"$D1\",\"reason\":\"Việc riêng\"}")" 400
-check "Ngày kết thúc trước ngày bắt đầu → 400" "$(status POST me/requests/leave "$EMP" "{\"leaveType\":\"AL\",\"from\":\"$D2\",\"to\":\"$D1\",\"reason\":\"Việc riêng\"}")" 400
-check "Nửa ngày cho nhiều ngày → 400" "$(status POST me/requests/leave "$EMP" "{\"leaveType\":\"AL\",\"from\":\"$D1\",\"to\":\"$D2\",\"half\":\"am\",\"reason\":\"Việc riêng\"}")" 400
-check "Chỉ chọn ngày nghỉ cuối tuần → 400" "$(status POST me/requests/leave "$EMP" "{\"leaveType\":\"AL\",\"from\":\"$OFF\",\"reason\":\"Việc riêng\"}")" 400
-check "Nghỉ kết hôn quá 3 ngày → 400" "$(status POST me/requests/leave "$EMP" "{\"leaveType\":\"WED\",\"from\":\"$D1\",\"to\":\"$D9\",\"reason\":\"Cưới\"}")" 400
+_s1=$(status POST me/requests/leave "$EMP" "{\"leaveType\":\"XX\",\"from\":\"$D1\",\"reason\":\"Việc riêng\"}") || :
+check "Loại nghỉ không có → 400" "$_s1" 400
+_s1=$(status POST me/requests/leave "$EMP" "{\"leaveType\":\"AL\",\"from\":\"$D2\",\"to\":\"$D1\",\"reason\":\"Việc riêng\"}") || :
+check "Ngày kết thúc trước ngày bắt đầu → 400" "$_s1" 400
+_s1=$(status POST me/requests/leave "$EMP" "{\"leaveType\":\"AL\",\"from\":\"$D1\",\"to\":\"$D2\",\"half\":\"am\",\"reason\":\"Việc riêng\"}") || :
+check "Nửa ngày cho nhiều ngày → 400" "$_s1" 400
+_s1=$(status POST me/requests/leave "$EMP" "{\"leaveType\":\"AL\",\"from\":\"$OFF\",\"reason\":\"Việc riêng\"}") || :
+check "Chỉ chọn ngày nghỉ cuối tuần → 400" "$_s1" 400
+_s1=$(status POST me/requests/leave "$EMP" "{\"leaveType\":\"WED\",\"from\":\"$D1\",\"to\":\"$D9\",\"reason\":\"Cưới\"}") || :
+check "Nghỉ kết hôn quá 3 ngày → 400" "$_s1" 400
 B="{\"leaveType\":\"AL\",\"from\":\"$D1\",\"to\":\"$D9\",\"reason\":\"Đi du lịch dài ngày\"}"
 check "Vượt số phép (kể cả nghỉ trước 1 ngày) → 409" "$([ "$(python3 -c "print($A0+1<9)")" = True ] && status POST me/requests/leave "$EMP" "$B" || echo 409)" 409
 
@@ -47,7 +52,8 @@ r=$(call POST me/requests/leave "$EMP" "{\"leaveType\":\"AL\",\"from\":\"$D1\",\
 NO1=$(echo "$r" | field data.no); T1=$(echo "$r" | field data.steps.0.taskId)
 check "Tạo đơn NP, bước HR bỏ qua (≤ 2 ngày)" "$(echo "$r" | py "(d['no'][:3], d['type'], d['payload']['days'], [s['status'] for s in d['steps']])")" "('NP-', 'leave', 1, ['pending', 'skipped'])"
 check "Giữ chỗ 1 ngày" "$(call GET me/leave "$EMP" | py "(d['balance']['pending'], d['balance']['available']==$A0-1, [x['taken'] for x in d['calendar'] if x['date']=='$D1'][0])")" "(1, True, 'full')"
-check "Trùng ngày → 409" "$(status POST me/requests/leave "$EMP" "{\"leaveType\":\"UL\",\"from\":\"$D1\",\"half\":\"pm\",\"reason\":\"Việc riêng\"}")" 409
+_s1=$(status POST me/requests/leave "$EMP" "{\"leaveType\":\"UL\",\"from\":\"$D1\",\"half\":\"pm\",\"reason\":\"Việc riêng\"}") || :
+check "Trùng ngày → 409" "$_s1" 409
 check "Quản lý nhận đơn cần duyệt" "$(call GET me/approvals "$MGR" | py "[i['no'] for i in d['items']]==['$NO1']")" True
 check "Quản lý duyệt → hoàn tất" "$(call POST me/approvals/$T1/approve "$MGR" '{}' | field data.status)" approved
 check "Đã trừ 1 ngày, hết giữ chỗ" "$(call GET me/leave "$EMP" | py "(d['balance']['used'], d['balance']['pending'], d['balance']['available']==$A0-1)")" "(1, 0, True)"

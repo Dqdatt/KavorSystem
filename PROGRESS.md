@@ -364,10 +364,6 @@ ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AG
 - Giữ ảnh chụp toàn trang và ảnh simulator raw — bỏ vì trùng dữ liệu, làm commit phình to; chỉ giữ bản 390×844 dùng để so sánh.
 
 ## Vấn đề/bug còn tồn tại
-- **Smoke announcements + documents lỗi trên Mac (29/10, có sẵn, cloud thì đạt):** API trả đính kèm thành công nhưng ngay sau đó
-  `announcements.attachment_path` là NULL và Storage trống; tách lệnh upload ra biến (`R=$(call …)`) thay vì `check "…" "$(call … | py …)"`
-  thì cả smoke đạt. Chưa tìm ra gốc (đã loại trừ: sandbox, hai API cùng chạy, thời gian chờ sau reset). Cần thử tải file đính kèm trên web/app
-  thật để biết lỗi chỉ ở smoke hay ở tính năng.
 - Luật nhà nước dạng số (`statutory_rule_sets`: bảo hiểm, thuế, phép năm tối thiểu, giới hạn OT) chưa làm — làm cùng module phép/payroll. Lịch lễ quốc gia mới có 2026; 2027 chờ Chính phủ công bố lịch Tết. Nội dung điều khoản mẫu và ngày lễ cần chuyên gia xác nhận.
 - Server chưa chặn API chấm công khi nhân viên chưa đồng ý điều khoản (app tự chặn bằng màn đồng ý).
 - Đặt lại MFA (web HR hoặc Console) không đăng xuất phiên aal2 đang mở của người đó (hết hạn sau ≤ 1 giờ).
@@ -424,8 +420,12 @@ ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AG
   PIN/Face ID, tối đa 5 MB, "Thiếu hồ sơ" = chưa có hợp đồng còn hiệu lực.
 
 ## Nhật ký
+- 2026-10-29 — Claude (Desktop): tìm ra lỗi smoke trên Mac: macOS dùng bash 3.2, bung ngoặc nhọn của JSON có `\"` bên trong `"$( … )"` → lệnh gọi API
+  bị tách làm nhiều lần với body hỏng, và `check` nhận chuỗi rỗng ở cả hai vế nên có bước **đạt giả** (vd. "Đính kèm PDF"). Sửa 27 dòng ở 6 smoke
+  (gán `_sN=$( … )` trước rồi `check "$_sN"`), kiểm bằng harness bash 3.2 (mọi `check` đủ 3 tham số). Verify-all đầy đủ TẤT CẢ ĐẠT (pgTAP 460,
+  18 smoke — announcements 51, documents 42, import 18 —, build, lint).
 - 2026-10-29 — Claude (Desktop): làm đẹp web 5 bước (`d1db291`…). Verify-all đầy đủ trên Mac lần đầu: typecheck, unit, pgTAP 460, build, lint đạt;
-  15/18 smoke đạt; **3 smoke lỗi**: import (script dùng `mktemp --suffix` của GNU — đã sửa, chạy lại đạt), announcements ("HR tải lại file đính
+  15/18 smoke đạt (sau đó đã sửa, xem dòng trên); **3 smoke lỗi**: import (script dùng `mktemp --suffix` của GNU — đã sửa, chạy lại đạt), announcements ("HR tải lại file đính
   kèm" NOT_FOUND) và documents ("Nhân viên mở liên kết nhận bản mới nhất") — lỗi có sẵn: API của commit `ad691cf` (trước khi sửa) lỗi y hệt.
 - 2026-10-26 — Claude (cloud): gửi lời mời hàng loạt. Verify-all đầy đủ TẤT CẢ ĐẠT (pgTAP 460, 18 smoke — import 18, build, lint).
 - 2026-10-26 — Claude (cloud): Nhập nhân viên hàng loạt từ CSV. Verify-all đầy đủ TẤT CẢ ĐẠT (pgTAP 460, 18 smoke — import 14, build, lint). Sửa test `hr_rls` đếm cứng 2 người Marketing (lỗi khi DB có thêm người do smoke/E2E).

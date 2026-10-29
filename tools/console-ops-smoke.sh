@@ -48,7 +48,8 @@ r=$(call POST "console/tenants/$TB_ID/status" "$OP" '{"action":"suspend","reason
 check "Tạm khóa, lưu lý do" "$(echo "$r" | py "(d['status'], d['statusReason'], d['statusChangedAt'] is not None)")" "('suspended', 'Quá hạn thanh toán', True)"
 check "Web HR (token còn hạn) bị chặn" "$(call GET admin/me "$TB" | field error.code)" AUTH_TENANT_SUSPENDED
 check "App (token còn hạn) bị chặn" "$(call GET me/profile "$EMPB" | field error.code)" AUTH_TENANT_SUSPENDED
-check "Đăng nhập lại bị chặn, nói rõ công ty tạm ngừng" "$(call POST auth/login "" "{\"identifier\":\"bich@maub.test\",\"password\":\"$PW\"}" | field error.message)" "Công ty đang tạm ngừng sử dụng Kavor. Liên hệ phòng Nhân sự hoặc quản trị viên công ty."
+_s1=$(call POST auth/login "" "{\"identifier\":\"bich@maub.test\",\"password\":\"$PW\"}" | field error.message) || :
+check "Đăng nhập lại bị chặn, nói rõ công ty tạm ngừng" "$_s1" "Công ty đang tạm ngừng sử dụng Kavor. Liên hệ phòng Nhân sự hoặc quản trị viên công ty."
 check "Công ty khác không bị ảnh hưởng" "$(status GET admin/me "$HR")" 200
 check "Tổng quan Console đếm tenant tạm khóa" "$(call GET console/overview "$OP" | py "d['tenants']['suspended']")" 1
 
@@ -64,7 +65,8 @@ check "Đóng mà không gõ đúng mã → 400" "$(status POST "console/tenants
 check "Đóng tenant đang tạm khóa" "$(call POST "console/tenants/$TB_ID/status" "$OP" '{"action":"close","reason":"Hết hợp đồng","confirmCode":"maub-001"}' | py "d['status']")" closed
 check "Đã đóng không mở lại được → 409" "$(status POST "console/tenants/$TB_ID/status" "$OP" '{"action":"reactivate","reason":"Thử mở lại"}')" 409
 check "Đã đóng không đổi gói được → 409" "$(status POST "console/tenants/$TB_ID/plan" "$OP" '{"plan":"growth","employeeLimit":500,"reason":"Thử đổi"}')" 409
-check "Đã đóng không tạo khôi phục chủ sở hữu → 409" "$(status POST console/recoveries "$OP" "{\"tenantId\":\"$TB_ID\",\"kind\":\"grant_admin\",\"newAdminName\":\"Ai Đó\",\"newAdminEmail\":\"ai@maub.test\",\"verification\":\"Gọi điện xác minh giám đốc\",\"reason\":\"Thử sau khi đóng\"}")" 409
+_s1=$(status POST console/recoveries "$OP" "{\"tenantId\":\"$TB_ID\",\"kind\":\"grant_admin\",\"newAdminName\":\"Ai Đó\",\"newAdminEmail\":\"ai@maub.test\",\"verification\":\"Gọi điện xác minh giám đốc\",\"reason\":\"Thử sau khi đóng\"}") || :
+check "Đã đóng không tạo khôi phục chủ sở hữu → 409" "$_s1" 409
 check "App báo công ty đã ngừng sử dụng" "$(call GET me/profile "$EMPB" | field error.message)" "Công ty đã ngừng sử dụng Kavor. Liên hệ phòng Nhân sự công ty để biết thêm."
 check "Tổng quan không tính tenant đã đóng" "$(call GET console/overview "$OP" | py "(d['tenants']['total'], d['tenants']['suspended'])")" "(1, 0)"
 check "Audit đủ: tạm khóa ×2, mở lại, đóng" "$(sql "select string_agg(action, ',' order by created_at) from public.audit_logs where tenant_id='$TB_ID' and action in ('tenant.suspended','tenant.reactivated','tenant.closed')")" "tenant.suspended,tenant.reactivated,tenant.suspended,tenant.closed"

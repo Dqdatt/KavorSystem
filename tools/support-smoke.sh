@@ -67,7 +67,8 @@ check "Hết thời hạn: mất quyền" "$(call GET "console/support/$S4/view/
 check "Console hiện đúng trạng thái các phiên" "$(call GET console/support "$VY" | py "sorted((s['ticket'], s['status'], s['mine']) for s in d)")" \
   "[('SUP-101', 'revoked', False), ('SUP-201', 'cancelled', True), ('SUP-202', 'ended', True), ('SUP-203', 'expired', True)]"
 check "Thu hồi phiên đã hết hạn → 409" "$(status POST "admin/support/$S4/revoke" "$HR" '{}')" 409
-check "Tenant tạm khóa thì không gửi yêu cầu được" "$(sql "update public.tenants set status='suspended' where id='$TB_ID'"; status POST console/support "$DUY" "{\"tenantId\":\"$TB_ID\",\"ticket\":\"SUP-301\",\"reason\":\"Kiểm tra tenant đang khóa\",\"scopes\":[\"settings\"],\"minutes\":30}")" 409
+_s1=$(sql "update public.tenants set status='suspended' where id='$TB_ID'"; status POST console/support "$DUY" "{\"tenantId\":\"$TB_ID\",\"ticket\":\"SUP-301\",\"reason\":\"Kiểm tra tenant đang khóa\",\"scopes\":[\"settings\"],\"minutes\":30}") || :
+check "Tenant tạm khóa thì không gửi yêu cầu được" "$_s1" 409
 check "Audit đủ vòng đời" "$(sql "select string_agg(distinct action, ',' order by action) from public.audit_logs where tenant_id='$HDG' and action like 'support.%'")" \
   "support.approved,support.cancelled,support.ended,support.requested,support.revoked,support.viewed"
 echo "Tất cả bước support access đều đạt."

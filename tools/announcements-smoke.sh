@@ -31,15 +31,18 @@ echo "— Soạn bài riêng phòng Marketing, đính kèm PDF"
 check "Thiếu tiêu đề → 400" "$(status POST admin/announcements "$HR" '{"category":"notice","audience":"tenant"}')" 400
 check "Chọn đơn vị nhưng không có đơn vị → 400" "$(status POST admin/announcements "$HR" '{"category":"notice","title":"x","audience":"units","units":[]}')" 400
 BX_DEPT=$(sql "select d.id from public.departments d join public.tenants t on t.id=d.tenant_id where t.code='MAUB-001' limit 1")
-check "Phòng ban của tenant khác → 400" "$(status POST admin/announcements "$HR" "{\"category\":\"notice\",\"title\":\"x\",\"audience\":\"units\",\"units\":[{\"type\":\"department\",\"id\":\"$BX_DEPT\"}]}")" 400
+_s1=$(status POST admin/announcements "$HR" "{\"category\":\"notice\",\"title\":\"x\",\"audience\":\"units\",\"units\":[{\"type\":\"department\",\"id\":\"$BX_DEPT\"}]}") || :
+check "Phòng ban của tenant khác → 400" "$_s1" 400
 check "Kế toán không tạo được bài → 403" "$(status POST admin/announcements "$PAY" '{"category":"notice","title":"x","audience":"tenant"}')" 403
 BODY='{"category":"policy","title":"Quy định mới cho Marketing","body":"Áp dụng từ tuần sau.\n\n- Ý một\n- Ý hai","authorLabel":"Phòng Nhân sự","important":true,"pinned":false,"notify":true,"audience":"units","units":[{"type":"department","id":"'$MKT'"}]}'
 R=$(call POST admin/announcements "$HR" "$BODY"); ID=$(echo "$R" | field data.id)
 check "Tạo bài nháp cho phòng Marketing (2 người nhận)" "$(echo "$R" | py "(d['status'], d['recipients'], d['units'][0]['name'])")" "('draft', 2, 'Marketing')"
 PDF=$(printf '%%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%%%EOF\n' | b64)
-check "Đính kèm PDF" "$(call POST "admin/announcements/$ID/attachment" "$HR" "{\"fileName\":\"Quy-dinh.pdf\",\"dataBase64\":\"$PDF\"}" | py "(d['attachment']['type'], d['attachment']['name'])")" "('application/pdf', 'Quy-dinh.pdf')"
+_s1=$(call POST "admin/announcements/$ID/attachment" "$HR" "{\"fileName\":\"Quy-dinh.pdf\",\"dataBase64\":\"$PDF\"}" | py "(d['attachment']['type'], d['attachment']['name'])") || :
+check "Đính kèm PDF" "$_s1" "('application/pdf', 'Quy-dinh.pdf')"
 SVG=$(printf '<svg onload=alert(1)></svg>' | b64)
-check "File SVG bị chặn → 400" "$(status POST "admin/announcements/$ID/attachment" "$HR" "{\"fileName\":\"x.pdf\",\"dataBase64\":\"$SVG\"}")" 400
+_s1=$(status POST "admin/announcements/$ID/attachment" "$HR" "{\"fileName\":\"x.pdf\",\"dataBase64\":\"$SVG\"}") || :
+check "File SVG bị chặn → 400" "$_s1" 400
 BIG=$(mktemp); python3 -c "import base64,json,sys; json.dump({'fileName':'big.pdf','dataBase64':base64.b64encode(b'%PDF-'+bytes(5_300_000)).decode()}, open(sys.argv[1],'w'))" "$BIG"
 check "File quá 5 MB → 400" "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$API/admin/announcements/$ID/attachment" -H 'content-type: application/json' -H "authorization: Bearer $HR" --data-binary "@$BIG")" 400
 rm -f "$BIG"

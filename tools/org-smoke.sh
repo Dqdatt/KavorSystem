@@ -19,15 +19,18 @@ O=$(call GET admin/organization "$HR")
 check "HR xem cơ cấu: 1 pháp nhân, 3 chi nhánh, 6 phòng ban, sửa được" "$(echo "$O" | py "(d['metrics']['legalEntities'], d['metrics']['branches'], d['metrics']['departments'], d['canManage'])")" "(1, 3, 6, True)"
 check "Đếm người theo phòng ban (Marketing)" "$(echo "$O" | py "[u['employees'] for u in d['units'] if u['code']=='MKT'][0] > 0")" True
 MKT_BR=$(echo "$O" | py "[u['branchId'] for u in d['units'] if u['code']=='MKT'][0]")
-check "Quản lý chỉ xem, không sửa" "$(call GET admin/organization "$MGR" | py "d['canManage']"):$(status POST admin/organization/units "$MGR" "{\"kind\":\"position\",\"code\":\"X\",\"name\":\"Thử quyền\"}")" "False:403"
+_s1=$(status POST admin/organization/units "$MGR" "{\"kind\":\"position\",\"code\":\"X\",\"name\":\"Thử quyền\"}") || :
+check "Quản lý chỉ xem, không sửa" "$(call GET admin/organization "$MGR" | py "d['canManage']"):$_s1" "False:403"
 check "Kế toán không xem cơ cấu → 403" "$(status GET admin/organization "$PAY")" 403
 B="{\"kind\":\"department\",\"code\":\"mkt-dig\",\"name\":\"Digital Marketing\",\"branchId\":\"$MKT_BR\",\"parentId\":\"$MKT\"}"
 O=$(call POST admin/organization/units "$HR" "$B")
 DIG=$(echo "$O" | py "[u['id'] for u in d['units'] if u['code']=='MKT-DIG'][0]"); need "Thêm phòng Digital Marketing (mã viết hoa) dưới Marketing" "$DIG"
 check "Phòng con thuộc Marketing, cùng chi nhánh" "$(echo "$O" | py "[(u['parentId'], u['branchId']) for u in d['units'] if u['code']=='MKT-DIG'][0] == ('$MKT', '$MKT_BR')")" True
 check "Trùng mã → 409" "$(status POST admin/organization/units "$HR" "$B")" 409
-check "Chi nhánh của công ty khác → 400" "$(status POST admin/organization/units "$HR" "{\"kind\":\"department\",\"code\":\"LA\",\"name\":\"Phòng lạ\",\"branchId\":\"$BR_TB\"}")" 400
-check "Ngày hiệu lực trong quá khứ → 400" "$(status POST admin/organization/units "$HR" "{\"kind\":\"position\",\"code\":\"OLD\",\"name\":\"Cũ\",\"effectiveFrom\":\"2020-01-01\"}")" 400
+_s1=$(status POST admin/organization/units "$HR" "{\"kind\":\"department\",\"code\":\"LA\",\"name\":\"Phòng lạ\",\"branchId\":\"$BR_TB\"}") || :
+check "Chi nhánh của công ty khác → 400" "$_s1" 400
+_s1=$(status POST admin/organization/units "$HR" "{\"kind\":\"position\",\"code\":\"OLD\",\"name\":\"Cũ\",\"effectiveFrom\":\"2020-01-01\"}") || :
+check "Ngày hiệu lực trong quá khứ → 400" "$_s1" 400
 check "Đổi tên phòng" "$(call PATCH "admin/organization/units/department/$DIG" "$HR" '{"name":"Marketing số"}' | py "[u['name'] for u in d['units'] if u['id']=='$DIG'][0]")" "Marketing số"
 O=$(call POST admin/organization/units "$HR" '{"kind":"position","code":"DS","name":"Chuyên viên dữ liệu","jobLevel":"L2"}')
 DS=$(echo "$O" | py "[u['id'] for u in d['units'] if u['code']=='DS'][0]"); need "Thêm chức danh" "$DS"
@@ -53,9 +56,12 @@ check "Số người theo vai trò (Tenant Admin 1, Payroll 2)" "$(echo "$R" | p
 check "Quản lý không xem phân quyền → 403" "$(status GET admin/roles "$MGR")" 403
 check "Trước khi gán: Thu Hà chưa vào được web HR" "$(call GET admin/employees "$EMP" | field error.code)" FORBIDDEN
 HA=60000000-0000-4000-8000-000000000142
-check "Quản lý gán vai trò → 403" "$(status POST admin/roles/assignments "$MGR" "{\"employeeId\":\"$HA\",\"roleCode\":\"hr_ops\",\"scopeType\":\"department\",\"scopeId\":\"$MKT\",\"effectiveFrom\":\"$TODAY\"}")" 403
-check "Phạm vi không hợp lệ cho Manager (toàn công ty) → 400" "$(status POST admin/roles/assignments "$HR" "{\"employeeId\":\"$HA\",\"roleCode\":\"manager\",\"scopeType\":\"tenant\",\"effectiveFrom\":\"$TODAY\"}")" 400
-check "Không gán vai trò Employee bằng tay → 400" "$(status POST admin/roles/assignments "$HR" "{\"employeeId\":\"$HA\",\"roleCode\":\"employee\",\"scopeType\":\"tenant\",\"effectiveFrom\":\"$TODAY\"}")" 400
+_s1=$(status POST admin/roles/assignments "$MGR" "{\"employeeId\":\"$HA\",\"roleCode\":\"hr_ops\",\"scopeType\":\"department\",\"scopeId\":\"$MKT\",\"effectiveFrom\":\"$TODAY\"}") || :
+check "Quản lý gán vai trò → 403" "$_s1" 403
+_s1=$(status POST admin/roles/assignments "$HR" "{\"employeeId\":\"$HA\",\"roleCode\":\"manager\",\"scopeType\":\"tenant\",\"effectiveFrom\":\"$TODAY\"}") || :
+check "Phạm vi không hợp lệ cho Manager (toàn công ty) → 400" "$_s1" 400
+_s1=$(status POST admin/roles/assignments "$HR" "{\"employeeId\":\"$HA\",\"roleCode\":\"employee\",\"scopeType\":\"tenant\",\"effectiveFrom\":\"$TODAY\"}") || :
+check "Không gán vai trò Employee bằng tay → 400" "$_s1" 400
 A="{\"employeeId\":\"$HA\",\"roleCode\":\"hr_ops\",\"scopeType\":\"department\",\"scopeId\":\"$MKT\",\"effectiveFrom\":\"$TODAY\"}"
 R=$(call POST admin/roles/assignments "$HR" "$A")
 AID=$(echo "$R" | py "[a['id'] for r in d['roles'] if r['code']=='hr_ops' for a in r['assignments'] if a['employee']['code']=='HD0142'][0]"); need "Gán HR Operations phạm vi Marketing cho Thu Hà" "$AID"
@@ -65,7 +71,8 @@ HAW=$(mfa "$EMP"); need "Thu Hà bật MFA cho web HR" "$HAW"
 check "Có tác dụng ngay: Thu Hà chỉ thấy nhân viên Marketing" "$(call GET admin/employees "$HAW" | py "sorted(set(e['department']['name'] for e in d))")" "['Marketing']"
 check "Ngoài phạm vi (HR) → 404" "$(status GET admin/employees/60000000-0000-4000-8000-000000000007 "$HAW")" 404
 KHOA=$(sql "select id from public.employees where employee_code='HD0400' and tenant_id='$HDG'")
-check "Gán cho người chưa kích hoạt (membership chờ)" "$(call POST admin/roles/assignments "$HR" "{\"employeeId\":\"$KHOA\",\"roleCode\":\"manager\",\"scopeType\":\"direct_reports\",\"effectiveFrom\":\"$TODAY\"}" | py "[a['account'] for r in d['roles'] for a in r['assignments'] if a['employee']['code']=='HD0400'][0]")" not_invited
+_s1=$(call POST admin/roles/assignments "$HR" "{\"employeeId\":\"$KHOA\",\"roleCode\":\"manager\",\"scopeType\":\"direct_reports\",\"effectiveFrom\":\"$TODAY\"}" | py "[a['account'] for r in d['roles'] for a in r['assignments'] if a['employee']['code']=='HD0400'][0]") || :
+check "Gán cho người chưa kích hoạt (membership chờ)" "$_s1" not_invited
 check "Thu hồi HR Operations của Thu Hà" "$(call POST "admin/roles/assignments/$AID/revoke" "$HR" '{"reason":"Hết kiêm nhiệm"}' | py "[a['id'] for r in d['roles'] for a in r['assignments'] if a['id']=='$AID']")" "[]"
 check "Thu hồi có tác dụng ngay (cùng phiên)" "$(call GET admin/employees "$HAW" | field error.code)" FORBIDDEN
 TA=$(call GET admin/roles "$HR" | py "[a['id'] for r in d['roles'] if r['code']=='tenant_admin' for a in r['assignments']][0]")

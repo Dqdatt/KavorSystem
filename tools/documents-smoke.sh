@@ -44,10 +44,14 @@ DOC=$(echo "$R" | field data.item.id); need "Tạo hợp đồng cho HD0142" "$D
 check "Phiên bản 1, đúng SHA-256, sắp hết hạn" "$(echo "$R" | py "(d['item']['current']['versionNo'], d['item']['current']['sha256']=='$SHA1', d['item']['expiry'], d['item']['current']['scanStatus'])")" "(1, True, 'soon', 'not_scanned')"
 CCCD=$(call POST admin/documents "$HR" "{\"employeeId\":\"$HA\",\"category\":\"personal\",\"title\":\"CCCD\",\"visibility\":\"hr_only\",\"fileName\":\"CCCD.png\",\"dataBase64\":\"$PNG\"}" | field data.item.id); need "Tạo CCCD chỉ HR xem" "$CCCD"
 SVG=$(printf '<svg onload=alert(1)></svg>' | b64)
-check "File SVG → 400" "$(status POST admin/documents "$HR" "{\"employeeId\":\"$HA\",\"category\":\"other\",\"title\":\"x\",\"visibility\":\"hr_only\",\"fileName\":\"x.pdf\",\"dataBase64\":\"$SVG\"}")" 400
-check "Hết hạn trước ngày hiệu lực → 400" "$(status POST admin/documents "$HR" "{\"employeeId\":\"$HA\",\"category\":\"other\",\"title\":\"x\",\"visibility\":\"hr_only\",\"issuedOn\":\"$SOON\",\"expiresOn\":\"$PAST\",\"fileName\":\"x.pdf\",\"dataBase64\":\"$V1\"}")" 400
-check "Nhân viên tenant khác → 404" "$(status POST admin/documents "$HR" "{\"employeeId\":\"$BX\",\"category\":\"other\",\"title\":\"x\",\"visibility\":\"hr_only\",\"fileName\":\"x.pdf\",\"dataBase64\":\"$V1\"}")" 404
-check "Kế toán không tải lên được → 403" "$(status POST admin/documents "$PAY" "{\"employeeId\":\"$HA\",\"category\":\"other\",\"title\":\"x\",\"visibility\":\"hr_only\",\"fileName\":\"x.pdf\",\"dataBase64\":\"$V1\"}")" 403
+_s1=$(status POST admin/documents "$HR" "{\"employeeId\":\"$HA\",\"category\":\"other\",\"title\":\"x\",\"visibility\":\"hr_only\",\"fileName\":\"x.pdf\",\"dataBase64\":\"$SVG\"}") || :
+check "File SVG → 400" "$_s1" 400
+_s1=$(status POST admin/documents "$HR" "{\"employeeId\":\"$HA\",\"category\":\"other\",\"title\":\"x\",\"visibility\":\"hr_only\",\"issuedOn\":\"$SOON\",\"expiresOn\":\"$PAST\",\"fileName\":\"x.pdf\",\"dataBase64\":\"$V1\"}") || :
+check "Hết hạn trước ngày hiệu lực → 400" "$_s1" 400
+_s1=$(status POST admin/documents "$HR" "{\"employeeId\":\"$BX\",\"category\":\"other\",\"title\":\"x\",\"visibility\":\"hr_only\",\"fileName\":\"x.pdf\",\"dataBase64\":\"$V1\"}") || :
+check "Nhân viên tenant khác → 404" "$_s1" 404
+_s1=$(status POST admin/documents "$PAY" "{\"employeeId\":\"$HA\",\"category\":\"other\",\"title\":\"x\",\"visibility\":\"hr_only\",\"fileName\":\"x.pdf\",\"dataBase64\":\"$V1\"}") || :
+check "Kế toán không tải lên được → 403" "$_s1" 403
 OTHER=$(call POST admin/documents "$HR" "{\"employeeId\":\"$ANH\",\"category\":\"decision\",\"title\":\"Quyết định điều chuyển\",\"visibility\":\"hr_employee\",\"fileName\":\"QD.pdf\",\"dataBase64\":\"$V1\"}" | field data.item.id); need "Tạo quyết định cho HDG0004" "$OTHER"
 check "Chỉ số: 3 tài liệu, 1 sắp hết hạn, 8 người chưa có hợp đồng" "$(call GET admin/documents "$HR" | py "(d['metrics']['total'], d['metrics']['expiringSoon'], d['metrics']['missingContract'])")" "(3, 1, 8)"
 
@@ -61,7 +65,8 @@ check "Mở liên kết không cần header, đúng bản 1" "$(curl -s "$API/$P
 check "Sửa chữ ký → 404" "$(curl -s -o /dev/null -w '%{http_code}' "$API/${P%sig=*}sig=AAAA")" 404
 
 echo "— Phiên bản mới"
-check "Thêm bản 2" "$(call POST "admin/documents/$DOC/versions" "$HR" "{\"fileName\":\"HDLD-HD0142-da-ky.pdf\",\"dataBase64\":\"$V2\",\"note\":\"Bản đã ký\"}" | py "(d['item']['current']['versionNo'], len(d['versions']))")" "(2, 2)"
+_s1=$(call POST "admin/documents/$DOC/versions" "$HR" "{\"fileName\":\"HDLD-HD0142-da-ky.pdf\",\"dataBase64\":\"$V2\",\"note\":\"Bản đã ký\"}" | py "(d['item']['current']['versionNo'], len(d['versions']))") || :
+check "Thêm bản 2" "$_s1" "(2, 2)"
 V1ID=$(call GET "admin/documents/$DOC" "$HR" | py "[v['id'] for v in d['versions'] if v['versionNo']==1][0]")
 check "HR vẫn tải được bản 1" "$(curl -s "$API/admin/documents/$DOC/file?version=$V1ID" -H "authorization: Bearer $HR" | sha256sum | cut -c1-64)" "$SHA1"
 check "Nhân viên mở liên kết nhận bản mới nhất" "$(curl -s "$API/$P" | head -c 40 | grep -c 'da ky')" 1
@@ -69,17 +74,20 @@ check "Nhân viên mở liên kết nhận bản mới nhất" "$(curl -s "$API/
 echo "— Phạm vi HR theo phòng"
 check "HR phòng Marketing chỉ thấy tài liệu Marketing" "$(call GET admin/documents "$MGR" | py "sorted(i['employee']['code'] for i in d['items'])")" "['HD0142', 'HD0142']"
 check "Không mở tài liệu ngoài phòng → 404" "$(status GET "admin/documents/$OTHER" "$MGR")" 404
-check "Không tải lên cho người ngoài phòng → 404" "$(status POST admin/documents "$MGR" "{\"employeeId\":\"$ANH\",\"category\":\"other\",\"title\":\"x\",\"visibility\":\"hr_only\",\"fileName\":\"x.pdf\",\"dataBase64\":\"$V1\"}")" 404
+_s1=$(status POST admin/documents "$MGR" "{\"employeeId\":\"$ANH\",\"category\":\"other\",\"title\":\"x\",\"visibility\":\"hr_only\",\"fileName\":\"x.pdf\",\"dataBase64\":\"$V1\"}") || :
+check "Không tải lên cho người ngoài phòng → 404" "$_s1" 404
 check "Tenant khác không mở được → 404" "$(status GET "admin/documents/$DOC" "$TB")" 404
 
 echo "— Sửa thông tin, đổi quyền xem, gỡ"
-check "Đổi sang Chỉ HR" "$(call PATCH "admin/documents/$DOC" "$HR" "{\"category\":\"contract\",\"title\":\"Hợp đồng lao động 2026\",\"docNo\":\"HĐLĐ-0142/2026\",\"issuedOn\":\"$PAST\",\"expiresOn\":\"$SOON\",\"visibility\":\"hr_only\"}" | py "d['item']['visibility']")" hr_only
+_s1=$(call PATCH "admin/documents/$DOC" "$HR" "{\"category\":\"contract\",\"title\":\"Hợp đồng lao động 2026\",\"docNo\":\"HĐLĐ-0142/2026\",\"issuedOn\":\"$PAST\",\"expiresOn\":\"$SOON\",\"visibility\":\"hr_only\"}" | py "d['item']['visibility']") || :
+check "Đổi sang Chỉ HR" "$_s1" hr_only
 check "Liên kết cũ hết dùng được khi đổi sang Chỉ HR → 404" "$(curl -s -o /dev/null -w '%{http_code}' "$API/$P")" 404
 check "Nhân viên không còn thấy" "$(call GET me/documents "$EMP" | py "len(d['items'])")" 0
 check "Hồ sơ trên app không còn hiện hợp đồng Chỉ HR" "$(call GET me/profile "$EMP" | py "d['contract']")" None
 check "Gỡ thiếu lý do → 400" "$(status POST "admin/documents/$CCCD/archive" "$HR" '{"reason":""}')" 400
 check "Gỡ CCCD" "$(call POST "admin/documents/$CCCD/archive" "$HR" '{"reason":"Nhân viên cập nhật CCCD mới"}' | py "(d['item']['archivedAt'] is not None, d['canUpload'], d['canManage'])")" "(True, False, False)"
-check "Đã gỡ không thêm phiên bản → 409" "$(status POST "admin/documents/$CCCD/versions" "$HR" "{\"fileName\":\"x.png\",\"dataBase64\":\"$PNG\"}")" 409
+_s1=$(status POST "admin/documents/$CCCD/versions" "$HR" "{\"fileName\":\"x.png\",\"dataBase64\":\"$PNG\"}") || :
+check "Đã gỡ không thêm phiên bản → 409" "$_s1" 409
 check "Đã gỡ không sửa → 409" "$(status PATCH "admin/documents/$CCCD" "$HR" '{"category":"personal","title":"x","visibility":"hr_only"}')" 409
 
 echo "— Audit"
