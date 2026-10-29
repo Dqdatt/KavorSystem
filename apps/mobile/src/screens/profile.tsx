@@ -22,6 +22,7 @@ const VERIFIED = '<svg width="20" height="20" viewBox="0 0 24 24"><circle cx="12
 
 /* Bản dùng API: hồ sơ thật, sửa qua đề nghị HR duyệt; bản mẫu/QA giữ nguyên prototype */
 const EMPLOYMENT: Record<string, string> = { probation: "Thử việc", official: "Chính thức", contractor: "Cộng tác viên", intern: "Thực tập" };
+const DEVICE_STATUS: Record<string, string> = { active: "Đang hoạt động", pending: "Chờ HR duyệt", rejected: "HR từ chối", revoked: "Đã thu hồi" };
 const initials = (name: string) => { const p = name.trim().split(/\s+/); return ((p.length > 1 ? p[0]![0]! : "") + p[p.length - 1]![0]!).toUpperCase(); };
 const maskPhone = (p: string | null) => (!p ? "—" : p.replace(/\s+/g, "").length > 7 ? `${p.replace(/\s+/g, "").slice(0, 4)} ••• ${p.replace(/\s+/g, "").slice(-3)}` : p);
 const dmy = (d: string) => d.split("-").reverse().join("/");
@@ -43,7 +44,7 @@ function PfCard() {
     <View style={styles.pf}>
       {/* Ảnh bìa do công ty tải lên trên web; chưa có thì dùng ảnh mặc định của Kavor */}
       <View style={styles.cover}>{S.coverSrc ? <Image source={S.coverSrc} style={{ width: "100%", height: "100%" }} resizeMode="cover" accessibilityIgnoresInvertColors /> : <SvgXml xml={COVER} width="100%" height="100%" />}</View>
-      <View style={{ marginTop: -54 }}><Avatar ini={REMOTE ? (p ? initials(p.fullName) : "…") : "TH"} size="xl" /></View>
+      <View style={{ marginTop: -54 }}><Avatar ini={REMOTE ? initials(p?.fullName ?? S.me?.fullName ?? "…") : "TH"} size="xl" /></View>
       <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 12, marginBottom: 2 }}>
         <T style={{ fontSize: 22, fontFamily: F.bold }}>{REMOTE ? p?.fullName ?? "—" : "Trần Thu Hà"}</T>
         <SvgXml xml={VERIFIED} width={20} height={20} />
@@ -450,8 +451,11 @@ export function securitySpec(): ScreenSpec {
         ? `Quyền dùng ${bio} của Kavor do iOS quản lý tại Cài đặt → ${S.bioKind === "finger" ? "Touch ID" : "Face ID"} & Mật mã. Nếu tắt ở đó, Kavor sẽ chỉ dùng mã PIN.`
         : `${bio[0]!.toUpperCase()}${bio.slice(1)} do Android quản lý tại Cài đặt → Bảo mật. Nếu xóa hết ${bio} ở đó, Kavor sẽ chỉ dùng mã PIN.`}</Note>,
       <SectionHead key="sh2" title="Thiết bị chấm công" />,
-      <Card key="dev"><InfoRow k="Thiết bị" v="iPhone 15 · iOS 26" strong /><InfoRow k="Đăng ký từ" v="16/10/2026" strong /><InfoRow k="Trạng thái" v="Đang hoạt động" strong /></Card>,
-      <Btn key="reset" kind="ghost" block onPress={() => toast("Đã gửi yêu cầu reset thiết bị cho HR (mô phỏng)")}>Yêu cầu reset khi đổi máy</Btn>,
+      REMOTE ? <Card key="dev"><InfoRow k="Thiết bị" v={S.att.info ? [S.att.info.deviceModel, S.att.info.osVersion ? `${S.att.info.platform === "ios" ? "iOS" : "Android"} ${S.att.info.osVersion}` : null].filter(Boolean).join(" · ") || "—" : "—"} strong />
+        <InfoRow k="Đăng ký từ" v={S.att.info ? dmy(S.att.info.registeredAt.slice(0, 10)) : "—"} strong />
+        <InfoRow k="Trạng thái" v={!S.att.info ? "Chưa đăng ký" : DEVICE_STATUS[S.att.info.status] ?? S.att.info.status} strong /></Card>
+        : <Card key="dev"><InfoRow k="Thiết bị" v="iPhone 15 · iOS 26" strong /><InfoRow k="Đăng ký từ" v="16/10/2026" strong /><InfoRow k="Trạng thái" v="Đang hoạt động" strong /></Card>,
+      <Btn key="reset" kind="ghost" block onPress={() => toast(REMOTE ? "Đổi máy: đăng nhập Kavor trên máy mới và đăng ký thiết bị — máy mới chờ HR duyệt, máy cũ tự hết hiệu lực." : "Đã gửi yêu cầu reset thiết bị cho HR (mô phỏng)")}>{REMOTE ? "Hướng dẫn khi đổi máy" : "Yêu cầu reset khi đổi máy"}</Btn>,
     ],
   };
 }

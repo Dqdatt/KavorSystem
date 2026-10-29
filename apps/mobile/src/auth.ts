@@ -88,16 +88,21 @@ export async function authenticate(promptMessage: string): Promise<BiometricResu
   return { ok: false, reason: cancelled ? "cancelled" : "failed", message: cancelled ? "Đã hủy xác thực." : `${label} không khớp. Thử lại hoặc nhập PIN.` };
 }
 
-/* Tùy chọn sinh trắc học của người dùng (mặc định bật cả hai) */
-export type BioPrefs = { login: boolean; unlock: boolean };
+/* Tùy chọn sinh trắc học của người dùng. defaultOn: bản mẫu prototype bật sẵn; bản dùng API mặc định tắt, chỉ bật khi người dùng đồng ý.
+   asked: đã hỏi "Dùng Face ID cho Kavor?" trên máy này (chỉ hỏi một lần). Lưu theo máy, giữ qua đăng xuất. */
+export type BioPrefs = { login: boolean; unlock: boolean; asked?: boolean };
 const PREFS_KEY = "kavor.bioPrefs";
-export async function loadBioPrefs(): Promise<BioPrefs> {
+export async function loadBioPrefs(defaultOn = true): Promise<BioPrefs> {
   try {
     const raw = await SecureStore.getItemAsync(PREFS_KEY, opts);
-    return { login: true, unlock: true, ...(raw ? (JSON.parse(raw) as Partial<BioPrefs>) : {}) };
+    return { login: defaultOn, unlock: defaultOn, ...(raw ? (JSON.parse(raw) as Partial<BioPrefs>) : {}) };
   } catch {
-    return { login: true, unlock: true };
+    return { login: defaultOn, unlock: defaultOn };
   }
+}
+/* Máy có phần cứng sinh trắc học và người dùng đã cài Face ID/vân tay trong hệ điều hành */
+export async function biometricReady(): Promise<boolean> {
+  try { return (await LocalAuthentication.hasHardwareAsync()) && (await LocalAuthentication.isEnrolledAsync()); } catch { return false; }
 }
 export async function saveBioPrefs(p: BioPrefs) {
   await SecureStore.setItemAsync(PREFS_KEY, JSON.stringify(p), opts);

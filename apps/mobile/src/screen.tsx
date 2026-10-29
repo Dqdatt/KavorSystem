@@ -6,7 +6,8 @@ import { C, EASE, F } from "./theme";
 import { Ic } from "./icons";
 import { Rise, useReducedMotion } from "./motion";
 import { Avatar, T, TbBtn } from "./ui";
-import { ACT, back, go, scrollRequests, scrollTopRequests, unreadCount } from "./store";
+import { ACT, S, back, go, initialsOf, scrollRequests, scrollTopRequests, unreadCount } from "./store";
+import { REMOTE } from "./api/http";
 
 /* ---------- Dock tuck (navbar ẩn/hiện khi cuộn) ---------- */
 export const dockTuck = new Animated.Value(0);
@@ -71,7 +72,8 @@ function Bar({ left, title, right, kind }: { left: ReactNode; title: ReactNode; 
 export const BackBtn = () => <TbBtn label="Quay lại" onPress={back}><Ic n="chevL" s={20} w={2} /></TbBtn>;
 export const HelpBtn = () => <TbBtn label="Hướng dẫn sử dụng" onPress={ACT.help}><Ic n="help" s={20} /></TbBtn>;
 export const BellBtn = () => <TbBtn label={unreadCount() ? `Thông báo, ${unreadCount()} chưa đọc` : "Thông báo"} dot={unreadCount() > 0} onPress={() => go("notifications")}><Ic n="bell" s={20} /></TbBtn>;
-export const AvaBtn = () => <Avatar ini="TH" onPress={() => go("profile")} />;
+/* Bản dùng API: chữ viết tắt tên người đang đăng nhập (hồ sơ, hoặc thông tin đăng nhập khi hồ sơ chưa tải) */
+export const AvaBtn = () => <Avatar ini={REMOTE ? initialsOf(S.profile?.fullName ?? S.me?.fullName ?? "") : "TH"} onPress={() => go("profile")} />;
 
 /* topbar(t, right): right undefined → nút help; null → trống */
 /* back={false}: màn gốc không có chỗ quay lại (ví dụ màn đồng ý điều khoản) — giữ chỗ để tiêu đề vẫn ở giữa */

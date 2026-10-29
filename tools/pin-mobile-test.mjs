@@ -15,8 +15,8 @@ globalThis.__pinTest = { React, ApiError, session: { employeeId: 'HD0142' }, bio
   payslipApi: { list: async () => { calls.push('list'); return { items: [] }; }, get: async () => { calls.push('get'); return null; } } };
 const noop = `export const empty=async()=>{};`;
 const mocks = new Map([
-  ['react-native', `export const AppState={currentState:'active',addEventListener:()=>({remove(){}})}, Linking={addEventListener:()=>({remove(){}})}, Vibration={vibrate(){}}, Easing={bezier:()=>()=>{}}, StyleSheet={create:x=>x}, View='View',Pressable='Pressable',TextInput='TextInput';`],
-  ['./auth', `${noop} export const authenticate=async()=>globalThis.__pinTest.bio, biometricLabel=async()=> 'Face ID', biometricKind=async()=>({kind:'face',label:'Face ID'}), loadSession=async()=>globalThis.__pinTest.session, quickLoginEmployee=empty,quickRefreshToken=empty,clearQuickLogin=empty,clearSession=async()=>{globalThis.__pinTest.loggedOut=true;},loadBioPrefs=empty,loadSupport=empty,saveBioPrefs=empty,saveSession=empty,saveSupport=empty;`],
+  ['react-native', `export const Alert={alert(){}}, AppState={currentState:'active',addEventListener:()=>({remove(){}})}, Linking={addEventListener:()=>({remove(){}})}, Vibration={vibrate(){}}, Easing={bezier:()=>()=>{}}, StyleSheet={create:x=>x}, View='View',Pressable='Pressable',TextInput='TextInput';`],
+  ['./auth', `${noop} export const authenticate=async()=>globalThis.__pinTest.bio, biometricLabel=async()=> 'Face ID', biometricKind=async()=>({kind:'face',label:'Face ID'}), biometricReady=async()=>false, loadSession=async()=>globalThis.__pinTest.session, quickLoginEmployee=empty,quickRefreshToken=empty,clearQuickLogin=empty,clearSession=async()=>{globalThis.__pinTest.loggedOut=true;},loadBioPrefs=empty,loadSupport=empty,saveBioPrefs=empty,saveSession=empty,saveSupport=empty;`],
   ['./attendance', `${noop} export const currentFix=empty,deviceRegistration=empty,deviceSummary=empty,enqueue=empty,flushQueue=empty,installationId=empty,newEventId=empty,quietFix=empty,readQueue=empty;export class LocationError extends Error {}`],
   ['./notify', `${noop} export const clearExplainReminders=empty,scheduleExplainReminders=empty,onReminderTap=()=>()=>{};`],
   ['./api/http', `export const REMOTE=true,ApiError=globalThis.__pinTest.ApiError,payslipApi=globalThis.__pinTest.payslipApi;
@@ -66,6 +66,11 @@ console.log('✔ PIN sai bị từ chối và đếm lần; đúng thì mở và
 
 await gate();
 await type('999999'); await type('999998');
+assert.deepEqual(S.bio, { login: false, unlock: false }, 'bản dùng API: Face ID mặc định tắt');
+await ACT.faceid(); await delay(10);
+assert.equal(cur(), 'home'); assert.match(S.toast.msg, /đang tắt/);
+console.log('✔ Face ID mặc định tắt: bấm Face ID trong sheet PIN chỉ nhắc bật trong Bảo mật và thiết bị');
+S.bio = { login: true, unlock: true };
 await ACT.faceid(); await delay(10);
 assert.equal(cur(), 'payslips'); assert.equal(JSON.parse(store.get(PIN_KEY)).failures, 0);
 console.log('✔ Face ID thành công mở lương và xóa đếm sai của PIN');

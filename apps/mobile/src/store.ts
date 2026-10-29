@@ -1,6 +1,6 @@
 /* State + router + actions: port 1:1 từ phần script của Kavor HRM Prototype.html.
    Màn hình đọc trực tiếp từ S; mọi thay đổi gọi emit()/render() để App vẽ lại. */
-import { AppState, Linking, Vibration } from "react-native";
+import { Alert, AppState, Linking, Vibration } from "react-native";
 import appJson from "../app.json";
 import {
   ADV_DAY, LV_DAYS, advLimit, dec, dur, hm, lvKey, pad, toMin, vnd, wdOct, WD,
@@ -8,14 +8,14 @@ import {
 } from "./data";
 import type { IllusKind } from "./illus";
 import { api, type Snapshot } from "./api";
-import { authenticate, biometricKind, clearQuickLogin, clearSession, loadBioPrefs, loadSession, loadSupport, quickLoginEmployee, quickRefreshToken, saveBioPrefs, saveSession, saveSupport, type BioPrefs , type BioKind } from "./auth";
+import { authenticate, biometricKind, biometricReady, clearQuickLogin, clearSession, loadBioPrefs, loadSession, loadSupport, quickLoginEmployee, quickRefreshToken, saveBioPrefs, saveSession, saveSupport, type BioPrefs , type BioKind } from "./auth";
 import { ApiError, REMOTE, advanceApi, announcementsApi, attendanceApi, documentsApi, authApi, companyApi, isNetworkError, leaveApi, notificationsApi, overtimeApi, payslipApi, setTokenSource, timesheetApi } from "./api/http";
 import { clearExplainReminders, onReminderTap, scheduleExplainReminders } from "./notify";
 import { PIN_LENGTH, PIN_MAX_ATTEMPTS, checkPin, clearPin, hasPin, resetPinFailures, setPin, weakPin } from "./pin";
 import { MY_REQ_INIT, SUPPORT_SAMPLE } from "./api/mock-data";
 import {
   EXPLANATION_KINDS, PROFILE_FIELDS, distanceMeters, passwordProblems,
-  type AttendanceEvent, type AttendanceToday, type AuthResult, type ExplanationKind, type AppNotification, type MyAdvance, type MyAnnouncement, type MyAnnouncements, type MyDocuments, type MyProfile, type ProfileChangeInput, type ProfileField, type MyCompany, type MyLeave, type MyOvertime, type MyPayslip, type MyPayslips, type MyTimesheet, type NotificationFeed, type RequestItem, type SupportContact, type TimesheetDay, type WorkLocation,
+  type AttendanceEvent, type AttendanceToday, type AuthResult, type ExplanationKind, type AppNotification, type MyAdvance, type MyAnnouncement, type MyAnnouncements, type MyDocuments, type MeProfile, type MyProfile, type ProfileChangeInput, type ProfileField, type MyCompany, type MyLeave, type MyOvertime, type MyPayslip, type MyPayslips, type MyTimesheet, type NotificationFeed, type RequestItem, type SupportContact, type TimesheetDay, type WorkLocation,
 } from "@kavor/contracts";
 import { currentFix, deviceRegistration, deviceSummary, enqueue, flushQueue, installationId, LocationError, newEventId, quietFix, readQueue, type Fix } from "./attendance";
 
@@ -190,7 +190,10 @@ const makeState = () => ({
   shake: { key: "", n: 0 },
   leavingCard: null as string | null,
   notifShow: false,
-  bio: { login: true, unlock: true } as BioPrefs,
+  /* Bản dùng API: Face ID mặc định tắt — người dùng bật khi app hỏi lần đầu hoặc trong Bảo mật và thiết bị */
+  bio: (REMOTE ? { login: false, unlock: false } : { login: true, unlock: true }) as BioPrefs,
+  /* Người đang đăng nhập (bản dùng API) — tên viết tắt trên avatar khi hồ sơ chưa tải xong */
+  me: null as MeProfile | null,
   bioLabel: "Face ID", bioKind: "face" as BioKind,
   /* Chấm công: giá trị mặc định là dữ liệu mẫu của prototype; bản API thật ghi đè bằng địa điểm/khoảng cách thật */
   att: {
@@ -199,6 +202,8 @@ const makeState = () => ({
     noLoc: false,
     distM: null as number | null, accM: null as number | null,
     device: "iPhone 15", last: null as AttendanceEvent | null, queued: 0,
+    /* Bản dùng API: thiết bị chấm công máy chủ đang ghi nhận cho máy này */
+    info: null as AttendanceToday["device"],
   },
 });
 export const S = makeState();
@@ -257,7 +262,7 @@ export const issueText = (d: TimesheetDay) => d.issue === "missing_in" ? "thiế
   : d.issue === "late" ? `muộn ${d.lateMinutes} phút` : d.issue === "early" ? `về sớm ${d.earlyMinutes} phút` : d.issue === "late_early" ? `muộn ${d.lateMinutes}, sớm ${d.earlyMinutes} phút` : "";
 const isoWeekday = (date: string) => { const w = new Date(`${date}T12:00:00Z`).getUTCDay(); return w === 0 ? 7 : w; };
 export const stamp = (iso: string) => { const d = new Date(iso); return `${pad(d.getDate())}/${pad(d.getMonth() + 1)} ${pad(d.getHours())}:${pad(d.getMinutes())}`; };
-const initialsOf = (name: string) => { const p = name.trim().split(/\s+/); return ((p.length > 1 ? p[0]![0]! : "") + p[p.length - 1]![0]!).toUpperCase(); };
+export const initialsOf = (name: string) => { if (!name.trim()) return "…"; const p = name.trim().split(/\s+/); return ((p.length > 1 ? p[0]![0]! : "") + p[p.length - 1]![0]!).toUpperCase(); };
 /* Khoảng nghỉ: "26/10–28/10" / "26/10 (chiều)" */
 export const leaveRange = (p: { from: string; to: string; half: string }) => `${ddmm(p.from)}${p.to !== p.from ? `–${ddmm(p.to)}` : ""}${p.half === "am" ? " (sáng)" : p.half === "pm" ? " (chiều)" : ""}`;
 export const dayCount = (n: number) => `${dec(n)} ngày`;
@@ -592,10 +597,14 @@ export function openPin(ok: () => void) {
 }
 /* Lưu phiên vào Keychain; thiết bị đã đăng ký thì vào thẳng trang chủ, chưa thì sang bước đăng ký.
    Công ty có điều khoản dữ liệu cá nhân mới chưa đồng ý thì hỏi trước (ADR 0001 §5). */
-async function signIn(employeeId: string, result?: AuthResult) {
+async function signIn(employeeId: string, result?: AuthResult, viaPassword = false) {
   clearPayroll(); clearAnnouncements(); clearDocuments(); S.profile = null; S.pinUntil = 0;
-  const session = await saveSession({ employeeId, ...(result ? { auth: result.session, me: result.me } : {}) });
+  if (result) S.me = result.me;
+  let session = await saveSession({ employeeId, ...(result ? { auth: result.session, me: result.me } : {}) });
+  /* Đăng xuất xóa phiên trên máy: hỏi lại máy chủ xem máy này đã được duyệt làm thiết bị chấm công chưa */
+  if (REMOTE && !session.deviceRegistered && await deviceActiveOnServer()) session = await saveSession({ employeeId, deviceRegistered: true });
   const target: Route = session.deviceRegistered ? "home" : "device";
+  if (REMOTE && viaPassword) setTimeout(() => { void offerBio(); }, 900);
   if ((await loadCompany())?.privacy.required) { askConsent(target); return; }
   S.stack = [target];
   render(session.deviceRegistered ? "fade" : "push");
@@ -651,7 +660,7 @@ function applyToday(t: AttendanceToday) {
   if (S.att.noLoc) { S.att.loc = NO_LOC; S.inRange = false; }
   else if (!t.locations.some((l) => l.id === S.att.loc.id)) S.att.loc = t.locations[0]!;
   S.clockIn = accepted(t.clockIn); S.clockOut = accepted(t.clockOut);
-  S.att.device = t.device?.deviceModel ?? deviceSummary().model;
+  S.att.device = t.device?.deviceModel ?? deviceSummary().model; S.att.info = t.device;
   emit();
 }
 const isLoggedIn = () => !["login", "forgot", "forgotOtp", "resetPassword", "activate", "otp"].includes(S.stack[0] ?? "login");
@@ -817,15 +826,42 @@ export async function setBioPref(key: keyof BioPrefs, on: boolean) {
   toast(`Đã ${on ? "bật" : "tắt"} ${key === "login" ? "đăng nhập" : "mở khóa lương/tạm ứng"} bằng ${S.bioLabel}`);
 }
 
+/* Bật cả đăng nhập lẫn mở khóa lương bằng sinh trắc học sau một lần xác thực của hệ điều hành */
+async function enableBio() {
+  const r = await authenticate(`Bật ${S.bioLabel} cho Kavor`);
+  if (!r.ok) { if (r.reason !== "cancelled") toast(r.message); return false; }
+  S.bio = { login: true, unlock: true, asked: true }; emit();
+  await saveBioPrefs(S.bio);
+  toast(`Đã bật ${S.bioLabel} cho đăng nhập và mở khóa lương/tạm ứng`);
+  return true;
+}
+/* Lần đầu đăng nhập bằng mật khẩu trên máy này: hỏi có dùng Face ID không (chỉ hỏi một lần; đổi sau trong Bảo mật và thiết bị) */
+async function offerBio() {
+  if (S.bio.asked || S.bio.login) return;
+  if (!(await biometricReady())) return;
+  S.bio = { ...S.bio, asked: true }; await saveBioPrefs(S.bio);
+  Alert.alert(`Dùng ${S.bioLabel} cho Kavor?`, `Đăng nhập và mở phiếu lương, tạm ứng bằng ${S.bioLabel} thay cho mật khẩu và mã PIN. Bạn có thể tắt trong Hồ sơ → Bảo mật và thiết bị.`, [
+    { text: "Để sau", style: "cancel" },
+    { text: `Bật ${S.bioLabel}`, onPress: () => { void enableBio(); } },
+  ]);
+}
+/* Máy chủ đang ghi nhận máy này là thiết bị chấm công đã duyệt? (lỗi mạng/chưa đăng ký → false) */
+async function deviceActiveOnServer(): Promise<boolean> {
+  try {
+    const t = await attendanceApi.today(await installationId());
+    return t.device?.status === "active";
+  } catch { return false; }
+}
+
 /* Mở app: còn phiên hợp lệ thì bỏ qua màn đăng nhập */
 /* Tên + biểu tượng sinh trắc học theo phần cứng/hệ điều hành (bản QA không gọi restoreSession nên gọi riêng hàm này) */
 export async function loadBioKind() { const bio = await biometricKind(); S.bioLabel = bio.label; S.bioKind = bio.kind; emit(); }
 export async function restoreSession() {
-  S.bio = await loadBioPrefs();
+  S.bio = await loadBioPrefs(!REMOTE);
   if (REMOTE) S.supportCache = await loadSupport();
   await loadBioKind();
-  const session = await loadSession();
-  if (!session) return;
+  let session = await loadSession();
+  if (!session) { if (REMOTE) S.f.lgId = (await quickLoginEmployee()) ?? ""; return; }
   if (REMOTE) {
     /* Access token hết hạn thì làm mới bằng refresh token; không làm mới được thì quay về đăng nhập */
     if (!session.auth) { await clearSession(); return; }
@@ -840,6 +876,10 @@ export async function restoreSession() {
     }
   }
   Object.assign(S, fromSnapshot(await api.refresh().catch(() => api.cached())));
+  if (REMOTE) {
+    S.me = (await loadSession())?.me ?? session.me ?? null;
+    if (!session.deviceRegistered && await deviceActiveOnServer()) session = (await saveSession({ employeeId: session.employeeId, deviceRegistered: true }));
+  }
   const target: Route = session.deviceRegistered ? "home" : "device";
   if ((await loadCompany())?.privacy.required) { askConsent(target); return; }
   S.stack = [target]; render();
@@ -975,7 +1015,7 @@ export const ACT = {
   login: () => {
     if (!REMOTE) { spin("login", 700, () => { void signIn("HD0142"); }); return; }
     if (!S.f.lgId.trim() || !S.f.lgPw) { toast("Nhập mã nhân viên hoặc email và mật khẩu"); return; }
-    remote("login", async () => { const r = await authApi.login({ identifier: S.f.lgId.trim(), password: S.f.lgPw }); S.f.lgPw = ""; await signIn(r.me.employeeCode, r); },
+    remote("login", async () => { const r = await authApi.login({ identifier: S.f.lgId.trim(), password: S.f.lgPw }); S.f.lgPw = ""; await signIn(r.me.employeeCode, r, true); },
       (e) => {
         if (e.code === "AUTH_ACCOUNT_DISABLED") { S.f.lgPw = ""; lockedErr(S.f.lgId.trim()); return true; }
         if (e.code === "AUTH_TENANT_SUSPENDED") { S.f.lgPw = ""; tenantErr(e.message); return true; }
@@ -1002,7 +1042,11 @@ export const ACT = {
       }
     });
   },
-  ssoLogin: () => { toast("Mở trang đăng nhập một lần (SSO) của công ty · mô phỏng"); setTimeout(() => { void signIn("HD0142"); }, 1000); },
+  ssoLogin: () => {
+    /* Bản dùng API: chưa có SSO — không được đăng nhập giả vào tài khoản mẫu */
+    if (REMOTE) { toast("Công ty chưa bật đăng nhập SSO. Dùng mã nhân viên/email và mật khẩu."); return; }
+    toast("Mở trang đăng nhập một lần (SSO) của công ty · mô phỏng"); setTimeout(() => { void signIn("HD0142"); }, 1000);
+  },
   toActivate: () => { S.stack = ["login", "activate"]; render("push"); },
   toLogin: () => { S.stack = ["login"]; render("pop"); },
   sendResetOtp: () => {
@@ -1353,7 +1397,8 @@ export const ACT = {
     });
     /* Đăng xuất: bỏ nhắc nhở và thông báo của người vừa dùng máy */
     if (REMOTE) { void clearExplainReminders().catch(() => undefined); S.notifs = null; S.ts = null; S.profile = null; clearPayroll(); clearAnnouncements(); clearDocuments(); }
-    void clearSession(); S.pinUntil = 0; S.f = freshForms(); closeSheet(); S.stack = ["login"]; render("fade");
+    const lastCode = S.me?.employeeCode ?? S.profile?.employeeCode ?? "";
+    void clearSession(); S.pinUntil = 0; S.f = freshForms(); if (REMOTE) { S.f.lgId = lastCode; S.me = null; S.att.info = null; } closeSheet(); S.stack = ["login"]; render("fade");
   },
   pinkey: (a: string) => {
     if (S.pinBusy || S.pin.length >= PIN_LENGTH && a !== "del") return;
