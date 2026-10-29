@@ -1,5 +1,5 @@
 # PROGRESS
-_Cập nhật: 2026-10-26 — bởi Claude_
+_Cập nhật: 2026-10-29 — bởi Claude (Desktop)_
 
 ## Mục tiêu đang làm
 **Phiên cloud → Desktop: đọc `docs/CLOUD_HANDOFF.md` trước** (commit nào đã push, chưa test gì trên máy thật, quyết định chờ review).
@@ -10,6 +10,11 @@ simulator hay iPhone** vì phiên cloud không có Mac). Người dùng giao "c�
 ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AGENT_PLAYBOOK.md`; kiểm tra toàn bộ bằng `bash tools/verify-all.sh`.
 
 ## Đã xong
+- Làm đẹp web HR + Console theo phản hồi 26/10 (29/10, Claude Desktop; chi tiết + bằng chứng ở đầu `docs/plans/web-ui-polish.md`): CSS chung
+  `packages/web-ui/src/kavor.css`, theme sáng/tối + nút đổi theme, Montserrat, `Select` tự vẽ thay 49 `<select>`, bảng không cuộn ngang ở
+  1440/1280px, màu cứng → biến, bỏ h2 lặp ở 17 page-head + 5 phụ đề modal thừa, Việt hóa thuật ngữ hai web + thông báo API (migration đổi tên
+  hiển thị vai trò `tenant_admin`/`hr_ops`), bản đồ Leaflet chọn vị trí chấm công (ghim kéo thả, vòng bán kính, tìm địa chỉ). Đã chụp 29 trạng
+  thái trước/sau (sáng + tối) và thử bản đồ trên trình duyệt thật của Mac.
 - Gửi lời mời kích hoạt hàng loạt (26/10, Claude, phiên cloud): `POST /admin/employees/invite` (tối đa 300 người, gửi lần lượt, người đã kích hoạt/đã nghỉ/
   thiếu email/ngoài phạm vi/vừa mời trong 1 phút bị bỏ qua kèm lý do; audit từng người + 1 dòng tổng). Web Nhân viên: nút "Gửi lời mời (N)" cho người
   chưa mời lần nào trong danh sách đang lọc. Smoke import thêm 4 bước; đã thử trên trình duyệt tự động.
@@ -312,9 +317,8 @@ ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AG
 - Kiểm tra ngày 22/10: `pnpm turbo run typecheck test build --force` pass 18/18 task (test thật chỉ có contracts 2 + api 2)
 
 ## Đang dở (QUAN TRỌNG NHẤT)
-- **Đang làm: Claude (Desktop) — làm đẹp web theo `docs/plans/web-ui-polish.md` (Select, theme, bỏ lặp tiêu đề, Việt hóa, bản đồ) — từ 29/10/2026.**
-- **Phản hồi UI web của người dùng (26/10, chưa làm):** kế hoạch 5 bước trong `docs/plans/web-ui-polish.md` (căn hàng form, bỏ lặp tiêu đề,
-  Việt hóa thuật ngữ — hỏi duyệt bảng từ trước, hệ thống thiết kế chung + theme sáng/tối + dropdown tự vẽ, bản đồ chọn vị trí chấm công).
+- **Web UI (29/10): xong 5 bước của `docs/plans/web-ui-polish.md`**; chờ người dùng xem trên Mac và chọn nhà cung cấp bản đồ cho production.
+  DB local đã reset bởi verify-all 29/10 (dữ liệu mẫu, chưa ai kích hoạt).
 - **Phản hồi UI mobile của người dùng (26/10, chưa làm):** 9 điểm trong `docs/plans/mobile-ui-feedback.md` — ưu tiên mục PIN (hiện mọi 6 số đều mở
   được phiếu lương/tạm ứng/tài liệu) và Face ID gọi thẳng hộp thoại hệ thống.
 - **26/10: phiên cloud tạm dừng.** Toàn bộ việc làm trên cloud (nhánh `claude/ecstatic-pascal-dblg7v`, đến commit `41bf4f4`), checklist thử tay,
@@ -360,6 +364,10 @@ ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AG
 - Giữ ảnh chụp toàn trang và ảnh simulator raw — bỏ vì trùng dữ liệu, làm commit phình to; chỉ giữ bản 390×844 dùng để so sánh.
 
 ## Vấn đề/bug còn tồn tại
+- **Smoke announcements + documents lỗi trên Mac (29/10, có sẵn, cloud thì đạt):** API trả đính kèm thành công nhưng ngay sau đó
+  `announcements.attachment_path` là NULL và Storage trống; tách lệnh upload ra biến (`R=$(call …)`) thay vì `check "…" "$(call … | py …)"`
+  thì cả smoke đạt. Chưa tìm ra gốc (đã loại trừ: sandbox, hai API cùng chạy, thời gian chờ sau reset). Cần thử tải file đính kèm trên web/app
+  thật để biết lỗi chỉ ở smoke hay ở tính năng.
 - Luật nhà nước dạng số (`statutory_rule_sets`: bảo hiểm, thuế, phép năm tối thiểu, giới hạn OT) chưa làm — làm cùng module phép/payroll. Lịch lễ quốc gia mới có 2026; 2027 chờ Chính phủ công bố lịch Tết. Nội dung điều khoản mẫu và ngày lễ cần chuyên gia xác nhận.
 - Server chưa chặn API chấm công khi nhân viên chưa đồng ý điều khoản (app tự chặn bằng màn đồng ý).
 - Đặt lại MFA (web HR hoặc Console) không đăng xuất phiên aal2 đang mở của người đó (hết hạn sau ≤ 1 giờ).
@@ -370,9 +378,11 @@ ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AG
   tại chỗ + audit).
 - Support access: chưa báo Tenant Admin qua thông báo app/email khi có yêu cầu (chỉ banner web), chưa có phạm vi nhạy cảm cần duyệt hai lớp, chưa
   tích hợp hệ thống ticket; banner web cần kênh Realtime đã đăng ký (vài giây sau khi mở trang) mới tự cập nhật theo thao tác của người khác.
-- Console chưa có: giá/tính năng theo gói, tạo/sửa gói, xuất/xóa dữ liệu tenant đã đóng, Usage chi tiết (API, storage), màn quản lý nhân viên Kavor; thao tác đóng tenant chỉ cần một người (chưa hai người duyệt); nhân viên Kavor mất điện thoại phải nhờ người có service role xóa factor. Bộ kit giao diện console-web là bản sao từ admin-web (chuyển chung vào `@kavor/web-ui` khi ổn định); `DashboardShell` của web-ui không còn ai dùng.
+- Console chưa có: giá/tính năng theo gói, tạo/sửa gói, xuất/xóa dữ liệu tenant đã đóng, Usage chi tiết (API, storage), màn quản lý nhân viên Kavor; thao tác đóng tenant chỉ cần một người (chưa hai người duyệt); nhân viên Kavor mất điện thoại phải nhờ người có service role xóa factor. CSS hai web đã dùng chung `@kavor/web-ui`; `kit.tsx` (Modal, Field, Drawer…) của console-web vẫn là bản sao của admin-web.
 - Cấp Tenant Admin cho người có tài khoản đang bị khóa thì role được gán nhưng vẫn không đăng nhập được cho tới khi mở khóa.
-- Ca qua đêm, tầng "loại hợp đồng", lịch xếp ca theo ngày, bản đồ chọn vị trí chưa có. Trình duyệt nhúng trong app Claude không cấp quyền vị trí; nút "Dùng vị trí hiện tại của trình duyệt" cần Chrome/Safari thật.
+- Bản đồ chọn vị trí: DNS nhà mạng VNPT chặn openstreetmap.org (tile + Nominatim), CARTO cần API key → dev dùng tile.openstreetmap.de + Photon
+  (máy chủ cộng đồng, không hợp cho production; nhãn kèm phiên âm kiểu Đức). Cần chọn nhà cung cấp có key (VietMap/Goong/Map4D) trước pilot.
+- Ca qua đêm, tầng "loại hợp đồng", lịch xếp ca theo ngày chưa có. Trình duyệt nhúng trong app Claude không cấp quyền vị trí; nút "Dùng vị trí hiện tại của trình duyệt" cần Chrome/Safari thật.
 - Giải trình chưa có đính kèm minh chứng (cần Storage + quét file); Bảng công chưa tính nghỉ phép/OT/ca qua đêm; thiếu cả ngày chỉ giải trình theo giờ ca. Snapshot khóa kỳ chưa có trang xem lịch sử khóa/mở.
 - Thông báo trên mobile không đến tức thì (iPhone trong LAN không nối Realtime của Supabase local; chưa có push) — app hỏi lại mỗi 30 giây khi đang mở, và khi mở/quay lại app; app tắt thì không biết cho tới lần mở sau. E19 vẫn hỏi lại 8 giây/lần. Ngưỡng "sắp quá hạn" 4 giờ và chu kỳ quét 10 phút là hằng số của hệ thống, chưa cấu hình theo tenant. Thông báo phiếu lương đã mở phiếu thật qua PIN/Face ID; chờ xác nhận trên iPhone bản 26/10. Chưa có nhắc chấm công/thông báo bản tin/dọn thông báo cũ.
 - Nghỉ phép chưa có: đính kèm minh chứng, ủy quyền người duyệt khi vắng, nghỉ nửa ngày xét muộn/sớm theo nửa ca, đơn vượt năm (phải tách), sửa loại nghỉ trên web (đang dùng mẫu), tầng "loại hợp đồng"; thâm niên tính tại 01/01 (đủ năm giữa năm thì năm sau mới cộng); phép tồn tự chuyển chỉ khi sổ năm trước có trong Kavor (năm đầu nhập tay).
@@ -406,12 +416,17 @@ ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AG
 - Ngoài luồng chính: test component cho admin-web; Sentry; số liệu luật cần HR/Payroll SME xác nhận trước pilot; pháp lý chuyển dữ liệu ra nước ngoài (Nghị định 13/2023, dữ liệu ở Singapore) trước khi có dữ liệu thật.
 
 ## Câu hỏi đang chờ người dùng trả lời
+- Nhà cung cấp bản đồ cho production (29/10): mạng VNPT không vào được openstreetmap.org. Lựa chọn: dịch vụ bản đồ Việt Nam có API key (VietMap,
+  Goong, Map4D — hiển thị đúng quy định chủ quyền) hoặc tile OSM trả phí (MapTiler, Stadia). Dev đang dùng tile.openstreetmap.de + Photon.
 - Review quyết định mặc định của Console (`docs/plans/console-ops.md`): mức gói (50/100/500/hợp đồng), đóng tenant chỉ cần một người, support access
   3 phạm vi chỉ đọc, 30/60 phút, chỉ Tenant Admin duyệt, mọi người dùng web HR thấy banner.
 - Review các quyết định mặc định của module Tài liệu (`docs/plans/documents.md`): 6 danh mục cố định, quyền HR Operations/Tenant Admin, mobile qua
   PIN/Face ID, tối đa 5 MB, "Thiếu hồ sơ" = chưa có hợp đồng còn hiệu lực.
 
 ## Nhật ký
+- 2026-10-29 — Claude (Desktop): làm đẹp web 5 bước (`d1db291`…). Verify-all đầy đủ trên Mac lần đầu: typecheck, unit, pgTAP 460, build, lint đạt;
+  15/18 smoke đạt; **3 smoke lỗi**: import (script dùng `mktemp --suffix` của GNU — đã sửa, chạy lại đạt), announcements ("HR tải lại file đính
+  kèm" NOT_FOUND) và documents ("Nhân viên mở liên kết nhận bản mới nhất") — lỗi có sẵn: API của commit `ad691cf` (trước khi sửa) lỗi y hệt.
 - 2026-10-26 — Claude (cloud): gửi lời mời hàng loạt. Verify-all đầy đủ TẤT CẢ ĐẠT (pgTAP 460, 18 smoke — import 18, build, lint).
 - 2026-10-26 — Claude (cloud): Nhập nhân viên hàng loạt từ CSV. Verify-all đầy đủ TẤT CẢ ĐẠT (pgTAP 460, 18 smoke — import 14, build, lint). Sửa test `hr_rls` đếm cứng 2 người Marketing (lỗi khi DB có thêm người do smoke/E2E).
 - 2026-10-26 — Claude (cloud): Cơ cấu tổ chức + Vai trò & phân quyền. Verify-all đầy đủ TẤT CẢ ĐẠT (pgTAP 451, 17 smoke — org 41, build, lint).

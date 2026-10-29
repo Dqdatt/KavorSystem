@@ -22,7 +22,7 @@ check "File mẫu: 3 dòng tạo mới, không lỗi, chưa ghi" "$(echo "$R" | 
 check "Xem trước không ghi gì" "$(sql "select count(*) from public.employees where tenant_id='$HDG'")" "$BEFORE"
 check "Quản lý không nhập được (thiếu employee.create) → 403" "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$API/admin/employees/import" -H 'content-type: application/json' -H "authorization: Bearer $MGR" --data-binary @"$TMPF")" 403
 
-BAD=$(mktemp --suffix=.csv)
+BAD=$(mktemp)
 printf 'employee_code,full_name,work_email,hire_date,employment_type,department_code,position_code,manager_code\nHD0601,Võ Văn Một,mot.vo@haidang.vn,2026-11-01,Chính thức,MKT,AE,\nHD0602,Hai,thao.ha@haidang.vn,30/02/2026,Chính thức,KHONGCO,AE,\nHD0603,Lê Ba,ba.le@haidang.vn,01/11/2026,Chính thức,MKT,AE,HD0602\nHD0007,Trùng mã có sẵn,khac@haidang.vn,2026-11-01,Chính thức,MKT,AE,\n' > "$BAD"
 body bad.csv "$BAD" dry
 R=$(imp "$HR")

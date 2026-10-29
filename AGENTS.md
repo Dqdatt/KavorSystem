@@ -43,6 +43,10 @@ pnpm build
 - Mobile phải bám sát prototype: liquid glass, animation tự nhiên, safe area hòa vào background (không có dải trắng thừa), navbar ẩn/hiện khi cuộn và biểu tượng Face ID hệ thống trên iOS.
 - Trước khi chốt UI, chụp và đối chiếu từng route/state prototype với native trên kích thước iPhone 11; trạng thái chưa triển khai phải được ghi rõ, không được bỏ khỏi checklist.
 - Web HR/Admin và Kavor Console dùng layout full-page, tránh lặp title/header và tối ưu mật độ thông tin.
+- Web: CSS dùng chung một nguồn `packages/web-ui/src/kavor.css` (màu là biến, theme sáng/tối qua `<html data-theme>`, không có thuộc tính =
+  theo hệ điều hành; Montserrat tự host) — không viết mã màu cứng trong trang, không tạo CSS riêng cho từng web. Dropdown dùng `Select` của
+  `@kavor/web-ui` (không dùng `<select>` gốc); tên trang chỉ ở topbar (page-head không có h2). Chữ hiển thị theo bảng từ Việt hóa trong
+  `docs/plans/web-ui-polish.md` (tenant → công ty/doanh nghiệp, Tenant Admin → quản trị viên công ty…); mã kỹ thuật giữ nguyên.
 
 ## Cạm bẫy
 
@@ -63,6 +67,9 @@ pnpm build
 - Backend dev: `pnpm dev:backend` (Supabase local + Mailpit + API; ghi `apps/admin-web/.env.local` cho web). Web HR/Admin: `pnpm dev:admin` → http://localhost:3000, HR Admin mẫu HD0007 · thao.mai@haidang.vn kích hoạt ngay trên trang đăng nhập (OTP ở Mailpit). Mobile dùng API thật khi build có `EXPO_PUBLIC_API_URL=http://<IP LAN Mac>:4000/api/v1`; không có biến này hoặc bật QA thì dùng dữ liệu mẫu. OTP xem ở Mailpit `http://127.0.0.1:55324`. Kiểm thử auth: `supabase db reset && bash tools/auth-smoke.sh`.
 - Kavor Console (`pnpm dev:console` → http://localhost:3001): nhân viên Kavor nằm ở `platform_operators`, tạo bằng `OPERATOR_PASSWORD='…' bash tools/create-operator.sh <email> "<Họ tên>"` (sau mỗi lần reset DB phải tạo lại); khôi phục chủ sở hữu cần hai người khác nhau. Cookie Console là `kc_*`, web HR là `kv_*` (cùng host localhost nên cookie không tách theo cổng). Kiểm thử: `bash tools/db-reset.sh && bash tools/console-smoke.sh`.
 - Supabase Auth: signup công khai tắt; API tạo user bằng admin rồi gửi OTP (`shouldCreateUser:false`). Không dùng client admin để đăng nhập (supabase-js sẽ gắn token người dùng vào client) — dùng `authClient()` mới cho mỗi lần.
+- Bản đồ chọn vị trí chấm công (`apps/admin-web/app/_ui/location-map.tsx`, Leaflet): DNS nhà mạng VNPT trả NXDOMAIN cho mọi tên miền
+  `openstreetmap.org` (tile + Nominatim) và CARTO bắt buộc API key → bản dev dùng `tile.openstreetmap.de` + Photon (komoot); đổi tile bằng
+  `NEXT_PUBLIC_MAP_TILE_URL`/`_ATTRIBUTION`. Shell của agent chạy trong sandbox không ra Internet: kiểm bản đồ bằng trình duyệt trong app.
 - Chấm công: ca và địa điểm do HR cấu hình trên web (Ca & địa điểm → áp dụng theo tầng, có phiên bản); muốn thử ở nhà thì thêm phiên bản địa điểm bằng nút "Dùng vị trí hiện tại của trình duyệt" (phiên bản chỉ hiệu lực từ hôm nay trở đi). Simulator: `xcrun simctl location booted set <lat>,<lng>` (văn phòng mẫu 10.774390,106.703940, bán kính 50 m). Kiểm thử: `supabase db reset && bash tools/attendance-smoke.sh` và `bash tools/hr-smoke.sh` (mỗi script cần DB vừa reset); test pgTAP không được giả định DB trống. Chỉ máy đầu tiên của nhân viên tự hoạt động; máy sau, hoặc máy từng bị thu hồi/từ chối, chờ HR duyệt — sau khi thử bằng simulator thì reset DB trước khi thử trên iPhone.
 - Công tháng/giải trình: kỳ công theo `attendance.periodStartDay` của tenant (Hải Đăng 26 → 25, gọi theo tháng kết thúc); tính công trong `apps/api/src/timesheet/compute.ts`, không lưu kết quả ngày (chỉ snapshot khi khóa kỳ). Giải trình được duyệt tạo `attendance_adjustments`, không sửa `attendance_events`. Seed sinh chấm công theo ngày chạy reset nên số ngày công đổi theo ngày. Kiểm thử: `bash tools/db-reset.sh && bash tools/timesheet-smoke.sh`.
 - Nghỉ phép: số dư = tổng `leave_transactions` (không có cột số dư); giao dịch cấp/tích lũy/thâm niên/phép tồn/hết hạn do API bổ sung khi đọc sổ (`apps/api/src/leave/leave.service.ts`, idempotent theo `source_key`), giữ chỗ/trả/trừ phép do SQL làm cùng đơn. Seed có số dư đầu kỳ −2 ngày cho HD0142. Kiểm thử: `bash tools/db-reset.sh && bash tools/leave-smoke.sh`.

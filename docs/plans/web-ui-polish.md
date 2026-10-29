@@ -1,4 +1,21 @@
-# Cải thiện UI web HR + Kavor Console (phản hồi người dùng 26/10) — kế hoạch, chưa làm
+# Cải thiện UI web HR + Kavor Console (phản hồi người dùng 26/10) — đã làm 29/10 (Claude Desktop)
+
+## Kết quả (29/10, nhánh `claude/ecstatic-pascal-dblg7v`)
+- Bước 1 + 4: CSS chung `packages/web-ui/src/kavor.css`, theme sáng/tối + nút đổi theme trên topbar hai web, Montserrat, 49 `<select>` →
+  `Select` tự vẽ (tìm khi ≥ 9 mục). Bảng: chữ 12.5px một dòng, cột chữ dài có lớp `.wrap` (xuống dòng khi màn hẹp), cột người cắt "…";
+  đo bằng script: không bảng nào cuộn ngang ở 1440 và 1280px. Màu cứng còn lại duy nhất: nền trắng của mã QR (cố ý). `LoadError` sửa chữ
+  trắng trên nền đỏ nhạt.
+- Bước 2: bỏ h2 ở 17 page-head (tên trang chỉ ở topbar), 5 phụ đề modal chỉ nhắc lại tiêu đề; page-head tự xuống hàng, nút luôn căn phải.
+- Bước 3: Việt hóa theo bảng từ dưới đây ở hai web + thông báo lỗi API; migration `202611080001_vietnamese_role_names.sql` đổi tên hiển
+  thị vai trò `tenant_admin`/`hr_ops`. Còn tiếng Anh có chủ ý: tên gói Starter/Growth/Enterprise, "Kavor Console" (tên sản phẩm),
+  "HR Workspace", "Local dev", chữ "Choose File" của ô chọn file (do trình duyệt).
+- Bước 5: bản đồ Leaflet trong form địa điểm (ghim kéo thả, bấm để đặt, vòng bán kính, tìm địa chỉ). **Đo trên Mac: DNS VNPT chặn
+  openstreetmap.org** (cả tile và Nominatim — DNS 1.1.1.1 thì phân giải được), CARTO đã bắt buộc API key → dev dùng
+  `tile.openstreetmap.de` (nhãn có phiên âm kiểu Đức, chỉ hợp dùng nhẹ) + Photon. **Chờ người dùng chọn nhà cung cấp cho production**
+  (VietMap/Goong/Map4D có key — đúng quy định bản đồ Việt Nam; hoặc dịch vụ tile OSM trả phí).
+- Bằng chứng: ảnh trước (commit `c60e157`) / sau sáng / sau tối của 29 trạng thái hai web (scratchpad phiên 29/10, không commit theo
+  AGENTS.md), thử bản đồ trên trình duyệt thật (tìm "Chợ Bến Thành", kéo ghim → tọa độ đổi, bán kính 150 m → vòng giãn).
+
 
 Người dùng thử web trên Mac và góp ý (kèm ảnh): giao diện chưa đẹp, nhiều lỗi căn hàng, dropdown giống của hệ điều hành, thiếu bản đồ chọn vị
 trí chấm công, dùng nhiều từ tiếng Anh ("tenant"…), tiêu đề lặp (topbar + page-head + header modal). Mục tiêu: **giống tinh thần app mobile

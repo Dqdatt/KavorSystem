@@ -72,7 +72,10 @@ Hai web cần đẹp hơn theo tinh thần app mobile (gọn, có theme sáng/t�
 `align-content: start`), dropdown tự vẽ thay `<select>` của hệ điều hành, bản đồ kéo thả ghim cho địa điểm chấm công, Việt hóa thuật ngữ
 ("tenant"…), bỏ lặp tiêu đề topbar/page-head/modal. Kế hoạch 5 bước + hiện trạng đo được: **`docs/plans/web-ui-polish.md`**.
 
-**Đang dở (commit WIP 26/10, người dùng bảo tạm dừng giữa chừng — chưa chạy `verify-all`, chỉ typecheck 3 gói):** người dùng đã duyệt bước 1–4
+**29/10 — Claude Desktop đã làm xong phần này** (commit `d1db291` → `2a84f0a`, kết quả và bằng chứng ở đầu `docs/plans/web-ui-polish.md`).
+Còn chờ người dùng: chọn nhà cung cấp bản đồ cho production (DNS VNPT chặn openstreetmap.org). Đoạn dưới là trạng thái cũ để tham khảo.
+
+~~Đang dở (commit WIP 26/10)~~ — đã xong 29/10: người dùng đã duyệt bước 1–4
 + bảng từ Việt hóa + đổi font sang Montserrat. Đã làm:
 - CSS chung một nguồn `packages/web-ui/src/kavor.css` (biến màu, theme sáng/tối qua `<html data-theme>`, không có thuộc tính = theo hệ điều
   hành; Montserrat tự host ở `packages/web-ui/fonts`, OFL); đã xóa `kavor-desktop.css`/`admin.css`/`console.css` của hai web; `.field` có

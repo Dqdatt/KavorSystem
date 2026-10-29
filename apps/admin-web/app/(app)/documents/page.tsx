@@ -48,7 +48,7 @@ function DocumentsPage() {
         <article className="card metric-card"><span className="metric-icon"><Icon name="file" /></span><span className="metric-copy"><span>Tổng tài liệu</span><strong>{m ? num(m.total) : "—"}</strong><small>{num(used)} danh mục</small></span></article>
         <article className="card metric-card"><span className="metric-icon amber"><Icon name="alert" /></span><span className="metric-copy"><span>Sắp hết hạn</span><strong>{m ? num(m.expiringSoon) : "—"}</strong><small>Trong 30 ngày{m?.expired ? ` · ${num(m.expired)} đã hết hạn` : ""}</small></span></article>
         <article className="card metric-card"><span className="metric-icon red"><Icon name="alert" /></span><span className="metric-copy"><span>Thiếu hồ sơ</span><strong>{m ? num(m.missingContract) : "—"}</strong><small>nhân viên chưa có hợp đồng</small></span></article>
-        <article className="card metric-card"><span className="metric-icon blue"><Icon name="lock" /></span><span className="metric-copy"><span>Truy cập tuần này</span><strong>{m ? num(m.downloadsWeek) : "—"}</strong><small>Đã ghi audit</small></span></article>
+        <article className="card metric-card"><span className="metric-icon blue"><Icon name="lock" /></span><span className="metric-copy"><span>Truy cập tuần này</span><strong>{m ? num(m.downloadsWeek) : "—"}</strong><small>Đã ghi nhật ký</small></span></article>
       </div>
       <article className="card">
         <div className="toolbar">
