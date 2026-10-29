@@ -8,6 +8,8 @@ Quy ước:
 - **Ứng dụng xác thực** = Google Authenticator / Microsoft Authenticator / 1Password trên điện thoại (mã 6 số đổi mỗi 30 giây).
 - Mật khẩu tự đặt: ≥ 8 ký tự, có chữ hoa, chữ thường, số. Ghi lại ở chỗ an toàn, không gửi qua chat.
 - Công ty mẫu "Hải Đăng" có sẵn trong DB để so sánh; mọi bước dưới đây làm trên **công ty mới** do anh tạo.
+- **Email quản trị viên Console đầu tiên**: `CONSOLE_BOOTSTRAP_EMAIL` trong `apps/api/.env.local` của máy (không commit; không đặt thì là
+  `admin@kavor.test`). Thư OTP vẫn vào Mailpit, không gửi tới hộp thư thật.
 - Tên vai trò: **Quản trị Console** (toàn quyền + quản lý nhân viên Kavor), **Vận hành nền tảng**, **Hỗ trợ Kavor** (chỉ xem).
 
 ## 0. Chuẩn bị (agent làm trước, anh kiểm lại)
@@ -22,13 +24,13 @@ Quy ước:
 
 | Mã | Bước | Kết quả mong đợi | KQ |
 |---|---|---|---|
-| C-01 | Mở http://localhost:3001 → bấm **Kích hoạt tài khoản / Quên mật khẩu** → nhập `admin@kavor.test` → **Gửi mã OTP** | Chuyển sang màn "Đặt mật khẩu"; Mailpit có thư mã 6 số gửi tới admin@kavor.test | |
+| C-01 | Mở http://localhost:3001 → bấm **Kích hoạt tài khoản / Quên mật khẩu** → nhập **email quản trị viên đầu tiên** → **Gửi mã OTP** | Chuyển sang màn "Đặt mật khẩu"; Mailpit có thư mã 6 số gửi tới email đó | |
 | C-02 | Nhập mã OTP sai (vd. 000000) + mật khẩu hợp lệ | Báo "Mã OTP không đúng hoặc đã hết hạn", không đăng nhập | |
 | C-03 | Nhập mã đúng + mật khẩu yếu (vd. `abc`) | Báo yêu cầu mật khẩu (8 ký tự, chữ hoa, số) | |
 | C-04 | Nhập mã đúng, hai ô mật khẩu khác nhau | Báo "Hai lần nhập mật khẩu không khớp" | |
 | C-05 | Nhập mã đúng + mật khẩu mạnh, nhập lại khớp → **Đặt mật khẩu và đăng nhập** | Sang màn "Xác thực hai lớp" có mã QR + khóa thủ công | |
 | C-06 | Quét QR bằng ứng dụng xác thực, nhập mã 6 số | Vào trang Tổng quan nền tảng; góc trái dưới: "Quản trị Kavor · Quản trị Console"; menu có mục **Hệ thống → Nhân viên Kavor** | |
-| C-07 | Đăng xuất → đăng nhập lại bằng `admin@kavor.test` + mật khẩu → nhập mã từ ứng dụng | Vào được; lần này không hiện QR nữa | |
+| C-07 | Đăng xuất → đăng nhập lại bằng email quản trị viên + mật khẩu → nhập mã từ ứng dụng | Vào được; lần này không hiện QR nữa | |
 | C-08 | Đăng xuất → **Kích hoạt tài khoản / Quên mật khẩu** với một email lạ (vd. `ai@do.test`) | Vẫn hiện "đã gửi mã" (không lộ email nào là nhân viên Kavor) nhưng Mailpit **không** có thư cho email đó | |
 | C-09 | Sai mật khẩu 5 lần liên tiếp ở màn đăng nhập | Lần sau báo thử quá nhiều lần, đợi vài phút | |
 
@@ -163,7 +165,7 @@ Quy ước:
 | C-43 | **Quyền hỗ trợ → Yêu cầu truy cập** ABC-001 (mã phiếu, lý do, phạm vi Cấu hình công ty) | Web HR (ADMIN01) thấy banner yêu cầu | |
 | C-44 | Web HR **Cài đặt → Hỗ trợ Kavor → Duyệt** → Console **Mở phiên** | Console xem chỉ đọc, có đếm ngược; không có lương/liên hệ cá nhân | |
 | C-45 | Web HR **Thu hồi** | Console mất quyền xem ngay | |
-| C-46 | **Khôi phục chủ sở hữu**: ops1 tạo yêu cầu đặt lại xác thực cho ADMIN01 → admin@kavor.test duyệt | Người tạo không tự duyệt được; người thứ hai duyệt được; ADMIN01 đăng nhập phải quét QR mới | |
+| C-46 | **Khôi phục chủ sở hữu**: ops1 tạo yêu cầu đặt lại xác thực cho ADMIN01 → quản trị viên Console duyệt | Người tạo không tự duyệt được; người thứ hai duyệt được; ADMIN01 đăng nhập phải quét QR mới | |
 | C-47 | **Nhật ký hoạt động** (Console) và nhật ký web HR | Thấy đủ thao tác của Kavor trên ABC-001 | |
 | C-48 | (Tùy chọn, không hoàn tác) tạo công ty phụ `XOA-001` → Tạm khóa → **Đóng doanh nghiệp** (gõ lại mã) | Đóng xong không mở lại được | |
 
@@ -180,4 +182,4 @@ Quy ước:
 - Chỉ chạy trên Mac + iPhone cùng Wi-Fi; thư chỉ vào Mailpit; thông báo chỉ đến khi app đang mở (chưa có push khi tắt app).
 - Bảng công chưa cộng ngày nghỉ phép / giờ làm thêm đã duyệt; lương là nhập kết quả từ file (chưa tự tính); chưa có widget.
 - Bản đồ dùng máy chủ cộng đồng (dev); production sẽ dùng nhà cung cấp bản đồ Việt Nam.
-- Reset DB (`tools/db-reset.sh`) xóa mọi thứ: quản trị viên Console phải kích hoạt lại bằng `admin@kavor.test` (C-01).
+- Reset DB (`tools/db-reset.sh`) xóa mọi thứ: quản trị viên Console phải kích hoạt lại (C-01).

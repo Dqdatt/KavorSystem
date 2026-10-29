@@ -10,7 +10,9 @@ start() { local b="{\"email\":\"$1\"}"; call POST console/auth/password/start ""
 # Đặt mật khẩu bằng OTP: $1 email, $2 mật khẩu → in access token
 setpw() { local code b; code=$(otp "$1"); b="{\"email\":\"$1\",\"code\":\"$code\",\"password\":\"$2\"}"; call POST console/auth/password/verify "" "$b" | field data.session.accessToken; }
 clogin() { local b="{\"email\":\"$1\",\"password\":\"$2\"}"; call POST console/auth/login "" "$b"; }
-ADMIN=admin@kavor.test; NEWOP=ops.moi@kavor.test; SUPP=ho.tro@kavor.test
+# Cùng email quản trị viên đầu tiên với API dev (apps/api/.env.local)
+[ -f "$(dirname "$0")/../apps/api/.env.local" ] && { set -a; . "$(dirname "$0")/../apps/api/.env.local"; set +a; }
+ADMIN=${CONSOLE_BOOTSTRAP_EMAIL:-admin@kavor.test}; NEWOP=ops.moi@kavor.test; SUPP=ho.tro@kavor.test
 P1=KavorAdm1n2026; P2=KavorOps2026x; P3=KavorOpsMoi99
 clear_mail
 
@@ -30,7 +32,7 @@ T=$(echo "$_s1" | field data.session.accessToken); need "Kích hoạt quản tr�
 check "Vai trò Quản trị Console" "$(echo "$_s1" | field data.operator.role)" platform_admin
 check "Chưa bật xác thực hai lớp thì chưa dùng được" "$(status GET console/operators "$T")" 403
 ADM=$(mfa "$T" console); need "Quản trị viên liên kết ứng dụng xác thực" "$ADM"
-check "Xem danh sách nhân viên Kavor" "$(call GET console/operators "$ADM" | py "[(o['email'], o['role'], o['mfa'], o['self']) for o in d['operators']]")" "[('admin@kavor.test', 'platform_admin', True, True)]"
+check "Xem danh sách nhân viên Kavor" "$(call GET console/operators "$ADM" | py "[(o['email'], o['role'], o['mfa'], o['self']) for o in d['operators']]")" "[('$ADMIN', 'platform_admin', True, True)]"
 clear_mail
 check "Đã có quản trị viên: email bootstrap chỉ còn là Quên mật khẩu" "$(sql "select count(*) from public.platform_operators where email='$ADMIN'")" 1
 

@@ -8,7 +8,7 @@ Chuẩn bị (agent làm trước khi giao): `bash tools/db-reset.sh`, `pnpm dev
 `EXPO_PUBLIC_API_URL=http://<IP LAN Mac>:4000/api/v1`, iPhone cùng Wi-Fi với Mac. Ghi lại mọi chỗ vướng/khó hiểu để sửa.
 
 ## A. Kavor Console — nhân viên Kavor tạo khách hàng
-1. Mở http://localhost:3001 → **Kích hoạt tài khoản / Quên mật khẩu** → email `admin@kavor.test` → mã OTP (Mailpit) → đặt mật khẩu.
+1. Mở http://localhost:3001 → **Kích hoạt tài khoản / Quên mật khẩu** → email quản trị viên đầu tiên → mã OTP (Mailpit) → đặt mật khẩu.
    Đây là quản trị viên Console đầu tiên, luôn có sau mỗi lần reset DB (không chạy lệnh). Mời thêm nhân viên Kavor ở **Hệ thống → Nhân viên Kavor**.
 2. Quét mã QR bằng ứng dụng xác thực (Google Authenticator…) → nhập mã 6 số.
 3. **Doanh nghiệp → Tạo doanh nghiệp**: mã (vd. `TEST-001`), tên, tên pháp lý, gói Dùng thử, họ tên + email quản trị viên công ty
