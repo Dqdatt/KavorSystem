@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useRef, type ReactElement, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useRef, useState, type ReactElement, type ReactNode } from "react";
 import { Animated, Easing, ScrollView, StyleSheet, View, type NativeScrollEvent, type NativeSyntheticEvent, type StyleProp, type ViewStyle } from "react-native";
 import { Blur } from "./blur";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -101,11 +101,17 @@ export const Skeleton = () => [<Sk key="a" h={24} w="55%" />, <Sk key="b" h={150
 /* ---------- ScreenView: .screen > deco + .tb + main.scroll + .foot ---------- */
 export type ScreenSpec = { head?: ReactNode; body: ReactNode[]; foot?: ReactNode; nav?: boolean; noDeco?: boolean; bodyGap?: number };
 
-export function ScreenView({ spec, enter, skel, swap }: { spec: ScreenSpec; enter: boolean; skel?: boolean; swap?: boolean }) {
-  const scrolled = useRef(new Animated.Value(0)).current;
+/* Vị trí cuộn theo tầng màn (độ sâu trong stack + route): quay lại (pop) thì màn dưới giữ đúng chỗ đang xem, mở mới (push/tab) thì từ đầu */
+const scrollMemo = new Map<string, number>();
+export function ScreenView({ spec, enter, skel, swap, memoKey, restore }: { spec: ScreenSpec; enter: boolean; skel?: boolean; swap?: boolean; memoKey?: string; restore?: boolean }) {
+  const startY = useRef(memoKey && restore ? scrollMemo.get(memoKey) ?? 0 : 0).current;
+  /* Chỉ lúc mở màn mới (không phải quay lại): bỏ vị trí cũ của tầng này */
+  useState(() => { if (memoKey && !restore) scrollMemo.delete(memoKey); return 0; });
+  const scrolled = useRef(new Animated.Value(startY > 24 ? 1 : 0)).current;
   const scroller = useRef<ScrollView>(null);
-  const lastY = useRef(0);
-  const isScrolled = useRef(false);
+  const lastY = useRef(startY);
+  const isScrolled = useRef(startY > 24);
+  const restored = useRef(startY <= 0);
   useEffect(() => {
     if (!spec.nav) return;
     const f = () => scroller.current?.scrollTo({ y: 0, animated: true });
@@ -118,6 +124,7 @@ export function ScreenView({ spec, enter, skel, swap }: { spec: ScreenSpec; ente
   const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
     const y = contentOffset.y, dy = y - lastY.current; lastY.current = y;
+    if (memoKey && restored.current) scrollMemo.set(memoKey, y);
     const s = y > 24;
     if (s !== isScrolled.current) { isScrolled.current = s; Animated.timing(scrolled, { toValue: s ? 1 : 0, duration: 300, useNativeDriver: true }).start(); }
     if (!spec.nav) return;
@@ -135,6 +142,12 @@ export function ScreenView({ spec, enter, skel, swap }: { spec: ScreenSpec; ente
       {spec.noDeco ? null : <Deco />}
       <ScrolledCtx.Provider value={scrolled}>{spec.head}</ScrolledCtx.Provider>
       <ScrollView ref={scroller} style={{ flex: 1 }} onScroll={onScroll} scrollEventThrottle={16} showsVerticalScrollIndicator={false}
+        contentOffset={startY ? { x: 0, y: startY } : undefined}
+        onContentSizeChange={(_w, h) => {
+          /* Android bỏ qua contentOffset ban đầu: cuộn tới chỗ cũ khi nội dung đủ cao */
+          if (restored.current) return;
+          if (h >= startY) { scroller.current?.scrollTo({ y: startY, animated: false }); restored.current = true; }
+        }}
         keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets
         contentContainerStyle={{ paddingTop: 4, paddingHorizontal: 20, paddingBottom: spec.nav ? 124 : 40, gap: spec.bodyGap ?? 22 }}>
         {items.map((it, i) => <Rise key={`${skel ? "sk" : "b"}${it.key ?? i}`} index={i} enabled={rising} duration={swap ? 450 : 550}>{it}</Rise>)}

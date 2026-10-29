@@ -22,7 +22,7 @@ export const ACTION: Record<string, string> = {
   "auth.mfa_enrolled": "Bật xác thực hai lớp", "auth.mfa_verified": "Xác thực hai lớp",
   "support.requested": "Yêu cầu quyền hỗ trợ", "support.approved": "Doanh nghiệp duyệt quyền hỗ trợ", "support.rejected": "Doanh nghiệp từ chối quyền hỗ trợ",
   "support.revoked": "Doanh nghiệp thu hồi quyền hỗ trợ", "support.cancelled": "Hủy yêu cầu quyền hỗ trợ", "support.ended": "Kết thúc phiên hỗ trợ", "support.viewed": "Xem dữ liệu khi hỗ trợ",
-  "tenant.plan_changed": "Đổi gói dịch vụ", "tenant.suspended": "Tạm khóa doanh nghiệp", "tenant.reactivated": "Mở lại doanh nghiệp", "tenant.closed": "Đóng doanh nghiệp",
+  "tenant.plan_changed": "Đổi gói dịch vụ", "tenant.suspended": "Tạm khóa doanh nghiệp", "tenant.reactivated": "Mở lại doanh nghiệp", "tenant.closed": "Đóng doanh nghiệp", "tenant.deleted": "Xóa vĩnh viễn doanh nghiệp",
   "operator.bootstrapped": "Kích hoạt quản trị viên Console đầu tiên", "operator.invited": "Mời nhân viên Kavor", "operator.invite_resent": "Gửi lại thư mời nhân viên Kavor",
   "operator.invite_revoked": "Thu hồi lời mời nhân viên Kavor", "operator.activated": "Nhân viên Kavor kích hoạt tài khoản", "operator.updated": "Đổi vai trò / trạng thái nhân viên Kavor",
   "operator.mfa_reset": "Đặt lại xác thực hai lớp nhân viên Kavor", "console.password_reset": "Đặt lại mật khẩu Console",

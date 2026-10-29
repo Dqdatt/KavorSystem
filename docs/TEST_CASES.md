@@ -109,7 +109,8 @@ Quy ước:
 | Mã | Bước | Kết quả mong đợi | KQ |
 |---|---|---|---|
 | M-01 | App → **Kích hoạt tài khoản** (ô mã/email để trống, không điền sẵn): `NV001` + `nv1@abc.test` → OTP (Mailpit) → mật khẩu (thử nút con mắt ẩn/hiện) → đồng ý điều khoản | Vào trang chủ; tiêu đề là **tên công ty đã đăng ký** (không phải Hải Đăng); dòng vị trí là địa điểm của công ty (chưa áp dụng thì "Chưa có địa điểm chấm công · liên hệ HR"); máy đầu tiên tự được duyệt | |
-| M-02 | Bật Face ID khi được hỏi | Lần mở sau dùng Face ID hệ thống | |
+| M-02 | Lần đầu đăng nhập bằng mật khẩu: app hỏi "Dùng Face ID cho Kavor?" → **Bật** | iOS hỏi Face ID một lần rồi bật luôn (Bảo mật và thiết bị: cả hai công tắc bật). Đăng xuất → màn đăng nhập điền sẵn mã của mình → bấm biểu tượng Face ID → vào thẳng trang chủ, **không** bắt đăng ký thiết bị lại | |
+| M-02b | Hồ sơ: avatar góc trên đúng chữ viết tắt tên mình; Bảo mật và thiết bị → Thiết bị chấm công đúng máy (iPhone 11, iOS…, ngày đăng ký); cuộn Hồ sơ xuống → mở Bảo mật/Widget → quay lại | Không phải dữ liệu mẫu; Hồ sơ giữ nguyên chỗ đang cuộn | |
 | M-03 | Ở ngoài bán kính địa điểm → nhấn giữ **Vào ca** | Báo ngoài phạm vi, không ghi nhận | |
 | M-04 | Trong bán kính → nhấn giữ **Vào ca** | Ghi nhận giờ vào; web HR **Chấm công → Hôm nay** thấy ngay | |
 | M-05 | Tắt Wi-Fi + 4G → **Ra ca** → bật lại mạng | Lần chấm vào hàng đợi rồi tự gửi khi có mạng | |
@@ -168,6 +169,9 @@ Quy ước:
 | C-46 | **Khôi phục chủ sở hữu**: ops1 tạo yêu cầu đặt lại xác thực cho ADMIN01 → quản trị viên Console duyệt | Người tạo không tự duyệt được; người thứ hai duyệt được; ADMIN01 đăng nhập phải quét QR mới | |
 | C-47 | **Nhật ký hoạt động** (Console) và nhật ký web HR | Thấy đủ thao tác của Kavor trên ABC-001 | |
 | C-48 | (Tùy chọn, không hoàn tác) tạo công ty phụ `XOA-001` → Tạm khóa → **Đóng doanh nghiệp** (gõ lại mã) | Đóng xong không mở lại được | |
+| C-49 | (Quản trị Console) tạo công ty phụ `XOA-002`, kích hoạt quản trị viên trên web HR → Console: chi tiết → **Xóa vĩnh viễn** khi còn hoạt động | Không có nút (chỉ hiện khi tạm khóa/đã đóng); tài khoản Vận hành nền tảng cũng không có nút |  |
+| C-50 | Tạm khóa XOA-002 → **Xóa vĩnh viễn**: thử bấm khi chưa tích ô / gõ sai mã | Nút Xóa bị khóa / báo gõ đúng mã |  |
+| C-51 | Tích ô, gõ đúng mã, lý do ≥ 10 ký tự → Xóa vĩnh viễn | Toast "Đã xóa vĩnh viễn XOA-002: … dòng dữ liệu, … tài khoản, … file"; không còn trong danh sách; quản trị viên XOA-002 đăng nhập web HR → sai tài khoản; Nhật ký hoạt động có dòng "Xóa vĩnh viễn doanh nghiệp" kèm lý do; công ty ABC không mất gì |  |
 
 ## 12. Kiểm tra cách ly dữ liệu
 

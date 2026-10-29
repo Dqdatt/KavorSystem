@@ -121,6 +121,8 @@ export class ConsoleController {
   plan(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string, @Body() b: Json) { return this.run(r, a, (s, c) => s.console.changePlan(c, id, b)); }
   @Post("tenants/:id/status") @HttpCode(200)
   status(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string, @Body() b: Json) { return this.run(r, a, (s, c) => s.console.changeStatus(c, id, b)); }
+  @Post("tenants/:id/delete") @HttpCode(200)
+  deleteTenant(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string, @Body() b: Json) { return this.run(r, a, (s, c) => s.console.deleteTenant(c, id, b)); }
   @Get("plans")
   plans(@Req() r: CorrelatedRequest, @Headers("authorization") a?: string) { return this.run(r, a, (s, c) => s.console.plans(c)); }
   @Post("tenants/:id/admins/:employeeId/invite") @HttpCode(200)

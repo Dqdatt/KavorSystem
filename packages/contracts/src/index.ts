@@ -687,6 +687,9 @@ export type ConsoleOverview = {
   recentTenants: ConsoleTenant[];
 };
 export type TenantCreateInput = { code: string; name: string; legalName?: string | null; plan: PlanCode; employeeLimit: number; adminName: string; adminEmail: string; /* bỏ trống = ADMIN01 */ adminCode?: string | null };
+/* Xóa hẳn doanh nghiệp: số dòng dữ liệu, tài khoản đăng nhập, file đã xóa; warnings: phần chưa xóa được (cần dọn tay) */
+export type TenantDeleteResult = { code: string; name: string; rows: number; accounts: number; files: number; warnings: string[] };
+export type TenantDeleteInput = { confirmCode: string; reason: string };
 export type TenantCreateResult = { tenant: ConsoleTenantDetail; invite: { sent: boolean; error: string | null } };
 export type RecoveryInput = {
   tenantId: string; kind: RecoveryKind; targetEmployeeId?: string | null; newAdminName?: string | null; newAdminEmail?: string | null;

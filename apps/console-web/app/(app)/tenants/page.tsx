@@ -8,7 +8,7 @@ import { call, useApi } from "../../_lib/client";
 import { ACCOUNT, Drawer, Empty, ErrorLine, Field, Icon, LoadError, Modal, Person, Status, ago, fmtDate, fmtDateTime, num, useAction, useMe, useToast } from "../../_ui/kit";
 import { DecideModal, KIND, RSTATUS, RecoveryForm } from "../../_ui/recovery";
 import { ACTION, PLAN, TSTATUS, adminHealth } from "../../_ui/labels";
-import { PlanModal, StatusModal, usageTone } from "../../_ui/tenant-ops";
+import { DeleteTenantModal, PlanModal, StatusModal, usageTone } from "../../_ui/tenant-ops";
 import { Select } from "@kavor/web-ui";
 
 function TenantsPage() {
@@ -103,9 +103,11 @@ function CreateTenant({ onClose, onSaved }: { onClose: () => void; onSaved: (r: 
 
 function TenantDrawer({ id, onClose, onChanged }: { id: string; onClose: () => void; onChanged: () => void }) {
   const me = useMe();
+  const toast = useToast();
   const { data: t, error, reload, setData } = useApi<ConsoleTenantDetail>(`tenants/${id}`);
   const [planning, setPlanning] = useState(false);
   const [statusAct, setStatusAct] = useState<TenantStatusAction | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [recovery, setRecovery] = useState<{ kind: RecoveryKind; target?: string } | null>(null);
   const [deciding, setDeciding] = useState<{ id: string; action: "approve" | "reject" | "cancel" } | null>(null);
   const { busy, run } = useAction();
@@ -130,6 +132,12 @@ function TenantDrawer({ id, onClose, onChanged }: { id: string; onClose: () => v
             <div className="detail-row"><span>Gói</span><b>{PLAN[t.plan]} · tối đa {num(t.employeeLimit)} nhân sự</b></div>
             <div className="detail-row"><span>Trạng thái</span><b><Status v={TSTATUS[t.status]} /></b></div>
           </div>
+          {me.role === "platform_admin" && t.status !== "active" && t.status !== "provisioning" ? (
+            <div className="card-body row-actions" style={{ justifyContent: "flex-start", paddingTop: 0 }}>
+              <button className="btn small danger" onClick={() => setDeleting(true)}><Icon name="alert" /> Xóa vĩnh viễn</button>
+              <span className="muted" style={{ fontSize: 11 }}>Xóa mọi dữ liệu, tài khoản và file của doanh nghiệp</span>
+            </div>
+          ) : null}
           {canOperate(me.role) && t.status !== "closed" ? (
             <div className="card-body row-actions" style={{ justifyContent: "flex-start", paddingTop: 0 }}>
               <button className="btn small" onClick={() => setPlanning(true)}><Icon name="card" /> Đổi gói</button>
@@ -184,6 +192,10 @@ function TenantDrawer({ id, onClose, onChanged }: { id: string; onClose: () => v
         </div></div>
       </> : null}
       {planning && t ? <PlanModal t={t} onClose={() => setPlanning(false)} onDone={(d) => { setData(d); onChanged(); }} /> : null}
+      {deleting && t ? <DeleteTenantModal t={t} onClose={() => setDeleting(false)} onDone={(r) => {
+        toast(r.warnings.length ? `Đã xóa ${r.code}; còn sót: ${r.warnings.join(", ")}` : `Đã xóa vĩnh viễn ${r.code}: ${num(r.rows)} dòng dữ liệu, ${num(r.accounts)} tài khoản, ${num(r.files)} file`, r.warnings.length ? "error" : undefined);
+        onChanged(); onClose();
+      }} /> : null}
       {statusAct && t ? <StatusModal t={t} action={statusAct} onClose={() => setStatusAct(null)} onDone={(d) => { setData(d); onChanged(); }} /> : null}
       {recovery && t ? <RecoveryForm tenantId={t.id} kind={recovery.kind} targetEmployeeId={recovery.target} onClose={() => setRecovery(null)} onSaved={() => { setRecovery(null); refresh(); }} /> : null}
       {deciding && decidingRow ? <DecideModal r={decidingRow} action={deciding.action} onClose={() => setDeciding(null)} onDone={() => refresh()} /> : null}

@@ -10,6 +10,11 @@ simulator hay iPhone** vì phiên cloud không có Mac). Người dùng giao "c�
 ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AGENT_PLAYBOOK.md`; kiểm tra toàn bộ bằng `bash tools/verify-all.sh`.
 
 ## Đã xong
+- Xóa vĩnh viễn doanh nghiệp trên Console (29/10, Claude Desktop): nút "Xóa vĩnh viễn" trong chi tiết doanh nghiệp (chỉ Quản trị Console, doanh nghiệp
+  tạm khóa/đã đóng, tích ô + gõ lại mã + lý do). Migration `202611110001_purge_tenant.sql` (trigger bảo vệ bỏ qua khi đang xóa; `purge_tenant`), API xóa
+  tài khoản Auth + file Storage, nhật ký `tenant.deleted`. pgTAP 9 (xóa thử toàn bộ Hải Đăng trong transaction), smoke `tools/purge-smoke.sh` 21 bước (đã chạy
+  trên DB đang dùng, không reset). Mã nhân viên quản trị viên chọn khi tạo doanh nghiệp. App (máy chủ thật): avatar/thiết bị theo tài khoản, không đăng ký
+  lại thiết bị sau đăng xuất, Face ID mặc định tắt + hỏi lần đầu, giữ vị trí cuộn khi quay lại màn trước (đã thử trên simulator).
 - Quản trị Kavor Console không cần chạy lệnh (29/10, Claude Desktop): vai trò `platform_admin` (Quản trị Console); quản trị viên đầu tiên tự kích hoạt
   bằng email `CONSOLE_BOOTSTRAP_EMAIL` (dev `admin@kavor.test`) khi nền tảng chưa có quản trị viên — OTP email + mật khẩu + TOTP; trang **Hệ thống →
   Nhân viên Kavor**: mời (thư Mailpit, hết hạn 7 ngày, gửi lại/thu hồi), đổi vai trò, khóa/mở khóa (chặn ngay phiên đang mở), đặt lại xác thực hai lớp;

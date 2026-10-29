@@ -3,7 +3,7 @@
    Nhân viên Kavor chỉ thấy thông tin vận hành (số lượng, danh sách admin), không đọc hồ sơ/chấm công của tenant. */
 import type {
   AccountStatus, ConsoleAuditEntry, ConsoleOverview, ConsoleTenant, ConsoleTenantDetail, OwnerRecovery, PlanCode, PlatformPlan, RecoveryKind, RecoveryStatus,
-  TenantAdminInfo, TenantCreateResult, TenantStatus, TenantStatusAction,
+  TenantAdminInfo, TenantCreateResult, TenantDeleteResult, TenantStatus, TenantStatusAction,
 } from "@kavor/contracts";
 import { NEAR_LIMIT_RATIO, canOperate } from "@kavor/contracts";
 import { AuthError } from "../auth/auth.service.js";
@@ -137,6 +137,58 @@ export class ConsoleService {
     if (error) throw error;
     await ctx.audit(`tenant.${action === "reactivate" ? "reactivated" : action === "suspend" ? "suspended" : "closed"}`, "tenant", id, { status: t.status }, { status }, reason, id);
     return this.tenant(ctx, id);
+  }
+
+  /* Xóa hẳn doanh nghiệp (chỉ Quản trị Console; doanh nghiệp phải đang tạm khóa hoặc đã đóng; gõ lại mã + lý do).
+     DB xóa mọi dòng có tenant_id trong một transaction (purge_tenant), sau đó API xóa tài khoản đăng nhập chỉ thuộc doanh nghiệp này
+     và mọi file trong thư mục doanh nghiệp trên Storage. Nhật ký cấp nền tảng giữ một dòng "tenant.deleted". Không hoàn tác được. */
+  async deleteTenant(ctx: ConsoleContext, id: string, b: Body): Promise<TenantDeleteResult> {
+    if (ctx.operator.role !== "platform_admin") throw forbidden("Chỉ quản trị viên Kavor Console được xóa doanh nghiệp.");
+    const t = await this.tenantRow(ctx, id);
+    if (t.status !== "suspended" && t.status !== "closed") throw conflict("Chỉ xóa được doanh nghiệp đang tạm khóa hoặc đã đóng. Tạm khóa trước.");
+    if (String(b?.confirmCode ?? "").trim().toUpperCase() !== t.code) throw invalid(`Gõ lại mã doanh nghiệp ${t.code} để xác nhận xóa.`);
+    const reason = req(b, "reason", { min: 10, max: 500, hint: "ít nhất 10 ký tự" });
+    const { data, error } = await ctx.db.rpc("purge_tenant", { p_tenant: id });
+    if (error?.message?.includes("TENANT_ACTIVE")) throw conflict("Chỉ xóa được doanh nghiệp đang tạm khóa hoặc đã đóng. Tạm khóa trước.");
+    if (error) throw error;
+    const r = data as { users: string[]; rows: number; tables: Record<string, number> };
+    let usersDeleted = 0;
+    for (const u of r.users) if (!(await ctx.db.auth.admin.deleteUser(u)).error) usersDeleted++;
+    const files = await this.purgeFiles(ctx, id);
+    const warnings = [
+      usersDeleted < r.users.length ? `${r.users.length - usersDeleted} tài khoản đăng nhập chưa xóa được` : null,
+      files.failed ? `${files.failed} file chưa xóa được` : null,
+    ].filter((x): x is string => !!x);
+    await ctx.audit("tenant.deleted", "tenant", id, { code: t.code, name: t.display_name, status: t.status },
+      { rows: r.rows, tables: r.tables, accounts: usersDeleted, files: files.removed, warnings }, reason, null);
+    return { code: t.code, name: t.display_name, rows: r.rows, accounts: usersDeleted, files: files.removed, warnings };
+  }
+
+  /* Mọi file trong thư mục <tenantId>/ của mọi bucket (logo/ảnh bìa, đính kèm bản tin, tài liệu nhân sự…) */
+  private async purgeFiles(ctx: ConsoleContext, tenantId: string): Promise<{ removed: number; failed: number }> {
+    const storage = ctx.db.storage;
+    const { data: buckets } = await storage.listBuckets();
+    let removed = 0, failed = 0;
+    for (const bucket of buckets ?? []) {
+      const paths: string[] = [];
+      const walk = async (dir: string): Promise<void> => {
+        for (let offset = 0; ; offset += 1000) {
+          const { data: items } = await storage.from(bucket.id).list(dir, { limit: 1000, offset });
+          for (const it of items ?? []) {
+            /* Thư mục con không có id (Storage trả "thư mục ảo") */
+            if (it.id) paths.push(`${dir}/${it.name}`); else await walk(`${dir}/${it.name}`);
+          }
+          if (!items || items.length < 1000) break;
+        }
+      };
+      await walk(tenantId);
+      for (let i = 0; i < paths.length; i += 100) {
+        const chunk = paths.slice(i, i + 100);
+        const { error } = await storage.from(bucket.id).remove(chunk);
+        if (error) failed += chunk.length; else removed += chunk.length;
+      }
+    }
+    return { removed, failed };
   }
 
   async tenant(ctx: ConsoleContext, id: string): Promise<ConsoleTenantDetail> {

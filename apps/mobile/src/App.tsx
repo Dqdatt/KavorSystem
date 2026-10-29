@@ -44,15 +44,15 @@ const LIGHT: Route[] = ["springHome", "springLock"];
 const isNav = (r: Route) => TABS.includes(r);
 
 /* ---------- Route view (đông cứng khi đang rời đi, như DOM cũ trong prototype) ---------- */
-function RouteView({ route, enter, skel, swap }: { route: Route; enter: boolean; skel: boolean; swap: boolean; frozen: boolean; v: number }) {
+function RouteView({ route, enter, skel, swap, depth, restore }: { route: Route; enter: boolean; skel: boolean; swap: boolean; frozen: boolean; v: number; depth: number; restore: boolean }) {
   const raw = RAW[route];
   if (raw) return <>{raw()}</>;
   const spec = (SPECS[route] ?? homeSpec)();
-  return <ScreenView spec={spec} enter={enter} skel={skel} swap={swap} />;
+  return <ScreenView spec={spec} enter={enter} skel={skel} swap={swap} memoKey={`${depth}:${route}`} restore={restore} />;
 }
 const FrozenRoute = memo(RouteView, (_p, n) => n.frozen);
 
-type Layer = { id: number; seq: number; route: Route; anim: Anim | null; leaving: boolean; outAnim?: Anim | null; skel: boolean };
+type Layer = { id: number; seq: number; route: Route; anim: Anim | null; leaving: boolean; outAnim?: Anim | null; skel: boolean; depth: number };
 
 function LayerView({ layer, active }: { layer: Layer; active: Route }) {
   const { width } = useWindowDimensions();
@@ -87,14 +87,14 @@ function LayerView({ layer, active }: { layer: Layer; active: Route }) {
   const z = layer.leaving ? (layer.outAnim === "pop" ? 2 : 1) : (layer.anim === "pop" ? 1 : 2);
   return (
     <Animated.View pointerEvents={layer.leaving ? "none" : "auto"} style={[StyleSheet.absoluteFill, { zIndex: z, opacity, transform: tf }, layer.leaving && layer.outAnim === "pop" && { boxShadow: "-20px 0px 40px rgba(10,40,30,0.12)" }]}>
-      <FrozenRoute route={active} enter={layer.anim === "push" || layer.anim === "fade"} skel={skel} swap={swap} frozen={layer.leaving || layer.seq !== S.nav.seq} v={getVersion()} />
+      <FrozenRoute route={active} enter={layer.anim === "push" || layer.anim === "fade"} skel={skel} swap={swap} frozen={layer.leaving || layer.seq !== S.nav.seq} v={getVersion()} depth={layer.depth} restore={layer.anim === "pop"} />
     </Animated.View>
   );
 }
 
 let layerSeq = Date.now();
 function Router() {
-  const [layers, setLayers] = useState<Layer[]>(() => [{ id: ++layerSeq, seq: S.nav.seq, route: cur(), anim: null, leaving: false, skel: false }]);
+  const [layers, setLayers] = useState<Layer[]>(() => [{ id: ++layerSeq, seq: S.nav.seq, route: cur(), anim: null, leaving: false, skel: false, depth: S.stack.length }]);
   const seq = S.nav.seq;
   const first = useRef(true);
   useEffect(() => {
@@ -104,7 +104,7 @@ function Router() {
     setLayers((prev) => [
       ...prev.filter((l) => l.leaving),
       ...prev.filter((l) => !l.leaving).map((l) => ({ ...l, leaving: true, outAnim: anim })),
-      { id: ++layerSeq, seq, route: r, anim, leaving: false, skel: S.net === "slow" && !!anim && SKEL.includes(r) },
+      { id: ++layerSeq, seq, route: r, anim, leaving: false, skel: S.net === "slow" && !!anim && SKEL.includes(r), depth: S.stack.length },
     ]);
     const t = setTimeout(() => setLayers((prev) => prev.filter((l) => !l.leaving)), 460);
     return () => clearTimeout(t);

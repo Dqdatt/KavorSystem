@@ -2,9 +2,9 @@
 /* Vận hành tenant (docs/plans/console-ops.md phần A, thiết kế bổ sung — prototype không có): đổi gói + giới hạn nhân sự,
    tạm khóa / mở lại / đóng tenant. Chỉ Platform Operator; mọi thao tác bắt buộc lý do và tenant thấy trong nhật ký. */
 import { useState } from "react";
-import { NEAR_LIMIT_RATIO, type ConsoleTenant, type ConsoleTenantDetail, type PlanCode, type PlatformPlan, type TenantStatusAction } from "@kavor/contracts";
+import { NEAR_LIMIT_RATIO, type ConsoleTenant, type ConsoleTenantDetail, type PlanCode, type PlatformPlan, type TenantDeleteResult, type TenantStatusAction } from "@kavor/contracts";
 import { call, useApi } from "../_lib/client";
-import { ErrorLine, Field, Modal, num, useAction } from "./kit";
+import { ErrorLine, Field, Icon, Modal, num, useAction } from "./kit";
 import { Select } from "@kavor/web-ui";
 
 export const nearLimit = (t: Pick<ConsoleTenant, "employees" | "employeeLimit">) => t.employees >= t.employeeLimit * NEAR_LIMIT_RATIO;
@@ -65,6 +65,35 @@ export function StatusModal({ t, action, onClose, onDone }: { t: ConsoleTenant; 
       <div className="form-grid">
         <Field label="Lý do" full hint="Công ty thấy lý do này trong nhật ký hoạt động"><textarea rows={2} value={reason} onChange={(e) => { setReason(e.target.value); setErr(null); }} placeholder={c.placeholder} autoFocus /></Field>
         {action === "close" ? <Field label={`Gõ lại mã doanh nghiệp (${t.code})`} full><input value={code} onChange={(e) => { setCode(e.target.value); setErr(null); }} placeholder={t.code} /></Field> : null}
+      </div>
+      <ErrorLine text={err} />
+    </Modal>
+  );
+}
+
+/* Xóa hẳn doanh nghiệp (chỉ Quản trị Console, doanh nghiệp đang tạm khóa/đã đóng): hai bước xác nhận — đọc cảnh báo + tích ô, gõ lại mã.
+   Xóa mọi dữ liệu (hồ sơ, chấm công, đơn, lương, nhật ký), tài khoản đăng nhập và file. Không hoàn tác được. */
+export function DeleteTenantModal({ t, onClose, onDone }: { t: ConsoleTenant; onClose: () => void; onDone: (r: TenantDeleteResult) => void }) {
+  const [reason, setReason] = useState("");
+  const [code, setCode] = useState("");
+  const [ack, setAck] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const { busy, run } = useAction();
+  async function save() {
+    if (!ack) { setErr("Tích ô xác nhận đã hiểu dữ liệu bị xóa vĩnh viễn."); return; }
+    if (code.trim().toUpperCase() !== t.code) { setErr(`Gõ lại đúng mã doanh nghiệp ${t.code}.`); return; }
+    if (reason.trim().length < 10) { setErr("Ghi lý do (ít nhất 10 ký tự) — lưu trong nhật ký Kavor."); return; }
+    await run("delete", async () => { onDone(await call<TenantDeleteResult>("POST", `tenants/${t.id}/delete`, { confirmCode: code, reason })); onClose(); });
+  }
+  return (
+    <Modal title={`Xóa vĩnh viễn ${t.name}?`} onClose={onClose}
+      foot={<><button className="btn" onClick={onClose}>Hủy</button><button className="btn danger" disabled={!!busy || !ack || code.trim().toUpperCase() !== t.code} onClick={save}>{busy ? "Đang xóa…" : "Xóa vĩnh viễn"}</button></>}>
+      <div className="banner bad" style={{ marginBottom: 14 }}><span className="banner-icon"><Icon name="alert" /></span>
+        <span className="banner-copy"><b>Không hoàn tác được</b><span>Xóa toàn bộ dữ liệu của {t.code}: {num(t.employees)} hồ sơ nhân viên, {num(t.accounts)} tài khoản đăng nhập, chấm công, đơn từ, phép, lương, bản tin, tài liệu, file đính kèm và nhật ký hoạt động của công ty. Kavor chỉ giữ một dòng nhật ký ghi ai xóa, lúc nào, lý do.</span></span></div>
+      <div className="form-grid">
+        <label className="check-row field full"><input type="checkbox" checked={ack} onChange={(e) => { setAck(e.target.checked); setErr(null); }} /> Tôi hiểu dữ liệu sẽ bị xóa vĩnh viễn và đã xuất/bàn giao dữ liệu cho khách nếu cần.</label>
+        <Field label={`Gõ lại mã doanh nghiệp (${t.code})`} full><input value={code} onChange={(e) => { setCode(e.target.value); setErr(null); }} placeholder={t.code} autoComplete="off" /></Field>
+        <Field label="Lý do" full><textarea rows={2} value={reason} onChange={(e) => { setReason(e.target.value); setErr(null); }} placeholder="Ví dụ: công ty tạo để thử nghiệm / khách chấm dứt hợp đồng và yêu cầu xóa dữ liệu" /></Field>
       </div>
       <ErrorLine text={err} />
     </Modal>
