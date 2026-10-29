@@ -404,6 +404,7 @@ ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AG
 - Trên bản dev, gõ phím "r" khi không focus ô nhập sẽ làm Metro reload (chỉ ảnh hưởng dev).
 
 ## Bước tiếp theo
+0. Người dùng thử trọn quy trình theo `docs/TEST_WORKFLOW.md` (Console → HR → nhân viên, doanh nghiệp tạo mới). DB local reset sạch 29/10.
 1. Review quyết định mặc định trong `docs/plans/console-ops.md` (gói, khóa/đóng tenant, support access: phạm vi, 30/60 phút, Tenant Admin duyệt).
    Người dùng thử trên Mac (nhánh `claude/ecstatic-pascal-dblg7v`): web `/payroll` (file mẫu `sample-data/payroll_import_2026-10.csv`) và
    `/announcements`, `/documents`, Đơn & phê duyệt (đơn HS); build Release iPhone mới để thử tab Bản tin, Hồ sơ → Hợp đồng và quyết định, mở file,
