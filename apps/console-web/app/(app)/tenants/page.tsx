@@ -24,7 +24,7 @@ function TenantsPage() {
   const show = (id: string | null) => router.replace(id ? `/tenants?id=${id}` : "/tenants", { scroll: false });
   return (
     <section className="page active">
-      <div className="page-head"><div><h2>Quản lý tenant</h2><p>Mỗi tenant là một không gian dữ liệu và cấu hình riêng trên Kavor.</p></div>
+      <div className="page-head"><div><p>Mỗi tenant là một không gian dữ liệu và cấu hình riêng trên Kavor.</p></div>
         <button className="btn primary" onClick={() => setCreating(true)}><Icon name="plus" /> Tạo tenant</button></div>
       <LoadError error={error} retry={reload} />
       <div className="grid metrics">
@@ -79,7 +79,7 @@ function CreateTenant({ onClose, onSaved }: { onClose: () => void; onSaved: (r: 
     });
   }
   return (
-    <Modal title="Tạo tenant mới" sub="Tạo không gian dữ liệu và cấu hình riêng trên Kavor." onClose={onClose}
+    <Modal title="Tạo tenant mới" onClose={onClose}
       foot={<><button className="btn" onClick={onClose}>Hủy</button><button className="btn primary" disabled={!!busy} onClick={save}>{busy ? "Đang tạo…" : "Tạo tenant & gửi lời mời"}</button></>}>
       <div className="form-grid">
         <Field label="Tên doanh nghiệp" full><input value={f.name} onChange={set("name")} placeholder="An Phú Retail" autoFocus /></Field>

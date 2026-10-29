@@ -32,7 +32,7 @@ function RequestsPage() {
   const c = data?.counts;
   return (
     <section className="page active">
-      <div className="page-head"><div><h2>Hàng đợi phê duyệt</h2><p>Ưu tiên theo SLA và mức ảnh hưởng tới kỳ công/lương.</p></div>
+      <div className="page-head"><div><p>Ưu tiên theo SLA và mức ảnh hưởng tới kỳ công/lương.</p></div>
         <div className="head-actions">{can(me, "request.read") ? <button className="btn" onClick={() => setConfig(true)}><Icon name="settings" /> Cấu hình workflow</button> : null}</div></div>
       <LoadError error={error} retry={reload} />
       <article className="card">

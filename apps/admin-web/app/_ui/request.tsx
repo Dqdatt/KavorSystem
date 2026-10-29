@@ -74,7 +74,7 @@ export function RequestModal({ r, onClose, onDone }: { r: RequestItem; onClose: 
     await run(approve ? "ok" : "no", async () => { onDone(await call<RequestItem>("POST", `approvals/${r.myTaskId}/${approve ? "approve" : "reject"}`, { comment: note.trim() || null })); onClose(); }, approve ? "Đã duyệt đơn" : "Đã từ chối đơn");
   };
   return (
-    <Modal wide title={`Chi tiết đơn ${r.no}`} sub={r.myTaskId ? "Kiểm tra thông tin trước khi phê duyệt." : "Bạn không phải người duyệt bước đang chờ của đơn này."} onClose={onClose}
+    <Modal wide title={`Chi tiết đơn ${r.no}`} sub={r.myTaskId ? undefined : "Bạn không phải người duyệt bước đang chờ của đơn này."} onClose={onClose}
       foot={r.myTaskId ? <><button className="btn danger" disabled={!!busy} onClick={() => void act(false)}>Từ chối</button><button className="btn primary" disabled={!!busy} onClick={() => void act(true)}>{busy === "ok" ? "Đang duyệt…" : "Duyệt đơn"}</button></>
         : <button className="btn" onClick={onClose}>Đóng</button>}>
       <div className="profile-hero" style={{ paddingBottom: 12 }}><Person name={r.requester.fullName} seed={r.requester.code} sub={`${r.requester.department ?? "—"} · ${r.requester.code} · gửi từ Mobile App`} /></div>

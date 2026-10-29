@@ -19,7 +19,7 @@ export default function RolesPage() {
   const role = b?.roles.find((r) => r.code === open) ?? null;
   return (
     <section className="page active">
-      <div className="page-head"><div><h2>Phân quyền doanh nghiệp</h2><p>Quyền được áp dụng theo vai trò và phạm vi pháp nhân/chi nhánh/phòng ban.</p></div>
+      <div className="page-head"><div><p>Quyền được áp dụng theo vai trò và phạm vi pháp nhân/chi nhánh/phòng ban.</p></div>
         {b?.canAssign ? <button className="btn primary" onClick={() => setAssign("any")}><Icon name="plus" /> Gán vai trò</button> : null}</div>
       <LoadError error={error} retry={reload} />
       <article className="card">
@@ -93,7 +93,7 @@ function AssignModal({ board, roleCode, onClose, onDone }: { board: RolesBoard; 
     }, `Đã gán ${role.name}`);
   }
   return (
-    <Modal title="Gán vai trò" sub="Chọn người, vai trò, phạm vi tổ chức và ngày hiệu lực. Mọi thay đổi được ghi vào nhật ký hoạt động." onClose={onClose}
+    <Modal title="Gán vai trò" onClose={onClose}
       foot={<><button className="btn" onClick={onClose}>Hủy</button><button className="btn primary" disabled={!!busy} onClick={save}>{busy ? "Đang lưu…" : "Gán vai trò"}</button></>}>
       <div className="form-grid">
         <Field label="Tìm nhân viên" full><input value={f.q} onChange={set("q")} placeholder="Lọc theo tên hoặc mã…" /></Field>

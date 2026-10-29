@@ -41,7 +41,7 @@ function DocumentsPage() {
 
   return (
     <section className="page active">
-      <div className="page-head"><div><h2>Kho tài liệu nhân sự</h2><p>Lưu hồ sơ, version và ngày hết hạn; chữ ký số không thuộc phạm vi.</p></div>
+      <div className="page-head"><div><p>Lưu hồ sơ, version và ngày hết hạn; chữ ký số không thuộc phạm vi.</p></div>
         <div className="head-actions">{b?.canUpload ? <button className="btn primary" onClick={() => setUploading(true)}><Icon name="upload" /> Tải tài liệu</button> : null}</div></div>
       <LoadError error={error} retry={reload} />
       <div className="grid metrics">

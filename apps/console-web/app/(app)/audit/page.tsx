@@ -13,7 +13,7 @@ export default function AuditPage() {
   const rows = (data ?? []).filter((a) => !k || `${a.actor} ${a.tenant?.name ?? ""} ${a.tenant?.code ?? ""} ${a.action} ${ACTION[a.action] ?? ""} ${a.resourceType}`.toLowerCase().includes(k));
   return (
     <section className="page active">
-      <div className="page-head"><div><h2>Platform audit</h2><p>Theo dõi hành động của nhân viên Kavor. Append-only; thao tác trên tenant nào thì tenant đó cũng thấy.</p></div></div>
+      <div className="page-head"><div><p>Theo dõi hành động của nhân viên Kavor. Append-only; thao tác trên tenant nào thì tenant đó cũng thấy.</p></div></div>
       <LoadError error={error} retry={reload} />
       <article className="card">
         <div className="toolbar"><label className="search"><Icon name="search" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Actor, tenant, action hoặc resource…" /></label></div>

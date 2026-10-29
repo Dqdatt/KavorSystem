@@ -49,7 +49,7 @@ function EmployeesPage() {
   return (
     <section className="page active">
       <div className="page-head">
-        <div><h2>Danh sách nhân viên</h2><p>{list.data ? `${rows.length} hồ sơ trong phạm vi của bạn` : "Đang tải…"} · trạng thái tài khoản và thiết bị chấm công.</p></div>
+        <div><p>{list.data ? `${rows.length} hồ sơ trong phạm vi của bạn` : "Đang tải…"} · trạng thái tài khoản và thiết bị chấm công.</p></div>
         <div className="head-actions">{can(me, "employee.create") ? <><button className="btn" onClick={() => setImporting(true)}><Icon name="upload" /> Nhập từ file</button><button className="btn primary" onClick={() => setEditing("new")}><Icon name="plus" /> Thêm nhân viên</button></> : null}</div>
       </div>
       <LoadError error={list.error} retry={list.reload} />
@@ -242,7 +242,7 @@ function EmployeeForm({ org, employee, onClose, onSaved }: { org: OrgOptions; em
   }
 
   return (
-    <Modal wide title={employee ? `Sửa hồ sơ ${employee.fullName}` : "Thêm nhân viên"} sub={employee ? "Đổi phòng ban/chức danh/quản lý sẽ tạo phân công mới từ ngày hiệu lực, giữ lịch sử cũ." : "Tạo hồ sơ và gửi lời mời kích hoạt Kavor."} onClose={onClose}
+    <Modal wide title={employee ? `Sửa hồ sơ ${employee.fullName}` : "Thêm nhân viên"} sub={employee ? "Đổi phòng ban/chức danh/quản lý sẽ tạo phân công mới từ ngày hiệu lực, giữ lịch sử cũ." : undefined} onClose={onClose}
       foot={<><button className="btn" onClick={onClose}>Hủy</button><button className="btn primary" disabled={!!busy} onClick={save}>{busy ? "Đang lưu…" : employee ? "Lưu thay đổi" : "Tạo hồ sơ"}</button></>}>
       <div className="form-grid">
         <Field label="Họ và tên"><input value={f.fullName} onChange={set("fullName")} placeholder="Nguyễn Văn A" /></Field>

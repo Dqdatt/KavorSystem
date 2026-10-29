@@ -201,7 +201,7 @@ a.nav-item, a.quick-item { text-decoration: none; }
 
 .app-main { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
 .topbar {
-  height: 68px; flex: none; display: grid; grid-template-columns: minmax(160px, 1fr) minmax(240px, 440px) auto; align-items: center; gap: 18px;
+  height: 68px; flex: none; display: grid; grid-template-columns: minmax(220px, 1fr) minmax(200px, 440px) auto; align-items: center; gap: 18px;
   padding: 0 26px; border-bottom: 1px solid var(--line); background: var(--glass); backdrop-filter: blur(22px) saturate(1.4); -webkit-backdrop-filter: blur(22px) saturate(1.4);
 }
 .title-copy { min-width: 0; }
@@ -239,11 +239,13 @@ a.nav-item, a.quick-item { text-decoration: none; }
 @keyframes pageIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
 
 /* Đầu trang: topbar đã có tên trang → ở đây chỉ còn mô tả ngắn + nút/tab, cùng một hàng */
-.page-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 18px; min-height: var(--control); }
+/* Tên trang nằm ở topbar; page-head chỉ còn một dòng mô tả + nút/tab, cả khối xuống hàng khi thiếu chỗ. */
+.page-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; margin-bottom: 16px; min-height: var(--control); }
+.page-head > div:first-child:not(.head-actions) { flex: 1 1 320px; min-width: 0; }
 .page-head h2 { margin: 0; font-size: 18px; font-weight: 700; letter-spacing: -.02em; }
-.page-head p { margin: 0; color: var(--muted); font-size: 13.5px; max-width: 760px; }
+.page-head p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.45; max-width: 760px; }
 .page-head h2 + p { margin-top: 4px; }
-.head-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; align-items: center; }
+.head-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; align-items: center; max-width: 100%; margin-left: auto; }
 
 /* ---------- Nút ---------- */
 .btn {

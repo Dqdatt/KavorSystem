@@ -23,8 +23,7 @@ function PayrollPage() {
   return (
     <section className="page active">
       <div className="page-head">
-        <div><h2>{tab === "salary" ? "Lương cơ bản" : "Tạm ứng lương"}</h2>
-          <p>{tab === "salary" ? "Dùng để tính hạn mức tạm ứng. Chỉ Kế toán xem được; đổi lương là phiên bản mới từ ngày hiệu lực." : "Duyệt bước Kế toán và xác nhận đã chi; khoản ứng trừ vào lương của tháng ứng."}</p></div>
+        <div><p>{tab === "salary" ? "Dùng để tính hạn mức tạm ứng. Chỉ Kế toán xem được; đổi lương là phiên bản mới từ ngày hiệu lực." : "Duyệt bước Kế toán và xác nhận đã chi; khoản ứng trừ vào lương của tháng ứng."}</p></div>
         <div className="head-actions">{switcher}</div>
       </div>
       {tab === "salary" ? <Salary /> : tab === "advances" ? <Advances /> : null}

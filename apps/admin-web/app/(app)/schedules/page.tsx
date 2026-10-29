@@ -16,8 +16,7 @@ function SchedulesPage() {
   return (
     <section className="page active">
       <div className="page-head">
-        <div><h2>{tab === "shifts" ? "Mẫu ca" : tab === "locations" ? "Địa điểm chấm công" : "Áp dụng theo tầng"}</h2>
-          <p>{tab === "assignments" ? "Ưu tiên: cá nhân > phòng ban > chi nhánh > pháp nhân > công ty. Nhân viên luôn tra theo ngày, không sao chép rule." : "Sửa giờ ca hay vị trí = thêm phiên bản mới từ một ngày; phiên bản cũ giữ nguyên cho công đã chấm."}</p></div>
+        <div><p>{tab === "assignments" ? "Ưu tiên: cá nhân > phòng ban > chi nhánh > pháp nhân > công ty. Nhân viên luôn tra theo ngày, không sao chép rule." : "Sửa giờ ca hay vị trí = thêm phiên bản mới từ một ngày; phiên bản cũ giữ nguyên cho công đã chấm."}</p></div>
         <div className="segmented" role="tablist">{([["shifts", "Mẫu ca"], ["locations", "Địa điểm"], ["assignments", "Áp dụng"]] as const).map(([k, l]) => <button key={k} className={tab === k ? "active" : ""} onClick={() => router.replace(`/schedules?tab=${k}`, { scroll: false })}>{l}</button>)}</div>
       </div>
       {tab === "shifts" ? <Shifts /> : tab === "locations" ? <Locations /> : <Assignments />}

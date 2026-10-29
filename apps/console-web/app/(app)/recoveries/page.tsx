@@ -17,7 +17,7 @@ export default function RecoveriesPage() {
   const count = (s: OwnerRecovery["status"]) => rows.filter((r) => r.status === s).length;
   return (
     <section className="page active">
-      <div className="page-head"><div><h2>Khôi phục quyền chủ sở hữu</h2><p>Chỉ thực hiện qua Kavor Console: xác minh qua kênh độc lập, một người tạo, một người khác duyệt, mọi bước có audit.</p></div>
+      <div className="page-head"><div><p>Chỉ thực hiện qua Kavor Console: xác minh qua kênh độc lập, một người tạo, một người khác duyệt, mọi bước có audit.</p></div>
         <button className="btn primary" onClick={() => setCreating(true)}><Icon name="key" /> Tạo yêu cầu</button></div>
       <LoadError error={error} retry={reload} />
       <div className="grid metrics">

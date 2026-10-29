@@ -53,7 +53,7 @@ function AnnouncementsPage() {
 
   return (
     <section className="page active">
-      <div className="page-head"><div><h2>Bản tin nội bộ</h2><p>Lên lịch, chọn nhóm người nhận và theo dõi đã đọc.</p></div>
+      <div className="page-head"><div><p>Lên lịch, chọn nhóm người nhận và theo dõi đã đọc.</p></div>
         <button className="btn primary" onClick={() => setEditing("new")}><Icon name="plus" /> Tạo bài viết</button></div>
       <LoadError error={error} retry={reload} />
       <div className="grid two-one">
@@ -216,7 +216,7 @@ function Editor({ a, units, onClose, onSaved }: { a: AnnouncementAdmin | null; u
 
   const current = !dropFile && !file ? a?.attachment : null;
   return (
-    <Modal wide title={a ? "Sửa bài viết" : "Tạo bài viết"} sub={a && a.status === "published" ? "Bài đang hiện: nội dung sửa xong hiện ngay cho người nhận." : "Lưu nháp để xem lại, hoặc xuất bản ngay/hẹn giờ."} onClose={onClose}
+    <Modal wide title={a ? "Sửa bài viết" : "Tạo bài viết"} sub={a && a.status === "published" ? "Bài đang hiện: nội dung sửa xong hiện ngay cho người nhận." : undefined} onClose={onClose}
       foot={<><button className="btn" onClick={onClose}>Hủy</button>
         <button className={`btn ${draftish ? "" : "primary"}`} disabled={!!busy} onClick={() => void save(false)}>{busy ? "Đang lưu…" : draftish ? "Lưu nháp" : "Lưu thay đổi"}</button>
         {draftish ? <button className="btn primary" disabled={!!busy} onClick={() => void save(true)}>Lưu & xuất bản…</button> : null}</>}>

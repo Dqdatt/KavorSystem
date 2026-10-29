@@ -21,8 +21,7 @@ function AttendancePage() {
   return (
     <section className="page active">
       <div className="page-head">
-        <div><h2>{tab === "month" ? "Bảng công tháng" : tab === "today" ? "Chấm công hôm nay" : tab === "overtime" ? "Làm thêm giờ" : tab === "rejected" ? "Bản ghi bị từ chối" : "Thiết bị chấm công"}</h2>
-          <p>{tab === "month" ? "Tổng hợp bản ghi, bất thường và điều chỉnh trước khi khóa kỳ." : tab === "overtime" ? "Giờ làm thêm theo tháng, hệ số theo loại ngày và mức dùng so với giới hạn luật/công ty." : tab === "today" ? "Giờ vào/ra hợp lệ theo ca áp dụng cho từng người; cập nhật trực tiếp khi nhân viên chấm công." : tab === "rejected" ? "Lần chấm công bị máy chủ từ chối: ngoài vùng, GPS kém chính xác." : "Mỗi nhân viên chấm công trên một máy; máy mới chờ HR duyệt."}</p></div>
+        <div><p>{tab === "month" ? "Tổng hợp bản ghi, bất thường và điều chỉnh trước khi khóa kỳ." : tab === "overtime" ? "Giờ làm thêm theo tháng, hệ số theo loại ngày và mức dùng so với giới hạn luật/công ty." : tab === "today" ? "Giờ vào/ra hợp lệ theo ca áp dụng cho từng người; cập nhật trực tiếp khi nhân viên chấm công." : tab === "rejected" ? "Lần chấm công bị máy chủ từ chối: ngoài vùng, GPS kém chính xác." : "Mỗi nhân viên chấm công trên một máy; máy mới chờ HR duyệt."}</p></div>
         <div className="head-actions">{tab === "month" ? action : null}
           <div className="segmented" role="tablist">{TABS.filter(([, , perm]) => !perm || can(me, perm)).map(([k, label]) => <button key={k} role="tab" aria-selected={tab === k} className={tab === k ? "active" : ""} onClick={() => go(k)}>{label}</button>)}</div></div>
       </div>

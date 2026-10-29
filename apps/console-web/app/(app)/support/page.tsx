@@ -25,7 +25,7 @@ export default function SupportPage() {
   }, s.status === "pending" ? "Đã hủy yêu cầu" : "Đã kết thúc phiên hỗ trợ");
   return (
     <section className="page active">
-      <div className="page-head"><div><h2>Quyền hỗ trợ tenant</h2><p>Nhân viên Kavor không mặc định được xem dữ liệu HR/payroll của khách hàng.</p></div>
+      <div className="page-head"><div><p>Nhân viên Kavor không mặc định được xem dữ liệu HR/payroll của khách hàng.</p></div>
         <button className="btn primary" onClick={() => setAsking(true)}><Icon name="key" /> Yêu cầu truy cập</button></div>
       <LoadError error={error} retry={reload} />
       <div className="grid metrics">

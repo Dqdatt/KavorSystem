@@ -24,7 +24,7 @@ export default function LeavePage() {
   const granted = (b?.rows ?? []).reduce((n, r) => n + (r.balance ? r.balance.granted + r.balance.carry + r.balance.adjusted : 0), 0);
   return (
     <section className="page active">
-      <div className="page-head"><div><h2>Quản lý nghỉ phép</h2><p>Theo dõi số dư và biến động phép năm {year}.</p></div>
+      <div className="page-head"><div><p>Theo dõi số dư và biến động phép năm {year}.</p></div>
         <div className="head-actions"><Link className="btn" href="/settings?tab=rules"><Icon name="settings" /> Quy định phép năm</Link></div></div>
       <LoadError error={error} retry={reload} />
       <div className="grid metrics">

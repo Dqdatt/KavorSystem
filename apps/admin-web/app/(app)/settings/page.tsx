@@ -38,7 +38,7 @@ function SettingsPage() {
   return (
     <section className="page active">
       <div className="page-head">
-        <div><h2>{HEAD[tab][0]}</h2><p>{HEAD[tab][1]}</p></div>
+        <div><p>{HEAD[tab][1]}</p></div>
         <div className="head-actions">
           {action}
           <div className="segmented" role="tablist">{tabs.map(([k, l]) => <button key={k} className={tab === k ? "active" : ""} onClick={() => { setAction(null); router.replace(`/settings?tab=${k}`, { scroll: false }); }}>{l}</button>)}</div>

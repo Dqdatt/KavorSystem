@@ -63,8 +63,7 @@ export function Cycles({ tabs }: { tabs: ReactNode }) {
   return (
     <>
       <div className="page-head">
-        <div><h2>{cur ? `Kỳ lương ${mm(cur)}` : "Kỳ lương"}</h2>
-          <p>{c ? `Kỳ công ${fmtDate(c.periodStart).slice(0, 5)}–${fmtDate(c.periodEnd)} · ngày trả lương ${fmtDate(c.payDate)}.` : "Nhập kết quả lương từ file CSV, kiểm tra, duyệt và công bố phiếu lương."}</p></div>
+        <div><p>{c ? `Kỳ công ${fmtDate(c.periodStart).slice(0, 5)}–${fmtDate(c.periodEnd)} · ngày trả lương ${fmtDate(c.payDate)}.` : "Nhập kết quả lương từ file CSV, kiểm tra, duyệt và công bố phiếu lương."}</p></div>
         <div className="head-actions">
           {tabs}
           {board?.cycles.length ? (
