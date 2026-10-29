@@ -323,7 +323,7 @@ ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AG
 ## Đang dở (QUAN TRỌNG NHẤT)
 - **Web UI (29/10): xong 5 bước của `docs/plans/web-ui-polish.md`**; chờ người dùng xem trên Mac và chọn nhà cung cấp bản đồ cho production.
   DB local đã reset bởi verify-all 29/10 (dữ liệu mẫu, chưa ai kích hoạt).
-- **Phản hồi UI mobile (26/10):** xong mục 1–8 ngày 29/10 (chờ người dùng xác nhận 1, 2, 7, 8 trên iPhone); còn mục 9 (widget — kế hoạch riêng) trong `docs/plans/mobile-ui-feedback.md`.
+- **Phản hồi UI mobile (26/10):** xong mục 1–8 ngày 29/10 (splash đã xác nhận trên iPhone; chờ xác nhận 2, 7, 8); còn mục 9 (widget — kế hoạch riêng) trong `docs/plans/mobile-ui-feedback.md`.
   DB local vừa reset bởi verify-all 29/10 — HD0142 cần kích hoạt lại trên iPhone (bản cài 29/10, API `http://192.168.1.2:4000/api/v1`).
 - **26/10: phiên cloud tạm dừng.** Toàn bộ việc làm trên cloud (nhánh `claude/ecstatic-pascal-dblg7v`, đến commit `41bf4f4`), checklist thử tay,
   đánh giá MVP và thứ tự việc tiếp theo nằm trong `docs/CLOUD_HANDOFF.md` — đọc file đó trước.
@@ -424,6 +424,7 @@ ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AG
   PIN/Face ID, tối đa 5 MB, "Thiếu hồ sơ" = chưa có hợp đồng còn hiệu lực.
 
 ## Nhật ký
+- 2026-10-29 — Claude (Desktop): splash iOS một khung gradient xanh ánh trắng + logo (`e728511`) — người dùng xác nhận đúng ý trên iPhone.
 - 2026-10-29 — Claude (Desktop): splash trả về màn xanh gradient theo người dùng; OT bước 5 phút (API + app), giới hạn ngày nghỉ/lễ thành quy định
   công ty (`offDayLimitHours`, mặc định 12). Verify-all đầy đủ sau đó: TẤT CẢ ĐẠT (pgTAP 460, 18 smoke — overtime 28, build, lint).
 - 2026-10-29 — Claude (Desktop): phản hồi mobile mục 1 (splash nền sáng — sau đó trả lại), 2 (bánh xe chọn giờ + giờ chấm công ở form OT), 5 (vân tay/Touch ID theo hệ
