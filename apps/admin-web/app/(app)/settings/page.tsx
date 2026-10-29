@@ -197,7 +197,7 @@ function Setup() {
 
 /* ---------- Quy định ---------- */
 const fieldText = (kind: RuleKind, config: RuleConfig) => RULE_KINDS[kind].fields.map((f) => {
-  const v = config[f.key];
+  const v = config[f.key] ?? f.default;
   return f.type === "bool" ? `${f.label}: ${v ? "có" : "không"}` : `${f.label}: ${v} ${f.unit ?? ""}`.trim();
 });
 const ASSIGN_STATE: Record<PolicyAssignment["state"], [string, string]> = { active: ["Đang áp dụng", ""], scheduled: ["Sắp áp dụng", "info"], ended: ["Đã kết thúc", "muted"], cancelled: ["Đã hủy", "muted"] };
@@ -262,8 +262,8 @@ function RuleForm({ rule, kind: initialKind, onClose, onSaved }: { rule: RulePol
   const today = tenantToday(me.tenant.timezone);
   const base: RuleVersion | null = rule?.next ?? rule?.current ?? null;
   const [kind, setKind] = useState<RuleKind>(initialKind);
-  const defaults = (k: RuleKind): RuleConfig => Object.fromEntries(RULE_KINDS[k].fields.map((f) => [f.key, f.type === "bool" ? false : f.min ?? 0]));
-  const [config, setConfig] = useState<RuleConfig>(base?.config ?? defaults(initialKind));
+  const defaults = (k: RuleKind): RuleConfig => Object.fromEntries(RULE_KINDS[k].fields.map((f) => [f.key, f.default ?? (f.type === "bool" ? false : f.min ?? 0)]));
+  const [config, setConfig] = useState<RuleConfig>(base ? { ...defaults(initialKind), ...base.config } : defaults(initialKind));
   const [meta, setMeta] = useState({ code: "", name: "", effectiveFrom: rule ? today : today, note: "" });
   const [err, setErr] = useState<string | null>(null);
   const { busy, run } = useAction();

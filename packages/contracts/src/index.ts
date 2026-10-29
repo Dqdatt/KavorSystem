@@ -452,7 +452,8 @@ export type BrandingUpload = { contentType: string; dataBase64: string };
 
 /* Quy định nghiệp vụ có tầng/phiên bản. Mô tả trường dùng chung: web dựng form, API kiểm tra. */
 export type RuleKind = "explanation" | "salary_advance" | "reminder" | "leave" | "overtime";
-export type RuleField = { key: string; label: string; type: "int" | "bool"; min?: number; max?: number; unit?: string };
+/* default: dùng khi phiên bản quy định cũ chưa có trường này (trường thêm sau) */
+export type RuleField = { key: string; label: string; type: "int" | "bool"; min?: number; max?: number; unit?: string; default?: number | boolean };
 export const RULE_KINDS: Record<RuleKind, { label: string; description: string; fields: RuleField[] }> = {
   explanation: {
     label: "Giải trình công",
@@ -495,7 +496,8 @@ export const RULE_KINDS: Record<RuleKind, { label: string; description: string; 
       { key: "weekdayRate", label: "Hệ số ngày thường", type: "int", min: 150, max: 400, unit: "%" },
       { key: "weekendRate", label: "Hệ số ngày nghỉ hằng tuần", type: "int", min: 200, max: 500, unit: "%" },
       { key: "holidayRate", label: "Hệ số ngày lễ, Tết", type: "int", min: 300, max: 600, unit: "%" },
-      { key: "dailyLimitHours", label: "Tối đa mỗi ngày làm việc", type: "int", min: 0, max: 4, unit: "giờ (ngày nghỉ: tối đa 12 giờ)" },
+      { key: "dailyLimitHours", label: "Tối đa mỗi ngày làm việc", type: "int", min: 0, max: 4, unit: "giờ (luật: không quá 50% giờ làm bình thường)" },
+      { key: "offDayLimitHours", label: "Tối đa mỗi ngày nghỉ, lễ", type: "int", min: 0, max: 12, unit: "giờ (luật: tối đa 12 giờ)", default: 12 },
       { key: "monthlyLimitHours", label: "Tối đa mỗi tháng", type: "int", min: 0, max: 40, unit: "giờ" },
       { key: "yearlyLimitHours", label: "Tối đa mỗi năm", type: "int", min: 0, max: 300, unit: "giờ" },
       { key: "submitAfterDays", label: "Được đăng ký sau khi làm tối đa", type: "int", min: 0, max: 7, unit: "ngày" },
@@ -518,7 +520,7 @@ export function checkRuleConfig(kind: RuleKind, raw: unknown): { config: RuleCon
   const input = (raw && typeof raw === "object" && !Array.isArray(raw) ? raw : {}) as Record<string, unknown>;
   const config: RuleConfig = {}, problems: string[] = [];
   for (const f of spec.fields) {
-    const v = input[f.key];
+    const v = input[f.key] === undefined ? f.default : input[f.key];
     if (f.type === "bool") {
       if (typeof v !== "boolean") problems.push(`"${f.label}" phải là bật/tắt.`); else config[f.key] = v;
     } else if (typeof v !== "number" || !Number.isInteger(v) || v < (f.min ?? 0) || v > (f.max ?? 1e9)) {
@@ -914,7 +916,7 @@ export type MyDocuments = { items: MyDocument[] };
 export type OvertimePolicy = {
   name: string; versionNo: number;
   weekdayRate: number; weekendRate: number; holidayRate: number;
-  dailyLimitHours: number; monthlyLimitHours: number; yearlyLimitHours: number; submitAfterDays: number;
+  dailyLimitHours: number; offDayLimitHours: number; monthlyLimitHours: number; yearlyLimitHours: number; submitAfterDays: number;
 };
 export type OvertimeDay = {
   date: string; weekday: number; dayKind: OvertimeDayKind; holiday: string | null;

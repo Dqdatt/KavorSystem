@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Kiểm thử làm thêm giờ: quy định OT mẫu theo luật, loại ngày + hệ số, bước 30 phút, không trùng ca chính / đơn khác,
+# Kiểm thử làm thêm giờ: quy định OT mẫu theo luật, loại ngày + hệ số, bước 5 phút, không trùng ca chính / đơn khác,
 # giới hạn ngày/tháng (quy định tra theo ngày làm thêm), Quản lý → HR duyệt, bảng công có giờ OT, từ chối không tính giới hạn,
 # web HR tổng hợp theo tháng + phạm vi quản lý.
 # Cần DB vừa reset (bash tools/db-reset.sh) và API đang chạy (bash tools/dev-backend.sh).
@@ -25,7 +25,7 @@ need "Ngày làm việc $WD, ngày nghỉ $WE, $WE2" "$WE2"
 
 echo "— Kiểm tra đơn"
 check "Giờ kết thúc trước giờ bắt đầu → 400" "$(ots "$WD" 19:00 18:00)" 400
-check "Không theo bước 30 phút → 400" "$(ots "$WD" 17:00 17:45)" 400
+check "Không theo bước 5 phút → 400" "$(ots "$WD" 17:00 17:42)" 400
 check "Trùng giờ ca chính → 400" "$(ots "$WD" 16:00 18:00)" 400
 check "Quá hạn đăng ký bù → 400" "$(ots "$OLD" 18:00 19:00)" 400
 check "Quá 4 giờ trong ngày làm việc → 409" "$(ots "$WD" 17:00 21:30)" 409

@@ -33,10 +33,10 @@ Chi tiết bản tin: dòng người đăng + thời gian luôn căn trái (prot
 Android emulator 3 màn hiện vân tay.
 
 **Mục 1, 2, 7, 8 — đã làm 29/10:**
-- 1: splash gốc nền `#F9FBFA` + logo xanh (app.json + sửa trực tiếp `ios/` Images.xcassets/SplashScreen.storyboard và `android/` colors/drawable,
-  **không chạy prebuild**); lớp chuyển cảnh `splash.tsx` dùng đúng gradient màn đăng nhập. Ảnh chuỗi khởi động trên simulator: không còn nền xanh đặc.
-- 2: `TimeWheel` (src/ui.tsx) — cột giờ + phút vuốt chọn (OT bước 30 phút, giải trình bước 5 phút; phút lẻ hiện tại vẫn hiển thị đúng); form làm thêm
-  giờ có dòng "Chấm công ngày này: Vào … · Ra …" lấy từ bảng công (`/me/timesheet`), ngày tương lai "Chưa tới ngày".
+- 1: đã thử nền sáng nhưng người dùng chọn giữ **màn xanh gradient như cũ** + hiệu ứng chuyển sang màn chính (29/10) → trả lại bản cũ, mục 1 đóng.
+- 2: `TimeWheel` (src/ui.tsx) — cột giờ + phút vuốt chọn (bước 5 phút cho cả OT và giải trình — API OT nhận bội số 5 phút; phút lẻ hiện tại vẫn hiển thị đúng); form làm thêm
+  giờ có dòng "Chấm công ngày này: Vào … · Ra …" lấy từ bảng công (`/me/timesheet`), ngày tương lai "Chưa tới ngày". Giới hạn giờ/ngày lấy từ quy
+  định công ty: "Tối đa mỗi ngày làm việc" (0–4, trần luật) và trường mới "Tối đa mỗi ngày nghỉ, lễ" (0–12, mặc định 12) — trước đây 12 viết cứng.
 - 7: dải mint nối liền ngày đầu → ngày cuối (cả hai lịch mẫu/API), ngày nghỉ/lễ trong dải giữ ô mờ, hiện mờ dần.
 - 8: `src/help.ts` hướng dẫn theo màn (không có số nghiệp vụ cứng) + liên hệ phòng Nhân sự; ghi chú QA cũ chỉ hiện ở bản QA.
 - Kiểm: ảnh ghép leave-new-range/ot/explain (simulator), hướng dẫn "?" ở màn Làm thêm giờ. Bánh xe vuốt và splash cần xác nhận trên iPhone.

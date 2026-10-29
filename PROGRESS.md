@@ -424,7 +424,9 @@ ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AG
   PIN/Face ID, tối đa 5 MB, "Thiếu hồ sơ" = chưa có hợp đồng còn hiệu lực.
 
 ## Nhật ký
-- 2026-10-29 — Claude (Desktop): phản hồi mobile mục 1 (splash nền sáng), 2 (bánh xe chọn giờ + giờ chấm công ở form OT), 5 (vân tay/Touch ID theo hệ
+- 2026-10-29 — Claude (Desktop): splash trả về màn xanh gradient theo người dùng; OT bước 5 phút (API + app), giới hạn ngày nghỉ/lễ thành quy định
+  công ty (`offDayLimitHours`, mặc định 12). Smoke overtime đã sửa ca bước phút nhưng CHƯA chạy (cần reset DB — đang giữ tài khoản trên iPhone).
+- 2026-10-29 — Claude (Desktop): phản hồi mobile mục 1 (splash nền sáng — sau đó trả lại), 2 (bánh xe chọn giờ + giờ chấm công ở form OT), 5 (vân tay/Touch ID theo hệ
   điều hành), 6, 7 (dải ngày nghỉ), 8 (hướng dẫn sử dụng). Mobile typecheck, test 25 ca, ảnh simulator + Android emulator; cài iPhone chờ thử.
 - 2026-10-29 — Claude (Desktop): mã PIN thật + Face ID gọi thẳng hộp thoại hệ thống. Mobile typecheck, test mobile 25 ca (PIN 7). Người dùng thử PIN trên iPhone:
   ổn; Face ID gọi thẳng hộp thoại hệ thống: người dùng xác nhận đúng ý. verify-all --quick (không reset để giữ tài khoản trên iPhone); bản đầy đủ chạy lần trước TẤT CẢ ĐẠT.

@@ -1,6 +1,7 @@
 /* Làm thêm giờ (PILOT_RULEBOOK §8, US-043; BLLĐ 2019 Điều 98, 107; NĐ 145/2020 Điều 60–62):
    - Quy định OT tra theo tầng (kind 'overtime'): hệ số theo loại ngày, giới hạn giờ/ngày làm việc, /tháng, /năm, hạn đăng ký sau khi làm.
-   - Đơn OT: một khoảng giờ trong một ngày, bội số 30 phút; ngày làm việc không được trùng giờ ca chính; ngày nghỉ/lễ tối đa 12 giờ;
+   - Đơn OT: một khoảng giờ trong một ngày, bội số 5 phút; ngày làm việc không được trùng giờ ca chính; giới hạn giờ/ngày làm việc và
+     /ngày nghỉ-lễ do công ty đặt trong quy định (trần luật 4 và 12 giờ nằm ở ô nhập của web);
      giờ đang chờ + đã duyệt tính vào giới hạn (tháng/năm dương lịch). Hệ số chụp lại lúc gửi.
    - Web HR: tổng hợp OT theo tháng trong phạm vi overtime.read. Payroll đọc overtime_entries đã duyệt (module sau). */
 import type {
@@ -20,8 +21,8 @@ type Db = SupabaseGateway["admin"];
 type EntryRow = { employee_id: string; request_id: string; work_date: string; start_time: string; end_time: string; minutes: number; day_kind: OvertimeDayKind; requests: { request_no: string; status: RequestStatus } };
 const ENTRY_COLS = "employee_id, request_id, work_date, start_time, end_time, minutes, day_kind, requests!inner(request_no, status)";
 const ACTIVE: RequestStatus[] = ["pending", "approved"];
-/* Ngày nghỉ/lễ: tổng giờ làm trong ngày không quá 12 (NĐ 145/2020 Điều 60) */
-const OFF_DAY_LIMIT_MIN = 12 * 60;
+/* Bước giờ làm thêm (phản hồi người dùng 29/10: chọn phút theo bước 5) */
+const OT_STEP_MIN = 5;
 const AHEAD_DAYS = 30;
 const r1 = (n: number) => Math.round(n * 10) / 10;
 const hours = (min: number) => r1(min / 60);
@@ -33,7 +34,7 @@ export function overtimePolicy(rule: ResolvedRule | undefined): OvertimePolicy |
   return {
     name: rule.name, versionNo: rule.versionNo,
     weekdayRate: Number(c.weekdayRate ?? 150), weekendRate: Number(c.weekendRate ?? 200), holidayRate: Number(c.holidayRate ?? 300),
-    dailyLimitHours: Number(c.dailyLimitHours ?? 4), monthlyLimitHours: Number(c.monthlyLimitHours ?? 40), yearlyLimitHours: Number(c.yearlyLimitHours ?? 200),
+    dailyLimitHours: Number(c.dailyLimitHours ?? 4), offDayLimitHours: Number(c.offDayLimitHours ?? 12), monthlyLimitHours: Number(c.monthlyLimitHours ?? 40), yearlyLimitHours: Number(c.yearlyLimitHours ?? 200),
     submitAfterDays: Number(c.submitAfterDays ?? 1),
   };
 }
@@ -106,7 +107,7 @@ export class OvertimeService {
     const reason = req(b, "reason", { min: 3, max: 500, hint: "ghi công việc làm thêm" });
     const s = minutesOf(start), e = minutesOf(end), minutes = e - s;
     if (minutes <= 0) throw invalid("Giờ kết thúc phải sau giờ bắt đầu (OT qua nửa đêm: tách thành hai đơn).");
-    if (minutes % 30 || s % 30) throw invalid("Giờ làm thêm theo bước 30 phút (ví dụ 17:30–19:00).");
+    if (minutes % OT_STEP_MIN || s % OT_STEP_MIN) throw invalid(`Giờ làm thêm theo bước ${OT_STEP_MIN} phút (ví dụ 17:35–19:05).`);
 
     const [index, placements, emp] = await Promise.all([
       PolicyIndex.load(db, me.tenant_id), loadPlacements(db, me.tenant_id, clock.today, [me.id]),
@@ -127,7 +128,7 @@ export class OvertimeService {
     if (info.shift && s < minutesOf(info.shift.end) && e > minutesOf(info.shift.start)) throw invalid(`Trùng giờ ca chính (${info.shift.name} ${info.shift.start}–${info.shift.end}). OT là giờ ngoài ca.`);
     const { rows, usage } = await this.usage(db, me.tenant_id, me.id, day);
     const sameDay = rows.filter((r) => r.work_date === day).reduce((n, r) => n + r.minutes, 0);
-    const dayLimit = info.dayKind === "workday" ? policy.dailyLimitHours * 60 : OFF_DAY_LIMIT_MIN;
+    const dayLimit = (info.dayKind === "workday" ? policy.dailyLimitHours : policy.offDayLimitHours) * 60;
     if (sameDay + minutes > dayLimit) throw conflict(`Vượt giới hạn ${fmt(dayLimit / 60)} giờ làm thêm trong ${info.dayKind === "workday" ? "một ngày làm việc" : "một ngày nghỉ"} (đã đăng ký ${fmt(sameDay / 60)} giờ).`);
     const h = minutes / 60;
     if (usage.monthHours + h > policy.monthlyLimitHours) throw conflict(`Vượt giới hạn ${fmt(policy.monthlyLimitHours)} giờ làm thêm mỗi tháng (đã đăng ký ${fmt(usage.monthHours)} giờ trong tháng ${Number(day.slice(5, 7))}).`);

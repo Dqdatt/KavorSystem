@@ -338,7 +338,7 @@ function KavorApp() {
   const r = cur();
   return (
     <View style={styles.root}>
-      <StatusBar style={!splash && LIGHT.includes(r) ? "light" : "dark"} animated />
+      <StatusBar style={splash || LIGHT.includes(r) ? "light" : "dark"} animated />
       <BlurSource><Router /></BlurSource>
       <QuickMenu />
       <Dock visible={isNav(r)} />

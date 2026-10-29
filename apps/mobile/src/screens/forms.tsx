@@ -362,7 +362,7 @@ function remoteOtSpec(): ScreenSpec {
   const active = day.booked.filter((b) => b.status === "pending" || b.status === "approved");
   const overlap = active.some((b) => o.from < toM(b.end) && o.to > toM(b.start));
   const dayUsed = active.reduce((n, b) => n + (toM(b.end) - toM(b.start)) / 60, 0);
-  const dayLimit = day.dayKind === "workday" ? p.dailyLimitHours : 12;
+  const dayLimit = day.dayKind === "workday" ? p.dailyLimitHours : p.offDayLimitHours;
   const sameMonth = day.date.slice(0, 7) === D.usage.month;
   const overDay = dayUsed + h > dayLimit, overMonth = sameMonth && D.usage.monthHours + h > p.monthlyLimitHours;
   /* Giờ vào/ra thật của ngày đó để đối chiếu (phản hồi người dùng 26/10); lấy từ bảng công kỳ hiện tại */
@@ -379,8 +379,8 @@ function remoteOtSpec(): ScreenSpec {
         <Field label="Ngày"><Chips>{chips.map((x) => <Chip key={x.date} on={S.otDay === x.date} label={`${x.date === D.today ? "Hôm nay" : WD_ISO[x.weekday]} ${ddmm(x.date)}`} onPress={() => ACT.otDay(x.date)} />)}</Chips></Field>
         {day.holiday ? <T style={{ fontSize: 12.5, color: C.ink2, marginTop: -8 }}>{day.holiday} · ngày lễ</T> : null}
         <View style={{ flexDirection: "row", gap: 12 }}>
-          <View style={{ flex: 1 }}><Field label="Từ"><TimeWheel label="Giờ bắt đầu" value={o.from} step={30} onChange={(m) => ACT.otSet("from", m)} /></Field></View>
-          <View style={{ flex: 1 }}><Field label="Đến"><TimeWheel label="Giờ kết thúc" value={o.to} step={30} onChange={(m) => ACT.otSet("to", m)} /></Field></View>
+          <View style={{ flex: 1 }}><Field label="Từ"><TimeWheel label="Giờ bắt đầu" value={o.from} step={5} onChange={(m) => ACT.otSet("from", m)} /></Field></View>
+          <View style={{ flex: 1 }}><Field label="Đến"><TimeWheel label="Giờ kết thúc" value={o.to} step={5} onChange={(m) => ACT.otSet("to", m)} /></Field></View>
         </View>
         {err ? <ErrLine>{err}</ErrLine> : null}
         <Card>
@@ -409,8 +409,8 @@ export function otSpec(): ScreenSpec {
       <Form key="f">
         <Field label="Ngày"><Chips>{dates.map((d) => <Chip key={d} on={o.date === d} label={`${WD[wdOct(d)]} ${pad(d)}/10`} onPress={() => ACT.otDate(d)} />)}</Chips></Field>
         <View style={{ flexDirection: "row", gap: 12 }}>
-          <View style={{ flex: 1 }}><Field label="Từ"><TimeWheel label="Giờ bắt đầu" value={o.from} step={30} onChange={(m) => ACT.otSet("from", m)} /></Field></View>
-          <View style={{ flex: 1 }}><Field label="Đến"><TimeWheel label="Giờ kết thúc" value={o.to} step={30} onChange={(m) => ACT.otSet("to", m)} /></Field></View>
+          <View style={{ flex: 1 }}><Field label="Từ"><TimeWheel label="Giờ bắt đầu" value={o.from} step={5} onChange={(m) => ACT.otSet("from", m)} /></Field></View>
+          <View style={{ flex: 1 }}><Field label="Đến"><TimeWheel label="Giờ kết thúc" value={o.to} step={5} onChange={(m) => ACT.otSet("to", m)} /></Field></View>
         </View>
         {clash ? <ErrLine>Trùng giờ ca chính. {S.sh.name} kết thúc {hm(S.sh.end * 60)}.</ErrLine> : null}
         <Card><InfoRow k="Chấm công ngày này" v={o.date > 16 ? "Chưa tới ngày" : S.clockIn ? `Vào ${hm(S.clockIn)} · Ra ${S.clockOut ? hm(S.clockOut) : "--:--"}` : "Chưa chấm công"} strong /><InfoRow k="Tổng giờ" v={dec(h) + " giờ"} strong /><InfoRow k="Hệ số" v="150% · ngày thường" strong /><InfoRow k="Người duyệt" v="Lê Quang Huy" strong /></Card>
