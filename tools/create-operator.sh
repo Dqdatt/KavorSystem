@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Tạo tài khoản nhân viên Kavor cho Kavor Console (Supabase local). Không có màn hình cho việc này: người vận hành đầu tiên
-# phải được tạo bằng dòng lệnh, có quyền service role.
-#   OPERATOR_PASSWORD='…' bash tools/create-operator.sh email@kavor.vn "Họ tên" [platform_operator|platform_support]
+# Tạo tài khoản nhân viên Kavor cho Kavor Console (Supabase local) bằng service role — dùng cho smoke script.
+# Người dùng thật không cần: quản trị viên đầu tiên tự kích hoạt bằng admin@kavor.test, người khác được mời ở Console → Nhân viên Kavor.
+#   OPERATOR_PASSWORD='…' bash tools/create-operator.sh email@kavor.vn "Họ tên" [platform_admin|platform_operator|platform_support]
 # Mật khẩu đọc từ biến môi trường, không ghi ra file. Lần đầu đăng nhập Console sẽ phải liên kết ứng dụng xác thực.
 set -euo pipefail
 cd "$(dirname "$0")/.."

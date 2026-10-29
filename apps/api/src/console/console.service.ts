@@ -5,7 +5,7 @@ import type {
   AccountStatus, ConsoleAuditEntry, ConsoleOverview, ConsoleTenant, ConsoleTenantDetail, OwnerRecovery, PlanCode, PlatformPlan, RecoveryKind, RecoveryStatus,
   TenantAdminInfo, TenantCreateResult, TenantStatus, TenantStatusAction,
 } from "@kavor/contracts";
-import { NEAR_LIMIT_RATIO } from "@kavor/contracts";
+import { NEAR_LIMIT_RATIO, canOperate } from "@kavor/contracts";
 import { AuthError } from "../auth/auth.service.js";
 import type { SupabaseGateway } from "../auth/supabase.js";
 import { conflict, forbidden, invalid, notFound } from "../admin/context.js";
@@ -108,7 +108,7 @@ export class ConsoleService {
 
   /* Đổi gói + giới hạn nhân sự. Giảm dưới số đang dùng vẫn được (chỉ chặn thêm mới), web Console cảnh báo trước */
   async changePlan(ctx: ConsoleContext, id: string, b: Body): Promise<ConsoleTenantDetail> {
-    if (ctx.operator.role !== "platform_operator") throw forbidden("Chỉ nhân viên vận hành nền tảng được đổi gói dịch vụ.");
+    if (!canOperate(ctx.operator.role)) throw forbidden("Chỉ nhân viên vận hành nền tảng được đổi gói dịch vụ.");
     const t = await this.tenantRow(ctx, id);
     if (t.status === "closed") throw conflict("Doanh nghiệp đã đóng.");
     const plan = oneOf(b, "plan", PLANS)!;
@@ -123,7 +123,7 @@ export class ConsoleService {
 
   /* Tạm khóa / mở lại / đóng. Người dùng tenant bị chặn ở API + RLS khi tenant không hoạt động; đóng là trạng thái cuối */
   async changeStatus(ctx: ConsoleContext, id: string, b: Body): Promise<ConsoleTenantDetail> {
-    if (ctx.operator.role !== "platform_operator") throw forbidden("Chỉ nhân viên vận hành nền tảng được khóa hoặc đóng doanh nghiệp.");
+    if (!canOperate(ctx.operator.role)) throw forbidden("Chỉ nhân viên vận hành nền tảng được khóa hoặc đóng doanh nghiệp.");
     const t = await this.tenantRow(ctx, id);
     const action = oneOf(b, "action", STATUS_ACTIONS)!;
     const reason = req(b, "reason", { min: 5, max: 500, hint: "ít nhất 5 ký tự" });
@@ -183,7 +183,7 @@ export class ConsoleService {
 
   /* Tạo tenant + bộ mẫu theo luật Việt Nam + hồ sơ Tenant Admin đầu tiên (một transaction), rồi gửi thư mời */
   async createTenant(ctx: ConsoleContext, b: Body): Promise<TenantCreateResult> {
-    if (ctx.operator.role !== "platform_operator") throw forbidden("Chỉ nhân viên vận hành nền tảng được tạo doanh nghiệp.");
+    if (!canOperate(ctx.operator.role)) throw forbidden("Chỉ nhân viên vận hành nền tảng được tạo doanh nghiệp.");
     const code = req(b, "code", { max: 20 }).toUpperCase();
     if (!CODE.test(code)) throw invalid("Mã doanh nghiệp 3–20 ký tự: chữ in hoa, số, dấu gạch (ví dụ ANP-002).");
     const name = req(b, "name", { min: 2, max: 120 });
@@ -303,7 +303,7 @@ export class ConsoleService {
       if (r.requested_by !== ctx.userId) throw forbidden("Chỉ người tạo yêu cầu được hủy.");
     } else {
       if (r.requested_by === ctx.userId) throw forbidden("Cần một nhân viên Kavor khác duyệt hoặc từ chối yêu cầu này.");
-      if (ctx.operator.role !== "platform_operator") throw forbidden("Chỉ nhân viên vận hành nền tảng được duyệt khôi phục quyền.");
+      if (!canOperate(ctx.operator.role)) throw forbidden("Chỉ nhân viên vận hành nền tảng được duyệt khôi phục quyền.");
       if (action === "reject" && (!note || note.length < 5)) throw invalid("Ghi lý do từ chối (ít nhất 5 ký tự).");
     }
     if (action === "approve" && r.expires_at < new Date().toISOString()) throw conflict("Yêu cầu đã quá 24 giờ. Tạo yêu cầu mới sau khi xác minh lại.");

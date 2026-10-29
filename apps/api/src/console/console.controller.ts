@@ -9,9 +9,10 @@ import { EMAIL, req, type Body as Json } from "../admin/validate.js";
 import { operatorOf, resolveConsole, type ConsoleContext } from "./context.js";
 import type { ConsoleService } from "./console.service.js";
 import type { SupportService } from "../support/support.service.js";
+import type { OperatorsService } from "./operators.service.js";
 
 export const CONSOLE_SERVICES = Symbol("CONSOLE_SERVICES");
-export type ConsoleServices = { console: ConsoleService; mfa: MfaAdmin; support: SupportService };
+export type ConsoleServices = { console: ConsoleService; mfa: MfaAdmin; support: SupportService; operators: OperatorsService };
 
 function bearer(header?: string): string {
   const m = /^Bearer\s+(.+)$/i.exec(header ?? "");
@@ -24,6 +25,7 @@ const toSession = (s: Session): AuthSession => ({ accessToken: s.access_token, r
 @Controller("console")
 export class ConsoleController {
   private readonly loginLimiter = new RateLimiter(5, 5 * 60_000);
+  private readonly otpLimiter = new RateLimiter(5, 15 * 60_000);
 
   constructor(
     @Inject(SupabaseGateway) private readonly sb: SupabaseGateway | null,
@@ -88,6 +90,14 @@ export class ConsoleController {
     return this.envelope(r, async (sb) => { await sb.admin.auth.admin.signOut(bearer(a), "local").catch(() => undefined); return { ok: true }; });
   }
 
+  /* Kích hoạt (người được mời, quản trị viên đầu tiên) hoặc quên mật khẩu: mã OTP qua email rồi đặt mật khẩu */
+  @Post("auth/password/start") @HttpCode(200)
+  passwordStart(@Req() r: CorrelatedRequest, @Body() b: Json) { return this.envelope(r, (_sb, svc) => svc.operators.startPassword(b)); }
+  @Post("auth/password/verify") @HttpCode(200)
+  passwordVerify(@Req() r: CorrelatedRequest, @Body() b: Json) {
+    return this.envelope(r, (_sb, svc, cid) => this.otpLimiter.guard(`console-otp:${r.ip}:${String(b?.email ?? "").toLowerCase()}`, () => svc.operators.verifyPassword(b, cid)));
+  }
+
   @Get("mfa")
   mfa(@Req() r: CorrelatedRequest, @Headers("authorization") a?: string) { return this.run(r, a, (s, c) => s.mfa.status(c), { mfaStep: true }); }
   @Post("mfa/enroll") @HttpCode(200)
@@ -139,6 +149,24 @@ export class ConsoleController {
   supportClose(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string) { return this.run(r, a, (s, c) => s.support.close(c, id)); }
   @Get("support/:id/view/:scope")
   supportView(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string, @Param("scope") scope: string) { return this.run(r, a, (s, c) => s.support.view(c, id, scope)); }
+
+  /* ---------- Nhân viên Kavor (quản trị viên Console) ---------- */
+  @Get("operators")
+  operators(@Req() r: CorrelatedRequest, @Headers("authorization") a?: string) { return this.run(r, a, (s, c) => s.operators.list(c)); }
+  @Post("operators/invites") @HttpCode(201)
+  operatorInvite(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Body() b: Json) { return this.run(r, a, (s, c) => s.operators.invite(c, b)); }
+  @Post("operators/invites/:id/:action") @HttpCode(200)
+  operatorInviteAction(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string, @Param("action") action: string) {
+    return this.run(r, a, (s, c) => {
+      if (action === "resend") return s.operators.resend(c, id);
+      if (action === "revoke") return s.operators.revoke(c, id);
+      throw new AuthError("NOT_FOUND", "Không tìm thấy.", 404);
+    });
+  }
+  @Post("operators/:userId") @HttpCode(200)
+  operatorUpdate(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("userId") id: string, @Body() b: Json) { return this.run(r, a, (s, c) => s.operators.update(c, id, b)); }
+  @Post("operators/:userId/reset-mfa") @HttpCode(200)
+  operatorResetMfa(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("userId") id: string, @Body() b: Json) { return this.run(r, a, (s, c) => s.operators.resetMfa(c, id, b)); }
 
   @Get("audit")
   audit(@Req() r: CorrelatedRequest, @Headers("authorization") a?: string) { return this.run(r, a, (s, c) => s.console.audit(c)); }

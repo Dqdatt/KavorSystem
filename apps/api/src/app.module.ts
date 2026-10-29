@@ -20,6 +20,7 @@ import { BrandingStore } from "./company/branding.js";
 import { CompanyService } from "./company/company.service.js";
 import { CompanyController, COMPANY_SERVICE } from "./company/company.controller.js";
 import { ConsoleController, CONSOLE_SERVICES } from "./console/console.controller.js";
+import { OperatorsService } from "./console/operators.service.js";
 import { ConsoleService } from "./console/console.service.js";
 import { SupportService } from "./support/support.service.js";
 import { OrgAdmin } from "./admin/org.service.js";
@@ -62,7 +63,8 @@ import type { TimesheetServices } from "./timesheet/timesheet.controller.js";
       useFactory: (sb: SupabaseGateway | null) => {
         if (!sb) return null;
         const c = loadConfig();
-        return { console: new ConsoleService(sb, new Mailer(c.mail), c.adminWebUrl), mfa: new MfaAdmin(sb), support: new SupportService(sb) };
+        const mailer = new Mailer(c.mail);
+        return { console: new ConsoleService(sb, mailer, c.adminWebUrl), mfa: new MfaAdmin(sb), support: new SupportService(sb), operators: new OperatorsService(sb, mailer, c.consoleWebUrl, c.consoleBootstrap) };
       },
     },
     { provide: BrandingStore, inject: [SupabaseGateway], useFactory: (sb: SupabaseGateway | null) => (sb ? new BrandingStore(sb) : null) },

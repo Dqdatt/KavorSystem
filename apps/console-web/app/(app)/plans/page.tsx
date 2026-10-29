@@ -2,7 +2,7 @@
 /* Gói dịch vụ: bám page-subscriptions (thẻ gói) + bảng "Tenant gần giới hạn" của page-usage trong Kavor Console Prototype.html.
    Chưa có giá, tính năng theo gói, tạo/sửa gói (prototype có "Tạo gói"/"Chỉnh sửa") — gói do Kavor duy trì trong DB. */
 import { useState } from "react";
-import type { ConsoleTenant, PlatformPlan } from "@kavor/contracts";
+import { canOperate, type ConsoleTenant, type PlatformPlan } from "@kavor/contracts";
 import { useApi } from "../../_lib/client";
 import { Empty, LoadError, Person, Status, num, useMe } from "../../_ui/kit";
 import { PLAN, TSTATUS } from "../../_ui/labels";
@@ -38,7 +38,7 @@ export default function Plans() {
                 <td><Person name={t.name} seed={t.code} sub={t.code} /></td><td>{PLAN[t.plan]}</td>
                 <td className="num">{num(t.employees)}</td><td className="num">{num(t.employeeLimit)}</td>
                 <td className={`num ${usageTone(t)}`}><b>{Math.round((t.employees / t.employeeLimit) * 100)}%</b></td><td><Status v={TSTATUS[t.status]} /></td>
-                <td>{me.role === "platform_operator" ? <button className="btn small" onClick={() => setEdit(t)}>Đổi gói</button> : null}</td>
+                <td>{canOperate(me.role) ? <button className="btn small" onClick={() => setEdit(t)}>Đổi gói</button> : null}</td>
               </tr>
             ))}
           </tbody></table></div>

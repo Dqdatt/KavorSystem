@@ -21,6 +21,7 @@ echo
 echo "API:      http://$IP:4000/api/v1   (build app với EXPO_PUBLIC_API_URL=http://$IP:4000/api/v1)"
 echo "Web HR/Admin: pnpm dev:admin → http://localhost:3000"
 echo "Hộp thư OTP (Mailpit): http://127.0.0.1:55324"
+echo "Kavor Console: pnpm dev:console → http://localhost:3001 — quản trị viên đầu tiên: Kích hoạt tài khoản bằng admin@kavor.test"
 echo "Tài khoản mẫu: nhân viên HD0142 · thao.ha@haidang.vn — HR Admin HD0007 · thao.mai@haidang.vn (kích hoạt trên web)"
 echo
 cd apps/api

@@ -10,6 +10,12 @@ simulator hay iPhone** vì phiên cloud không có Mac). Người dùng giao "c�
 ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AGENT_PLAYBOOK.md`; kiểm tra toàn bộ bằng `bash tools/verify-all.sh`.
 
 ## Đã xong
+- Quản trị Kavor Console không cần chạy lệnh (29/10, Claude Desktop): vai trò `platform_admin` (Quản trị Console); quản trị viên đầu tiên tự kích hoạt
+  bằng email `CONSOLE_BOOTSTRAP_EMAIL` (dev `admin@kavor.test`) khi nền tảng chưa có quản trị viên — OTP email + mật khẩu + TOTP; trang **Hệ thống →
+  Nhân viên Kavor**: mời (thư Mailpit, hết hạn 7 ngày, gửi lại/thu hồi), đổi vai trò, khóa/mở khóa (chặn ngay phiên đang mở), đặt lại xác thực hai lớp;
+  không tự thao tác lên mình; DB giữ ít nhất một quản trị viên. Màn đăng nhập Console thêm "Kích hoạt tài khoản / Quên mật khẩu" (không lộ email nào là
+  nhân viên Kavor). Migration `202611090001_platform_admin.sql`, pgTAP 11 (tổng 471), smoke `tools/operators-smoke.sh` (46 bước), đã thử trên trình duyệt
+  (kích hoạt admin@kavor.test → QR → mời ops). Bộ test case thử tay chi tiết cho một công ty mới: `docs/TEST_CASES.md`.
 - Mã PIN thật trên app (29/10, Claude Desktop; phản hồi mobile mục 3 — trước đây nhập 6 số bất kỳ cũng mở được lương): `apps/mobile/src/pin.ts` lưu muối +
   SHA-256 trong Keychain theo mã nhân viên; lần đầu phải tạo PIN (2 lần, chặn PIN yếu), sai 5 lần xóa PIN + đăng xuất, quên PIN = đăng xuất, đổi PIN ở Bảo
   mật và thiết bị. Mục 4: Face ID trong sheet PIN gọi thẳng hộp thoại hệ thống. Test Node `tools/pin-mobile-test.mjs` (7 ca). Người dùng đã thử PIN trên

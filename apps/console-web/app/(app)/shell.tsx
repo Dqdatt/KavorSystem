@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, type ReactNode } from "react";
-import type { OperatorMe } from "@kavor/contracts";
+import { OPERATOR_ROLES, type OperatorMe } from "@kavor/contracts";
 import { ThemeToggle } from "@kavor/web-ui";
 import { Icon, MeContext, ToastProvider, initials, longDate, tenantToday } from "../_ui/kit";
 
@@ -14,8 +14,9 @@ const NAV: Array<{ label?: string; items: NavItem[] }> = [
   { label: "Khách hàng", items: [{ href: "/tenants", label: "Doanh nghiệp", icon: "building" }, { href: "/plans", label: "Gói dịch vụ", icon: "card" }] },
   { label: "An toàn", items: [{ href: "/support", label: "Quyền hỗ trợ", icon: "lock" }, { href: "/recoveries", label: "Khôi phục chủ sở hữu", icon: "key" }, { href: "/audit", label: "Nhật ký hoạt động", icon: "log" }] },
 ];
-const TITLES: Record<string, string> = { "/": "Tổng quan nền tảng", "/tenants": "Doanh nghiệp", "/plans": "Gói dịch vụ", "/support": "Quyền hỗ trợ", "/recoveries": "Khôi phục chủ sở hữu", "/audit": "Nhật ký hoạt động" };
-const ROLE: Record<OperatorMe["role"], string> = { platform_operator: "Vận hành nền tảng", platform_support: "Hỗ trợ Kavor" };
+/* Chỉ quản trị viên Console thấy (API cũng chặn người khác) */
+const ADMIN_NAV = { label: "Hệ thống", items: [{ href: "/operators", label: "Nhân viên Kavor", icon: "users" }] };
+const TITLES: Record<string, string> = { "/": "Tổng quan nền tảng", "/tenants": "Doanh nghiệp", "/plans": "Gói dịch vụ", "/support": "Quyền hỗ trợ", "/recoveries": "Khôi phục chủ sở hữu", "/audit": "Nhật ký hoạt động", "/operators": "Nhân viên Kavor" };
 
 export function Shell({ me, children }: { me: OperatorMe; children: ReactNode }) {
   const path = usePathname();
@@ -38,7 +39,7 @@ export function Shell({ me, children }: { me: OperatorMe; children: ReactNode })
               <span className="brand-copy"><b>Kavor</b><small>Bảng điều khiển</small></span>
               <button className="collapse-btn" onClick={() => setMenu(false)} aria-label="Đóng menu">‹</button>
             </div>
-            {NAV.map((g, i) => (
+            {(me.role === "platform_admin" ? [...NAV, ADMIN_NAV] : NAV).map((g, i) => (
               <div key={i}>
                 {g.label ? <div className="nav-label">{g.label}</div> : null}
                 {g.items.map((it) => (
@@ -53,7 +54,7 @@ export function Shell({ me, children }: { me: OperatorMe; children: ReactNode })
             <button className="nav-item" onClick={logout}><span className="nav-icon"><Icon name="logout" /></span><span className="nav-text">Đăng xuất</span></button>
             <div className="sidebar-user" title={me.email}>
               <span className="avatar purple">{initials(me.fullName)}</span>
-              <span className="user-copy"><b>{me.fullName}</b><span>{ROLE[me.role]}</span></span>
+              <span className="user-copy"><b>{me.fullName}</b><span>{OPERATOR_ROLES[me.role].label}</span></span>
             </div>
           </aside>
 

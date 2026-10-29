@@ -3,7 +3,7 @@
    Thêm (thiết kế bổ sung): họ tên + tên pháp lý khi tạo, danh sách Tenant Admin, khôi phục chủ sở hữu, audit Kavor trên tenant. */
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import type { ConsoleTenant, ConsoleTenantDetail, PlanCode, RecoveryKind, TenantCreateResult, TenantStatusAction } from "@kavor/contracts";
+import { canOperate, type ConsoleTenant, type ConsoleTenantDetail, type PlanCode, type RecoveryKind, type TenantCreateResult, type TenantStatusAction } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
 import { ACCOUNT, Drawer, Empty, ErrorLine, Field, Icon, LoadError, Modal, Person, Status, ago, fmtDate, fmtDateTime, num, useAction, useMe, useToast } from "../../_ui/kit";
 import { DecideModal, KIND, RSTATUS, RecoveryForm } from "../../_ui/recovery";
@@ -123,12 +123,12 @@ function TenantDrawer({ id, onClose, onChanged }: { id: string; onClose: () => v
           <div className="banner bad" style={{ marginTop: 14 }}><span className="banner-icon"><Icon name="alert" /></span>
             <span className="banner-copy"><b>{TSTATUS[t.status][0]} từ {fmtDateTime(t.statusChangedAt, t.timezone)}</b><span>{t.statusReason}</span></span></div>
         ) : null}
-        <div className="card" style={{ marginTop: 14 }}><div className="card-head"><div><h3>Gói dịch vụ và trạng thái</h3><p>{me.role === "platform_operator" ? "Mọi thay đổi cần lý do và công ty thấy trong nhật ký" : "Chỉ nhân viên vận hành nền tảng được thay đổi"}</p></div></div>
+        <div className="card" style={{ marginTop: 14 }}><div className="card-head"><div><h3>Gói dịch vụ và trạng thái</h3><p>{canOperate(me.role) ? "Mọi thay đổi cần lý do và công ty thấy trong nhật ký" : "Chỉ nhân viên vận hành nền tảng được thay đổi"}</p></div></div>
           <div className="detail-list">
             <div className="detail-row"><span>Gói</span><b>{PLAN[t.plan]} · tối đa {num(t.employeeLimit)} nhân sự</b></div>
             <div className="detail-row"><span>Trạng thái</span><b><Status v={TSTATUS[t.status]} /></b></div>
           </div>
-          {me.role === "platform_operator" && t.status !== "closed" ? (
+          {canOperate(me.role) && t.status !== "closed" ? (
             <div className="card-body row-actions" style={{ justifyContent: "flex-start", paddingTop: 0 }}>
               <button className="btn small" onClick={() => setPlanning(true)}><Icon name="card" /> Đổi gói</button>
               {t.status === "suspended"

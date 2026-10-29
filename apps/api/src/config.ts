@@ -12,6 +12,11 @@ export type AppConfig = {
   mail: { smtpUrl: string; from: string } | null;
   /* Địa chỉ web HR/Admin ghi trong thư mời Tenant Admin (Kavor Console) */
   adminWebUrl: string;
+  /* Địa chỉ Kavor Console ghi trong thư mời nhân viên Kavor */
+  consoleWebUrl: string;
+  /* Email được tự kích hoạt làm quản trị viên Console đầu tiên khi nền tảng chưa có quản trị viên nào (không cần chạy lệnh).
+     Dev/test mặc định admin@kavor.test; staging/production phải đặt CONSOLE_BOOTSTRAP_EMAIL nếu muốn bật. */
+  consoleBootstrap: { email: string; fullName: string } | null;
 };
 
 type Source = Record<string, string | undefined>;
@@ -75,6 +80,13 @@ export function loadConfig(source: Source = process.env): AppConfig {
   const adminWebUrl = (get("ADMIN_WEB_URL") ?? "http://localhost:3000").replace(/\/+$/, "");
   try { new URL(adminWebUrl); } catch { problems.push(`ADMIN_WEB_URL không phải URL hợp lệ: "${adminWebUrl}"`); }
 
+  const consoleWebUrl = (get("CONSOLE_WEB_URL") ?? "http://localhost:3001").replace(/\/+$/, "");
+  try { new URL(consoleWebUrl); } catch { problems.push(`CONSOLE_WEB_URL không phải URL hợp lệ: "${consoleWebUrl}"`); }
+
+  const bootstrapEmail = (get("CONSOLE_BOOTSTRAP_EMAIL") ?? (required ? undefined : "admin@kavor.test"))?.toLowerCase();
+  if (bootstrapEmail && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(bootstrapEmail)) problems.push(`CONSOLE_BOOTSTRAP_EMAIL không phải email hợp lệ: "${bootstrapEmail}"`);
+  const consoleBootstrap = bootstrapEmail ? { email: bootstrapEmail, fullName: get("CONSOLE_BOOTSTRAP_NAME") ?? "Quản trị Kavor" } : null;
+
   if (problems.length) throw new ConfigError(problems);
-  return { env, port, corsOrigins, supabase, mail, adminWebUrl };
+  return { env, port, corsOrigins, supabase, mail, adminWebUrl, consoleWebUrl, consoleBootstrap };
 }

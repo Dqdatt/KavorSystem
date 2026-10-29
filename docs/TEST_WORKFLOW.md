@@ -1,14 +1,16 @@
 # Thử Kavor như một quy trình thật: Kavor Console → HR → nhân viên (bản dev trên Mac)
 
+Bộ test case chi tiết từng bước (kèm kết quả mong đợi, cột ghi kết quả): `docs/TEST_CASES.md`.
+
 Mục đích: người dùng tự đi trọn một vòng như khách hàng thật, bắt đầu từ một **doanh nghiệp mới tạo trên Console** (không dùng dữ liệu mẫu Hải Đăng).
 Chuẩn bị (agent làm trước khi giao): `bash tools/db-reset.sh`, `pnpm dev:backend`, `pnpm dev:admin` (http://localhost:3000), `pnpm dev:console`
 (http://localhost:3001), Mailpit http://127.0.0.1:55324 (mọi thư/OTP nằm ở đây — chưa có SMTP thật), app trên iPhone build với
 `EXPO_PUBLIC_API_URL=http://<IP LAN Mac>:4000/api/v1`, iPhone cùng Wi-Fi với Mac. Ghi lại mọi chỗ vướng/khó hiểu để sửa.
 
 ## A. Kavor Console — nhân viên Kavor tạo khách hàng
-1. Tạo tài khoản nhân viên Kavor (chạy trên Mac, mật khẩu tự chọn, ≥ 10 ký tự):
-   `OPERATOR_PASSWORD='<mật khẩu>' bash tools/create-operator.sh <email>@kavor.test "<Họ tên>"`
-2. Mở http://localhost:3001 → đăng nhập → quét mã QR bằng ứng dụng xác thực (Google Authenticator…) → nhập mã 6 số.
+1. Mở http://localhost:3001 → **Kích hoạt tài khoản / Quên mật khẩu** → email `admin@kavor.test` → mã OTP (Mailpit) → đặt mật khẩu.
+   Đây là quản trị viên Console đầu tiên, luôn có sau mỗi lần reset DB (không chạy lệnh). Mời thêm nhân viên Kavor ở **Hệ thống → Nhân viên Kavor**.
+2. Quét mã QR bằng ứng dụng xác thực (Google Authenticator…) → nhập mã 6 số.
 3. **Doanh nghiệp → Tạo doanh nghiệp**: mã (vd. `TEST-001`), tên, tên pháp lý, gói Dùng thử, họ tên + email quản trị viên công ty
    (email bất kỳ, vd. `admin@test.vn` — thư mời rơi vào Mailpit). Kiểm: doanh nghiệp hiện trong danh sách, thư mời có trong Mailpit.
 

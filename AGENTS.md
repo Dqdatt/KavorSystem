@@ -70,7 +70,13 @@ pnpm build
 - Supabase mới không tự GRANT SELECT cho anon/authenticated: bảng mới phải tự `enable row level security` + policy + `grant select ... to authenticated`; ghi dữ liệu đi qua API (service role). Thêm test vào `supabase/tests/`.
 - Node cho Xcode đặt trong `apps/mobile/ios/.xcode.env.local` (`NODE_BINARY`); đổi Node thì cập nhật file này.
 - Backend dev: `pnpm dev:backend` (Supabase local + Mailpit + API; ghi `apps/admin-web/.env.local` cho web). Web HR/Admin: `pnpm dev:admin` → http://localhost:3000, HR Admin mẫu HD0007 · thao.mai@haidang.vn kích hoạt ngay trên trang đăng nhập (OTP ở Mailpit). Mobile dùng API thật khi build có `EXPO_PUBLIC_API_URL=http://<IP LAN Mac>:4000/api/v1`; không có biến này hoặc bật QA thì dùng dữ liệu mẫu. OTP xem ở Mailpit `http://127.0.0.1:55324`. Kiểm thử auth: `supabase db reset && bash tools/auth-smoke.sh`.
-- Kavor Console (`pnpm dev:console` → http://localhost:3001): nhân viên Kavor nằm ở `platform_operators`, tạo bằng `OPERATOR_PASSWORD='…' bash tools/create-operator.sh <email> "<Họ tên>"` (sau mỗi lần reset DB phải tạo lại); khôi phục chủ sở hữu cần hai người khác nhau. Cookie Console là `kc_*`, web HR là `kv_*` (cùng host localhost nên cookie không tách theo cổng). Kiểm thử: `bash tools/db-reset.sh && bash tools/console-smoke.sh`.
+- Kavor Console (`pnpm dev:console` → http://localhost:3001): nhân viên Kavor nằm ở `platform_operators` (vai trò `platform_admin` = Quản trị Console,
+  `platform_operator`, `platform_support`; kiểm quyền vận hành bằng `canOperate`). Quản trị viên đầu tiên **không cần lệnh**: khi chưa có `platform_admin`
+  đang hoạt động, email `CONSOLE_BOOTSTRAP_EMAIL` (dev mặc định `admin@kavor.test`; staging/production không có mặc định) tự kích hoạt ở "Kích hoạt tài
+  khoản / Quên mật khẩu" (OTP Mailpit) — sau mỗi lần reset DB làm lại bước này. Người khác được mời ở **Nhân viên Kavor** (lời mời 7 ngày, tự đặt mật khẩu
+  bằng OTP); DB luôn giữ ít nhất một Quản trị Console đang hoạt động (trigger). `tools/create-operator.sh` chỉ còn cho smoke. Khôi phục chủ sở hữu cần hai
+  người khác nhau. Cookie Console là `kc_*`, web HR là `kv_*` (cùng host localhost nên cookie không tách theo cổng). Kiểm thử:
+  `bash tools/db-reset.sh && bash tools/console-smoke.sh` và `bash tools/db-reset.sh && bash tools/operators-smoke.sh`.
 - Supabase Auth: signup công khai tắt; API tạo user bằng admin rồi gửi OTP (`shouldCreateUser:false`). Không dùng client admin để đăng nhập (supabase-js sẽ gắn token người dùng vào client) — dùng `authClient()` mới cho mỗi lần.
 - Bản đồ chọn vị trí chấm công (`apps/admin-web/app/_ui/location-map.tsx`, Leaflet): DNS nhà mạng VNPT trả NXDOMAIN cho mọi tên miền
   `openstreetmap.org` (tile + Nominatim) và CARTO bắt buộc API key → bản dev dùng `tile.openstreetmap.de` + Photon (komoot); đổi tile bằng

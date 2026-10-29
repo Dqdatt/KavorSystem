@@ -1,5 +1,5 @@
 /* Nhãn hiển thị dùng chung cho các trang Kavor Console */
-import type { ConsoleTenant, PlanCode, SupportStatus, TenantStatus } from "@kavor/contracts";
+import type { ConsoleTenant, OperatorInvite, PlanCode, SupportStatus, TenantStatus } from "@kavor/contracts";
 
 export const PLAN: Record<PlanCode, string> = { trial: "Dùng thử", starter: "Starter", growth: "Growth", enterprise: "Enterprise" };
 export const TSTATUS: Record<TenantStatus, [string, string]> = { active: ["Hoạt động", ""], provisioning: ["Đang khởi tạo", "info"], suspended: ["Tạm khóa", "bad"], closed: ["Đã đóng", "muted"] };
@@ -23,4 +23,8 @@ export const ACTION: Record<string, string> = {
   "support.requested": "Yêu cầu quyền hỗ trợ", "support.approved": "Doanh nghiệp duyệt quyền hỗ trợ", "support.rejected": "Doanh nghiệp từ chối quyền hỗ trợ",
   "support.revoked": "Doanh nghiệp thu hồi quyền hỗ trợ", "support.cancelled": "Hủy yêu cầu quyền hỗ trợ", "support.ended": "Kết thúc phiên hỗ trợ", "support.viewed": "Xem dữ liệu khi hỗ trợ",
   "tenant.plan_changed": "Đổi gói dịch vụ", "tenant.suspended": "Tạm khóa doanh nghiệp", "tenant.reactivated": "Mở lại doanh nghiệp", "tenant.closed": "Đóng doanh nghiệp",
+  "operator.bootstrapped": "Kích hoạt quản trị viên Console đầu tiên", "operator.invited": "Mời nhân viên Kavor", "operator.invite_resent": "Gửi lại thư mời nhân viên Kavor",
+  "operator.invite_revoked": "Thu hồi lời mời nhân viên Kavor", "operator.activated": "Nhân viên Kavor kích hoạt tài khoản", "operator.updated": "Đổi vai trò / trạng thái nhân viên Kavor",
+  "operator.mfa_reset": "Đặt lại xác thực hai lớp nhân viên Kavor", "console.password_reset": "Đặt lại mật khẩu Console",
 };
+export const ISTATUS: Record<OperatorInvite["status"], [string, string]> = { pending: ["Chờ kích hoạt", "info"], accepted: ["Đã kích hoạt", ""], revoked: ["Đã thu hồi", "muted"], expired: ["Hết hạn", "warn"] };

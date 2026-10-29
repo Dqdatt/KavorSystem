@@ -1,6 +1,7 @@
 "use client";
 /* Đăng nhập Kavor Console (thiết kế bổ sung theo phong cách prototype — prototype Console không có màn đăng nhập).
-   Chỉ nhân viên Kavor (tạo bằng tools/create-operator.sh). Sau mật khẩu luôn có bước xác thực hai lớp (TOTP). */
+   Chỉ nhân viên Kavor. Người được mời (và quản trị viên đầu tiên của nền tảng) tự đặt mật khẩu ở "Kích hoạt tài khoản / Quên mật khẩu"
+   bằng mã OTP gửi về email. Sau mật khẩu luôn có bước xác thực hai lớp (TOTP). */
 import { Suspense, useCallback, useEffect, useState, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ADMIN_ERRORS, type ApiEnvelope, type MfaEnrollment, type MfaStatus } from "@kavor/contracts";
@@ -18,7 +19,11 @@ const post = <T,>(url: string, body: unknown) => send<T>("POST", url, body);
 function LoginForm() {
   const router = useRouter();
   const params = useSearchParams();
-  const [mode, setMode] = useState<"login" | "mfa">(params.get("step") === "mfa" ? "mfa" : "login");
+  const [mode, setMode] = useState<"login" | "otp" | "mfa">(params.get("step") === "mfa" ? "mfa" : "login");
+  /* Bước kích hoạt / quên mật khẩu: null = nhập email, chuỗi = đã gửi mã tới địa chỉ (che bớt) */
+  const [sentTo, setSentTo] = useState<string | null>(null);
+  const [code, setCode] = useState("");
+  const [password2, setPassword2] = useState("");
   const [mfa, setMfa] = useState<{ factorId: string; enroll: MfaEnrollment | null } | null>(null);
   const [totp, setTotp] = useState("");
   const [identifier, setIdentifier] = useState("");
@@ -68,7 +73,45 @@ function LoginForm() {
               </div>
               {error ? <p className="text-red" style={{ fontSize: 12.5 }}>{error}</p> : null}
               <button className="btn primary block" style={{ marginTop: 16 }} disabled={busy}>{busy ? "Đang đăng nhập…" : "Đăng nhập"}</button>
+              <p className="muted" style={{ fontSize: 12.5, marginTop: 16, textAlign: "center" }}>
+                <a href="#" onClick={(e) => { e.preventDefault(); setMode("otp"); setSentTo(null); setCode(""); setPassword(""); setPassword2(""); setError(null); }}>Kích hoạt tài khoản / Quên mật khẩu</a>
+              </p>
             </form>
+          ) : mode === "otp" ? (
+            sentTo === null ? (
+              <form onSubmit={(e) => run(e, async () => {
+                const r = await post<{ destination: string | null }>("/api/auth/password", { step: "start", email: identifier });
+                setSentTo(r.destination ?? identifier);
+              })}>
+                <h2 style={{ margin: "0 0 4px", fontSize: 20 }}>Kích hoạt tài khoản / Quên mật khẩu</h2>
+                <p className="muted" style={{ margin: "0 0 18px", fontSize: 13 }}>Nhập email Kavor đã được mời (hoặc email quản trị viên đầu tiên). Kavor gửi mã OTP về email để bạn đặt mật khẩu.</p>
+                <div className="form-grid" style={{ gridTemplateColumns: "1fr" }}>
+                  <div className="field"><label htmlFor="oe">Email Kavor</label><input id="oe" type="email" autoComplete="username" value={identifier} onChange={(e) => setIdentifier(e.target.value)} required /></div>
+                </div>
+                {error ? <p className="text-red" style={{ fontSize: 12.5 }}>{error}</p> : null}
+                <button className="btn primary block" style={{ marginTop: 16 }} disabled={busy}>{busy ? "Đang gửi…" : "Gửi mã OTP"}</button>
+                <p className="muted" style={{ fontSize: 12.5, marginTop: 16, textAlign: "center" }}><a href="#" onClick={(e) => { e.preventDefault(); setMode("login"); setError(null); }}>Quay lại đăng nhập</a></p>
+              </form>
+            ) : (
+              <form onSubmit={(e) => run(e, async () => {
+                if (password !== password2) throw new Error("Hai lần nhập mật khẩu không khớp.");
+                await post("/api/auth/password", { step: "verify", email: identifier, code, password }); done();
+              })}>
+                <h2 style={{ margin: "0 0 4px", fontSize: 20 }}>Đặt mật khẩu</h2>
+                <p className="muted" style={{ margin: "0 0 18px", fontSize: 13 }}>Nếu {sentTo} là email nhân viên Kavor (đã được mời hoặc đang hoạt động), mã OTP 6 số đã được gửi tới. Mã hết hạn sau 10 phút.</p>
+                <div className="form-grid" style={{ gridTemplateColumns: "1fr" }}>
+                  <div className="field"><label htmlFor="oc">Mã OTP (6 số)</label><input id="oc" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))} autoFocus required /></div>
+                  <div className="field"><label htmlFor="np">Mật khẩu mới</label><input id="np" type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} required /></div>
+                  <div className="field"><label htmlFor="np2">Nhập lại mật khẩu</label><input id="np2" type="password" autoComplete="new-password" value={password2} onChange={(e) => setPassword2(e.target.value)} required /></div>
+                </div>
+                <p className="muted" style={{ fontSize: 12, margin: "8px 0 0" }}>Ít nhất 8 ký tự, có chữ hoa, chữ thường và số.</p>
+                {error ? <p className="text-red" style={{ fontSize: 12.5 }}>{error}</p> : null}
+                <button className="btn primary block" style={{ marginTop: 16 }} disabled={busy || code.length !== 6}>{busy ? "Đang lưu…" : "Đặt mật khẩu và đăng nhập"}</button>
+                <p className="muted" style={{ fontSize: 12.5, marginTop: 16, textAlign: "center" }}>
+                  <a href="#" onClick={(e) => { e.preventDefault(); setSentTo(null); setCode(""); setError(null); }}>Gửi lại mã / đổi email</a> · <a href="#" onClick={(e) => { e.preventDefault(); setMode("login"); setError(null); }}>Quay lại đăng nhập</a>
+                </p>
+              </form>
+            )
           ) : (
             <form onSubmit={(e) => run(e, async () => {
               if (!mfa) return;
@@ -90,7 +133,7 @@ function LoginForm() {
               {error ? <p className="text-red" style={{ fontSize: 12.5 }}>{error}</p> : null}
               <button className="btn primary block" style={{ marginTop: 16 }} disabled={busy || !mfa || totp.length !== 6}>{busy ? "Đang kiểm tra…" : "Xác nhận"}</button>
               <p className="muted" style={{ fontSize: 12.5, marginTop: 16, textAlign: "center" }}>
-                Mất điện thoại? Báo người phụ trách hạ tầng Kavor đặt lại (cần quyền service role). · <a href="/login?switch=1">Đăng nhập tài khoản khác</a>
+                Mất điện thoại? Nhờ quản trị viên Kavor Console đặt lại xác thực hai lớp. · <a href="/login?switch=1">Đăng nhập tài khoản khác</a>
               </p>
             </form>
           )}

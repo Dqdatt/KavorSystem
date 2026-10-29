@@ -576,7 +576,28 @@ export type MyCompany = {
 };
 
 /* ---------- Kavor Console (nhân viên Kavor vận hành nền tảng) ---------- */
-export type OperatorRole = "platform_operator" | "platform_support";
+/* platform_admin: mọi việc của platform_operator + quản lý nhân viên Kavor; platform_support: chỉ xem, yêu cầu quyền hỗ trợ */
+export type OperatorRole = "platform_admin" | "platform_operator" | "platform_support";
+export const OPERATOR_ROLES: Record<OperatorRole, { label: string; detail: string }> = {
+  platform_admin: { label: "Quản trị Console", detail: "Toàn quyền vận hành + mời, đổi vai trò, khóa nhân viên Kavor" },
+  platform_operator: { label: "Vận hành nền tảng", detail: "Tạo doanh nghiệp, đổi gói, tạm khóa/mở lại, khôi phục chủ sở hữu" },
+  platform_support: { label: "Hỗ trợ Kavor", detail: "Xem doanh nghiệp, yêu cầu quyền hỗ trợ — không đổi gói/trạng thái" },
+};
+/* Vai trò được thay đổi dữ liệu khách hàng (tạo/khóa doanh nghiệp, đổi gói, duyệt khôi phục) */
+export const canOperate = (r: OperatorRole) => r === "platform_admin" || r === "platform_operator";
+export type ConsoleOperator = {
+  userId: string; email: string; fullName: string; role: OperatorRole; status: "active" | "disabled";
+  /* đã liên kết ứng dụng xác thực */ mfa: boolean; lastSignInAt: string | null; createdAt: string; self: boolean;
+};
+/* expired: quá 7 ngày chưa kích hoạt */
+export type OperatorInvite = {
+  id: string; email: string; fullName: string; role: OperatorRole; status: "pending" | "accepted" | "revoked" | "expired";
+  invitedBy: string; sentAt: string | null; expiresAt: string; createdAt: string;
+};
+export type ConsoleOperators = { operators: ConsoleOperator[]; invites: OperatorInvite[] };
+export type OperatorInviteInput = { email: string; fullName: string; role: OperatorRole };
+export type OperatorInviteResult = { invite: OperatorInvite; mail: { sent: boolean; error: string | null } };
+export type OperatorUpdateInput = { role?: OperatorRole; status?: "active" | "disabled"; reason: string };
 export type OperatorMe = { userId: string; email: string; fullName: string; role: OperatorRole };
 export type ConsoleAuthResult = { session: AuthSession; operator: OperatorMe };
 export type PlanCode = "trial" | "starter" | "growth" | "enterprise";

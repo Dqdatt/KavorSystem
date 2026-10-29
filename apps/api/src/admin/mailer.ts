@@ -54,6 +54,27 @@ function adminInviteContent(m: InviteMail, webUrl: string) {
   return { subject, text, html };
 }
 
+/* Thư mời nhân viên Kavor vào Kavor Console */
+export type OperatorInviteMail = { to: string; fullName: string; roleLabel: string; invitedBy: string; consoleUrl: string; expiresAt: string };
+export function operatorInviteContent(m: OperatorInviteMail) {
+  const subject = "Kavor Console: bạn được mời làm nhân viên vận hành Kavor";
+  const steps = [
+    `Mở ${m.consoleUrl}/login, chọn "Kích hoạt tài khoản / Quên mật khẩu".`,
+    `Nhập email ${m.to}, nhập mã OTP gửi về email này rồi đặt mật khẩu.`,
+    `Liên kết ứng dụng xác thực (Google Authenticator, Microsoft Authenticator…): Kavor Console bắt buộc xác thực hai lớp.`,
+  ];
+  const text = [`Chào ${m.fullName},`, ``, `${m.invitedBy} đã mời bạn vào Kavor Console với vai trò ${m.roleLabel}.`, ...steps.map((s, i) => `${i + 1}. ${s}`), ``,
+    `Lời mời hết hạn lúc ${m.expiresAt}. Nếu bạn không phải nhân viên Kavor, hãy bỏ qua thư này.`].join("\n");
+  const html = `<div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:520px;margin:auto;color:#14231c">
+<h2 style="color:#065f46;margin:0 0 12px">Chào ${escape(m.fullName)},</h2>
+<p>${escape(m.invitedBy)} đã mời bạn vào <b>Kavor Console</b> với vai trò <b>${escape(m.roleLabel)}</b>.</p>
+<ol style="line-height:1.7"><li>Mở <a href="${escape(m.consoleUrl)}/login">${escape(m.consoleUrl)}</a>, chọn <b>Kích hoạt tài khoản / Quên mật khẩu</b>.</li>
+<li>Nhập email <b>${escape(m.to)}</b>, nhập mã OTP gửi về email này rồi đặt mật khẩu.</li>
+<li>Liên kết ứng dụng xác thực: Kavor Console bắt buộc xác thực hai lớp.</li></ol>
+<p style="color:#5b6b63;font-size:13px">Lời mời hết hạn lúc ${escape(m.expiresAt)}. Nếu bạn không phải nhân viên Kavor, hãy bỏ qua thư này.</p></div>`;
+  return { subject, text, html };
+}
+
 export class Mailer {
   private transport: Transporter | null;
   constructor(private readonly config: { smtpUrl: string; from: string } | null) {
@@ -64,6 +85,15 @@ export class Mailer {
     if (!this.transport || !this.config) throw new AuthError(ADMIN_ERRORS.emailNotConfigured, "Máy chủ chưa cấu hình gửi email (SMTP_URL). Chưa gửi được lời mời.", 503, true);
     try {
       await this.transport.sendMail({ from: this.config.from, to: m.to, ...inviteContent(m) });
+    } catch {
+      throw new AuthError("EMAIL_SEND_FAILED", "Chưa gửi được email mời. Vui lòng thử lại.", 502, true);
+    }
+  }
+
+  async sendOperatorInvite(m: OperatorInviteMail) {
+    if (!this.transport || !this.config) throw new AuthError(ADMIN_ERRORS.emailNotConfigured, "Máy chủ chưa cấu hình gửi email (SMTP_URL). Chưa gửi được lời mời.", 503, true);
+    try {
+      await this.transport.sendMail({ from: this.config.from, to: m.to, ...operatorInviteContent(m) });
     } catch {
       throw new AuthError("EMAIL_SEND_FAILED", "Chưa gửi được email mời. Vui lòng thử lại.", 502, true);
     }
