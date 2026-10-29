@@ -6,8 +6,10 @@ import { Illus } from "./illus";
 import { Appear } from "./motion";
 import { Btn, BtnRow, Chip, Chips, ErrLine, Field, Inp, Ln, Note, SecT, T, TextArea } from "./ui";
 import { WDF, dur, gh, hm, hms, pad, wdOct } from "./data";
-import { ACT, ADV_DAY, S, WD_ISO_FULL, closeSheet, day, dayInfo, ddmm, emit, explainLeft, fmtM, go, issueText, shiftLabel, shiftTime, simNow, tsDay, verdict, type SheetKind } from "./store";
+import { ACT, ADV_DAY, S, WD_ISO_FULL, closeSheet, day, dayInfo, ddmm, emit, explainLeft, fmtM, go, issueText, shiftLabel, shiftTime, simNow, tsDay, verdict, support, type Route, type SheetKind } from "./store";
 import { REMOTE } from "./api/http";
+import { GUIDES } from "./help";
+import { QA_ENABLED } from "./qa";
 
 const H3 = ({ children, center }: { children: ReactNode; center?: boolean }) => <T style={{ fontSize: 19, fontFamily: F.bold, textAlign: center ? "center" : "left" }}>{children}</T>;
 const Sub = ({ children, center }: { children: ReactNode; center?: boolean }) => <T style={{ color: C.ink2, marginTop: -10, textAlign: center ? "center" : "left" }}>{children}</T>;
@@ -110,8 +112,21 @@ export function SheetContent({ kind, arg }: { kind: SheetKind; arg?: string }) {
         advance: ["V01 · V05", "Đổi Hợp đồng sang Thử việc hoặc Sắp nghỉ ở bảng bên phải để xem trạng thái bị chặn."],
         widgetGuide: ["Widget", "Widget cỡ vừa có nút chấm công (App Intent, iOS 17+). Cỡ nhỏ chỉ xem trạng thái và mở app."],
       };
-      const h = H[arg ?? ""] || [arg ?? "", "Màn hình trong prototype."];
-      return <><H3>Ghi chú màn hình</H3><Sub>{h[0]}</Sub><Muted>{h[1]}</Muted><Close /></>;
+      /* Ghi chú QA của prototype chỉ hiện ở bản QA (đối chiếu ảnh); app thật hiện hướng dẫn sử dụng (src/help.ts) */
+      if (QA_ENABLED) { const h = H[arg ?? ""] || [arg ?? "", "Màn hình trong prototype."]; return <><H3>Ghi chú màn hình</H3><Sub>{h[0]}</Sub><Muted>{h[1]}</Muted><Close /></>; }
+      const g = GUIDES[(arg ?? "") as Route];
+      const sp = support();
+      return <>
+        <H3>{g ? `Hướng dẫn · ${g.title}` : "Hướng dẫn sử dụng"}</H3>
+        {g ? <View style={{ gap: 10 }}>{g.steps.map((t, i) => (
+          <View key={i} style={{ flexDirection: "row", gap: 10 }}>
+            <View style={styles.stepNo}><T style={{ color: C.emerald, fontSize: 12, fontFamily: F.bold }}>{String(i + 1)}</T></View>
+            <T style={{ flex: 1, color: C.ink2, lineHeight: 20 }}>{t}</T>
+          </View>
+        ))}</View> : <Muted>Chưa có hướng dẫn riêng cho màn này.</Muted>}
+        {sp ? <Muted>{`Cần thêm trợ giúp: phòng Nhân sự${sp.phone ? ` · ${sp.phone}` : ""}${sp.email ? ` · ${sp.email}` : ""}${sp.hours ? ` (${sp.hours})` : ""}`}</Muted> : null}
+        <Close />
+      </>;
     }
     case "netSend": return <>
       <Center><Illus kind="offline" /><H3 center>Chưa gửi được</H3><Muted center>Bạn đang ngoại tuyến. Nội dung đã nhập vẫn được giữ, chỉ cần gửi lại khi có mạng.</Muted><Code>E28</Code></Center>
@@ -298,6 +313,7 @@ const styles = StyleSheet.create({
   box: { ...glass, experimental_backgroundImage: "linear-gradient(155deg, rgba(255,255,255,0.7), rgba(236,248,242,0.55))", borderRadius: 18, paddingVertical: 6, paddingHorizontal: 16 },
   pinDot: { width: 14, height: 14, borderRadius: 7, borderWidth: 2, borderColor: C.line2 },
   pinDotOn: { ...tint, borderWidth: 1 },
+  stepNo: { width: 22, height: 22, borderRadius: 11, backgroundColor: C.soft2, alignItems: "center", justifyContent: "center", marginTop: -1 },
   keypad: { flexDirection: "row", flexWrap: "wrap", rowGap: 8, columnGap: 14, paddingHorizontal: 6 },
   key: { ...glass, width: "29.6%", flexGrow: 1, height: 60, borderRadius: 30, alignItems: "center", justifyContent: "center" },
   keyPlain: { experimental_backgroundImage: undefined, backgroundColor: "transparent", borderWidth: 0, boxShadow: undefined },

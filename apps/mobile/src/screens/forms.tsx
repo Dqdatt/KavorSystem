@@ -1,9 +1,9 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { Animated, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { C, EASE, F, GL, glass, tint } from "../theme";
 import { Gi, Ic } from "../icons";
 import { Appear } from "../motion";
-import { Btn, Card, Chip, Chips, Empty, ErrLine, Field, Form, InfoRow, Note, Num, RowBtn, SectionHead, Seg, Stepper, T, Tag, TextArea } from "../ui";
+import { Btn, Card, Chip, Chips, Empty, ErrLine, Field, Form, InfoRow, Note, Num, RowBtn, SectionHead, Seg, TimeWheel, T, Tag, TextArea } from "../ui";
 import { Foot, TopBar, type ScreenSpec } from "../screen";
 import { LV_DAYS, WD, dec, hm, lvKey, pad, wdOct } from "../data";
 import { REMOTE } from "../api/http";
@@ -45,7 +45,7 @@ function remoteExplainSpec(): ScreenSpec {
         </Field> : null}
         {d ? <Field label={whole ? "Giờ đề nghị ghi nhận" : `Giờ đề nghị ghi nhận ${outSide ? "ra ca" : "vào ca"}`}>
           {whole ? <Card><InfoRow k={d.shift?.name ?? "Theo ca"} v={d.shift ? `${d.shift.start} – ${d.shift.end}` : "—"} strong /></Card>
-            : <Stepper value={hm(e.time * 60)} minusLabel="Giảm 5 phút" plusLabel="Tăng 5 phút" onMinus={() => ACT.exTime(-5)} onPlus={() => ACT.exTime(5)} />}
+            : <TimeWheel label="Giờ đề nghị ghi nhận" value={e.time} step={5} min={360} max={1320} onChange={ACT.exSet} />}
         </Field> : null}
         <Field label="Mô tả">
           <TextArea accessibilityLabel="Mô tả" defaultValue={e.reason} placeholder="Ví dụ: Điện thoại hết pin lúc đến công ty, bảo vệ đã xác nhận giờ vào."
@@ -82,7 +82,7 @@ export function explainSpec(): ScreenSpec {
           <Chips wrap>{types.map((t) => <Chip key={t[0]} on={e.type === t[0]} label={t[1]} onPress={() => ACT.exType(t[0])} />)}</Chips>
         </Field>
         <Field label={`Giờ đề nghị ghi nhận ${e.type === "out" ? "ra ca" : "vào ca"}`}>
-          <Stepper value={hm(e.time * 60)} minusLabel="Giảm 5 phút" plusLabel="Tăng 5 phút" onMinus={() => ACT.exTime(-5)} onPlus={() => ACT.exTime(5)} />
+          <TimeWheel label="Giờ đề nghị ghi nhận" value={e.time} step={5} min={360} max={1320} onChange={ACT.exSet} />
         </Field>
         <Field label="Mô tả">
           <TextArea accessibilityLabel="Mô tả" defaultValue={e.reason} placeholder="Ví dụ: Điện thoại hết pin lúc đến công ty, bảo vệ đã xác nhận giờ vào."
@@ -178,6 +178,22 @@ function remoteLeaveSpec(): ScreenSpec {
 }
 
 /* Dải ngày để chọn: cuộn tới hôm nay khi mở */
+/* Dải nối liền từ ngày đầu tới ngày cuối khi xin nghỉ nhiều ngày (phản hồi người dùng 26/10): nằm sau các ô, phủ cả khoảng hở 8pt giữa ô;
+   ngày nghỉ/lễ trong dải vẫn giữ ô mờ để phân biệt. Hiện mờ dần khi chọn ngày cuối. */
+type Band = "" | "start" | "mid" | "end";
+const bandOf = (k: string | number, from: string | number | null, to: string | number | null): Band => {
+  if (from == null || to == null || to === from) return "";
+  return k === from ? "start" : k === to ? "end" : k > from && k < to ? "mid" : "";
+};
+function DayCell({ band, children }: { band: Band; children: ReactNode }) {
+  return (
+    <View style={styles.dpCell}>
+      {band ? <Appear style={[styles.band, band === "start" && { left: 26 }, band === "end" && { right: 26 }]}><View /></Appear> : null}
+      {children}
+    </View>
+  );
+}
+
 function DateStrip({ days, today, from, to, onPick }: { days: LeaveCalendarDay[]; today: string; from: string | null; to: string | null; onPick: (d: string) => void }) {
   const ref = useRef<ScrollView>(null);
   const idx = Math.max(0, days.findIndex((d) => d.date >= today));
@@ -188,12 +204,14 @@ function DateStrip({ days, today, from, to, onPick }: { days: LeaveCalendarDay[]
         const end = to ?? from, off = !x.workday, full = x.taken === "full";
         const st = from == null ? "" : (x.date === from || x.date === end) ? "edge" : (x.date > from && x.date < (end ?? "")) ? "in" : "";
         return (
-          <Pressable key={x.date} disabled={off || full} accessibilityLabel={`${WD_ISO[x.weekday]} ${ddmm(x.date)}${x.holiday ? ` · ${x.holiday}` : ""}${x.taken ? " · đã có đơn nghỉ" : ""}`} onPress={() => onPick(x.date)}
-            style={[styles.dp, (off || full) && styles.dpOff, st === "in" && { backgroundColor: C.soft2, experimental_backgroundImage: undefined }, st === "edge" && styles.dpEdge]}>
+          <DayCell key={x.date} band={bandOf(x.date, from, to)}>
+          <Pressable disabled={off || full} accessibilityLabel={`${WD_ISO[x.weekday]} ${ddmm(x.date)}${x.holiday ? ` · ${x.holiday}` : ""}${x.taken ? " · đã có đơn nghỉ" : ""}`} onPress={() => onPick(x.date)}
+            style={[styles.dp, (off || full) && styles.dpOff, st === "in" && !(off || full) && styles.dpIn, st === "edge" && styles.dpEdge]}>
             <T style={{ fontSize: 11, fontFamily: F.semibold, color: st === "edge" ? "rgba(255,255,255,0.85)" : C.ink3 }}>{x.date === today ? "Nay" : WD_ISO[x.weekday]}</T>
             <Num style={{ fontSize: 19, fontFamily: F.semibold, color: st === "edge" ? "#fff" : C.ink }}>{x.date.slice(8, 10)}</Num>
             {x.taken && !full ? <View style={{ position: "absolute", bottom: 6, width: 5, height: 5, borderRadius: 3, backgroundColor: C.violet }} /> : null}
           </Pressable>
+          </DayCell>
         );
       })}
     </ScrollView>
@@ -302,10 +320,12 @@ export function leaveNewSpec(): ScreenSpec {
               const k = lvKey(x), off = x.wd === 0 || x.wd === 6, to = v.to ?? v.from;
               const st = v.from == null ? "" : (k === v.from || k === to) ? "edge" : (k > v.from && k < (to ?? 0)) ? "in" : "";
               return (
-                <Pressable key={k} disabled={off} onPress={() => ACT.lvPick(k)} style={[styles.dp, off && styles.dpOff, st === "in" && { backgroundColor: C.soft2, experimental_backgroundImage: undefined }, st === "edge" && styles.dpEdge]}>
+                <DayCell key={k} band={bandOf(k, v.from, v.to)}>
+                <Pressable disabled={off} onPress={() => ACT.lvPick(k)} style={[styles.dp, off && styles.dpOff, st === "in" && !off && styles.dpIn, st === "edge" && styles.dpEdge]}>
                   <T style={{ fontSize: 11, fontFamily: F.semibold, color: st === "edge" ? "rgba(255,255,255,0.85)" : C.ink3 }}>{WD[x.wd]}</T>
                   <Num style={{ fontSize: 19, fontFamily: F.semibold, color: st === "edge" ? "#fff" : C.ink }}>{pad(x.d)}</Num>
                 </Pressable>
+                </DayCell>
               );
             })}
           </ScrollView>
@@ -345,6 +365,10 @@ function remoteOtSpec(): ScreenSpec {
   const dayLimit = day.dayKind === "workday" ? p.dailyLimitHours : 12;
   const sameMonth = day.date.slice(0, 7) === D.usage.month;
   const overDay = dayUsed + h > dayLimit, overMonth = sameMonth && D.usage.monthHours + h > p.monthlyLimitHours;
+  /* Giờ vào/ra thật của ngày đó để đối chiếu (phản hồi người dùng 26/10); lấy từ bảng công kỳ hiện tại */
+  const att = S.ts?.days.find((x) => x.date === day.date);
+  const attText = day.date > D.today ? "Chưa tới ngày" : !S.ts ? "Đang tải…" : !att ? "—"
+    : att.clockIn || att.clockOut ? `Vào ${att.clockIn ?? "--:--"} · Ra ${att.clockOut ?? "--:--"}` : "Chưa chấm công";
   const err = h <= 0 ? "Giờ kết thúc phải sau giờ bắt đầu." : clash ? `Trùng giờ ca chính. ${day.shift!.name} ${day.shift!.start}–${day.shift!.end}.`
     : overlap ? "Trùng giờ với đơn làm thêm đã đăng ký ngày này." : overDay ? `Tối đa ${dec(dayLimit)} giờ làm thêm ${day.dayKind === "workday" ? "mỗi ngày làm việc" : "mỗi ngày nghỉ"}${dayUsed ? ` (đã đăng ký ${dec(dayUsed)} giờ)` : ""}.`
     : overMonth ? `Vượt giới hạn ${dec(p.monthlyLimitHours)} giờ/tháng (đã đăng ký ${dec(D.usage.monthHours)} giờ).` : null;
@@ -355,11 +379,12 @@ function remoteOtSpec(): ScreenSpec {
         <Field label="Ngày"><Chips>{chips.map((x) => <Chip key={x.date} on={S.otDay === x.date} label={`${x.date === D.today ? "Hôm nay" : WD_ISO[x.weekday]} ${ddmm(x.date)}`} onPress={() => ACT.otDay(x.date)} />)}</Chips></Field>
         {day.holiday ? <T style={{ fontSize: 12.5, color: C.ink2, marginTop: -8 }}>{day.holiday} · ngày lễ</T> : null}
         <View style={{ flexDirection: "row", gap: 12 }}>
-          <View style={{ flex: 1 }}><Field label="Từ"><Stepper value={hm(o.from * 60)} minusLabel="Lùi 30 phút" plusLabel="Thêm 30 phút" onMinus={() => ACT.otT("from", -30)} onPlus={() => ACT.otT("from", 30)} /></Field></View>
-          <View style={{ flex: 1 }}><Field label="Đến"><Stepper value={hm(o.to * 60)} minusLabel="Lùi 30 phút" plusLabel="Thêm 30 phút" onMinus={() => ACT.otT("to", -30)} onPlus={() => ACT.otT("to", 30)} /></Field></View>
+          <View style={{ flex: 1 }}><Field label="Từ"><TimeWheel label="Giờ bắt đầu" value={o.from} step={30} onChange={(m) => ACT.otSet("from", m)} /></Field></View>
+          <View style={{ flex: 1 }}><Field label="Đến"><TimeWheel label="Giờ kết thúc" value={o.to} step={30} onChange={(m) => ACT.otSet("to", m)} /></Field></View>
         </View>
         {err ? <ErrLine>{err}</ErrLine> : null}
         <Card>
+          <InfoRow k="Chấm công ngày này" v={attText} strong />
           <InfoRow k="Tổng giờ" v={h > 0 ? `${dec(h)} giờ` : "—"} strong />
           <InfoRow k="Hệ số" v={`${rate}% · ${OVERTIME_DAY_KINDS[day.dayKind]}`} strong />
           <InfoRow k={`Đã đăng ký tháng ${Number(D.usage.month.slice(5))}`} v={`${dec(D.usage.monthHours)}/${dec(p.monthlyLimitHours)} giờ`} strong />
@@ -384,11 +409,11 @@ export function otSpec(): ScreenSpec {
       <Form key="f">
         <Field label="Ngày"><Chips>{dates.map((d) => <Chip key={d} on={o.date === d} label={`${WD[wdOct(d)]} ${pad(d)}/10`} onPress={() => ACT.otDate(d)} />)}</Chips></Field>
         <View style={{ flexDirection: "row", gap: 12 }}>
-          <View style={{ flex: 1 }}><Field label="Từ"><Stepper value={hm(o.from * 60)} minusLabel="Lùi 30 phút" plusLabel="Thêm 30 phút" onMinus={() => ACT.otT("from", -30)} onPlus={() => ACT.otT("from", 30)} /></Field></View>
-          <View style={{ flex: 1 }}><Field label="Đến"><Stepper value={hm(o.to * 60)} minusLabel="Lùi 30 phút" plusLabel="Thêm 30 phút" onMinus={() => ACT.otT("to", -30)} onPlus={() => ACT.otT("to", 30)} /></Field></View>
+          <View style={{ flex: 1 }}><Field label="Từ"><TimeWheel label="Giờ bắt đầu" value={o.from} step={30} onChange={(m) => ACT.otSet("from", m)} /></Field></View>
+          <View style={{ flex: 1 }}><Field label="Đến"><TimeWheel label="Giờ kết thúc" value={o.to} step={30} onChange={(m) => ACT.otSet("to", m)} /></Field></View>
         </View>
         {clash ? <ErrLine>Trùng giờ ca chính. {S.sh.name} kết thúc {hm(S.sh.end * 60)}.</ErrLine> : null}
-        <Card><InfoRow k="Tổng giờ" v={dec(h) + " giờ"} strong /><InfoRow k="Hệ số" v="150% · ngày thường" strong /><InfoRow k="Người duyệt" v="Lê Quang Huy" strong /></Card>
+        <Card><InfoRow k="Chấm công ngày này" v={o.date > 16 ? "Chưa tới ngày" : S.clockIn ? `Vào ${hm(S.clockIn)} · Ra ${S.clockOut ? hm(S.clockOut) : "--:--"}` : "Chưa chấm công"} strong /><InfoRow k="Tổng giờ" v={dec(h) + " giờ"} strong /><InfoRow k="Hệ số" v="150% · ngày thường" strong /><InfoRow k="Người duyệt" v="Lê Quang Huy" strong /></Card>
         <Field label="Công việc"><TextArea accessibilityLabel="Công việc" defaultValue={o.reason} placeholder="Ví dụ: Hoàn thiện key visual chiến dịch" onChangeText={(t) => { S.ot.reason = t; }} /></Field>
       </Form>,
       <Spacer key="sp" />,
@@ -405,4 +430,8 @@ const styles = StyleSheet.create({
   dp: { ...glass, width: 52, height: 68, borderRadius: 16, alignItems: "center", justifyContent: "center", gap: 2 },
   dpOff: { opacity: 0.35, boxShadow: undefined, backgroundColor: C.soft, experimental_backgroundImage: undefined },
   dpEdge: { ...tint },
+  dpCell: { width: 52, height: 68 },
+  /* Dải: cao hơn ô một chút để thấy rõ phía trên/dưới ô, kéo dài 4pt mỗi bên để nối qua khoảng hở */
+  band: { position: "absolute", top: 4, bottom: 4, left: -4, right: -4, backgroundColor: "rgba(52,199,154,0.2)" },
+  dpIn: { experimental_backgroundImage: undefined, backgroundColor: "transparent", boxShadow: undefined, borderColor: "transparent" },
 });

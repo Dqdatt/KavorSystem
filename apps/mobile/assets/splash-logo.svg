@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="878" height="786" viewBox="16 16 439 393">
-  <!-- Logo trắng cho splash: vừa khít nét vẽ (viewBox của logo gốc trừ phần đệm) -->
-  <path d="M35 189 L35 389 L141 190 L245 390 L436 35" fill="none" stroke="#FFFFFF" stroke-width="38" stroke-linecap="round" stroke-linejoin="round"/>
-  <circle cx="364" cy="374" r="32" fill="#FFFFFF"/>
+  <!-- Logo xanh cho splash nền sáng: vừa khít nét vẽ (viewBox của logo gốc trừ phần đệm) -->
+  <path d="M35 189 L35 389 L141 190 L245 390 L436 35" fill="none" stroke="#065F46" stroke-width="38" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="364" cy="374" r="32" fill="#065F46"/>
 </svg>

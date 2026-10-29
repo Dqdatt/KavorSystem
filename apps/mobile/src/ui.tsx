@@ -223,6 +223,44 @@ export function Stepper({ value, onMinus, onPlus, minusLabel, plusLabel }: { val
     </View>
   );
 }
+/* Bộ chọn giờ dạng bánh xe (vuốt cột giờ và cột phút) thay nút −/+ — phản hồi người dùng 26/10. value/min/max tính bằng phút trong ngày;
+   cột phút theo bước của form (giải trình 5 phút, làm thêm 30 phút). Giá trị ngoài [min, max] được kẹp lại khi thả tay. */
+const WH = 34;
+function WheelCol({ items, index, onPick, a11y }: { items: string[]; index: number; onPick: (i: number) => void; a11y: string }) {
+  const ref = useRef<ScrollView>(null);
+  const dragging = useRef(false);
+  useEffect(() => { if (!dragging.current) ref.current?.scrollTo({ y: index * WH, animated: false }); }, [index]);
+  const settle = (y: number) => { dragging.current = false; const i = Math.max(0, Math.min(items.length - 1, Math.round(y / WH))); if (i !== index) onPick(i); else ref.current?.scrollTo({ y: i * WH, animated: true }); };
+  return (
+    <ScrollView ref={ref} accessibilityLabel={a11y} accessibilityValue={{ text: items[index] }} showsVerticalScrollIndicator={false} snapToInterval={WH} decelerationRate="fast"
+      style={{ height: WH * 3, width: 52 }} contentContainerStyle={{ paddingVertical: WH }} contentOffset={{ x: 0, y: index * WH }} nestedScrollEnabled
+      onScrollBeginDrag={() => { dragging.current = true; }}
+      onMomentumScrollEnd={(e) => settle(e.nativeEvent.contentOffset.y)}
+      onScrollEndDrag={(e) => { const v = e.nativeEvent.velocity?.y ?? 0; if (Math.abs(v) < 0.05) settle(e.nativeEvent.contentOffset.y); }}>
+      {items.map((t, i) => (
+        <Pressable key={t} onPress={() => onPick(i)} style={{ height: WH, alignItems: "center", justifyContent: "center" }}>
+          <Num style={{ fontSize: i === index ? 21 : 17, fontFamily: i === index ? F.semibold : F.regular, color: i === index ? C.ink : C.ink3 }}>{t}</Num>
+        </Pressable>
+      ))}
+    </ScrollView>
+  );
+}
+export function TimeWheel({ value, onChange, step, min = 0, max = 1439, label }: { value: number; onChange: (minutes: number) => void; step: number; min?: number; max?: number; label: string }) {
+  const hours = Array.from({ length: 24 }, (_, h) => h).filter((h) => h * 60 + 59 >= min && h * 60 <= max);
+  const h = Math.floor(value / 60), m = value % 60;
+  /* Phút hiện tại không trùng bước (vd. giờ chấm thật 07:58) vẫn có trong cột để hiển thị đúng giá trị sẽ gửi */
+  const mins = [...new Set([...Array.from({ length: Math.ceil(60 / step) }, (_, i) => i * step), m])].sort((a, b) => a - b);
+  const set = (hh: number, mm: number) => onChange(Math.max(min, Math.min(max, hh * 60 + mm)));
+  return (
+    <View style={styles.wheel}>
+      <View pointerEvents="none" style={styles.wheelBand} />
+      <WheelCol a11y={`${label}: giờ`} items={hours.map((x) => pad2(x))} index={Math.max(0, hours.indexOf(h))} onPick={(i) => set(hours[i]!, m)} />
+      <T style={{ fontSize: 20, fontFamily: F.semibold, color: C.ink }}>:</T>
+      <WheelCol a11y={`${label}: phút`} items={mins.map((x) => pad2(x))} index={Math.max(0, mins.indexOf(m))} onPick={(i) => set(h, mins[i]!)} />
+    </View>
+  );
+}
+const pad2 = (n: number) => String(n).padStart(2, "0");
 function StepBtn({ label, a11y, onPress }: { label: string; a11y: string; onPress: () => void }) {
   return <Pressable accessibilityLabel={a11y} onPress={onPress} style={({ pressed }) => [styles.stepBtn, pressed && { transform: [{ scale: 0.94 }] }]}><T style={{ fontSize: 20, color: C.ink2, lineHeight: 24 }}>{label}</T></Pressable>;
 }
@@ -345,6 +383,8 @@ export const styles = StyleSheet.create({
   ta: { ...glass, borderWidth: 1.5, width: "100%", borderRadius: 16, paddingTop: 14, paddingBottom: 14, paddingHorizontal: 16, fontSize: 14.5, color: C.ink, fontFamily: F.regular, lineHeight: 21 },
   focus: { backgroundColor: "rgba(255,255,255,0.88)", experimental_backgroundImage: undefined, borderColor: "rgba(6,95,70,0.45)" },
   stepper: { ...glass, flexDirection: "row", alignItems: "center", justifyContent: "space-between", height: 54, borderRadius: 16, paddingHorizontal: 6 },
+  wheel: { ...glass, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, height: WH * 3 + 8, borderRadius: 16, overflow: "hidden" },
+  wheelBand: { position: "absolute", left: 10, right: 10, top: WH + 4, height: WH, borderRadius: 10, backgroundColor: C.soft2 },
   stepBtn: { ...glass, width: 42, height: 42, borderRadius: 14, alignItems: "center", justifyContent: "center" },
   tbBtn: { ...glass, width: 42, height: 42, borderRadius: 21, alignItems: "center", justifyContent: "center" },
   dot: { position: "absolute", top: 10, right: 11, width: 8, height: 8, borderRadius: 4, backgroundColor: C.bad, borderWidth: 2, borderColor: "#fff" },

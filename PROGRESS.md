@@ -323,7 +323,7 @@ ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AG
 ## Đang dở (QUAN TRỌNG NHẤT)
 - **Web UI (29/10): xong 5 bước của `docs/plans/web-ui-polish.md`**; chờ người dùng xem trên Mac và chọn nhà cung cấp bản đồ cho production.
   DB local đã reset bởi verify-all 29/10 (dữ liệu mẫu, chưa ai kích hoạt).
-- **Phản hồi UI mobile (26/10):** xong mục 3 (PIN) + 4 (Face ID) ngày 29/10; còn mục 1, 2, 5–9 trong `docs/plans/mobile-ui-feedback.md`.
+- **Phản hồi UI mobile (26/10):** xong mục 1–8 ngày 29/10 (chờ người dùng xác nhận 1, 2, 7, 8 trên iPhone); còn mục 9 (widget — kế hoạch riêng) trong `docs/plans/mobile-ui-feedback.md`.
   DB local đang có HD0142 kích hoạt trên iPhone (bản cài 29/10, API `http://192.168.1.2:4000/api/v1`) — reset DB thì phải kích hoạt lại.
 - **26/10: phiên cloud tạm dừng.** Toàn bộ việc làm trên cloud (nhánh `claude/ecstatic-pascal-dblg7v`, đến commit `41bf4f4`), checklist thử tay,
   đánh giá MVP và thứ tự việc tiếp theo nằm trong `docs/CLOUD_HANDOFF.md` — đọc file đó trước.
@@ -424,6 +424,8 @@ ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AG
   PIN/Face ID, tối đa 5 MB, "Thiếu hồ sơ" = chưa có hợp đồng còn hiệu lực.
 
 ## Nhật ký
+- 2026-10-29 — Claude (Desktop): phản hồi mobile mục 1 (splash nền sáng), 2 (bánh xe chọn giờ + giờ chấm công ở form OT), 5 (vân tay/Touch ID theo hệ
+  điều hành), 6, 7 (dải ngày nghỉ), 8 (hướng dẫn sử dụng). Mobile typecheck, test 25 ca, ảnh simulator + Android emulator; cài iPhone chờ thử.
 - 2026-10-29 — Claude (Desktop): mã PIN thật + Face ID gọi thẳng hộp thoại hệ thống. Mobile typecheck, test mobile 25 ca (PIN 7). Người dùng thử PIN trên iPhone:
   ổn; Face ID gọi thẳng hộp thoại hệ thống: người dùng xác nhận đúng ý. verify-all --quick (không reset để giữ tài khoản trên iPhone); bản đầy đủ chạy lần trước TẤT CẢ ĐẠT.
 - 2026-10-29 — Claude (Desktop): tìm ra lỗi smoke trên Mac: macOS dùng bash 3.2, bung ngoặc nhọn của JSON có `\"` bên trong `"$( … )"` → lệnh gọi API

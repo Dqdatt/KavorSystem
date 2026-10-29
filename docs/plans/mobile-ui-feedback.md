@@ -1,4 +1,4 @@
-# Phản hồi UI mobile của người dùng (26/10) — đã làm mục 3, 4 (29/10)
+# Phản hồi UI mobile của người dùng (26/10) — đã làm mục 1–8 (29/10), còn mục 9 (widget)
 
 Người dùng thử app trên iPhone và ghi lại 9 điểm cần sửa. Làm trên Mac (cần simulator/iPhone để chụp + đối chiếu): mỗi màn đổi xong chụp lại
 bằng `tools/ui-compare/` và thử trên máy thật (animation, Face ID, bàn phím phải xác nhận trên thiết bị vật lý). Vị trí code dưới đây tra ngày 26/10
@@ -26,5 +26,19 @@ lại; muốn PIN dùng chung nhiều máy hoặc máy chủ chặn API lương 
 
 **Mục 4 — đã làm 29/10:** bấm Face ID trong sheet PIN gọi thẳng `authenticate()` (hộp thoại hệ thống), không chuyển sang sheet `face` tự vẽ;
 hủy/không khớp thì vẫn ở bàn phím PIN. Sheet `face` chỉ còn cho trạng thái QA `faceid-scanning`. Người dùng đã thử mục 3 trên iPhone 11 (29/10): ổn.
+
+**Mục 5, 6 — đã làm 29/10 (`a064869`):** `biometricKind()` (src/auth.ts) trả loại + tên theo hệ điều hành (iPhone: Face ID/Touch ID; Android: vân tay,
+khuôn mặt nếu không có vân tay); `BioIcon` thay icon Face ID cứng ở bàn phím PIN, nút đăng nhập, Bảo mật; bản QA cũng nạp loại sinh trắc học.
+Chi tiết bản tin: dòng người đăng + thời gian luôn căn trái (prototype căn giữa với tin Thông báo). Kiểm: ảnh ghép news-detail/pin (simulator),
+Android emulator 3 màn hiện vân tay.
+
+**Mục 1, 2, 7, 8 — đã làm 29/10:**
+- 1: splash gốc nền `#F9FBFA` + logo xanh (app.json + sửa trực tiếp `ios/` Images.xcassets/SplashScreen.storyboard và `android/` colors/drawable,
+  **không chạy prebuild**); lớp chuyển cảnh `splash.tsx` dùng đúng gradient màn đăng nhập. Ảnh chuỗi khởi động trên simulator: không còn nền xanh đặc.
+- 2: `TimeWheel` (src/ui.tsx) — cột giờ + phút vuốt chọn (OT bước 30 phút, giải trình bước 5 phút; phút lẻ hiện tại vẫn hiển thị đúng); form làm thêm
+  giờ có dòng "Chấm công ngày này: Vào … · Ra …" lấy từ bảng công (`/me/timesheet`), ngày tương lai "Chưa tới ngày".
+- 7: dải mint nối liền ngày đầu → ngày cuối (cả hai lịch mẫu/API), ngày nghỉ/lễ trong dải giữ ô mờ, hiện mờ dần.
+- 8: `src/help.ts` hướng dẫn theo màn (không có số nghiệp vụ cứng) + liên hệ phòng Nhân sự; ghi chú QA cũ chỉ hiện ở bản QA.
+- Kiểm: ảnh ghép leave-new-range/ot/explain (simulator), hướng dẫn "?" ở màn Làm thêm giờ. Bánh xe vuốt và splash cần xác nhận trên iPhone.
 
 Thứ tự đề xuất: 3 (bảo mật PIN) → 4, 5 (sinh trắc học) → 1, 6 (nhỏ) → 2, 7 (form OT/nghỉ phép) → 8 (nội dung hướng dẫn) → 9 (widget, kế hoạch riêng).

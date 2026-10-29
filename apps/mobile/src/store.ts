@@ -514,7 +514,7 @@ function openNotifications() {
 export function go(r: Route) {
   if (r === "notifications" && REMOTE) openNotifications();
   if ((r === "leave" || r === "leaveNew") && REMOTE) void loadLeave(true);
-  if (r === "ot" && REMOTE) void loadOvertime(true);
+  if (r === "ot" && REMOTE) { void loadOvertime(true); if (!S.ts) void loadTimesheet(); }
   if ((r === "advance" || r === "advanceNew" || r === "advanceDetail") && REMOTE) void loadAdvance(true);
   closeSheet();
   if (S.net === "offline" && NEEDNET[r]) { S.err = { kind: "offline", retry: r, over: { t: "Cần kết nối để xem", p: r === "docs" ? "Hợp đồng và quyết định không lưu trên máy vì lý do bảo mật. Kết nối mạng rồi thử lại." : "Phiếu lương và tạm ứng không lưu trên máy vì lý do bảo mật. Kết nối mạng rồi thử lại." } }; S.stack.push("err"); render("push"); return; }
@@ -1128,6 +1128,7 @@ export const ACT = {
     S.ex.type = a; S.ex.time = a === "out" ? S.sh.end : S.sh.start - 2; emit();
   },
   exTime: (a: number) => { S.ex.time = Math.max(360, Math.min(1320, S.ex.time + a)); emit(); },
+  exSet: (m: number) => { S.ex.time = Math.max(360, Math.min(1320, m)); emit(); },
   exFile: () => { S.ex.file = S.ex.file ? null : "Xac-nhan-bao-ve-15-10.jpg · 1,2 MB"; emit(); },
   exSubmit: () => {
     if (!S.ex.reason.trim()) { S.ex.err = true; emit(); return; }
@@ -1297,6 +1298,7 @@ export const ACT = {
   /* Bản dùng API: chọn ngày (YYYY-MM-DD) → đặt lại giờ mặc định theo ca của ngày đó */
   otDay: (d: string) => { otDefaults(d); emit(); },
   otT: (k: "from" | "to", v: number) => { S.ot[k] = Math.max(0, Math.min(1440, S.ot[k] + v)); emit(); },
+  otSet: (k: "from" | "to", m: number) => { S.ot[k] = Math.max(0, Math.min(1440, m)); emit(); },
   otSubmit: () => {
     if (REMOTE) { otSubmitRemote(); return; }
     if (!needNet(() => ACT.otSubmit())) return; const o = S.ot, h = (o.to - o.from) / 60;
