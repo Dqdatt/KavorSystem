@@ -281,7 +281,7 @@ export class OrgAdmin {
       ? ctx.db.from("role_assignments").update({ effective_to: yesterday }).eq("id", id)
       : ctx.db.from("role_assignments").delete().eq("id", id);
     const { error } = await q;
-    if (error?.message?.includes("LAST_TENANT_ADMIN")) throw new AuthError("LAST_TENANT_ADMIN", "Đây là Tenant Admin cuối cùng của công ty nên không thể thu hồi. Hãy gán thêm một Tenant Admin trước.", 409);
+    if (error?.message?.includes("LAST_TENANT_ADMIN")) throw new AuthError("LAST_TENANT_ADMIN", "Đây là quản trị viên cuối cùng của công ty nên không thể thu hồi. Hãy gán thêm một quản trị viên công ty trước.", 409);
     if (error) throw error;
     await ctx.audit("role.revoked", "employee", row.memberships.employee_id, { role: row.roles.code, scope_type: row.scope_type, scope_id: row.scope_id, effective_to: row.effective_to },
       { effective_to: row.effective_from <= yesterday ? yesterday : "deleted" }, reason);

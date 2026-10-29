@@ -32,22 +32,22 @@ function RequestsPage() {
   const c = data?.counts;
   return (
     <section className="page active">
-      <div className="page-head"><div><p>Ưu tiên theo SLA và mức ảnh hưởng tới kỳ công/lương.</p></div>
-        <div className="head-actions">{can(me, "request.read") ? <button className="btn" onClick={() => setConfig(true)}><Icon name="settings" /> Cấu hình workflow</button> : null}</div></div>
+      <div className="page-head"><div><p>Ưu tiên theo hạn xử lý và mức ảnh hưởng tới kỳ công/lương.</p></div>
+        <div className="head-actions">{can(me, "request.read") ? <button className="btn" onClick={() => setConfig(true)}><Icon name="settings" /> Cấu hình luồng duyệt</button> : null}</div></div>
       <LoadError error={error} retry={reload} />
       <article className="card">
         <div className="toolbar">
           <label className="search"><Icon name="search" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Mã đơn hoặc người gửi…" /></label>
           <button className={`filter-chip ${filter === "all" ? "active" : ""}`} onClick={() => setFilter("all")}>Tất cả {data?.items.length ?? 0}</button>
           <button className={`filter-chip ${filter === "mine" ? "active" : ""}`} onClick={() => setFilter("mine")}>Chờ tôi duyệt {c?.mine ?? 0}</button>
-          <button className={`filter-chip ${filter === "overdue" ? "active" : ""}`} onClick={() => setFilter("overdue")}>Quá SLA {c?.overdue ?? 0}</button>
+          <button className={`filter-chip ${filter === "overdue" ? "active" : ""}`} onClick={() => setFilter("overdue")}>Quá hạn xử lý {c?.overdue ?? 0}</button>
           <span className="toolbar-spacer" />
           <Select className="select" value={status} onChange={(e) => setStatus(e.target.value)} aria-label="Trạng thái">
             <option value="pending">Đang chờ</option><option value="approved">Đã duyệt</option><option value="rejected">Từ chối</option><option value="cancelled">Đã hủy</option><option value="all">Tất cả</option>
           </Select>
         </div>
         {data && !items.length ? <Empty title={status === "pending" ? "Không còn đơn nào chờ duyệt" : "Không có đơn phù hợp"} /> : (
-          <div className="table-wrap"><table className="data-table" style={{ minWidth: 960 }}><thead><tr><th>Mã đơn</th><th>Người gửi</th><th>Loại</th><th>Nội dung</th><th>Gửi lúc</th><th>{status === "pending" ? "SLA" : "Trạng thái"}</th><th /></tr></thead><tbody>
+          <div className="table-wrap"><table className="data-table" style={{ minWidth: 960 }}><thead><tr><th>Mã đơn</th><th>Người gửi</th><th>Loại</th><th>Nội dung</th><th>Gửi lúc</th><th>{status === "pending" ? "Hạn xử lý" : "Trạng thái"}</th><th /></tr></thead><tbody>
             {items.map((r) => (
               <tr key={r.id} className="clickable" onClick={() => setOpen(r)}>
                 <td><b>{r.no}</b></td>
@@ -91,7 +91,7 @@ function WorkflowModal({ onClose }: { onClose: () => void }) {
     await run("save", async () => setData(await call<WorkflowDef[]>("POST", `workflows/${type}/versions`, { steps: list, effectiveFrom: from, note: note || null })), "Đã lưu luồng duyệt mới");
   }
   return (
-    <Modal wide title={`Cấu hình workflow · ${REQUEST_TYPE[type]}`} sub="Đơn đã gửi giữ luồng lúc gửi; luồng mới áp dụng cho đơn gửi từ ngày hiệu lực." onClose={onClose}
+    <Modal wide title={`Luồng duyệt · ${REQUEST_TYPE[type]}`} sub="Đơn đã gửi giữ luồng lúc gửi; luồng mới áp dụng cho đơn gửi từ ngày hiệu lực." onClose={onClose}
       foot={<><button className="btn" onClick={onClose}>Đóng</button>{manage ? <button className="btn primary" disabled={!!busy || !steps} onClick={save}>{busy ? "Đang lưu…" : "Lưu phiên bản mới"}</button> : null}</>}>
       {error ? <LoadError error={error} retry={reload} /> : null}
       <div className="toolbar" style={{ padding: "0 0 10px" }}>
@@ -104,7 +104,7 @@ function WorkflowModal({ onClose }: { onClose: () => void }) {
             <Select className="select" disabled={!manage} value={s.resolver} onChange={(e) => set(i, { resolver: e.target.value as StepResolver })}>
               {(Object.keys(STEP_RESOLVERS) as StepResolver[]).filter((k) => k !== "payroll" || type === "salary_advance").map((k) => <option key={k} value={k}>{STEP_RESOLVERS[k]}</option>)}
             </Select>
-            <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11.5 }}>SLA <input type="number" min={1} max={240} disabled={!manage} value={s.slaHours} onChange={(e) => set(i, { slaHours: Number(e.target.value) || 1 })} style={{ width: 64 }} /> giờ</label>
+            <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11.5 }}>Hạn xử lý <input type="number" min={1} max={240} disabled={!manage} value={s.slaHours} onChange={(e) => set(i, { slaHours: Number(e.target.value) || 1 })} style={{ width: 64 }} /> giờ</label>
             {type === "leave" ? <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11.5 }}>
               <input type="checkbox" disabled={!manage} checked={s.daysOver != null} onChange={(e) => set(i, { daysOver: e.target.checked ? 2 : null })} />Chỉ khi nghỉ trên
               <input type="number" min={0} max={30} disabled={!manage || s.daysOver == null} value={s.daysOver ?? ""} onChange={(e) => set(i, { daysOver: Number(e.target.value) || 0 })} style={{ width: 48 }} /> ngày</label>

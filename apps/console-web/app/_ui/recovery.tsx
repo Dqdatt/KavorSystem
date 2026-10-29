@@ -6,7 +6,7 @@ import { call, useApi } from "../_lib/client";
 import { ErrorLine, Field, Modal, useAction } from "./kit";
 import { Select } from "@kavor/web-ui";
 
-export const KIND: Record<RecoveryKind, string> = { mfa_reset: "Đặt lại xác thực hai lớp", grant_admin: "Cấp Tenant Admin mới" };
+export const KIND: Record<RecoveryKind, string> = { mfa_reset: "Đặt lại xác thực hai lớp", grant_admin: "Cấp quản trị viên công ty mới" };
 export const RSTATUS: Record<RecoveryStatus, [string, string]> = {
   pending: ["Chờ người thứ hai duyệt", "warn"], approved: ["Đã duyệt", ""], rejected: ["Đã từ chối", "bad"], cancelled: ["Đã hủy", "muted"], expired: ["Quá hạn 24 giờ", "muted"],
 };
@@ -22,8 +22,8 @@ export function RecoveryForm({ tenantId, kind: initialKind, targetEmployeeId, on
   const set = (k: keyof typeof f) => (e: { target: { value: string } }) => { setF({ ...f, [k]: e.target.value, ...(k === "tenantId" ? { targetEmployeeId: "" } : {}) }); setErr(null); };
   const admins = (detail.data?.tenantAdmins ?? []).filter((a) => a.mfaEnrolled);
   async function save() {
-    if (!f.tenantId) { setErr("Chọn tenant."); return; }
-    if (f.kind === "mfa_reset" && !f.targetEmployeeId) { setErr("Chọn Tenant Admin cần đặt lại."); return; }
+    if (!f.tenantId) { setErr("Chọn doanh nghiệp."); return; }
+    if (f.kind === "mfa_reset" && !f.targetEmployeeId) { setErr("Chọn quản trị viên cần đặt lại."); return; }
     if (f.kind === "grant_admin" && (f.newAdminName.trim().length < 2 || !f.newAdminEmail.includes("@"))) { setErr("Nhập họ tên và email công việc của người nhận quyền."); return; }
     if (f.verification.trim().length < 10) { setErr("Ghi rõ đã xác minh người yêu cầu bằng cách nào (ít nhất 10 ký tự)."); return; }
     if (f.reason.trim().length < 10) { setErr("Ghi lý do (ít nhất 10 ký tự)."); return; }
@@ -37,11 +37,11 @@ export function RecoveryForm({ tenantId, kind: initialKind, targetEmployeeId, on
       foot={<><button className="btn" onClick={onClose}>Hủy</button><button className="btn primary" disabled={!!busy} onClick={save}>{busy ? "Đang gửi…" : "Gửi để duyệt"}</button></>}>
       <div className="form-grid">
         {tenantId ? null : (
-          <Field label="Tenant" full><Select value={f.tenantId} onChange={set("tenantId")}><option value="">Chọn…</option>{(tenants.data ?? []).map((t) => <option key={t.id} value={t.id}>{t.name} · {t.code}</option>)}</Select></Field>
+          <Field label="Doanh nghiệp" full><Select value={f.tenantId} onChange={set("tenantId")}><option value="">Chọn…</option>{(tenants.data ?? []).map((t) => <option key={t.id} value={t.id}>{t.name} · {t.code}</option>)}</Select></Field>
         )}
-        <Field label="Loại" full><Select value={f.kind} onChange={set("kind")}><option value="mfa_reset">{KIND.mfa_reset} (Tenant Admin mất điện thoại)</option><option value="grant_admin">{KIND.grant_admin} (công ty không còn ai quản trị)</option></Select></Field>
+        <Field label="Loại" full><Select value={f.kind} onChange={set("kind")}><option value="mfa_reset">{KIND.mfa_reset} (quản trị viên mất điện thoại)</option><option value="grant_admin">{KIND.grant_admin} (công ty không còn ai quản trị)</option></Select></Field>
         {f.kind === "mfa_reset" ? (
-          <Field label="Tenant Admin" full hint={f.tenantId && detail.data && !admins.length ? "Tenant này chưa có Tenant Admin nào đã liên kết ứng dụng xác thực." : undefined}>
+          <Field label="Quản trị viên" full hint={f.tenantId && detail.data && !admins.length ? "Doanh nghiệp này chưa có quản trị viên nào đã liên kết ứng dụng xác thực." : undefined}>
             <Select value={f.targetEmployeeId} onChange={set("targetEmployeeId")}><option value="">Chọn…</option>{admins.map((a) => <option key={a.employeeId} value={a.employeeId}>{a.fullName} · {a.code} · {a.email}</option>)}</Select>
           </Field>
         ) : <>
@@ -49,10 +49,10 @@ export function RecoveryForm({ tenantId, kind: initialKind, targetEmployeeId, on
           <Field label="Email công việc" hint="Trùng email hồ sơ có sẵn thì dùng hồ sơ đó"><input type="email" value={f.newAdminEmail} onChange={set("newAdminEmail")} /></Field>
         </>}
         <Field label="Đã xác minh bằng cách nào" full><textarea rows={3} value={f.verification} onChange={set("verification")} placeholder="Ví dụ: gọi lại số tổng đài trên giấy ĐKKD, đối chiếu CCCD qua video, công văn có dấu đỏ" /></Field>
-        <Field label="Lý do / mã ticket" full><textarea rows={2} value={f.reason} onChange={set("reason")} /></Field>
+        <Field label="Lý do / mã phiếu hỗ trợ" full><textarea rows={2} value={f.reason} onChange={set("reason")} /></Field>
       </div>
       <div className="note-amber" style={{ marginTop: 14 }}>
-        Xác minh qua kênh độc lập với người yêu cầu (không dùng email/số điện thoại do chính họ gửi kèm). Mọi bước đều ghi audit và công ty thấy trong nhật ký của mình.
+        Xác minh qua kênh độc lập với người yêu cầu (không dùng email/số điện thoại do chính họ gửi kèm). Mọi bước đều ghi nhật ký và công ty thấy trong nhật ký của mình.
       </div>
       <ErrorLine text={err} />
     </Modal>

@@ -259,7 +259,7 @@ export class EmployeesAdmin {
     const { error } = membership
       ? await ctx.db.from("memberships").update({ status: target }).eq("id", membership.id)
       : await ctx.db.from("memberships").insert({ tenant_id: ctx.tenantId, user_id: emp.user_id, employee_id: id, status: target, joined_at: new Date().toISOString() });
-    if (error?.message?.includes("LAST_TENANT_ADMIN")) throw new AuthError("LAST_TENANT_ADMIN", "Đây là Tenant Admin cuối cùng của công ty nên không thể khóa. Hãy gán thêm một Tenant Admin trước.", 409);
+    if (error?.message?.includes("LAST_TENANT_ADMIN")) throw new AuthError("LAST_TENANT_ADMIN", "Đây là quản trị viên cuối cùng của công ty nên không thể khóa. Hãy gán thêm một quản trị viên công ty trước.", 409);
     if (error) throw error;
     await ctx.audit(locked ? "account.locked" : "account.unlocked", "employee", id, { membership_status: membership?.status ?? null }, { membership_status: target }, reason);
     return { account: locked ? "locked" : "active" };

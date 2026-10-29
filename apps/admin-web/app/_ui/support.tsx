@@ -36,7 +36,7 @@ export function SupportBanner() {
   );
   if (data.pending) return (
     <div className="banner"><span className="banner-icon"><Icon name="shield" /></span>
-      <span className="banner-copy"><b>{data.pending} yêu cầu hỗ trợ từ Kavor đang chờ bạn duyệt</b><span>Nhân viên Kavor chỉ xem được dữ liệu sau khi Tenant Admin đồng ý, trong thời hạn đã ghi.</span></span>
+      <span className="banner-copy"><b>{data.pending} yêu cầu hỗ trợ từ Kavor đang chờ bạn duyệt</b><span>Nhân viên Kavor chỉ xem được dữ liệu sau khi quản trị viên công ty đồng ý, trong thời hạn đã ghi.</span></span>
       <Link className="btn" href="/settings?tab=support">Xem yêu cầu <Icon name="arrow" /></Link></div>
   );
   return null;
@@ -52,9 +52,9 @@ export function SupportPanel() {
     <>
       <LoadError error={error} retry={reload} />
       <article className="card">
-        <div className="card-head"><div><h3>Yêu cầu hỗ trợ từ Kavor</h3><p>Nhân viên Kavor không có quyền mặc định vào dữ liệu công ty. Mỗi yêu cầu nêu ticket, lý do, phạm vi và thời hạn; quyền tự hết hạn.</p></div></div>
+        <div className="card-head"><div><h3>Yêu cầu hỗ trợ từ Kavor</h3><p>Nhân viên Kavor không có quyền mặc định vào dữ liệu công ty. Mỗi yêu cầu nêu mã phiếu hỗ trợ, lý do, phạm vi và thời hạn; quyền tự hết hạn.</p></div></div>
         {data && !data.length ? <Empty title="Chưa có yêu cầu nào" text="Khi bạn liên hệ Kavor hỗ trợ, kỹ sư sẽ gửi yêu cầu truy cập để bạn duyệt tại đây." /> : (
-          <div className="table-wrap"><table className="data-table" style={{ minWidth: 900 }}><thead><tr><th>Kỹ sư Kavor</th><th>Ticket · lý do</th><th>Phạm vi (chỉ đọc)</th><th>Thời hạn</th><th>Trạng thái</th><th /></tr></thead><tbody>
+          <div className="table-wrap"><table className="data-table" style={{ minWidth: 900 }}><thead><tr><th>Kỹ sư Kavor</th><th>Phiếu hỗ trợ · lý do</th><th>Phạm vi (chỉ đọc)</th><th>Thời hạn</th><th>Trạng thái</th><th /></tr></thead><tbody>
             {(data ?? []).map((s) => (
               <tr key={s.id}>
                 <td><b>{s.operator}</b><div className="muted" style={{ fontSize: 10.5 }}>gửi {fmtDateTime(s.requestedAt, tz)}</div></td>

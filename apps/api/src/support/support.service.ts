@@ -84,7 +84,7 @@ export class SupportService {
 
   async request(ctx: ConsoleContext, b: Body): Promise<SupportSession> {
     const tenantId = uuid(b, "tenantId")!;
-    const ticket = req(b, "ticket", { min: 2, max: 50, hint: "mã ticket" });
+    const ticket = req(b, "ticket", { min: 2, max: 50, hint: "mã phiếu hỗ trợ" });
     const reason = req(b, "reason", { min: 10, max: 1000, hint: "ghi rõ việc cần hỗ trợ (ít nhất 10 ký tự)" });
     const raw = Array.isArray(b?.scopes) ? (b.scopes as unknown[]) : [];
     const scopes = [...new Set(raw)].filter((x): x is SupportScope => SCOPES.includes(x as SupportScope));
@@ -93,11 +93,11 @@ export class SupportService {
     if (!(SUPPORT_MINUTES as readonly number[]).includes(minutes)) throw invalid("Thời hạn 30 hoặc 60 phút.");
     const { data: t } = await this.db.from("tenants").select("status").eq("id", tenantId).maybeSingle();
     if (!t) throw notFound("tenant");
-    if ((t as { status: string }).status !== "active") throw conflict("Tenant đang tạm khóa hoặc đã đóng.");
+    if ((t as { status: string }).status !== "active") throw conflict("Doanh nghiệp đang tạm khóa hoặc đã đóng.");
     const { data: open } = await this.db.from("support_access_sessions").select("id, status, expires_at").eq("tenant_id", tenantId).eq("operator_user_id", ctx.userId).eq("status", "approved").gt("expires_at", new Date().toISOString()).limit(1);
-    if (open?.length) throw conflict("Bạn đang có phiên hỗ trợ còn hiệu lực với tenant này.");
+    if (open?.length) throw conflict("Bạn đang có phiên hỗ trợ còn hiệu lực với doanh nghiệp này.");
     const { data, error } = await this.db.from("support_access_sessions").insert({ tenant_id: tenantId, operator_user_id: ctx.userId, ticket, reason, scopes, duration_minutes: minutes }).select(COLS).single();
-    if (error?.code === "23505") throw conflict("Bạn đã có một yêu cầu đang chờ tenant này duyệt.");
+    if (error?.code === "23505") throw conflict("Bạn đã có một yêu cầu đang chờ doanh nghiệp này duyệt.");
     if (error) throw error;
     const r = data as Row;
     await ctx.audit("support.requested", "support_access", r.id, null, { ticket, scopes, minutes }, reason, tenantId);

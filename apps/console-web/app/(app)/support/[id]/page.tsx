@@ -49,7 +49,7 @@ export default function SupportMode({ params }: { params: Promise<{ id: string }
             <span>{session.ticket} · chỉ đọc · mọi lần xem đều ghi vào nhật ký của khách · hết hạn {fmtDateTime(session.expiresAt, tz)}</span></span>
           <button className="btn" disabled={!!busy} onClick={() => void end()}>Kết thúc phiên</button></div>
       ) : null}
-      {error ? <article className="card"><Empty title={error} text="Muốn xem tiếp thì tạo yêu cầu mới để tenant duyệt." /><div className="card-body"><Link className="btn" href="/support">Về Support access</Link></div></article> : null}
+      {error ? <article className="card"><Empty title={error} text="Muốn xem tiếp thì tạo yêu cầu mới để doanh nghiệp duyệt." /><div className="card-body"><Link className="btn" href="/support">Về trang Quyền hỗ trợ</Link></div></article> : null}
       {session && !error ? (
         <div className="toolbar" style={{ marginBottom: 12 }}>
           {session.scopes.map((s) => <button key={s} className={`filter-chip ${scope === s ? "active" : ""}`} onClick={() => void load(s)}>{SUPPORT_SCOPES[s].label}</button>)}

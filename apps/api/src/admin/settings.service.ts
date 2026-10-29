@@ -268,7 +268,7 @@ export class SettingsAdmin {
       step("workflow", "Luồng duyệt đơn", true, "Kavor đã tạo sẵn luồng Quản lý → HR cho giải trình và nghỉ phép; đổi trong Đơn & phê duyệt.", "/requests"),
       step("employees", "Nhập nhân viên", n(emp) > 1, `${n(emp)} hồ sơ nhân viên.`, "/employees"),
       step("managers", "Mời quản lý và HR", n(invited) > 0, n(invited) ? "Đã gán vai trò quản lý/HR." : "Chưa có quản lý hoặc HR nào được gán vai trò.", "/employees"),
-      step("admins", "Tenant Admin thứ hai", adminCount >= 2, adminCount >= 2 ? `${adminCount} Tenant Admin.` : "Chỉ có 1 Tenant Admin: nên có ít nhất 2 để không mất quyền quản trị.", null, adminCount >= 2 ? "done" : "warn"),
+      step("admins", "Quản trị viên thứ hai", adminCount >= 2, adminCount >= 2 ? `${adminCount} quản trị viên.` : "Chỉ có 1 quản trị viên: nên có ít nhất 2 để không mất quyền quản trị.", null, adminCount >= 2 ? "done" : "warn"),
       step("trial", "Chạy thử chấm công", n(accepted) > 0, n(accepted) ? `${n(accepted)} lần chấm công hợp lệ.` : "Chưa có lần chấm công hợp lệ nào.", "/attendance"),
     ];
     const counted = steps.filter((x) => x.state !== "unavailable");

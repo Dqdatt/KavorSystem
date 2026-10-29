@@ -100,7 +100,7 @@ export function Shell({ me, children }: { me: AdminMe; children: ReactNode }) {
                 <span className={`realtime-dot ${live ? "on" : ""}`} title={live ? "Đang nhận cập nhật trực tiếp" : "Cập nhật mỗi 30 giây"}><i />{live ? "Trực tiếp" : "30 giây"}</span>
                 <ThemeToggle />
                 <NotificationBell />
-                <span className="account-chip" title={`Tenant ${me.tenant.code}`}><span className="avatar">{initials(me.fullName)}</span><span>{me.tenant.name}</span></span>
+                <span className="account-chip" title={`Mã công ty ${me.tenant.code}`}><span className="avatar">{initials(me.fullName)}</span><span>{me.tenant.name}</span></span>
               </div>
             </header>
             <div className="workspace"><SupportBanner />{children}</div>

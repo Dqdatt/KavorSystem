@@ -12,10 +12,10 @@ type NavItem = { href: string; label: string; icon: string };
 const NAV: Array<{ label?: string; items: NavItem[] }> = [
   { items: [{ href: "/", label: "Tổng quan nền tảng", icon: "home" }] },
   { label: "Khách hàng", items: [{ href: "/tenants", label: "Doanh nghiệp", icon: "building" }, { href: "/plans", label: "Gói dịch vụ", icon: "card" }] },
-  { label: "An toàn", items: [{ href: "/support", label: "Support access", icon: "lock" }, { href: "/recoveries", label: "Khôi phục chủ sở hữu", icon: "key" }, { href: "/audit", label: "Audit log", icon: "log" }] },
+  { label: "An toàn", items: [{ href: "/support", label: "Quyền hỗ trợ", icon: "lock" }, { href: "/recoveries", label: "Khôi phục chủ sở hữu", icon: "key" }, { href: "/audit", label: "Nhật ký hoạt động", icon: "log" }] },
 ];
-const TITLES: Record<string, string> = { "/": "Tổng quan nền tảng", "/tenants": "Doanh nghiệp", "/plans": "Gói dịch vụ", "/support": "Support access", "/recoveries": "Khôi phục chủ sở hữu", "/audit": "Audit log" };
-const ROLE: Record<OperatorMe["role"], string> = { platform_operator: "Platform Operator", platform_support: "Kavor Support" };
+const TITLES: Record<string, string> = { "/": "Tổng quan nền tảng", "/tenants": "Doanh nghiệp", "/plans": "Gói dịch vụ", "/support": "Quyền hỗ trợ", "/recoveries": "Khôi phục chủ sở hữu", "/audit": "Nhật ký hoạt động" };
+const ROLE: Record<OperatorMe["role"], string> = { platform_operator: "Vận hành nền tảng", platform_support: "Hỗ trợ Kavor" };
 
 export function Shell({ me, children }: { me: OperatorMe; children: ReactNode }) {
   const path = usePathname();
@@ -35,7 +35,7 @@ export function Shell({ me, children }: { me: OperatorMe; children: ReactNode })
           <aside className="sidebar" aria-label="Điều hướng Kavor Console">
             <div className="brand">
               <img src="/kavor-logo.svg" alt="Kavor" />
-              <span className="brand-copy"><b>Kavor</b><small>Platform Console</small></span>
+              <span className="brand-copy"><b>Kavor</b><small>Bảng điều khiển</small></span>
               <button className="collapse-btn" onClick={() => setMenu(false)} aria-label="Đóng menu">‹</button>
             </div>
             {NAV.map((g, i) => (

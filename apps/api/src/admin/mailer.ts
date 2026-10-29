@@ -37,7 +37,7 @@ function adminInviteContent(m: InviteMail, webUrl: string) {
   const text = [
     `Chào ${m.fullName},`,
     ``,
-    `${m.invitedBy} đã cấp cho bạn quyền Tenant Admin của ${m.companyName} trên Kavor.`,
+    `${m.invitedBy} đã cấp cho bạn quyền quản trị viên công ty của ${m.companyName} trên Kavor.`,
     `1. Mở ${webUrl}, chọn "Kích hoạt tài khoản".`,
     `2. Nhập mã nhân viên ${m.employeeCode} và email ${m.to}, nhập mã OTP gửi về email này rồi đặt mật khẩu.`,
     `3. Liên kết ứng dụng xác thực (Google Authenticator, Microsoft Authenticator…): tài khoản quản trị bắt buộc xác thực hai lớp.`,

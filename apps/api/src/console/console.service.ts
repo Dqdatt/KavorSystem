@@ -108,9 +108,9 @@ export class ConsoleService {
 
   /* Đổi gói + giới hạn nhân sự. Giảm dưới số đang dùng vẫn được (chỉ chặn thêm mới), web Console cảnh báo trước */
   async changePlan(ctx: ConsoleContext, id: string, b: Body): Promise<ConsoleTenantDetail> {
-    if (ctx.operator.role !== "platform_operator") throw forbidden("Chỉ Platform Operator được đổi gói dịch vụ.");
+    if (ctx.operator.role !== "platform_operator") throw forbidden("Chỉ nhân viên vận hành nền tảng được đổi gói dịch vụ.");
     const t = await this.tenantRow(ctx, id);
-    if (t.status === "closed") throw conflict("Tenant đã đóng.");
+    if (t.status === "closed") throw conflict("Doanh nghiệp đã đóng.");
     const plan = oneOf(b, "plan", PLANS)!;
     const employeeLimit = number(b, "employeeLimit", 1, 100000, { integer: true })!;
     const reason = req(b, "reason", { min: 5, max: 500, hint: "ít nhất 5 ký tự" });
@@ -123,15 +123,15 @@ export class ConsoleService {
 
   /* Tạm khóa / mở lại / đóng. Người dùng tenant bị chặn ở API + RLS khi tenant không hoạt động; đóng là trạng thái cuối */
   async changeStatus(ctx: ConsoleContext, id: string, b: Body): Promise<ConsoleTenantDetail> {
-    if (ctx.operator.role !== "platform_operator") throw forbidden("Chỉ Platform Operator được khóa hoặc đóng tenant.");
+    if (ctx.operator.role !== "platform_operator") throw forbidden("Chỉ nhân viên vận hành nền tảng được khóa hoặc đóng doanh nghiệp.");
     const t = await this.tenantRow(ctx, id);
     const action = oneOf(b, "action", STATUS_ACTIONS)!;
     const reason = req(b, "reason", { min: 5, max: 500, hint: "ít nhất 5 ký tự" });
     const from: Record<TenantStatusAction, TenantStatus[]> = { suspend: ["active", "provisioning"], reactivate: ["suspended"], close: ["suspended"] };
     if (!from[action].includes(t.status)) {
-      throw conflict(t.status === "closed" ? "Tenant đã đóng, không thay đổi được." : action === "close" ? "Chỉ đóng được tenant đang tạm khóa. Tạm khóa trước." : action === "reactivate" ? "Tenant không ở trạng thái tạm khóa." : "Tenant đang không hoạt động.");
+      throw conflict(t.status === "closed" ? "Doanh nghiệp đã đóng, không thay đổi được." : action === "close" ? "Chỉ đóng được doanh nghiệp đang tạm khóa. Tạm khóa trước." : action === "reactivate" ? "Doanh nghiệp không ở trạng thái tạm khóa." : "Doanh nghiệp đang không hoạt động.");
     }
-    if (action === "close" && String(b?.confirmCode ?? "").trim().toUpperCase() !== t.code) throw invalid(`Gõ lại mã tenant ${t.code} để xác nhận đóng.`);
+    if (action === "close" && String(b?.confirmCode ?? "").trim().toUpperCase() !== t.code) throw invalid(`Gõ lại mã doanh nghiệp ${t.code} để xác nhận đóng.`);
     const status: TenantStatus = action === "reactivate" ? "active" : action === "suspend" ? "suspended" : "closed";
     const { error } = await ctx.db.from("tenants").update({ status, status_reason: reason, updated_at: new Date().toISOString() }).eq("id", id).eq("status", t.status);
     if (error) throw error;
@@ -183,9 +183,9 @@ export class ConsoleService {
 
   /* Tạo tenant + bộ mẫu theo luật Việt Nam + hồ sơ Tenant Admin đầu tiên (một transaction), rồi gửi thư mời */
   async createTenant(ctx: ConsoleContext, b: Body): Promise<TenantCreateResult> {
-    if (ctx.operator.role !== "platform_operator") throw forbidden("Chỉ Platform Operator được tạo tenant.");
+    if (ctx.operator.role !== "platform_operator") throw forbidden("Chỉ nhân viên vận hành nền tảng được tạo doanh nghiệp.");
     const code = req(b, "code", { max: 20 }).toUpperCase();
-    if (!CODE.test(code)) throw invalid("Mã tenant 3–20 ký tự: chữ in hoa, số, dấu gạch (ví dụ ANP-002).");
+    if (!CODE.test(code)) throw invalid("Mã doanh nghiệp 3–20 ký tự: chữ in hoa, số, dấu gạch (ví dụ ANP-002).");
     const name = req(b, "name", { min: 2, max: 120 });
     const legalName = nullableText(b, "legalName", 200) ?? null;
     const plan = oneOf(b, "plan", PLANS)!;
@@ -195,7 +195,7 @@ export class ConsoleService {
     const { data, error } = await ctx.db.rpc("create_tenant_with_admin", {
       p_code: code, p_name: name, p_legal_name: legalName, p_plan: plan, p_employee_limit: employeeLimit, p_admin_name: adminName, p_admin_email: adminEmail, p_actor: ctx.userId,
     });
-    if (error?.code === "23505") throw conflict(`Mã tenant ${code} đã tồn tại.`);
+    if (error?.code === "23505") throw conflict(`Mã doanh nghiệp ${code} đã tồn tại.`);
     if (error) throw error;
     const r = data as { tenant_id: string; admin_employee_id: string; provisioned: string[] };
     await ctx.audit("tenant.created", "tenant", r.tenant_id, null, { code, name, legal_name: legalName, plan, employee_limit: employeeLimit, admin_email: adminEmail, provisioned: r.provisioned }, null, r.tenant_id);
@@ -205,9 +205,9 @@ export class ConsoleService {
 
   /* Gửi lại thư mời cho Tenant Admin chưa kích hoạt (khách báo không nhận được thư) */
   async resendInvite(ctx: ConsoleContext, tenantId: string, employeeId: string) {
-    if ((await this.tenantRow(ctx, tenantId)).status !== "active") throw conflict("Tenant đang tạm khóa hoặc đã đóng nên người được mời không đăng nhập được. Mở lại tenant trước.");
+    if ((await this.tenantRow(ctx, tenantId)).status !== "active") throw conflict("Doanh nghiệp đang tạm khóa hoặc đã đóng nên người được mời không đăng nhập được. Mở lại doanh nghiệp trước.");
     if (!(await this.admins(ctx, tenantId)).some((a) => a.employeeId === employeeId && (a.account === "invited" || a.account === "not_invited"))) {
-      throw notFound("Tenant Admin chưa kích hoạt");
+      throw notFound("Quản trị viên chưa kích hoạt");
     }
     const { data } = await ctx.db.from("employees").select("invited_at").eq("id", employeeId).single();
     const at = (data as { invited_at: string | null } | null)?.invited_at;
@@ -266,16 +266,16 @@ export class ConsoleService {
     const reason = req(b, "reason", { min: 10, max: 1000, hint: "ít nhất 10 ký tự" });
     const { data: t } = await ctx.db.from("tenants").select("id, status").eq("id", tenantId).maybeSingle();
     if (!t) throw notFound("tenant");
-    if ((t as { status: string }).status === "closed") throw conflict("Tenant đã đóng.");
+    if ((t as { status: string }).status === "closed") throw conflict("Doanh nghiệp đã đóng.");
     const targetEmployeeId = uuid(b, "targetEmployeeId", true) ?? null;
     let newAdminName: string | null = null, newAdminEmail: string | null = null;
     if (kind === "mfa_reset") {
       const admin = (await this.admins(ctx, tenantId)).find((a) => a.employeeId === targetEmployeeId);
-      if (!admin) throw invalid("Chọn một Tenant Admin của tenant này.");
-      if (!admin.mfaEnrolled) throw conflict("Tenant Admin này chưa liên kết ứng dụng xác thực nên không cần đặt lại.");
+      if (!admin) throw invalid("Chọn một quản trị viên của doanh nghiệp này.");
+      if (!admin.mfaEnrolled) throw conflict("Quản trị viên này chưa liên kết ứng dụng xác thực nên không cần đặt lại.");
     } else if (targetEmployeeId) {
       const { data: e } = await ctx.db.from("employees").select("id").eq("id", targetEmployeeId).eq("tenant_id", tenantId).neq("status", "terminated").maybeSingle();
-      if (!e) throw notFound("nhân viên trong tenant");
+      if (!e) throw notFound("nhân viên trong doanh nghiệp");
     } else {
       newAdminName = req(b, "newAdminName", { min: 2, max: 120 });
       newAdminEmail = req(b, "newAdminEmail", { pattern: EMAIL, max: 200 }).toLowerCase();
@@ -283,7 +283,7 @@ export class ConsoleService {
     const { data, error } = await ctx.db.from("owner_recovery_requests").insert({
       tenant_id: tenantId, kind, target_employee_id: targetEmployeeId, new_admin_name: newAdminName, new_admin_email: newAdminEmail, verification, reason, requested_by: ctx.userId,
     }).select("id").single();
-    if (error?.code === "23505") throw conflict("Tenant này đã có yêu cầu cùng loại đang chờ duyệt.");
+    if (error?.code === "23505") throw conflict("Doanh nghiệp này đã có yêu cầu cùng loại đang chờ duyệt.");
     if (error) throw error;
     const id = (data as { id: string }).id;
     await ctx.audit("owner_recovery.requested", "owner_recovery", id, null, { kind, target_employee_id: targetEmployeeId, new_admin_email: newAdminEmail, verification }, reason, tenantId);
@@ -303,7 +303,7 @@ export class ConsoleService {
       if (r.requested_by !== ctx.userId) throw forbidden("Chỉ người tạo yêu cầu được hủy.");
     } else {
       if (r.requested_by === ctx.userId) throw forbidden("Cần một nhân viên Kavor khác duyệt hoặc từ chối yêu cầu này.");
-      if (ctx.operator.role !== "platform_operator") throw forbidden("Chỉ Platform Operator được duyệt khôi phục quyền.");
+      if (ctx.operator.role !== "platform_operator") throw forbidden("Chỉ nhân viên vận hành nền tảng được duyệt khôi phục quyền.");
       if (action === "reject" && (!note || note.length < 5)) throw invalid("Ghi lý do từ chối (ít nhất 5 ký tự).");
     }
     if (action === "approve" && r.expires_at < new Date().toISOString()) throw conflict("Yêu cầu đã quá 24 giờ. Tạo yêu cầu mới sau khi xác minh lại.");

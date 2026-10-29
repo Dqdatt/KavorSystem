@@ -20,11 +20,11 @@ const TABS: Array<[Tab, string, string | null]> = [
   ["company", "Doanh nghiệp", null], ["setup", "Thiết lập ban đầu", null], ["rules", "Quy định", "policy.read"], ["holidays", "Ngày lễ", "policy.read"], ["privacy", "Dữ liệu cá nhân", "privacy.read"], ["support", "Hỗ trợ Kavor", "support_access.approve"],
 ];
 const HEAD: Record<Tab, [string, string]> = {
-  company: ["Thiết lập doanh nghiệp", "Đây là cấu hình tenant trên Kavor, không phải đăng ký kinh doanh."],
+  company: ["Thiết lập doanh nghiệp", "Đây là cấu hình công ty trên Kavor, không phải đăng ký kinh doanh."],
   setup: ["Thiết lập ban đầu", "Trạng thái tính từ dữ liệu thật của công ty; mỗi bước xong khi dữ liệu đã đủ."],
   rules: ["Quy định nghiệp vụ", "Mỗi quy định có phiên bản theo ngày hiệu lực và áp dụng theo tầng: cá nhân > phòng ban > chi nhánh > pháp nhân > công ty."],
   holidays: ["Ngày nghỉ lễ", "Lịch quốc gia do Kavor duy trì cho mọi công ty; công ty thêm ngày nghỉ riêng hoặc nghỉ bù."],
-  support: ["Hỗ trợ từ Kavor", "Kỹ sư Kavor chỉ xem được dữ liệu công ty khi Tenant Admin duyệt, trong phạm vi và thời hạn đã ghi."],
+  support: ["Hỗ trợ từ Kavor", "Kỹ sư Kavor chỉ xem được dữ liệu công ty khi quản trị viên công ty duyệt, trong phạm vi và thời hạn đã ghi."],
   privacy: ["Dữ liệu cá nhân", "Điều khoản có phiên bản theo Nghị định 13/2023/NĐ-CP; đổi điều khoản thì nhân viên phải đồng ý lại trên app."],
 };
 
@@ -90,9 +90,9 @@ function Company({ setAction }: { setAction: SetAction }) {
     <>
       {err ? <ErrorLine text={err} /> : null}
       <div className="split-panel">
-        <article className="card"><div className="card-head"><h3>Thông tin tenant</h3></div><div className="card-body"><div className="form-grid">
+        <article className="card"><div className="card-head"><h3>Thông tin công ty</h3></div><div className="card-body"><div className="form-grid">
           <Field label="Tên hiển thị"><input value={f.displayName} onChange={set("displayName")} disabled={!manage} /></Field>
-          <Field label="Mã tenant"><input value={data.tenant.code} disabled /></Field>
+          <Field label="Mã công ty"><input value={data.tenant.code} disabled /></Field>
           <Field label="Tên pháp lý"><input value={f.legalName} onChange={set("legalName")} disabled={!manage} placeholder="Công ty Cổ phần …" /></Field>
           <Field label="Mã số thuế"><input value={f.taxCode} onChange={set("taxCode")} disabled={!manage} inputMode="numeric" placeholder="10 chữ số" /></Field>
           <Field label="Múi giờ"><Select disabled value={data.tenant.timezone}><option>{data.tenant.timezone}</option></Select></Field>
@@ -102,9 +102,9 @@ function Company({ setAction }: { setAction: SetAction }) {
             <input disabled value={`${data.tenant.plan.name} · ${data.tenant.plan.employees.toLocaleString("vi-VN")}/${data.tenant.plan.employeeLimit.toLocaleString("vi-VN")} nhân sự`} /></Field>
         </div></div></article>
         <article className="card"><div className="card-head"><h3>Chính sách nền tảng</h3></div><div className="detail-list">
-          <SwitchRow label="Cho phép Employee Web" note="Theo gói dịch vụ · chưa mở" checked={p.employeeWeb} locked />
-          <SwitchRow label="Yêu cầu MFA cho admin" note="Luôn bật với mọi tài khoản HR/Admin" checked={p.mfaRequired} locked />
-          <SwitchRow label="Google Sheets auto sync" note="Có khi bật module Tích hợp dữ liệu" checked={p.sheetsAutoSync} locked />
+          <SwitchRow label="Web cho nhân viên" note="Theo gói dịch vụ · chưa mở" checked={p.employeeWeb} locked />
+          <SwitchRow label="Bắt buộc xác thực hai lớp" note="Luôn bật với mọi tài khoản dùng web HR" checked={p.mfaRequired} locked />
+          <SwitchRow label="Tự đồng bộ Google Sheets" note="Có khi bật module Tích hợp dữ liệu" checked={p.sheetsAutoSync} locked />
           <SwitchRow label="Xác nhận đã đọc bản tin quan trọng" note="Áp dụng khi bật module Bản tin" checked={f.newsReadReceipt} locked={!manage} onChange={(v) => setF({ ...f, newsReadReceipt: v })} />
         </div>
         <div className="card-head" style={{ borderTop: "1px solid var(--line)" }}><h3>Kỳ công</h3></div>
@@ -126,7 +126,7 @@ function Company({ setAction }: { setAction: SetAction }) {
           <Field label="Ghi chú" full><input value={f.note} onChange={set("note")} disabled={!manage} placeholder="Ví dụ: ngoài giờ gọi trưởng ca" /></Field>
         </div></div></article>
       </div>
-      <p className="muted" style={{ fontSize: 11.5, marginTop: 10 }}>Cập nhật lần cuối {fmtDateTime(data.updatedAt, data.tenant.timezone)}.{manage ? "" : " Chỉ Tenant Admin sửa được cấu hình doanh nghiệp."}</p>
+      <p className="muted" style={{ fontSize: 11.5, marginTop: 10 }}>Cập nhật lần cuối {fmtDateTime(data.updatedAt, data.tenant.timezone)}.{manage ? "" : " Chỉ quản trị viên công ty sửa được cấu hình doanh nghiệp."}</p>
     </>
   );
 }
@@ -350,7 +350,7 @@ function Holidays({ setAction }: { setAction: SetAction }) {
       {data && (!data.national || !data.national.verified) ? (
         <div className="banner"><span className="banner-icon"><Icon name="alert" /></span><span className="banner-copy">
           <b>{data.national ? `${data.national.name}: chưa được chuyên gia xác nhận` : `Kavor chưa công bố lịch quốc gia ${year}`}</b>
-          <span>{data.national ? `Nguồn: ${data.national.source ?? "—"}. Dữ liệu dùng cho phát triển; HR/Payroll SME xác nhận trước khi tính lương thật.` : "Lịch Tết và ngày nghỉ liền kề do Chính phủ công bố hằng năm; Kavor sẽ cập nhật khi có thông báo."}</span>
+          <span>{data.national ? `Nguồn: ${data.national.source ?? "—"}. Dữ liệu dùng cho phát triển; chuyên gia nhân sự/lương xác nhận trước khi tính lương thật.` : "Lịch Tết và ngày nghỉ liền kề do Chính phủ công bố hằng năm; Kavor sẽ cập nhật khi có thông báo."}</span>
         </span></div>
       ) : null}
       <article className="card">

@@ -13,12 +13,12 @@ export default function AuditPage() {
   const rows = (data ?? []).filter((a) => !k || `${a.actor} ${a.tenant?.name ?? ""} ${a.tenant?.code ?? ""} ${a.action} ${ACTION[a.action] ?? ""} ${a.resourceType}`.toLowerCase().includes(k));
   return (
     <section className="page active">
-      <div className="page-head"><div><p>Theo dõi hành động của nhân viên Kavor. Append-only; thao tác trên tenant nào thì tenant đó cũng thấy.</p></div></div>
+      <div className="page-head"><div><p>Hành động của nhân viên Kavor, chỉ ghi thêm (không sửa, không xóa); thao tác trên doanh nghiệp nào thì doanh nghiệp đó cũng thấy.</p></div></div>
       <LoadError error={error} retry={reload} />
       <article className="card">
-        <div className="toolbar"><label className="search"><Icon name="search" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Actor, tenant, action hoặc resource…" /></label></div>
-        {data && !rows.length ? <Empty title="Không có dòng audit phù hợp" /> : (
-          <div className="table-wrap"><table className="data-table" style={{ minWidth: 960 }}><thead><tr><th>Thời gian</th><th>Actor</th><th>Tenant</th><th>Action</th><th>Resource</th><th>Lý do</th></tr></thead><tbody>
+        <div className="toolbar"><label className="search"><Icon name="search" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Người thực hiện, doanh nghiệp, hành động hoặc đối tượng…" /></label></div>
+        {data && !rows.length ? <Empty title="Không có dòng nhật ký phù hợp" /> : (
+          <div className="table-wrap"><table className="data-table" style={{ minWidth: 960 }}><thead><tr><th>Thời gian</th><th>Người thực hiện</th><th>Doanh nghiệp</th><th>Hành động</th><th>Đối tượng</th><th>Lý do</th></tr></thead><tbody>
             {rows.map((a) => (
               <tr key={a.id}>
                 <td className="nowrap">{fmtDateTime(a.createdAt, "Asia/Ho_Chi_Minh")}</td>

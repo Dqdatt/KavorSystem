@@ -72,7 +72,7 @@ export function Cycles({ tabs }: { tabs: ReactNode }) {
             </Select>
           ) : null}
           {board?.canCreate ? <button className="btn" onClick={() => setModal("create")}><Icon name="plus" /> Mở kỳ lương</button> : null}
-          {d?.canImport ? <button className="btn" onClick={() => setModal("import")}><Icon name="upload" /> Import kết quả</button> : null}
+          {d?.canImport ? <button className="btn" onClick={() => setModal("import")}><Icon name="upload" /> Nhập kết quả</button> : null}
           {d?.actions.includes("reopen") ? <button className="btn" onClick={() => setModal("reopen")}>Mở lại</button> : null}
           {next ? <button className="btn primary" onClick={() => setModal(next)}>{ACTION[next].label}</button> : null}
         </div>
@@ -113,7 +113,7 @@ function Detail({ d, onTemplate }: { d: PayrollDetail; onTemplate: () => void })
   return (
     <>
       <div className="banner"><span className="banner-icon"><Icon name="pay" /></span>
-        <span className="banner-copy"><b>Payroll được cấu hình riêng cho {me.tenant.name}</b><span>Kỳ này lấy công từ Kavor và kết quả lương từ file CSV xuất từ Google Sheets (khóa employee_code, cột theo mã thành phần).</span></span>
+        <span className="banner-copy"><b>Lương được cấu hình riêng cho {me.tenant.name}</b><span>Kỳ này lấy công từ Kavor và kết quả lương từ file CSV xuất từ Google Sheets (khóa employee_code, cột theo mã thành phần).</span></span>
         <button className="btn" onClick={onTemplate}><Icon name="download" /> Tải file mẫu</button>
       </div>
       <div className="grid metrics">
@@ -137,7 +137,7 @@ function Detail({ d, onTemplate }: { d: PayrollDetail; onTemplate: () => void })
         <article className="card">
           <div className="card-head"><h3>Quy trình kỳ lương</h3></div>
           <div className="detail-list">
-            <div className="detail-row"><span>1. Import kết quả</span>{step(1, doneAt(c.importedAt), doing("Đang thực hiện"))}</div>
+            <div className="detail-row"><span>1. Nhập kết quả</span>{step(1, doneAt(c.importedAt), doing("Đang thực hiện"))}</div>
             <div className="detail-row"><span>2. Kiểm tra dữ liệu</span>{step(2, doneAt(null), d.errors.length ? <b className="text-red">Còn {num(d.errors.length)} lỗi</b> : doing("Đang thực hiện"))}</div>
             <div className="detail-row"><span>3. Kế toán duyệt</span>{step(3, doneAt(c.approvedAt), doing(waitingOther ? "Chờ Kế toán khác duyệt" : "Đang thực hiện"))}</div>
             <div className="detail-row"><span>4. Công bố phiếu lương</span>{step(4, doneAt(c.publishedAt), doing("Chờ công bố"))}</div>
@@ -284,7 +284,7 @@ function ImportModal({ d, onClose, onDone }: { d: PayrollDetail; onClose: () => 
     });
   }
   return (
-    <Modal title="Import kết quả payroll" sub={`Kỳ ${mm(d.cycle.month)} · ${d.components.length} thành phần lương của công ty.`} onClose={onClose}
+    <Modal title="Nhập kết quả lương" sub={`Kỳ ${mm(d.cycle.month)} · ${d.components.length} thành phần lương của công ty.`} onClose={onClose}
       foot={<><button className="btn" onClick={onClose}>Hủy</button><button className="btn primary" disabled={!!busy || !file} onClick={() => void start()}>{busy ? "Đang kiểm tra…" : "Bắt đầu kiểm tra"}</button></>}>
       <div className="detail-list card">
         <div className="detail-row"><span>Nguồn</span><b>File CSV (UTF-8) xuất từ Google Sheets</b></div>

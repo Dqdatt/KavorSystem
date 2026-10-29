@@ -244,7 +244,7 @@ export class RequestsService {
     if (!Array.isArray(raw) || raw.length < 1 || raw.length > 5) throw invalid("Luồng duyệt có từ 1 đến 5 bước.");
     const steps: WorkflowStepInput[] = raw.map((s, i) => ({
       resolver: oneOf(s as Body, "resolver", RESOLVERS)!,
-      slaHours: number(s as Body, "slaHours", 1, 240, { integer: true }) ?? (() => { throw invalid(`Bước ${i + 1}: SLA phải từ 1 đến 240 giờ.`); })(),
+      slaHours: number(s as Body, "slaHours", 1, 240, { integer: true }) ?? (() => { throw invalid(`Bước ${i + 1}: hạn xử lý phải từ 1 đến 240 giờ.`); })(),
       /* Chỉ đơn nghỉ có số ngày để đặt điều kiện */
       ...(type === "leave" && (s as Body)?.daysOver != null ? { daysOver: number(s as Body, "daysOver", 0, 30, { integer: true })! } : {}),
       /* Chỉ đơn tạm ứng có số tiền để đặt điều kiện */

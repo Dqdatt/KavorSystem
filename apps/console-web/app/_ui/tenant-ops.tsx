@@ -43,9 +43,9 @@ export function PlanModal({ t, onClose, onDone }: { t: ConsoleTenant; onClose: (
 }
 
 const COPY: Record<TenantStatusAction, { title: string; sub: string; btn: string; done: string; danger: boolean; placeholder: string }> = {
-  suspend: { title: "Tạm khóa", sub: "Mọi người dùng của công ty (web HR và app) bị chặn ngay, kể cả phiên đang mở. Dữ liệu giữ nguyên; mở lại được bất cứ lúc nào.", btn: "Tạm khóa", done: "Đã tạm khóa tenant", danger: true, placeholder: "Ví dụ: Quá hạn thanh toán HĐ số 12" },
-  reactivate: { title: "Mở lại", sub: "Người dùng của công ty đăng nhập và dùng lại bình thường.", btn: "Mở lại", done: "Đã mở lại tenant", danger: false, placeholder: "Ví dụ: Khách đã thanh toán" },
-  close: { title: "Đóng", sub: "Đóng là vĩnh viễn: không mở lại, không đổi gói, không khôi phục chủ sở hữu. Dữ liệu được giữ để xuất/xóa theo hợp đồng.", btn: "Đóng tenant", done: "Đã đóng tenant", danger: true, placeholder: "Ví dụ: Kết thúc hợp đồng, biên bản thanh lý số …" },
+  suspend: { title: "Tạm khóa", sub: "Mọi người dùng của công ty (web HR và app) bị chặn ngay, kể cả phiên đang mở. Dữ liệu giữ nguyên; mở lại được bất cứ lúc nào.", btn: "Tạm khóa", done: "Đã tạm khóa doanh nghiệp", danger: true, placeholder: "Ví dụ: Quá hạn thanh toán HĐ số 12" },
+  reactivate: { title: "Mở lại", sub: "Người dùng của công ty đăng nhập và dùng lại bình thường.", btn: "Mở lại", done: "Đã mở lại doanh nghiệp", danger: false, placeholder: "Ví dụ: Khách đã thanh toán" },
+  close: { title: "Đóng", sub: "Đóng là vĩnh viễn: không mở lại, không đổi gói, không khôi phục chủ sở hữu. Dữ liệu được giữ để xuất/xóa theo hợp đồng.", btn: "Đóng doanh nghiệp", done: "Đã đóng doanh nghiệp", danger: true, placeholder: "Ví dụ: Kết thúc hợp đồng, biên bản thanh lý số …" },
 };
 
 export function StatusModal({ t, action, onClose, onDone }: { t: ConsoleTenant; action: TenantStatusAction; onClose: () => void; onDone: (t: ConsoleTenantDetail) => void }) {
@@ -56,7 +56,7 @@ export function StatusModal({ t, action, onClose, onDone }: { t: ConsoleTenant; 
   const { busy, run } = useAction();
   async function save() {
     if (reason.trim().length < 5) { setErr("Ghi lý do (ít nhất 5 ký tự)."); return; }
-    if (action === "close" && code.trim().toUpperCase() !== t.code) { setErr(`Gõ lại mã tenant ${t.code} để xác nhận.`); return; }
+    if (action === "close" && code.trim().toUpperCase() !== t.code) { setErr(`Gõ lại mã doanh nghiệp ${t.code} để xác nhận.`); return; }
     await run("status", async () => { onDone(await call<ConsoleTenantDetail>("POST", `tenants/${t.id}/status`, { action, reason, confirmCode: action === "close" ? code : undefined })); onClose(); }, c.done);
   }
   return (
@@ -64,7 +64,7 @@ export function StatusModal({ t, action, onClose, onDone }: { t: ConsoleTenant; 
       foot={<><button className="btn" onClick={onClose}>Hủy</button><button className={`btn ${c.danger ? "danger" : "primary"}`} disabled={!!busy} onClick={save}>{busy ? "Đang xử lý…" : c.btn}</button></>}>
       <div className="form-grid">
         <Field label="Lý do" full hint="Công ty thấy lý do này trong nhật ký hoạt động"><textarea rows={2} value={reason} onChange={(e) => { setReason(e.target.value); setErr(null); }} placeholder={c.placeholder} autoFocus /></Field>
-        {action === "close" ? <Field label={`Gõ lại mã tenant (${t.code})`} full><input value={code} onChange={(e) => { setCode(e.target.value); setErr(null); }} placeholder={t.code} /></Field> : null}
+        {action === "close" ? <Field label={`Gõ lại mã doanh nghiệp (${t.code})`} full><input value={code} onChange={(e) => { setCode(e.target.value); setErr(null); }} placeholder={t.code} /></Field> : null}
       </div>
       <ErrorLine text={err} />
     </Modal>

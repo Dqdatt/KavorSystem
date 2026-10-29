@@ -36,7 +36,7 @@ export default function RolesPage() {
           </tbody></table></div>
         )}
       </article>
-      <p className="muted" style={{ fontSize: 11.5, marginTop: 10 }}>Vai trò Nhân viên được gán tự động khi kích hoạt tài khoản. Quyền thay đổi có hiệu lực ngay ở thao tác kế tiếp của người đó. {me.permissions.includes("role.assign") ? "" : "Chỉ Tenant Admin được gán hoặc thu hồi vai trò."}</p>
+      <p className="muted" style={{ fontSize: 11.5, marginTop: 10 }}>Vai trò Nhân viên được gán tự động khi kích hoạt tài khoản. Quyền thay đổi có hiệu lực ngay ở thao tác kế tiếp của người đó. {me.permissions.includes("role.assign") ? "" : "Chỉ quản trị viên công ty được gán hoặc thu hồi vai trò."}</p>
       {role && b ? <RoleDrawer r={role} canAssign={b.canAssign} onClose={() => setOpen(null)} onAssign={() => setAssign(role.code)} onDone={setData} /> : null}
       {assign && b ? <AssignModal board={b} roleCode={assign === "any" ? null : assign} onClose={() => setAssign(null)} onDone={setData} /> : null}
     </section>

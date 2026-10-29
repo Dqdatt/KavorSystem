@@ -17,7 +17,7 @@ export default function RecoveriesPage() {
   const count = (s: OwnerRecovery["status"]) => rows.filter((r) => r.status === s).length;
   return (
     <section className="page active">
-      <div className="page-head"><div><p>Chỉ thực hiện qua Kavor Console: xác minh qua kênh độc lập, một người tạo, một người khác duyệt, mọi bước có audit.</p></div>
+      <div className="page-head"><div><p>Chỉ thực hiện qua Kavor Console: xác minh qua kênh độc lập, một người tạo, một người khác duyệt, mọi bước ghi nhật ký hoạt động.</p></div>
         <button className="btn primary" onClick={() => setCreating(true)}><Icon name="key" /> Tạo yêu cầu</button></div>
       <LoadError error={error} retry={reload} />
       <div className="grid metrics">
@@ -27,8 +27,8 @@ export default function RecoveriesPage() {
         <article className="card metric-card"><span className="metric-icon violet"><Icon name="shield" /></span><span className="metric-copy"><span>Hủy / quá hạn</span><strong>{num(count("cancelled") + count("expired"))}</strong><small>Không thực hiện</small></span></article>
       </div>
       <article className="card">
-        {data && !rows.length ? <Empty title="Chưa có yêu cầu khôi phục nào" text="Tạo yêu cầu khi Tenant Admin mất điện thoại hoặc công ty không còn ai quản trị." /> : (
-          <div className="table-wrap"><table className="data-table" style={{ minWidth: 1100 }}><thead><tr><th>Tenant</th><th>Loại</th><th>Người nhận</th><th>Đã xác minh</th><th>Người tạo</th><th>Hết hạn</th><th>Trạng thái</th><th /></tr></thead><tbody>
+        {data && !rows.length ? <Empty title="Chưa có yêu cầu khôi phục nào" text="Tạo yêu cầu khi quản trị viên công ty mất điện thoại hoặc công ty không còn ai quản trị." /> : (
+          <div className="table-wrap"><table className="data-table" style={{ minWidth: 1100 }}><thead><tr><th>Doanh nghiệp</th><th>Loại</th><th>Người nhận</th><th>Đã xác minh</th><th>Người tạo</th><th>Hết hạn</th><th>Trạng thái</th><th /></tr></thead><tbody>
             {rows.map((r) => (
               <tr key={r.id}>
                 <td><b>{r.tenant.name}</b><br /><small className="muted">{r.tenant.code}</small></td>

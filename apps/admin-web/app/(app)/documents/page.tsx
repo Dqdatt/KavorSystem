@@ -41,7 +41,7 @@ function DocumentsPage() {
 
   return (
     <section className="page active">
-      <div className="page-head"><div><p>Lưu hồ sơ, version và ngày hết hạn; chữ ký số không thuộc phạm vi.</p></div>
+      <div className="page-head"><div><p>Lưu hồ sơ, phiên bản và ngày hết hạn; chữ ký số không thuộc phạm vi.</p></div>
         <div className="head-actions">{b?.canUpload ? <button className="btn primary" onClick={() => setUploading(true)}><Icon name="upload" /> Tải tài liệu</button> : null}</div></div>
       <LoadError error={error} retry={reload} />
       <div className="grid metrics">
@@ -122,7 +122,7 @@ function DetailDrawer({ id, onClose, onChanged }: { id: string; onClose: () => v
                 </tr>
               ))}
             </tbody></table></div>
-            <p className="muted" style={{ fontSize: 11, margin: "8px 0 0" }}>Phiên bản cũ được giữ nguyên; mỗi lần mở file đều ghi audit.</p>
+            <p className="muted" style={{ fontSize: 11, margin: "8px 0 0" }}>Phiên bản cũ được giữ nguyên; mỗi lần mở file đều ghi nhật ký hoạt động.</p>
           </div>
         </>
       )}

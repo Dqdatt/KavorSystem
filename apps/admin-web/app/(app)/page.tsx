@@ -44,7 +44,7 @@ export default function Overview() {
       {me.tenantAdminCount < 2 && can(me, "role.read") ? (
         <div className="banner">
           <span className="banner-icon"><Icon name="shield" /></span>
-          <span className="banner-copy"><b>Công ty chỉ có {me.tenantAdminCount} Tenant Admin</b><span>Nên có ít nhất 2 Tenant Admin để không mất quyền quản trị khi một người nghỉ hoặc mất tài khoản.</span></span>
+          <span className="banner-copy"><b>Công ty chỉ có {me.tenantAdminCount} quản trị viên</b><span>Nên có ít nhất 2 quản trị viên công ty để không mất quyền quản trị khi một người nghỉ hoặc mất tài khoản.</span></span>
         </div>
       ) : setup && setup.done < setup.total ? (
         <div className="banner">

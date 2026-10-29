@@ -47,7 +47,7 @@ function dbError(e: unknown): never {
   if (message.includes("PAYROLL_REOPEN_REASON_REQUIRED")) throw invalid("Lý do mở lại cần ít nhất 5 ký tự.");
   if (err.code === "23505") throw conflict("Kỳ lương hoặc dữ liệu này đã tồn tại.");
   if (/PAYROLL_(RESULTS_LOCKED|TRANSITION_INVALID|IMPORT_NOT_READY|BATCH_MISMATCH|BATCH_ALREADY_APPLIED|IMPORT_HAS_ERRORS)/.test(message)) throw conflict("Trạng thái kỳ hoặc lần nhập đã thay đổi; cần file hợp lệ đã áp thành công trước khi gửi/duyệt.");
-  throw new AuthError("INTERNAL_ERROR", "Không xử lý được dữ liệu payroll. Vui lòng thử lại.", 500, true);
+  throw new AuthError("INTERNAL_ERROR", "Không xử lý được dữ liệu lương. Vui lòng thử lại.", 500, true);
 }
 
 /* Không phụ thuộc giới hạn mặc định 1.000 dòng của PostgREST: lương không được nhập/đọc thiếu âm thầm. */

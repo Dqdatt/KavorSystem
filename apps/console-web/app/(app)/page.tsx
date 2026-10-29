@@ -23,18 +23,18 @@ export default function Overview() {
           <Link className="btn" href="/recoveries">Xem yêu cầu <Icon name="arrow" /></Link></div>
       ) : o && o.noActiveAdminTenants > 0 ? (
         <div className="banner"><span className="banner-icon"><Icon name="alert" /></span>
-          <span className="banner-copy"><b>{o.noActiveAdminTenants} tenant chưa có Tenant Admin hoạt động</b><span>Khách chưa kích hoạt lời mời hoặc không còn ai quản trị.</span></span>
-          <Link className="btn" href="/tenants">Xem tenant <Icon name="arrow" /></Link></div>
+          <span className="banner-copy"><b>{o.noActiveAdminTenants} doanh nghiệp chưa có quản trị viên hoạt động</b><span>Khách chưa kích hoạt lời mời hoặc không còn ai quản trị.</span></span>
+          <Link className="btn" href="/tenants">Xem doanh nghiệp <Icon name="arrow" /></Link></div>
       ) : null}
       <div className="grid metrics">
-        <article className="card metric-card"><span className="metric-icon"><Icon name="building" /></span><span className="metric-copy"><span>Tenant hoạt động</span><strong>{o ? num(o.tenants.active) : "—"}</strong><small>{o ? `${num(o.tenants.trial)} trial · ${num(o.tenants.suspended)} tạm khóa` : " "}</small></span></article>
-        <article className="card metric-card"><span className="metric-icon blue"><Icon name="user" /></span><span className="metric-copy"><span>Nhân sự trên Kavor</span><strong>{o ? num(o.employees) : "—"}</strong><small>{o ? `${num(o.accounts)} đã kích hoạt · ${num(o.nearLimitTenants)} tenant gần giới hạn` : " "}</small></span></article>
-        <article className="card metric-card"><span className="metric-icon amber"><Icon name="shield" /></span><span className="metric-copy"><span>Chỉ 1 Tenant Admin</span><strong>{o ? num(o.singleAdminTenants) : "—"}</strong><small>Nên có ít nhất 2</small></span></article>
+        <article className="card metric-card"><span className="metric-icon"><Icon name="building" /></span><span className="metric-copy"><span>Doanh nghiệp hoạt động</span><strong>{o ? num(o.tenants.active) : "—"}</strong><small>{o ? `${num(o.tenants.trial)} dùng thử · ${num(o.tenants.suspended)} tạm khóa` : " "}</small></span></article>
+        <article className="card metric-card"><span className="metric-icon blue"><Icon name="user" /></span><span className="metric-copy"><span>Nhân sự trên Kavor</span><strong>{o ? num(o.employees) : "—"}</strong><small>{o ? `${num(o.accounts)} đã kích hoạt · ${num(o.nearLimitTenants)} doanh nghiệp gần giới hạn` : " "}</small></span></article>
+        <article className="card metric-card"><span className="metric-icon amber"><Icon name="shield" /></span><span className="metric-copy"><span>Chỉ 1 quản trị viên</span><strong>{o ? num(o.singleAdminTenants) : "—"}</strong><small>Nên có ít nhất 2</small></span></article>
         <article className="card metric-card"><span className="metric-icon violet"><Icon name="key" /></span><span className="metric-copy"><span>Khôi phục chờ duyệt</span><strong>{o ? num(o.pendingRecoveries) : "—"}</strong><small>Hai nhân viên Kavor</small></span></article>
       </div>
       <div className="grid two-one">
-        <article className="card"><div className="card-head"><div><h3>Tenant cần chú ý</h3><p>Dưới 2 Tenant Admin, gần giới hạn nhân sự hoặc đang tạm khóa</p></div><Link className="btn small" href="/tenants">Xem tất cả</Link></div>
-          {tenants && !attention.length ? <Empty title="Không có tenant cần chú ý" /> : (
+        <article className="card"><div className="card-head"><div><h3>Doanh nghiệp cần chú ý</h3><p>Dưới 2 quản trị viên, gần giới hạn nhân sự hoặc đang tạm khóa</p></div><Link className="btn small" href="/tenants">Xem tất cả</Link></div>
+          {tenants && !attention.length ? <Empty title="Không có doanh nghiệp cần chú ý" /> : (
             <div className="table-wrap"><table className="data-table" style={{ minWidth: 600 }}><thead><tr><th>Doanh nghiệp</th><th>Gói</th><th>Nhân sự</th><th>Tình trạng</th></tr></thead><tbody>
               {attention.map((t) => (
                 <tr key={t.id} className="clickable" onClick={() => { location.href = `/tenants?id=${t.id}`; }}>
@@ -44,7 +44,7 @@ export default function Overview() {
             </tbody></table></div>
           )}
         </article>
-        <article className="card"><div className="card-head"><div><h3>Tenant mới tạo</h3><p>Gần nhất</p></div></div>
+        <article className="card"><div className="card-head"><div><h3>Doanh nghiệp mới tạo</h3><p>Gần nhất</p></div></div>
           <div className="notification-list">
             {(o?.recentTenants ?? []).map((t) => (
               <div key={t.id} className="notification"><span className="metric-icon"><Icon name="building" /></span>

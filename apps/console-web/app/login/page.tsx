@@ -57,7 +57,7 @@ function LoginForm() {
     <div className="login-wrap">
       <div className="card login-card">
         <div className="card-body" style={{ padding: 26 }}>
-          <div className="brand"><img src="/kavor-logo.svg" alt="Kavor" /><span className="brand-copy"><b>Kavor</b><small>Platform Console</small></span></div>
+          <div className="brand"><img src="/kavor-logo.svg" alt="Kavor" /><span className="brand-copy"><b>Kavor</b><small>Bảng điều khiển</small></span></div>
           {mode === "login" ? (
             <form onSubmit={(e) => run(e, async () => { await post("/api/auth/login", { email: identifier, password }); done(); })}>
               <h2 style={{ margin: "0 0 4px", fontSize: 20 }}>Đăng nhập</h2>
