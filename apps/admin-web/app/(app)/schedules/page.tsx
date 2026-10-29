@@ -10,7 +10,9 @@ import { Select } from "@kavor/web-ui";
 
 type Tab = "shifts" | "locations" | "assignments";
 /* Leaflet cần window → chỉ tải phía trình duyệt */
-const LocationMap = dynamic(() => import("../../_ui/location-map"), { ssr: false, loading: () => <div className="location-map-canvas" /> });
+/* Có NEXT_PUBLIC_GOOGLE_MAPS_API_KEY thì dùng Google Maps, chưa có thì Leaflet + tile OSM (bản dev) */
+const LocationMap = dynamic(() => (process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ? import("../../_ui/google-location-map") : import("../../_ui/location-map")),
+  { ssr: false, loading: () => <div className="location-map-canvas" /> });
 
 function SchedulesPage() {
   const router = useRouter();
