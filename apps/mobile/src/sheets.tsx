@@ -51,18 +51,29 @@ function CheckRing() {
 
 export function SheetContent({ kind, arg }: { kind: SheetKind; arg?: string }) {
   switch (kind) {
-    case "pin": return <>
-      <H3 center>Nhập mã PIN</H3>
-      <Sub center>Lương và tạm ứng được bảo vệ bằng PIN</Sub>
-      <View style={{ flexDirection: "row", gap: 16, justifyContent: "center", paddingVertical: 4 }}>{Array.from({ length: 6 }, (_, i) => <PinDot key={i} on={i < S.pin.length} />)}</View>
-      <View style={styles.keypad}>
-        {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => <Key key={n} onPress={() => ACT.pinkey(String(n))}>{String(n)}</Key>)}
-        <Key plain label="Dùng Face ID" onPress={() => { void ACT.faceid(); }}><FaceId size={30} color={C.emerald} /></Key>
-        <Key onPress={() => ACT.pinkey("0")}>0</Key>
-        <Key plain label="Xóa" onPress={() => ACT.pinkey("del")}><Ic n="chevL" s={24} w={2} color={C.ink2} /></Key>
-      </View>
-      <Pressable onPress={() => ACT.toast("A11: khôi phục PIN bằng mật khẩu đăng nhập + OTP")}><T style={{ color: C.emerald, fontFamily: F.semibold, textAlign: "center" }}>Quên mã PIN?</T></Pressable>
-    </>;
+    case "pin": {
+      /* Tiêu đề theo bước: nhập PIN / PIN hiện tại (khi đổi) / tạo PIN mới / nhập lại để xác nhận */
+      const m = S.pinMode;
+      const [title, sub] = m === "create" ? [S.pinChange ? "Mã PIN mới" : "Tạo mã PIN", "6 số để mở lương, tạm ứng và tài liệu"]
+        : m === "confirm" ? ["Nhập lại mã PIN", "Nhập lại 6 số vừa chọn để xác nhận"]
+        : m === "old" ? ["Nhập mã PIN hiện tại", "Xác nhận trước khi đổi mã PIN"]
+        : ["Nhập mã PIN", "Lương và tạm ứng được bảo vệ bằng PIN"];
+      const canBio = m === "enter" && !S.pinChange;
+      return <>
+        <H3 center>{title}</H3>
+        <Sub center>{sub}</Sub>
+        <View style={{ flexDirection: "row", gap: 16, justifyContent: "center", paddingVertical: 4 }}>{Array.from({ length: 6 }, (_, i) => <PinDot key={i} on={i < S.pin.length} />)}</View>
+        {S.pinErr ? <T style={{ color: C.bad, textAlign: "center", fontFamily: F.medium, marginTop: -6 }}>{S.pinErr}</T> : null}
+        <View style={styles.keypad}>
+          {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => <Key key={n} onPress={() => ACT.pinkey(String(n))}>{String(n)}</Key>)}
+          {canBio ? <Key plain label="Dùng Face ID" onPress={() => { void ACT.faceid(); }}><FaceId size={30} color={C.emerald} /></Key> : <View style={[styles.key, styles.keyPlain]} />}
+          <Key onPress={() => ACT.pinkey("0")}>0</Key>
+          <Key plain label="Xóa" onPress={() => ACT.pinkey("del")}><Ic n="chevL" s={24} w={2} color={C.ink2} /></Key>
+        </View>
+        {m === "enter" || m === "old" ? <Pressable onPress={ACT.forgotPin}><T style={{ color: C.emerald, fontFamily: F.semibold, textAlign: "center" }}>Quên mã PIN?</T></Pressable> : null}
+      </>;
+    }
+    /* Chỉ còn dùng cho trạng thái QA "faceid-scanning" (đối chiếu prototype); app thật gọi thẳng hộp thoại Face ID */
     case "face": return <>
       <H3 center>Face ID</H3>
       <FaceRing />

@@ -43,6 +43,11 @@ const mocks = new Map([
     export const advanceApi={},attendanceApi={},leaveApi={},notificationsApi={},overtimeApi={},payslipApi={},setTokenSource=()=>{},isNetworkError=()=>false;`],
   ['../api/http', `export const REMOTE=true;`],
   ['../qa', `export const QA_ENABLED=false;`],
+  /* src/pin.ts chạy thật trên Keychain giả trong bộ nhớ + SHA-256 của Node */
+  ['expo-secure-store', `const m=globalThis.__secureStore??=new Map();export const WHEN_UNLOCKED_THIS_DEVICE_ONLY=1;
+    export const getItemAsync=async k=>m.get(k)??null,setItemAsync=async(k,v)=>{m.set(k,v);},deleteItemAsync=async k=>{m.delete(k);};`],
+  ['expo-crypto', `import {createHash,randomBytes} from 'node:crypto';export const CryptoDigestAlgorithm={SHA256:'sha256'};
+    export const digestStringAsync=async(a,s)=>createHash(a).update(s).digest('hex'),getRandomBytes=n=>new Uint8Array(randomBytes(n));`],
   ['./home', `export const ImpTag=()=>'Quan trọng';`],
 ]);
 const components = (names) => names.map((name) => `export const ${name}=p=>globalThis.__newsTest.React.createElement('${name}',p,p.children??[p.title,p.text,p.label]);`).join('\n');

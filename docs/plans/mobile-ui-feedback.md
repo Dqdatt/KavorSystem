@@ -1,4 +1,4 @@
-# Phản hồi UI mobile của người dùng (26/10) — chưa làm
+# Phản hồi UI mobile của người dùng (26/10) — đã làm mục 3, 4 (29/10)
 
 Người dùng thử app trên iPhone và ghi lại 9 điểm cần sửa. Làm trên Mac (cần simulator/iPhone để chụp + đối chiếu): mỗi màn đổi xong chụp lại
 bằng `tools/ui-compare/` và thử trên máy thật (animation, Face ID, bàn phím phải xác nhận trên thiết bị vật lý). Vị trí code dưới đây tra ngày 26/10
@@ -16,5 +16,15 @@ trên nhánh `claude/ecstatic-pascal-dblg7v`, có thể đã đổi — đọc l
 | 7 | Xin nghỉ nhiều ngày: chọn ngày bắt đầu và kết thúc thì **tô dải** từ ngày đầu tới ngày cuối | Lịch chọn ngày trong form nghỉ phép (`src/screens/forms.tsx`, màn `leaveNew`) | Hiện dải nền liền (range highlight) giữa ngày bắt đầu và kết thúc, ngày đầu/cuối bo tròn, ngày nghỉ/lễ trong dải vẫn phân biệt được; có hiệu ứng nhẹ khi chọn ngày cuối. |
 | 8 | Nút **"?"** góc trên phải các modal/tính năng: bấm vào thì hiện **hướng dẫn sử dụng** tính năng đó | `HelpBtn` (`src/screen.tsx` dòng ~72) → `ACT.help` → sheet `help` (`src/sheets.tsx` ~dòng 93) đang hiện **ghi chú QA của prototype** (ví dụ "V03 – V04 Hạn mức = 30%…", "Widget cỡ vừa có nút chấm công (App Intent, iOS 17+)…") | Viết nội dung hướng dẫn cho người dùng theo từng màn/tính năng (chấm công, giải trình, nghỉ phép, OT, tạm ứng, phiếu lương, đơn từ, bản tin, hồ sơ…), tách khỏi ghi chú QA (ghi chú QA chỉ hiện khi bật `EXPO_PUBLIC_KAVOR_QA`). Nội dung không được chứa giá trị nghiệp vụ cứng (lấy số từ quy định qua API nếu cần). |
 | 9 | **Widget chấm công** chưa làm, hiện chỉ là prototype | Màn `widgetGuide` (`src/screens/profile.tsx`, `widgetGuideSpec`) + mô phỏng `ACT.wpunch` trong `src/store.ts` (dữ liệu giả, `setTimeout`) | Làm widget thật: iOS WidgetKit (cỡ nhỏ xem trạng thái; cỡ vừa có nút chấm công qua App Intent, iOS 17+) + Android App Widget; cần target native riêng (config plugin / `expo-apple-targets` hoặc tương đương), chia sẻ phiên đăng nhập qua App Group/Keychain, gọi cùng API chấm công (kiểm GPS/thiết bị như app). Khối lượng lớn — lên kế hoạch riêng; có thể cần tài khoản Apple Developer cho App Group trên máy thật. |
+
+**Mục 3 — đã làm 29/10 (Claude Desktop):** `apps/mobile/src/pin.ts` + luồng trong `store.ts`/`sheets.tsx`. Quyết định kỹ thuật: PIN lưu **trên máy**
+(muối 16 byte + SHA-256 trong Keychain/Keystore `WHEN_UNLOCKED_THIS_DEVICE_ONLY`, theo mã nhân viên), không gửi lên máy chủ — API vẫn chỉ tin phiên đăng
+nhập, PIN chặn người cầm máy đang mở khóa. Lần đầu vào lương/tạm ứng/tài liệu phải tạo PIN (nhập 2 lần; chặn 6 số giống nhau và dãy liên tiếp); sai 5 lần
+liên tiếp thì xóa PIN + đăng xuất; Face ID thành công xóa đếm sai; "Quên mã PIN?" xóa PIN + đăng xuất; Bảo mật và thiết bị → Đổi mã PIN (phải nhập PIN hiện
+tại). Bản dữ liệu mẫu/QA giữ hành vi prototype (nhập 6 số bất kỳ). Test Node `tools/pin-mobile-test.mjs` (6 ca). Hạn chế: đổi máy/cài lại app phải tạo PIN
+lại; muốn PIN dùng chung nhiều máy hoặc máy chủ chặn API lương khi chưa qua PIN thì cần thêm bước xác thực phía máy chủ (chưa làm).
+
+**Mục 4 — đã làm 29/10:** bấm Face ID trong sheet PIN gọi thẳng `authenticate()` (hộp thoại hệ thống), không chuyển sang sheet `face` tự vẽ;
+hủy/không khớp thì vẫn ở bàn phím PIN. Sheet `face` chỉ còn cho trạng thái QA `faceid-scanning`. Người dùng đã thử mục 3 trên iPhone 11 (29/10): ổn.
 
 Thứ tự đề xuất: 3 (bảo mật PIN) → 4, 5 (sinh trắc học) → 1, 6 (nhỏ) → 2, 7 (form OT/nghỉ phép) → 8 (nội dung hướng dẫn) → 9 (widget, kế hoạch riêng).

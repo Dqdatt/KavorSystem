@@ -11,6 +11,7 @@ import { api, type Snapshot } from "./api";
 import { authenticate, biometricLabel, clearQuickLogin, clearSession, loadBioPrefs, loadSession, loadSupport, quickLoginEmployee, quickRefreshToken, saveBioPrefs, saveSession, saveSupport, type BioPrefs } from "./auth";
 import { ApiError, REMOTE, advanceApi, announcementsApi, attendanceApi, documentsApi, authApi, companyApi, isNetworkError, leaveApi, notificationsApi, overtimeApi, payslipApi, setTokenSource, timesheetApi } from "./api/http";
 import { clearExplainReminders, onReminderTap, scheduleExplainReminders } from "./notify";
+import { PIN_LENGTH, PIN_MAX_ATTEMPTS, checkPin, clearPin, hasPin, resetPinFailures, setPin, weakPin } from "./pin";
 import { MY_REQ_INIT, SUPPORT_SAMPLE } from "./api/mock-data";
 import {
   EXPLANATION_KINDS, PROFILE_FIELDS, distanceMeters, passwordProblems,
@@ -131,6 +132,8 @@ const makeState = () => ({
   sh: { name: "Ca hành chính", start: 480, end: 1020, breakMin: 60, lateGrace: 0, earlyGrace: 0, assigned: true },
   clockIn: null as number | null, clockOut: null as number | null,
   stack: ["login"] as Route[], param: null as string | null, pinUntil: 0, pin: "", pinOk: null as null | (() => void),
+  /* Cổng PIN: enter = nhập PIN, old = PIN hiện tại khi đổi, create/confirm = tạo PIN mới (hai lần) */
+  pinMode: "enter" as "enter" | "old" | "create" | "confirm", pinFirst: "", pinErr: "", pinChange: false, pinBusy: false,
   quickOpen: false,
   explainUsed: 1, explainLimit: 3,
   ex: { date: 15, type: "in", time: 478, reason: "", file: null as string | null, err: false },
@@ -569,7 +572,20 @@ export function spin(key: string, ms: number, done: () => void) {
 }
 export function shake(key: string) { S.shake = { key, n: S.shake.n + 1 }; emit(); }
 
-export function openPin(ok: () => void) { S.pin = ""; S.pinOk = ok; openSheet("pin"); }
+/* Bản dữ liệu mẫu/QA giữ hành vi prototype (nhập 6 số bất kỳ); có API thì PIN thật lưu trên máy (src/pin.ts) */
+const pinOwner = async () => (await loadSession())?.employeeId ?? "";
+function pinReset(mode: typeof S.pinMode, change: boolean) { S.pin = ""; S.pinFirst = ""; S.pinErr = ""; S.pinMode = mode; S.pinChange = change; S.pinBusy = false; }
+/* Chưa có PIN thì chuyển sang tạo PIN; sheet đã đóng hoặc đã chuyển màn thì thôi */
+function pinNeedsCreate(sheetId: number | undefined) {
+  if (!REMOTE) return;
+  void pinOwner().then(hasPin).then((has) => {
+    if (!has && S.sheet?.kind === "pin" && S.sheet.id === sheetId) { pinReset("create", S.pinChange); emit(); }
+  });
+}
+export function openPin(ok: () => void) {
+  pinReset("enter", false); S.pinOk = ok; openSheet("pin");
+  pinNeedsCreate(S.sheet?.id);
+}
 /* Lưu phiên vào Keychain; thiết bị đã đăng ký thì vào thẳng trang chủ, chưa thì sang bước đăng ký.
    Công ty có điều khoản dữ liệu cá nhân mới chưa đồng ý thì hỏi trước (ADR 0001 §5). */
 async function signIn(employeeId: string, result?: AuthResult) {
@@ -823,6 +839,46 @@ export async function restoreSession() {
 }
 
 function pinSuccess() { S.pinUntil = Date.now() + 5 * 60 * 1000; const f = S.pinOk; S.pinOk = null; closeSheet(); f && f(); }
+/* Nhập đủ 6 số: kiểm PIN, hoặc bước tạo/xác nhận PIN mới */
+async function pinDone() {
+  if (!REMOTE) { pinSuccess(); return; }
+  const pin = S.pin, mode = S.pinMode, owner = await pinOwner();
+  const retry = (msg: string, next = mode) => { S.pinBusy = false; S.pin = ""; S.pinErr = msg; S.pinMode = next; shake("sheet"); Vibration.vibrate(30); emit(); };
+  if (!owner) { closeSheet(true); showErr("session"); return; }
+  if (mode === "enter" || mode === "old") {
+    S.pinBusy = true; emit();
+    const r = await checkPin(owner, pin);
+    S.pinBusy = false;
+    if (r.ok) {
+      if (mode === "old") { pinReset("create", true); emit(); return; }
+      pinSuccess(); return;
+    }
+    if ("locked" in r) { pinLocked(); return; }
+    retry(`Sai mã PIN. Còn ${r.left} lần thử.`, mode);
+    return;
+  }
+  if (mode === "create") {
+    const weak = weakPin(pin);
+    if (weak) { retry(weak); return; }
+    S.pinFirst = pin; S.pin = ""; S.pinErr = ""; S.pinMode = "confirm"; emit();
+    return;
+  }
+  if (mode === "confirm") {
+    if (pin !== S.pinFirst) { S.pinFirst = ""; retry("Hai lần nhập không khớp. Nhập lại mã PIN mới.", "create"); return; }
+    S.pinBusy = true; emit();
+    await setPin(owner, pin);
+    S.pinBusy = false;
+    toast(S.pinChange ? "Đã đổi mã PIN" : "Đã tạo mã PIN");
+    if (S.pinChange) { S.pinChange = false; closeSheet(); return; }
+    pinSuccess();
+  }
+}
+/* Sai quá số lần cho phép: PIN đã bị xóa, đăng xuất để xác thực lại bằng mật khẩu (hoặc Face ID đăng nhập) rồi tạo PIN mới */
+function pinLocked() {
+  closeSheet(true); S.pinOk = null;
+  ACT.logoutGo();
+  toast(`Nhập sai mã PIN ${PIN_MAX_ATTEMPTS} lần. Đăng nhập lại để tạo mã PIN mới.`);
+}
 
 export function quickOpen() { S.quickOpen = true; emit(); }
 export function quickClose() { if (!S.quickOpen) return; S.quickOpen = false; emit(); }
@@ -1290,17 +1346,31 @@ export const ACT = {
     void clearSession(); S.pinUntil = 0; S.f = freshForms(); closeSheet(); S.stack = ["login"]; render("fade");
   },
   pinkey: (a: string) => {
-    if (a === "del") S.pin = S.pin.slice(0, -1); else if (S.pin.length < 6) S.pin += a;
+    if (S.pinBusy || S.pin.length >= PIN_LENGTH && a !== "del") return;
+    if (a === "del") S.pin = S.pin.slice(0, -1); else { S.pin += a; S.pinErr = ""; }
     emit();
-    if (S.pin.length === 6) setTimeout(pinSuccess, 240);
+    if (S.pin.length === PIN_LENGTH) setTimeout(() => { void pinDone(); }, 240);
   },
-  /* Face ID thật trong sheet PIN; hủy hoặc không khớp thì quay lại bàn phím PIN */
+  /* Quên PIN: xóa PIN trên máy và đăng xuất; đăng nhập lại xong, lần mở lương kế tiếp sẽ tạo PIN mới */
+  forgotPin: () => {
+    if (!REMOTE) { toast("Bản mẫu: khôi phục PIN bằng cách đăng nhập lại"); return; }
+    void pinOwner().then(clearPin).then(() => {
+      closeSheet(true); S.pinOk = null; ACT.logoutGo();
+      toast("Đăng nhập lại để tạo mã PIN mới.");
+    });
+  },
+  /* Bảo mật và thiết bị → Đổi mã PIN (chưa có PIN thì tạo) */
+  changePin: () => {
+    if (!REMOTE) { toast("Bản mẫu chưa lưu mã PIN"); return; }
+    void pinOwner().then(hasPin).then((has) => { pinReset(has ? "old" : "create", true); S.pinOk = null; openSheet("pin"); });
+  },
+  /* Bấm Face ID trong sheet PIN: gọi thẳng hộp thoại hệ thống (không qua màn "Đang nhận diện" tự vẽ — phản hồi người dùng 29/10);
+     sheet PIN giữ nguyên phía sau, hủy hoặc không khớp thì nhập PIN tiếp */
   faceid: async () => {
+    if (S.pinMode !== "enter" || S.pinBusy) return;
     if (!S.bio.unlock) { toast(`Mở khóa bằng ${S.bioLabel} đang tắt. Nhập PIN hoặc bật lại trong Bảo mật và thiết bị.`); return; }
-    if (S.sheet) { S.sheet = { ...S.sheet, kind: "face" }; emit(); }
     const r = await authenticate("Xác thực để xem lương và tạm ứng");
-    if (r.ok) { pinSuccess(); return; }
-    if (S.sheet) { S.sheet = { ...S.sheet, kind: "pin" }; emit(); }
+    if (r.ok) { if (REMOTE) void pinOwner().then(resetPinFailures); pinSuccess(); return; }
     if (r.reason !== "cancelled") toast(r.message);
   },
   wpunch: () => {

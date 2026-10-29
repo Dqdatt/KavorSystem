@@ -10,6 +10,10 @@ simulator hay iPhone** vì phiên cloud không có Mac). Người dùng giao "c�
 ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AGENT_PLAYBOOK.md`; kiểm tra toàn bộ bằng `bash tools/verify-all.sh`.
 
 ## Đã xong
+- Mã PIN thật trên app (29/10, Claude Desktop; phản hồi mobile mục 3 — trước đây nhập 6 số bất kỳ cũng mở được lương): `apps/mobile/src/pin.ts` lưu muối +
+  SHA-256 trong Keychain theo mã nhân viên; lần đầu phải tạo PIN (2 lần, chặn PIN yếu), sai 5 lần xóa PIN + đăng xuất, quên PIN = đăng xuất, đổi PIN ở Bảo
+  mật và thiết bị. Mục 4: Face ID trong sheet PIN gọi thẳng hộp thoại hệ thống. Test Node `tools/pin-mobile-test.mjs` (7 ca). Người dùng đã thử PIN trên
+  iPhone 11 thật: ổn.
 - Làm đẹp web HR + Console theo phản hồi 26/10 (29/10, Claude Desktop; chi tiết + bằng chứng ở đầu `docs/plans/web-ui-polish.md`): CSS chung
   `packages/web-ui/src/kavor.css`, theme sáng/tối + nút đổi theme, Montserrat, `Select` tự vẽ thay 49 `<select>`, bảng không cuộn ngang ở
   1440/1280px, màu cứng → biến, bỏ h2 lặp ở 17 page-head + 5 phụ đề modal thừa, Việt hóa thuật ngữ hai web + thông báo API (migration đổi tên
@@ -319,8 +323,8 @@ ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AG
 ## Đang dở (QUAN TRỌNG NHẤT)
 - **Web UI (29/10): xong 5 bước của `docs/plans/web-ui-polish.md`**; chờ người dùng xem trên Mac và chọn nhà cung cấp bản đồ cho production.
   DB local đã reset bởi verify-all 29/10 (dữ liệu mẫu, chưa ai kích hoạt).
-- **Phản hồi UI mobile của người dùng (26/10, chưa làm):** 9 điểm trong `docs/plans/mobile-ui-feedback.md` — ưu tiên mục PIN (hiện mọi 6 số đều mở
-  được phiếu lương/tạm ứng/tài liệu) và Face ID gọi thẳng hộp thoại hệ thống.
+- **Phản hồi UI mobile (26/10):** xong mục 3 (PIN) + 4 (Face ID) ngày 29/10; còn mục 1, 2, 5–9 trong `docs/plans/mobile-ui-feedback.md`.
+  DB local đang có HD0142 kích hoạt trên iPhone (bản cài 29/10, API `http://192.168.1.2:4000/api/v1`) — reset DB thì phải kích hoạt lại.
 - **26/10: phiên cloud tạm dừng.** Toàn bộ việc làm trên cloud (nhánh `claude/ecstatic-pascal-dblg7v`, đến commit `41bf4f4`), checklist thử tay,
   đánh giá MVP và thứ tự việc tiếp theo nằm trong `docs/CLOUD_HANDOFF.md` — đọc file đó trước.
 - Web payroll `/payroll` và module Bản tin nằm trên nhánh `claude/ecstatic-pascal-dblg7v` (phiên cloud), **chưa vào main**; người dùng cần thử trên
@@ -420,6 +424,8 @@ ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AG
   PIN/Face ID, tối đa 5 MB, "Thiếu hồ sơ" = chưa có hợp đồng còn hiệu lực.
 
 ## Nhật ký
+- 2026-10-29 — Claude (Desktop): mã PIN thật + Face ID gọi thẳng hộp thoại hệ thống. Mobile typecheck, test mobile 25 ca (PIN 7). Người dùng thử PIN trên iPhone:
+  ổn; bản sửa Face ID đã cài, chờ xác nhận. verify-all --quick (không reset để giữ tài khoản trên iPhone); bản đầy đủ chạy lần trước TẤT CẢ ĐẠT.
 - 2026-10-29 — Claude (Desktop): tìm ra lỗi smoke trên Mac: macOS dùng bash 3.2, bung ngoặc nhọn của JSON có `\"` bên trong `"$( … )"` → lệnh gọi API
   bị tách làm nhiều lần với body hỏng, và `check` nhận chuỗi rỗng ở cả hai vế nên có bước **đạt giả** (vd. "Đính kèm PDF"). Sửa 27 dòng ở 6 smoke
   (gán `_sN=$( … )` trước rồi `check "$_sN"`), kiểm bằng harness bash 3.2 (mọi `check` đủ 3 tham số). Verify-all đầy đủ TẤT CẢ ĐẠT (pgTAP 460,
