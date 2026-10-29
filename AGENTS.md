@@ -56,6 +56,9 @@ pnpm build
 - `pod install`/`expo run:ios` lỗi Unicode Normalization nếu thiếu `LANG=en_US.UTF-8` (CocoaPods 1.17 + Ruby 4 khi shell không đặt locale UTF-8).
 - Code mobile nằm trong `apps/mobile/src/` (port 1:1 từ prototype). So sánh UI dùng `tools/ui-compare/` + deep link `kavor://qa/<state>` (cần `EXPO_PUBLIC_KAVOR_QA=1`); tên state trong `states.mjs` và `src/qa.ts` phải trùng nhau.
 - `npx expo prebuild -p ios` (kể cả không `--clean`) tạo lại `ios/`: mất `DEVELOPMENT_TEAM`, `RCTNewArchEnabled` trong Info.plist và thư mục Pods. Sao lưu `project.pbxproj`/`Info.plist` trước rồi khôi phục; Pods cài lại khi `expo run:ios`.
+- Splash iOS là ảnh gradient toàn màn hình + logo: `ios/Kavor/Images.xcassets/SplashScreenGradient` (nguồn `apps/mobile/assets/splash-gradient.png`)
+  và imageView `KAVOR-SplashGradient` trong `SplashScreen.storyboard` — sửa tay vì plugin expo-splash-screen chỉ hỗ trợ màu đặc; `expo prebuild` sẽ xóa,
+  phải thêm lại. iOS cache launch screen: đổi splash xong phải gỡ app (hoặc khởi động lại máy) mới thấy bản mới.
 - Sau `pod install` chạy tay, build Debug iOS có thể lỗi link `facebook::react::Sealable::Sealable()`: file `ios/Pods/React-Core-prebuilt/.last_build_configuration` bị mất nên script không đổi React Native prebuilt về Debug. Ghi `Release` vào file đó rồi build lại.
 - Android: JDK `/opt/homebrew/opt/openjdk@17`, SDK `~/Library/Android/sdk`, emulator `Kavor_Pixel_6`; app dev không nhận Fast Refresh khi Metro chạy chung với iOS — force-stop rồi mở lại qua `kavor://expo-development-client/?url=http%3A%2F%2Flocalhost%3A8081` (cần `adb reverse tcp:8081 tcp:8081`).
 - iOS Debug (dev client) crash khi khởi động nếu React prebuilt và Expo precompiled modules lệch flavor. Để chụp QA dùng bản Release có cờ: `EXPO_PUBLIC_KAVOR_QA=1 npx expo run:ios --configuration Release --no-bundler`. Biến `EXPO_PUBLIC_*` bị Metro cache: xóa `$TMPDIR/metro-cache` khi đổi cờ QA, kể cả trước khi build bản cho iPhone thật (không được lọt QA).

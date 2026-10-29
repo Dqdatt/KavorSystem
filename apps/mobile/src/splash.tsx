@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { Animated, Easing, StyleSheet, View } from "react-native";
+import { Animated, Easing, Platform, StyleSheet, View } from "react-native";
 import * as SplashScreen from "expo-splash-screen";
 import { SvgXml } from "react-native-svg";
 import { EASE, F } from "./theme";
 import { useReducedMotion } from "./motion";
 import { T } from "./ui";
 
-/* Giữ splash gốc (nền #065F46, logo trắng rộng 112pt) cho đến khi app sẵn sàng */
+/* Giữ splash gốc (iOS: ảnh gradient xanh + logo trắng 112pt; Android: nền #065F46) cho đến khi app sẵn sàng */
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
 /* Chế độ QA bỏ qua lớp chuyển cảnh: chỉ cần ẩn splash gốc */
@@ -23,7 +23,9 @@ const LOGO = '<svg viewBox="16 16 439 393"><path d="M35 189 L35 389 L141 190 L24
    sau đó logo phóng nhẹ và cả lớp mờ đi để lộ màn đăng nhập. */
 export function SplashOverlay({ ready, onDone }: { ready: boolean; onDone: () => void }) {
   const reduced = useReducedMotion();
-  const glow = useRef(new Animated.Value(0)).current;
+  /* Splash gốc iOS đã là ảnh gradient (ios/Kavor/Images.xcassets/SplashScreenGradient = assets/splash-gradient.png) nên lớp phủ bắt đầu ngay ở
+     khung gradient — không còn khung xanh đặc (phản hồi người dùng 29/10). Android chỉ có màu đặc + icon nên gradient vẫn hiện dần. */
+  const glow = useRef(new Animated.Value(Platform.OS === "ios" ? 1 : 0)).current;
   const word = useRef(new Animated.Value(0)).current;
   const out = useRef(new Animated.Value(0)).current;
   const [laid, setLaid] = useState(false);
