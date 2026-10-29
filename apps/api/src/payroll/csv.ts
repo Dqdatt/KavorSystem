@@ -1,4 +1,4 @@
-/* CSV xuất từ Sheets: dấu phẩy, UTF-8/BOM, CRLF, ô có quote và xuống dòng.
+/* CSV xuất từ Sheets/Excel: dấu phẩy, hoặc dấu chấm phẩy (Excel cài vùng Việt Nam), UTF-8/BOM, CRLF, ô có quote và xuống dòng.
    Không chép ô tiền/note vào chẩn đoán; kết quả chỉ được áp khi toàn file không có lỗi. */
 import type { PayComponent, PayrollIssue } from "@kavor/contracts";
 
@@ -10,8 +10,21 @@ export type ImportRow = {
 export const issue = (severity: PayrollIssue["severity"], code: string, message: string, row: number | null = null, column: string | null = null, employeeCode: string | null = null): PayrollIssue =>
   ({ severity, code, message, row, column, employeeCode });
 
+/* Dấu phân cách đoán theo dòng tiêu đề (ngoài quote): nhiều ";" hơn "," thì là file Excel vùng Việt Nam */
+export function csvDelimiter(csv: string): "," | ";" {
+  let commas = 0, semis = 0, quoted = false;
+  for (const c of csv) {
+    if (c === '"') quoted = !quoted;
+    else if (!quoted && (c === "\n" || c === "\r")) break;
+    else if (!quoted && c === ",") commas++;
+    else if (!quoted && c === ";") semis++;
+  }
+  return semis > commas ? ";" : ",";
+}
+
 export function readCsv(source: string): { records: CsvRecord[]; errors: PayrollIssue[] } {
   const csv = source.replace(/^\uFEFF/, "");
+  const sep = csvDelimiter(csv);
   const records: CsvRecord[] = [], errors: PayrollIssue[] = [];
   let cells: string[] = [], cell = "", quoted = false, closed = false, line = 1, start = 1;
   const finish = () => {
@@ -30,7 +43,7 @@ export function readCsv(source: string): { records: CsvRecord[]; errors: Payroll
         cell += c;
         if (c === "\n" || (c === "\r" && csv[i + 1] !== "\n")) line++;
       }
-    } else if (c === ",") { cells.push(cell); cell = ""; closed = false; }
+    } else if (c === sep) { cells.push(cell); cell = ""; closed = false; }
     else if (c === "\r" || c === "\n") {
       finish();
       if (c === "\r" && csv[i + 1] === "\n") i++;

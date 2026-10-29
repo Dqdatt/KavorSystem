@@ -57,16 +57,19 @@ export const MeContext = createContext<OperatorMe | null>(null);
 export function useMe() { const m = useContext(MeContext); if (!m) throw new Error("MeContext"); return m; }
 
 /* ---------- Toast ---------- */
-const ToastContext = createContext<(m: string) => void>(() => {});
+/* kind "error": thông báo lỗi (biểu tượng cảnh báo đỏ) — trước đây lỗi cũng hiện dấu tích như thành công */
+type Toast = (m: string, kind?: "error") => void;
+const ToastContext = createContext<Toast>(() => {});
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [msg, setMsg] = useState<string | null>(null);
+  const [err, setErr] = useState(false);
   const [show, setShow] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const toast = useCallback((m: string) => { setMsg(m); setShow(true); clearTimeout(timer.current); timer.current = setTimeout(() => setShow(false), 2700); }, []);
+  const toast = useCallback<Toast>((m, kind) => { setMsg(m); setErr(kind === "error"); setShow(true); clearTimeout(timer.current); timer.current = setTimeout(() => setShow(false), 2700); }, []);
   return (
     <ToastContext.Provider value={toast}>
       {children}
-      <div className={`toast ${show ? "show" : ""}`} role="status"><Icon name="checks" /><span>{msg}</span></div>
+      <div className={`toast ${show ? "show" : ""} ${err ? "error" : ""}`} role={err ? "alert" : "status"}><Icon name={err ? "alert" : "checks"} /><span>{msg}</span></div>
     </ToastContext.Provider>
   );
 }
@@ -129,7 +132,7 @@ export function useAction() {
   const [busy, setBusy] = useState<string | null>(null);
   const run = useCallback(async (key: string, fn: () => Promise<unknown>, ok?: string) => {
     setBusy(key);
-    try { await fn(); if (ok) toast(ok); return true; } catch (e) { toast((e as Error).message); return false; } finally { setBusy(null); }
+    try { await fn(); if (ok) toast(ok); return true; } catch (e) { toast((e as Error).message, "error"); return false; } finally { setBusy(null); }
   }, [toast]);
   return { busy, run };
 }

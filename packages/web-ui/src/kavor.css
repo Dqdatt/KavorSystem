@@ -532,6 +532,7 @@ a.nav-item, a.quick-item { text-decoration: none; }
 }
 .toast.show { transform: none; opacity: 1; }
 .toast svg { width: 18px; height: 18px; color: var(--accent); flex: none; }
+.toast.error svg { color: var(--red); }
 .mobile-menu { display: none; }
 .muted { color: var(--muted); }
 .text-red { color: var(--red); }

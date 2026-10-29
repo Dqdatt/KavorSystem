@@ -41,16 +41,20 @@ Tài khoản mẫu (sau `bash tools/db-reset.sh`): HR Admin HD0007 · thao.mai@h
 Nhân viên Kavor (Console) tạo bằng `OPERATOR_PASSWORD='…' bash tools/create-operator.sh <email> "<Họ tên>"` (tạo 2 người).
 
 Web HR (`pnpm dev:admin`, http://localhost:3000):
-- [ ] Lương & tạm ứng: Kế toán nhập `sample-data/payroll_import_2026-10.csv`, người thứ hai duyệt, công bố → HD0142 xem phiếu trên app.
-- [ ] Bản tin: đăng bài có PDF, hẹn giờ, bật thông báo; Tài liệu: tải hợp đồng cho HD0142, thay phiên bản.
-- [ ] Cơ cấu tổ chức: thêm phòng con, đổi tên, ngừng (bị chặn khi còn người); Vai trò & phân quyền: gán HR Ops phạm vi phòng ban cho HD0142 → đăng
-  nhập web bằng HD0142 chỉ thấy phòng đó → thu hồi.
-- [ ] Nhân viên → Nhập từ file `sample-data/employees_import_sample.csv` (và thử **file Excel thật lưu CSV UTF-8** — Excel tiếng Việt có thể dùng dấu
-  chấm phẩy, importer hiện chỉ đọc dấu phẩy) → Gửi lời mời (N) → thư tới Mailpit.
-- [ ] Đơn & phê duyệt: duyệt đơn HS (sửa hồ sơ) do app gửi; Cài đặt → Hỗ trợ Kavor (sau khi Console gửi yêu cầu).
+- [x] Lương & tạm ứng (29/10, trình duyệt tự động trên Mac): HD0215 mở kỳ 10/2026, nhập CSV mẫu (9 dòng, 10 cảnh báo ngày công), gửi kiểm tra → HD0216 duyệt →
+  công bố. Sửa: icon tải lên phủ cả modal. **Còn:** HD0142 xem phiếu trên app (người dùng).
+- [x] Bản tin: bài hẹn giờ + bài xuất bản ngay có PDF (tải lại được, `application/pdf`); Tài liệu: hợp đồng HD0142 + phiên bản 2 (29/10).
+  **Còn:** bật "Gửi thông báo" và xem trên app (người dùng).
+- [x] Cơ cấu tổ chức: thêm phòng con Digital trong Marketing, đổi tên, ngừng Marketing bị chặn (còn người), ngừng phòng con trống. Vai trò: gán Nhân sự
+  vận hành phạm vi Marketing cho **HDG0005** (không dùng HD0142 để giữ tài khoản iPhone): trước gán FORBIDDEN → sau gán chỉ thấy 2 người Marketing →
+  thu hồi lại FORBIDDEN (29/10). Sửa: toast lỗi trước đây hiện dấu tích như thành công.
+- [x] Nhập từ file: file kiểu Excel vùng Việt Nam (dấu chấm phẩy + BOM) trước báo "Thiếu cột bắt buộc" → **sửa `readCsv` tự nhận `,`/`;`** (dùng chung
+  nhập lương), unit test mới; nhập 3 người → "Gửi lời mời (7)" → 7 thư tới Mailpit (29/10). **Còn:** người dùng thử file Excel thật.
+- [~] Cài đặt → Hỗ trợ Kavor: duyệt + thu hồi (đã thử, xem Console). **Còn:** duyệt đơn HS do app gửi (cần người dùng gửi từ iPhone). Sửa nhãn "Ticket".
 
 Kavor Console (`pnpm dev:console`, http://localhost:3001):
-- [ ] Gói dịch vụ, đổi gói/giới hạn, tạm khóa → web HR + app bị chặn → mở lại; Support access: yêu cầu → HR duyệt → chế độ hỗ trợ → HR thu hồi.
+- [x] Đổi gói Enterprise/350; tạm khóa → web HR `AUTH_TENANT_SUSPENDED` (màn "Không vào được Kavor HR") → mở lại OK; quyền hỗ trợ: yêu cầu SUP-2001 →
+  HR thấy banner + duyệt → Kavor mở phiên (đếm ngược, chỉ đọc) → HR thu hồi → `revoked` (29/10). **Còn:** màn "Công ty tạm ngừng" trên app.
 
 App trên iPhone 11 (bản Release, `EXPO_PUBLIC_API_URL=http://<IP LAN Mac>:4000/api/v1`, không QA):
 - [ ] Tab Bản tin (danh sách, chi tiết, mở PDF), bấm thông báo bản tin.

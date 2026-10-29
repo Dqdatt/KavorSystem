@@ -293,7 +293,7 @@ function ImportModal({ d, onClose, onDone }: { d: PayrollDetail; onClose: () => 
       </div>
       <input ref={input} type="file" accept=".csv,text/csv" hidden onChange={(e) => { setFile(e.target.files?.[0] ?? null); setErr(null); e.target.value = ""; }} />
       <button type="button" onClick={() => input.current?.click()} style={{ display: "block", width: "100%", marginTop: 12, padding: 14, border: "1px dashed var(--line-strong)", borderRadius: 11, textAlign: "center", color: "var(--muted)", background: "transparent", cursor: "pointer", font: "inherit" }}>
-        <Icon name="upload" />
+        <Icon name="upload" size={24} />
         <b style={{ display: "block", color: "var(--ink)", margin: "7px 0 3px" }}>{file ? file.name : "Chọn file CSV kết quả lương"}</b>
         <span>{file ? `${num(Math.ceil(file.size / 1024))} KB · bấm để chọn file khác` : "Hệ thống sẽ validate trước khi cập nhật kỳ lương."}</span>
       </button>

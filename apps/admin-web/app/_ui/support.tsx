@@ -90,7 +90,7 @@ function DecideModal({ s, action, onClose, onDone }: { s: SupportSession; action
     <Modal title={title} sub={action === "approve" ? "Thời hạn tính từ bây giờ. Bạn thu hồi được bất cứ lúc nào; mọi lần xem đều ghi vào nhật ký." : action === "revoke" ? "Kỹ sư Kavor mất quyền ngay ở lần xem kế tiếp." : undefined} onClose={onClose}
       foot={<><button className="btn" onClick={onClose}>Để sau</button><button className={`btn ${action === "approve" ? "primary" : "danger"}`} disabled={!!busy} onClick={() => void go()}>{busy ? "Đang xử lý…" : action === "approve" ? "Duyệt" : action === "reject" ? "Từ chối" : "Thu hồi"}</button></>}>
       <div className="card detail-list" style={{ marginBottom: 12 }}>
-        <div className="detail-row"><span>Ticket</span><b>{s.ticket}</b></div>
+        <div className="detail-row"><span>Phiếu hỗ trợ</span><b>{s.ticket}</b></div>
         <div className="detail-row"><span>Lý do</span><b style={{ whiteSpace: "normal" }}>{s.reason}</b></div>
         <div className="detail-row"><span>Phạm vi</span><b style={{ whiteSpace: "normal" }}>{s.scopes.map((x) => `${SUPPORT_SCOPES[x].label} (${SUPPORT_SCOPES[x].detail})`).join("; ")}</b></div>
       </div>

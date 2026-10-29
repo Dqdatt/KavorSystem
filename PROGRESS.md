@@ -424,6 +424,10 @@ ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AG
   PIN/Face ID, tối đa 5 MB, "Thiếu hồ sơ" = chưa có hợp đồng còn hiệu lực.
 
 ## Nhật ký
+- 2026-10-29 — Claude (Desktop): checklist thử tay web HR + Console trên Mac bằng trình duyệt tự động (kết quả từng mục trong CLOUD_HANDOFF.md): lương,
+  bản tin, tài liệu, tổ chức, vai trò, nhập nhân viên, Console gói/khóa/quyền hỗ trợ đều chạy. Sửa 4 lỗi tìm thấy: CSV dấu chấm phẩy (Excel VN), icon tải
+  lên phủ modal nhập lương, toast lỗi hiện dấu tích, nhãn "Ticket". DB local có dữ liệu thử (kỳ lương 10/2026 đã công bố, 2 bản tin, hợp đồng HD0142,
+  3 nhân viên nhập, gói Enterprise/350); HD0142 chưa kích hoạt.
 - 2026-10-29 — Claude (Desktop): splash iOS một khung gradient xanh ánh trắng + logo (`e728511`) — người dùng xác nhận đúng ý trên iPhone.
 - 2026-10-29 — Claude (Desktop): splash trả về màn xanh gradient theo người dùng; OT bước 5 phút (API + app), giới hạn ngày nghỉ/lễ thành quy định
   công ty (`offDayLimitHours`, mặc định 12). Verify-all đầy đủ sau đó: TẤT CẢ ĐẠT (pgTAP 460, 18 smoke — overtime 28, build, lint).

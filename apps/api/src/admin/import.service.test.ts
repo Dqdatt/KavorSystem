@@ -24,3 +24,11 @@ test("thiếu cột bắt buộc hoặc quá số dòng → lỗi cả file", ()
   assert.match(parseEmployeeCsv("employee_code,full_name\nNV1,A").fileErrors.join(" "), /Thiếu cột bắt buộc: work_email/);
   assert.match(parseEmployeeCsv(`${H}\n` + Array.from({ length: 1001 }, (_, i) => `N${i},A B,a${i}@x.vn,,2026-01-01,official,D,P,`).join("\n")).fileErrors.join(" "), /Tối đa 1000 dòng/);
 });
+
+test("file Excel vùng Việt Nam (dấu chấm phẩy, BOM) đọc như file dấu phẩy; dấu phẩy trong ô có quote không bị tách", () => {
+  const semi = `﻿${H.replaceAll(",", ";")}\r\nNV01;"Lê Văn A, Jr";a@cty.vn;;05/01/2026;Chính thức;MKT;AE;\r\n`;
+  const { rows, fileErrors } = parseEmployeeCsv(semi);
+  assert.deepEqual(fileErrors, []);
+  assert.deepEqual([rows[0]!.code, rows[0]!.fullName, rows[0]!.email, rows[0]!.errors], ["NV01", "Lê Văn A, Jr", "a@cty.vn", []]);
+  assert.deepEqual(parseEmployeeCsv(`${H}\r\nNV02,"A; B",b@cty.vn,,2026-01-05,official,MKT,AE,`).rows[0]!.fullName, "A; B");
+});
