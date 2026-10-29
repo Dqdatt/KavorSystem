@@ -252,7 +252,7 @@ function Notif() {
         <Logo size={38} />
         <View style={{ flex: 1, minWidth: 0 }}>
           <View style={{ flexDirection: "row", justifyContent: "space-between" }}><T style={{ fontSize: 13, fontFamily: F.semibold }}>Kavor</T><T style={{ fontSize: 13, color: C.ink3 }}>bây giờ</T></View>
-          <T style={{ fontSize: 13, color: C.ink2, lineHeight: 17.5 }}>Bạn đã đến Văn phòng Quận 1. Chạm để vào ca.</T>
+          <T style={{ fontSize: 13, color: C.ink2, lineHeight: 17.5 }}>{REMOTE ? `Bạn đã đến ${S.att.loc.name || "địa điểm chấm công"}. Chạm để vào ca.` : "Bạn đã đến Văn phòng Quận 1. Chạm để vào ca."}</T>
         </View>
       </Pressable>
     </Animated.View>
@@ -355,7 +355,7 @@ export const ERR: Record<ErrKind, ErrDef> = {
   server: { il: "server", t: "Hệ thống đang gặp sự cố", p: "Lỗi không đến từ phía bạn. Vui lòng thử lại sau ít phút.", code: "E04 · mã lỗi 503-NH-0712", acts: [["Thử lại", "errRetry", 1], ["Liên hệ HR", "errHR"]] },
   maintenance: { il: "maintenance", t: "Kavor đang bảo trì", p: "Hệ thống tạm dừng từ 22:00 đến 23:30 hôm nay để nâng cấp. Bạn có thể quay lại sau 23:30.", code: "E05", acts: [["Đã hiểu", "errClose", 1]], full: true },
   session: { il: "session", t: "Phiên đăng nhập đã hết hạn", p: "Vì bảo mật, bạn cần đăng nhập lại. Nội dung chưa gửi vẫn được giữ trên máy.", code: "E15", acts: [["Đăng nhập lại", "errLogin", 1]], full: true },
-  disabled: { il: "disabled", t: "Tài khoản đang bị khóa", p: "Tài khoản HD0142 tạm thời bị khóa. Liên hệ phòng Nhân sự để được hỗ trợ.", code: "E16", acts: [["Liên hệ HR", "errHR", 1], ["Đăng xuất", "errLogin"]], full: true },
+  disabled: { il: "disabled", t: "Tài khoản đang bị khóa", p: REMOTE ? "Tài khoản của bạn tạm thời bị khóa. Liên hệ phòng Nhân sự để được hỗ trợ." : "Tài khoản HD0142 tạm thời bị khóa. Liên hệ phòng Nhân sự để được hỗ trợ.", code: "E16", acts: [["Liên hệ HR", "errHR", 1], ["Đăng xuất", "errLogin"]], full: true },
   device: { il: "deviceLock", t: "Thiết bị này chưa được đăng ký", p: "Tài khoản của bạn đang gắn với iPhone 13 (đăng ký 02/2025). Gửi yêu cầu để HR chuyển sang máy này.", code: "E18", acts: [["Gửi yêu cầu reset", "errReset", 1], ["Để sau", "errClose"]] },
   devicePending: { il: "devicePending", t: "Đang chờ HR xử lý", p: "Yêu cầu chuyển thiết bị đã gửi lúc 08:03. Bạn sẽ nhận thông báo khi được duyệt, thường trong giờ hành chính.", code: "E19", acts: [["Làm mới trạng thái", "errPending", 1], ["Về trang chủ", "errClose"]] },
   locPerm: { il: "locPerm", t: "Kavor cần quyền vị trí", p: "Bật vị trí “Khi dùng ứng dụng” và “Vị trí chính xác” để chấm công trong vùng 3 m.", code: "E20", acts: [["Mở Cài đặt", "errSettings", 1], ["Để sau", "errClose"]] },

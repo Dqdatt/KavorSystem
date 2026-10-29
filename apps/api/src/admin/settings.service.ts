@@ -239,18 +239,28 @@ export class SettingsAdmin {
     const db = ctx.db, tid = ctx.tenantId;
     const head = (table: string) => db.from(table).select("id", { count: "exact", head: true }).eq("tenant_id", tid);
     const today = await this.schedule.today(ctx);
-    const [{ t, s }, le, br, de, emp, accepted, terms, admins, assigns, invited] = await Promise.all([
+    const [{ t, s }, le, br, de, emp, accepted, terms, admins, assigns, invited, locs] = await Promise.all([
       this.load(ctx), head("legal_entities"), head("branches"), head("departments"),
       head("employees").neq("status", "terminated"), head("attendance_events").eq("status", "accepted"),
       currentTerms(db, tid),
       db.rpc("active_tenant_admin_count", { p_tenant: tid }),
       db.from("policy_assignments").select("kind, scope_type, effective_from, effective_to").eq("tenant_id", tid),
       db.from("role_assignments").select("id, roles!inner(code)", { count: "exact", head: true }).eq("tenant_id", tid).in("roles.code", ["manager", "hr_ops"]),
+      head("work_locations"),
     ]);
     const n = (r: { count: number | null }) => r.count ?? 0;
     const active = ((assigns.data ?? []) as Array<{ kind: string; effective_from: string; effective_to: string | null }>)
       .filter((a) => a.effective_from <= today && (a.effective_to == null || a.effective_to >= today));
     const has = (kind: string) => active.some((a) => a.kind === kind);
+    /* Áp dụng có ngày bắt đầu sau hôm nay: báo ngày để HR biết vì sao "chưa xong" */
+    const upcoming = (kind: string) => ((assigns.data ?? []) as Array<{ kind: string; effective_from: string; effective_to: string | null }>)
+      .filter((a) => a.kind === kind && a.effective_from > today && (a.effective_to == null || a.effective_to >= a.effective_from))
+      .map((a) => a.effective_from).sort()[0] ?? null;
+    const vnDate = (d: string) => d.split("-").reverse().join("/");
+    const pending = (kind: string, what: string, none: string) => {
+      const next = upcoming(kind);
+      return next ? `Đã áp dụng ${what} nhưng hiệu lực từ ${vnDate(next)}: trước ngày đó nhân viên chưa chấm công được.` : none;
+    };
     const adminCount = (admins.data as number) ?? 0;
     const support = supportOf(s.support_contact);
     const missing = [t.legal_name ? null : "tên pháp lý", s.branding.logoPath ? null : "logo", support.phone || support.email ? null : "liên hệ HR"].filter((x): x is string => !!x);
@@ -259,8 +269,11 @@ export class SettingsAdmin {
     const steps: SetupStep[] = [
       step("company", "Thông tin công ty và thương hiệu", !missing.length, missing.length ? `Còn thiếu: ${missing.join(", ")}.` : "Đã có tên pháp lý, logo và liên hệ HR.", "/settings"),
       step("organization", "Pháp nhân, chi nhánh, phòng ban", n(le) > 0 && n(br) > 0 && n(de) > 0, `${n(le)} pháp nhân · ${n(br)} chi nhánh · ${n(de)} phòng ban.`, "/organization"),
-      step("locations", "Địa điểm chấm công", has("work_location"), has("work_location") ? "Đã áp dụng địa điểm chấm công." : "Chưa áp dụng địa điểm nào: nhân viên chưa chấm công được.", "/schedules?tab=locations"),
-      step("shifts", "Ca làm việc", has("shift"), has("shift") ? "Đã áp dụng ca làm việc." : "Chưa áp dụng ca nào.", "/schedules?tab=assignments"),
+      step("locations", "Địa điểm chấm công", has("work_location"), has("work_location") ? "Đã áp dụng địa điểm chấm công."
+        : !n(locs) ? "Chưa có địa điểm nào: tạo ở Ca & địa điểm → Địa điểm, rồi Áp dụng cho nhân viên."
+        : pending("work_location", "địa điểm", `Đã tạo ${n(locs)} địa điểm nhưng chưa áp dụng cho nhân viên: vào Ca & địa điểm → Áp dụng → Áp dụng mới, loại Địa điểm.`),
+        has("work_location") || !n(locs) ? "/schedules?tab=locations" : "/schedules?tab=assignments"),
+      step("shifts", "Ca làm việc", has("shift"), has("shift") ? "Đã áp dụng ca làm việc." : pending("shift", "ca", "Chưa áp dụng ca nào: vào Ca & địa điểm → Áp dụng → Áp dụng mới, loại Ca."), "/schedules?tab=assignments"),
       step("rules", "Quy định giải trình, tạm ứng, nhắc nhở", has("explanation") && has("salary_advance") && has("reminder"), "Kavor đã tạo sẵn mẫu theo luật; xem lại cho phù hợp công ty.", "/settings?tab=rules"),
       step("holidays", "Lịch nghỉ lễ", true, "Lịch quốc gia do Kavor duy trì; thêm ngày nghỉ riêng nếu có.", "/settings?tab=holidays"),
       step("privacy", "Điều khoản dữ liệu cá nhân", !!terms, terms ? `Đang áp dụng phiên bản ${terms.version_no}. Nên nhờ chuyên gia pháp lý rà soát.` : "Chưa có điều khoản: nhân viên chưa đồng ý xử lý dữ liệu.", "/settings?tab=privacy"),

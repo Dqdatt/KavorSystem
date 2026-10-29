@@ -10,7 +10,7 @@ import { AuthError } from "../auth/auth.service.js";
 import type { SupabaseGateway } from "../auth/supabase.js";
 import { conflict, forbidden, invalid, notFound } from "../admin/context.js";
 import type { Mailer } from "../admin/mailer.js";
-import { EMAIL, nullableText, number, oneOf, req, uuid, type Body } from "../admin/validate.js";
+import { EMAIL, nullableText, number, oneOf, req, text, uuid, type Body } from "../admin/validate.js";
 import type { ConsoleContext } from "./context.js";
 import { localParts } from "../attendance/attendance.service.js";
 
@@ -192,13 +192,16 @@ export class ConsoleService {
     const employeeLimit = number(b, "employeeLimit", 1, 100000, { integer: true })!;
     const adminName = req(b, "adminName", { min: 2, max: 120 });
     const adminEmail = req(b, "adminEmail", { pattern: EMAIL, max: 200, hint: "email công việc" }).toLowerCase();
-    const { data, error } = await ctx.db.rpc("create_tenant_with_admin", {
+    /* Mã nhân viên của quản trị viên (đăng nhập/kích hoạt web HR); bỏ trống = ADMIN01 */
+    const adminCode = text(b, "adminCode", { min: 2, max: 40, optional: true, pattern: /^[A-Za-z0-9._-]+$/, hint: "2–40 ký tự: chữ không dấu, số, . _ -" })?.toUpperCase() ?? null;
+    const { data, error } = await ctx.db.rpc("create_tenant_with_admin_code", {
       p_code: code, p_name: name, p_legal_name: legalName, p_plan: plan, p_employee_limit: employeeLimit, p_admin_name: adminName, p_admin_email: adminEmail, p_actor: ctx.userId,
+      p_admin_code: adminCode,
     });
     if (error?.code === "23505") throw conflict(`Mã doanh nghiệp ${code} đã tồn tại.`);
     if (error) throw error;
     const r = data as { tenant_id: string; admin_employee_id: string; provisioned: string[] };
-    await ctx.audit("tenant.created", "tenant", r.tenant_id, null, { code, name, legal_name: legalName, plan, employee_limit: employeeLimit, admin_email: adminEmail, provisioned: r.provisioned }, null, r.tenant_id);
+    await ctx.audit("tenant.created", "tenant", r.tenant_id, null, { code, name, legal_name: legalName, plan, employee_limit: employeeLimit, admin_email: adminEmail, admin_code: adminCode ?? "ADMIN01", provisioned: r.provisioned }, null, r.tenant_id);
     const invite = await this.sendInvite(ctx, r.tenant_id, r.admin_employee_id).then(() => ({ sent: true, error: null }), (e: unknown) => ({ sent: false, error: e instanceof AuthError ? e.message : "Chưa gửi được thư mời." }));
     return { tenant: await this.tenant(ctx, r.tenant_id), invite };
   }

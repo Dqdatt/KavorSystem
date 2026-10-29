@@ -596,3 +596,10 @@ a.nav-item, a.quick-item { text-decoration: none; }
   .toolbar-spacer { display: none; }
   .account-chip span, .realtime-dot { display: none; }
 }
+
+/* Ô mật khẩu có nút ẩn/hiện (PasswordInput) */
+.password-input { position: relative; display: block; }
+.password-input > input { width: 100%; padding-right: 42px; }
+.password-toggle { position: absolute; top: 50%; right: 6px; transform: translateY(-50%); width: 32px; height: 32px; display: grid; place-items: center;
+  border: 0; border-radius: 8px; background: transparent; color: var(--muted); cursor: pointer; }
+.password-toggle:hover { color: var(--ink); background: var(--line); }

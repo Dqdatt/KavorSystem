@@ -64,17 +64,18 @@ function TenantsPage() {
 
 function CreateTenant({ onClose, onSaved }: { onClose: () => void; onSaved: (r: TenantCreateResult) => void }) {
   const toast = useToast();
-  const [f, setF] = useState({ name: "", legalName: "", code: "", plan: "trial" as PlanCode, employeeLimit: "50", adminName: "", adminEmail: "" });
+  const [f, setF] = useState({ name: "", legalName: "", code: "", plan: "trial" as PlanCode, employeeLimit: "50", adminName: "", adminEmail: "", adminCode: "ADMIN01" });
   const [err, setErr] = useState<string | null>(null);
   const { busy, run } = useAction();
-  const set = (k: keyof typeof f) => (e: { target: { value: string } }) => { setF({ ...f, [k]: k === "code" ? e.target.value.toUpperCase() : e.target.value }); setErr(null); };
+  const set = (k: keyof typeof f) => (e: { target: { value: string } }) => { setF({ ...f, [k]: k === "code" || k === "adminCode" ? e.target.value.toUpperCase() : e.target.value }); setErr(null); };
   async function save() {
     if (f.name.trim().length < 2) { setErr("Nhập tên doanh nghiệp."); return; }
     if (!/^[A-Z0-9][A-Z0-9-]{2,19}$/.test(f.code)) { setErr("Mã doanh nghiệp 3–20 ký tự: chữ in hoa, số, dấu gạch (ví dụ ANP-002)."); return; }
     if (f.adminName.trim().length < 2 || !f.adminEmail.includes("@")) { setErr("Nhập họ tên và email của quản trị viên công ty."); return; }
+    if (!/^[A-Z0-9._-]{2,40}$/.test(f.adminCode.trim())) { setErr("Mã nhân viên của quản trị viên 2–40 ký tự: chữ không dấu, số, . _ - (ví dụ ADMIN01, NV0001)."); return; }
     await run("save", async () => {
       const r = await call<TenantCreateResult>("POST", "tenants", { ...f, legalName: f.legalName || null, employeeLimit: Number(f.employeeLimit) });
-      toast(r.invite.sent ? `Đã tạo ${r.tenant.code} và gửi lời mời tới ${f.adminEmail}` : `Đã tạo ${r.tenant.code} nhưng chưa gửi được thư mời: ${r.invite.error}`);
+      toast(r.invite.sent ? `Đã tạo ${r.tenant.code} và gửi lời mời tới ${f.adminEmail} (mã nhân viên ${f.adminCode.trim()})` : `Đã tạo ${r.tenant.code} nhưng chưa gửi được thư mời: ${r.invite.error}`);
       onSaved(r);
     });
   }
@@ -90,6 +91,7 @@ function CreateTenant({ onClose, onSaved }: { onClose: () => void; onSaved: (r: 
         <Field label="Giới hạn nhân sự"><input type="number" min={1} value={f.employeeLimit} onChange={set("employeeLimit")} /></Field>
         <Field label="Họ tên quản trị viên công ty"><input value={f.adminName} onChange={set("adminName")} /></Field>
         <Field label="Email quản trị viên công ty"><input type="email" value={f.adminEmail} onChange={set("adminEmail")} placeholder="admin@company.vn" /></Field>
+        <Field label="Mã nhân viên của quản trị viên" hint="Dùng để kích hoạt web HR; đổi lại được trong hồ sơ nhân viên"><input value={f.adminCode} onChange={set("adminCode")} placeholder="ADMIN01" /></Field>
       </div>
       <div style={{ marginTop: 14, padding: 11, borderRadius: 10, background: "var(--surface-2)", fontSize: 11, color: "var(--muted)" }}>
         Thao tác này chỉ tạo doanh nghiệp trên Kavor, không thực hiện đăng ký kinh doanh hay thủ tục pháp lý. Doanh nghiệp nhận sẵn bộ mẫu theo luật Việt Nam (cơ cấu tổ chức, ca hành chính, quy định, điều khoản dữ liệu cá nhân); quản trị viên công ty kích hoạt trên web HR và bắt buộc bật xác thực hai lớp.

@@ -38,14 +38,16 @@ export const SIM = { base: 478 * 60, start: Date.now() };
 const secOfDay = (d: Date) => d.getHours() * 3600 + d.getMinutes() * 60 + d.getSeconds();
 export const simNow = () => (REMOTE ? secOfDay(new Date()) : SIM.base + Math.floor((Date.now() - SIM.start) / 1000));
 
+const NO_LOC: WorkLocation = { id: "", name: "", address: "", latitude: 0, longitude: 0, radiusM: 0, maxAccuracyM: 60 } as WorkLocation;
 const freshForms = () => ({
-  lgId: "HD0142", lgPw: REMOTE ? "" : "demo-pass", lgPwShow: false,
-  fgId: "thao.ha@haidang.vn", fgErr: false,
+  /* Bản dùng API: không điền sẵn mã/email mẫu (chỉ bản mẫu prototype mới điền) */
+  lgId: REMOTE ? "" : "HD0142", lgPw: REMOTE ? "" : "demo-pass", lgPwShow: false,
+  fgId: REMOTE ? "" : "thao.ha@haidang.vn", fgErr: false,
   otp: REMOTE ? ["", "", "", "", "", ""] : ["4", "8", "", "", "", ""],
   /* Email nhận OTP do API trả về; destination là bản đã che để hiển thị */
-  otpEmail: "thao.ha@haidang.vn", otpDest: "thao.ha@haidang.vn", otpCode: "",
+  otpEmail: REMOTE ? "" : "thao.ha@haidang.vn", otpDest: REMOTE ? "" : "thao.ha@haidang.vn", otpCode: "",
   newPw: "", confirmPw: "", newPwShow: false, confirmPwShow: false, resetErr: "",
-  acId: "HD0142", acMail: "thao.ha@haidang.vn", acPw: "", agree: false, agreeErr: false,
+  acId: REMOTE ? "" : "HD0142", acMail: REMOTE ? "" : "thao.ha@haidang.vn", acPw: "", acPwShow: false, agree: false, agreeErr: false,
   rej: "", rejErr: false, payQ: "", payChip: 1, pfPhone: "0912 345 468", pfAddr: "Tân Định, TP.HCM",
   /* Đề nghị sửa hồ sơ (bản dùng API): điền sẵn từ hồ sơ đã duyệt khi mở form */
   pfEmail: "", pfEmName: "", pfEmPhone: "", pfEmRel: "", pfBank: "", pfAcc: "", pfHolder: "", pfReason: "", pfErr: "",
@@ -192,7 +194,9 @@ const makeState = () => ({
   bioLabel: "Face ID", bioKind: "face" as BioKind,
   /* Chấm công: giá trị mặc định là dữ liệu mẫu của prototype; bản API thật ghi đè bằng địa điểm/khoảng cách thật */
   att: {
-    loc: { id: "", name: "Văn phòng Quận 1", address: "12 Nguyễn Huệ", latitude: 0, longitude: 0, radiusM: 3, maxAccuracyM: 60 } as WorkLocation,
+    loc: (REMOTE ? NO_LOC : { id: "", name: "Văn phòng Quận 1", address: "12 Nguyễn Huệ", latitude: 0, longitude: 0, radiusM: 3, maxAccuracyM: 60 }) as WorkLocation,
+    /* Bản dùng API: công ty chưa áp dụng địa điểm nào cho nhân viên này */
+    noLoc: false,
     distM: null as number | null, accM: null as number | null,
     device: "iPhone 15", last: null as AttendanceEvent | null, queued: 0,
   },
@@ -643,7 +647,9 @@ function applyToday(t: AttendanceToday) {
     const br = sh.breakStart && sh.breakEnd ? toMin(sh.breakEnd) - toMin(sh.breakStart) : 0;
     S.sh = { name: sh.name, start: toMin(sh.start), end: toMin(sh.end), breakMin: br, lateGrace: sh.lateGraceMinutes, earlyGrace: sh.earlyGraceMinutes, assigned: true };
   } else S.sh = { ...S.sh, assigned: false };
-  if (t.locations[0] && !t.locations.some((l) => l.id === S.att.loc.id)) S.att.loc = t.locations[0];
+  S.att.noLoc = !t.locations.length;
+  if (S.att.noLoc) { S.att.loc = NO_LOC; S.inRange = false; }
+  else if (!t.locations.some((l) => l.id === S.att.loc.id)) S.att.loc = t.locations[0]!;
   S.clockIn = accepted(t.clockIn); S.clockOut = accepted(t.clockOut);
   S.att.device = t.device?.deviceModel ?? deviceSummary().model;
   emit();

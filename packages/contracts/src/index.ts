@@ -453,7 +453,8 @@ export type BrandingUpload = { contentType: string; dataBase64: string };
 /* Quy định nghiệp vụ có tầng/phiên bản. Mô tả trường dùng chung: web dựng form, API kiểm tra. */
 export type RuleKind = "explanation" | "salary_advance" | "reminder" | "leave" | "overtime";
 /* default: dùng khi phiên bản quy định cũ chưa có trường này (trường thêm sau) */
-export type RuleField = { key: string; label: string; type: "int" | "bool"; min?: number; max?: number; unit?: string; default?: number | boolean };
+/* unit: đơn vị ngắn ghi cạnh nhãn; note: giải thích/căn cứ luật, hiện dưới ô nhập (không nhét vào nhãn để các ô thẳng hàng) */
+export type RuleField = { key: string; label: string; type: "int" | "bool"; min?: number; max?: number; unit?: string; note?: string; default?: number | boolean };
 export const RULE_KINDS: Record<RuleKind, { label: string; description: string; fields: RuleField[] }> = {
   explanation: {
     label: "Giải trình công",
@@ -471,7 +472,7 @@ export const RULE_KINDS: Record<RuleKind, { label: string; description: string; 
       { key: "maxPercent", label: "Hạn mức tối đa", type: "int", min: 0, max: 100, unit: "% lương cơ bản" },
       { key: "excludeProbation", label: "Không áp dụng cho nhân viên thử việc", type: "bool" },
       { key: "excludeNoticePeriod", label: "Không áp dụng trong thời gian báo trước nghỉ việc", type: "bool" },
-      { key: "deadlineDay", label: "Nhận đơn đến hết ngày", type: "int", min: 1, max: 31, unit: "hằng tháng (31 = cuối tháng)" },
+      { key: "deadlineDay", label: "Nhận đơn đến hết ngày", type: "int", min: 1, max: 31, unit: "hằng tháng", note: "31 = cuối tháng" },
       { key: "minAmount", label: "Số tiền tối thiểu mỗi lần", type: "int", min: 100000, max: 50000000, unit: "₫" },
     ],
   },
@@ -481,11 +482,11 @@ export const RULE_KINDS: Record<RuleKind, { label: string; description: string; 
     fields: [
       { key: "annualDays", label: "Phép năm tiêu chuẩn", type: "int", min: 12, max: 30, unit: "ngày/năm" },
       { key: "accrualMonthly", label: "Tích lũy theo tháng (tắt: cấp đủ đầu năm)", type: "bool" },
-      { key: "seniorityYears", label: "Cứ đủ số năm làm việc", type: "int", min: 0, max: 10, unit: "năm (0 = không áp dụng)" },
+      { key: "seniorityYears", label: "Cứ đủ số năm làm việc", type: "int", min: 0, max: 10, unit: "năm", note: "0 = không áp dụng" },
       { key: "seniorityBonusDays", label: "Thì được thêm", type: "int", min: 0, max: 5, unit: "ngày" },
       { key: "carryOverMaxDays", label: "Phép tồn được chuyển sang năm sau tối đa", type: "int", min: 0, max: 30, unit: "ngày" },
       { key: "carryOverExpiryMonth", label: "Phép tồn dùng đến hết tháng", type: "int", min: 1, max: 12, unit: "của năm sau" },
-      { key: "allowNegativeDays", label: "Cho nghỉ trước phép (âm) tối đa", type: "int", min: 0, max: 5, unit: "ngày, cần HR duyệt" },
+      { key: "allowNegativeDays", label: "Cho nghỉ trước phép (âm) tối đa", type: "int", min: 0, max: 5, unit: "ngày", note: "Cần HR duyệt" },
       { key: "probationAccrues", label: "Nhân viên thử việc được tích lũy phép", type: "bool" },
     ],
   },
@@ -496,8 +497,8 @@ export const RULE_KINDS: Record<RuleKind, { label: string; description: string; 
       { key: "weekdayRate", label: "Hệ số ngày thường", type: "int", min: 150, max: 400, unit: "%" },
       { key: "weekendRate", label: "Hệ số ngày nghỉ hằng tuần", type: "int", min: 200, max: 500, unit: "%" },
       { key: "holidayRate", label: "Hệ số ngày lễ, Tết", type: "int", min: 300, max: 600, unit: "%" },
-      { key: "dailyLimitHours", label: "Tối đa mỗi ngày làm việc", type: "int", min: 0, max: 4, unit: "giờ (luật: không quá 50% giờ làm bình thường)" },
-      { key: "offDayLimitHours", label: "Tối đa mỗi ngày nghỉ, lễ", type: "int", min: 0, max: 12, unit: "giờ (luật: tối đa 12 giờ)", default: 12 },
+      { key: "dailyLimitHours", label: "Tối đa mỗi ngày làm việc", type: "int", min: 0, max: 4, unit: "giờ", note: "Luật: không quá 50% giờ làm bình thường" },
+      { key: "offDayLimitHours", label: "Tối đa mỗi ngày nghỉ, lễ", type: "int", min: 0, max: 12, unit: "giờ", note: "Luật: tối đa 12 giờ", default: 12 },
       { key: "monthlyLimitHours", label: "Tối đa mỗi tháng", type: "int", min: 0, max: 40, unit: "giờ" },
       { key: "yearlyLimitHours", label: "Tối đa mỗi năm", type: "int", min: 0, max: 300, unit: "giờ" },
       { key: "submitAfterDays", label: "Được đăng ký sau khi làm tối đa", type: "int", min: 0, max: 7, unit: "ngày" },
@@ -685,7 +686,7 @@ export type ConsoleOverview = {
   nearLimitTenants: number;
   recentTenants: ConsoleTenant[];
 };
-export type TenantCreateInput = { code: string; name: string; legalName?: string | null; plan: PlanCode; employeeLimit: number; adminName: string; adminEmail: string };
+export type TenantCreateInput = { code: string; name: string; legalName?: string | null; plan: PlanCode; employeeLimit: number; adminName: string; adminEmail: string; /* bỏ trống = ADMIN01 */ adminCode?: string | null };
 export type TenantCreateResult = { tenant: ConsoleTenantDetail; invite: { sent: boolean; error: string | null } };
 export type RecoveryInput = {
   tenantId: string; kind: RecoveryKind; targetEmployeeId?: string | null; newAdminName?: string | null; newAdminEmail?: string | null;

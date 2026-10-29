@@ -286,7 +286,7 @@ function RuleForm({ rule, kind: initialKind, onClose, onSaved }: { rule: RulePol
         {RULE_KINDS[kind].fields.map((f) => f.type === "bool" ? (
           <label key={f.key} className="check-row field full"><input type="checkbox" checked={config[f.key] === true} onChange={(e) => setConfig({ ...config, [f.key]: e.target.checked })} /> {f.label}</label>
         ) : (
-          <Field key={f.key} label={`${f.label}${f.unit ? ` (${f.unit})` : ""}`} hint={`Từ ${f.min ?? 0} đến ${f.max}`}>
+          <Field key={f.key} label={`${f.label}${f.unit ? ` (${f.unit})` : ""}`} hint={`Từ ${f.min ?? 0} đến ${f.max}${f.note ? ` · ${f.note}` : ""}`}>
             <input type="number" min={f.min} max={f.max} value={String(config[f.key] ?? "")} onChange={(e) => { setConfig({ ...config, [f.key]: e.target.value === "" ? NaN : Number(e.target.value) }); setErr(null); }} />
           </Field>
         ))}

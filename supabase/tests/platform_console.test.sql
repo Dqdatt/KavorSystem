@@ -2,7 +2,7 @@
 -- bảng nền tảng không lộ cho client. Không giả định DB trống.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(21);
+select plan(24);
 
 insert into auth.users (id, email) values
   ('b0000000-0000-4000-8000-0000000000a1', 'op.a.test@kavor.test'),
@@ -53,6 +53,13 @@ values ('e0000000-0000-4000-8000-000000000002', current_setting('test.t')::uuid,
 select throws_ok($$ update public.owner_recovery_requests set status = 'approved', decided_by = 'b0000000-0000-4000-8000-0000000000a2', decided_at = now() where id = 'e0000000-0000-4000-8000-000000000002' $$,
   'P0001', 'RECOVERY_EXPIRED', 'Yêu cầu quá 24 giờ không duyệt được');
 select throws_ok($$ delete from public.owner_recovery_requests where tenant_id = current_setting('test.t')::uuid $$, 'P0001', null, 'Yêu cầu khôi phục không xóa được');
+
+-- ---------- Mã nhân viên quản trị viên do Kavor chọn ----------
+select set_config('test.ct', public.create_tenant_with_admin_code('CODE-T', 'Công ty Mã', null, 'trial', 20, 'Lê Mã', 'ma@code.test', null, 'nv0001') ->> 'admin_employee_id', true);
+select set_config('test.cu', public.create_tenant_with_admin_code('CODE-U', 'Công ty Mặc định', null, 'trial', 20, 'Lê Mặc', 'mac@code.test', null, null) ->> 'admin_employee_id', true);
+select is((select employee_code from public.employees where id = current_setting('test.ct')::uuid), 'NV0001', 'Chọn được mã quản trị viên (viết hoa)');
+select is((select employee_code from public.employees where id = current_setting('test.cu')::uuid), 'ADMIN01', 'Không chọn mã thì vẫn là ADMIN01');
+select throws_ok($$ select public.create_tenant_with_admin_code('CODE-V', 'Sai mã', null, 'trial', 20, 'Lê Sai', 'sai@code.test', null, 'có dấu') $$, '22023', null, 'Mã có ký tự lạ bị chặn');
 
 -- ---------- Client không chạm được bảng/hàm nền tảng ----------
 set local role authenticated;

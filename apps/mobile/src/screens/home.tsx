@@ -158,7 +158,7 @@ export function Hero({ compact }: { compact?: boolean }) {
       </View>
       <View style={{ flexDirection: "row", alignItems: "center", gap: 8, justifyContent: "center" }}>
         <Ic n="pin" s={18} w={2} color={S.inRange ? C.hero : C.bad} />
-        <T style={{ fontSize: 14, fontFamily: F.medium, color: S.inRange ? C.hero : C.bad }}>{S.inRange ? `Vị trí: ${S.att.loc.name}` : "Bạn đang ở ngoài vùng chấm công"}</T>
+        <T style={{ fontSize: 14, fontFamily: F.medium, color: S.inRange ? C.hero : C.bad }}>{REMOTE && S.att.noLoc ? "Chưa có địa điểm chấm công · liên hệ HR" : S.inRange ? `Vị trí: ${S.att.loc.name}` : "Bạn đang ở ngoài vùng chấm công"}</T>
       </View>
       <Morph trigger={ph} style={{ width: "100%", flexDirection: "row", marginTop: compact ? 12 : 26 }}>
         {([["tIn", S.clockIn ? hm(S.clockIn) : "--:--", "Vào ca"], ["tOut", S.clockOut ? hm(S.clockOut) : "--:--", "Ra ca"], ["tDone", w === null ? "--:--" : gh(w), "Giờ làm"]] as Array<[IconName, string, string]>).map(([icon, v, l]) => (
@@ -269,7 +269,7 @@ export function homeSpec(): ScreenSpec {
   const shorts: Array<[string, IconName, string]> = [["leaveNew", "plane", "Xin nghỉ"], ["explain", "clock", "Giải trình"], ["ot", "moon", "Làm thêm"], ["advance", "cash", "Tạm ứng"], ["payslips", "receipt", "Phiếu lương"], ["profile", "user", "Hồ sơ"], ["widgetGuide", "grid", "Widget"], ["notifications", "bell", "Thông báo"]];
   return {
     nav: true,
-    head: <BrandHead title="Hải Đăng Group" />,
+    head: <BrandHead title={REMOTE ? S.company?.tenant.name ?? "" : "Hải Đăng Group"} />,
     body: [
       <NewsCarousel key="nc" />,
       <Hero key="hero" compact />,

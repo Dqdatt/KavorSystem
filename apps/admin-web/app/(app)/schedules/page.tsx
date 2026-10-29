@@ -123,9 +123,12 @@ function Locations() {
               <tr key={l.id}>
                 <td className="wrap"><b>{l.code} · {l.name}</b><br /><small className="muted">{l.address ?? "—"}</small></td>
                 <td className="wrap">{l.branch?.name ?? "—"}</td>
-                <td>{l.current ? <a href={`https://www.google.com/maps?q=${l.current.latitude},${l.current.longitude}`} target="_blank" rel="noreferrer">{l.current.latitude.toFixed(6)}, {l.current.longitude.toFixed(6)}</a> : "—"}</td>
-                <td>{l.current ? `${l.current.radiusM} m · ±${l.current.maxAccuracyM} m` : "—"}{l.next ? <><br /><small className="status info">Từ {fmtDate(l.next.effectiveFrom)}: {l.next.radiusM} m</small></> : null}</td>
-                <td>v{l.current?.versionNo ?? "—"} · từ {fmtDate(l.current?.effectiveFrom)}</td>
+                {/* Chưa có phiên bản hiệu lực hôm nay (phiên bản đầu bắt đầu từ ngày sau) thì hiện phiên bản sắp tới, ghi rõ ngày */}
+                {((v) => <>
+                  <td>{v ? <a href={`https://www.google.com/maps?q=${v.latitude},${v.longitude}`} target="_blank" rel="noreferrer">{v.latitude.toFixed(6)}, {v.longitude.toFixed(6)}</a> : "—"}</td>
+                  <td>{v ? `${v.radiusM} m · ±${v.maxAccuracyM} m` : "—"}{l.current && l.next ? <><br /><small className="status info">Từ {fmtDate(l.next.effectiveFrom)}: {l.next.radiusM} m</small></> : null}</td>
+                  <td>{v ? <>v{v.versionNo} · từ {fmtDate(v.effectiveFrom)}{l.current ? null : <><br /><small className="status warn">Chưa hiệu lực</small></>}</> : "—"}</td>
+                </>)(l.current ?? l.next)}
                 <td>{l.active ? <Status v={["Đang dùng", ""]} /> : <Status v={["Ngừng dùng", "muted"]} />}</td>
                 <td>{manage ? <span className="row-actions"><button className="btn small" onClick={() => setForm(l)}>Phiên bản mới</button>
                   <button className="btn small" onClick={() => run(l.id, () => call("PATCH", `locations/${l.id}`, { active: !l.active }), l.active ? "Đã ngừng dùng địa điểm" : "Đã dùng lại địa điểm").then(() => reload())}>{l.active ? "Ngừng" : "Dùng lại"}</button></span> : null}</td>

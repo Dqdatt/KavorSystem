@@ -215,8 +215,9 @@ export function Activate() {
       <View style={{ gap: 12 }}>
         <Fl icon="user" value={f.acId} placeholder="Mã nhân viên" onChange={(v) => { f.acId = v; emit(); }} />
         <Fl icon="msg" value={f.acMail} placeholder="Email công ty" keyboard="email-address" onChange={(v) => { f.acMail = v; emit(); }} />
-        <Fl icon="lock" value={f.acPw} placeholder="Tạo mật khẩu" secure onChange={(v) => { f.acPw = v; emit(); }}
-          trailing={<FlBtn icon="info" label="Yêu cầu mật khẩu" onPress={() => toast("Tối thiểu 8 ký tự, có chữ và số")} />} />
+        <Fl icon="lock" value={f.acPw} placeholder="Tạo mật khẩu" secure={!f.acPwShow} onChange={(v) => { f.acPw = v; emit(); }}
+          trailing={<FlBtn icon={f.acPwShow ? "eyeOff" : "eye"} label={f.acPwShow ? "Ẩn mật khẩu" : "Hiện mật khẩu"} onPress={() => { f.acPwShow = !f.acPwShow; emit(); }} />} />
+        <T style={{ fontSize: 11.5, color: C.ink3, marginTop: -4, paddingHorizontal: 4 }}>Ít nhất 8 ký tự, có chữ hoa, chữ thường và số.</T>
         <Pressable onPress={() => { f.agree = !f.agree; if (f.agree) f.agreeErr = false; emit(); }} style={{ flexDirection: "row", alignItems: "flex-start", gap: 8, paddingVertical: 2, paddingHorizontal: 4 }} accessibilityRole="checkbox" accessibilityState={{ checked: f.agree }}>
           <View style={[styles.cbx, f.agree && { backgroundColor: C.emerald, borderColor: C.emerald }]}>{f.agree ? <Ic n="check" s={12} w={3} color="#fff" /> : null}</View>
           <T style={{ flex: 1, fontSize: 12, lineHeight: 17.4, color: C.ink2 }}>Tôi đồng ý để công ty xử lý <T onPress={() => toast("Dữ liệu vị trí chỉ được lấy khi bạn thực hiện chấm công.")} style={{ fontSize: 12, lineHeight: 17.4, color: C.emerald, fontFamily: F.semibold }}>dữ liệu cá nhân</T> cho mục đích nhân sự.</T>

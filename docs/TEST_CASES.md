@@ -24,7 +24,7 @@ Quy ước:
 
 | Mã | Bước | Kết quả mong đợi | KQ |
 |---|---|---|---|
-| C-01 | Mở http://localhost:3001 → bấm **Kích hoạt tài khoản / Quên mật khẩu** → nhập **email quản trị viên đầu tiên** → **Gửi mã OTP** | Chuyển sang màn "Đặt mật khẩu"; Mailpit có thư mã 6 số gửi tới email đó | |
+| C-01 | Mở http://localhost:3001 (thử nút con mắt ở ô mật khẩu) → bấm **Kích hoạt tài khoản / Quên mật khẩu** → nhập **email quản trị viên đầu tiên** → **Gửi mã OTP** | Chuyển sang màn "Đặt mật khẩu"; Mailpit có thư mã 6 số gửi tới email đó | |
 | C-02 | Nhập mã OTP sai (vd. 000000) + mật khẩu hợp lệ | Báo "Mã OTP không đúng hoặc đã hết hạn", không đăng nhập | |
 | C-03 | Nhập mã đúng + mật khẩu yếu (vd. `abc`) | Báo yêu cầu mật khẩu (8 ký tự, chữ hoa, số) | |
 | C-04 | Nhập mã đúng, hai ô mật khẩu khác nhau | Báo "Hai lần nhập mật khẩu không khớp" | |
@@ -56,7 +56,7 @@ Quy ước:
 
 | Mã | Bước | Kết quả mong đợi | KQ |
 |---|---|---|---|
-| C-30 | **Doanh nghiệp → Tạo doanh nghiệp**: mã `ABC-001`, tên "Công ty ABC", tên pháp lý, gói **Dùng thử**, giới hạn 50, quản trị viên "Nguyễn Sếp" `boss@abc.test` | Toast thành công; ABC-001 trong danh sách, trạng thái Hoạt động, 1 quản trị viên "chờ kích hoạt"; Mailpit có thư mời gửi boss@abc.test có mã nhân viên **ADMIN01** | |
+| C-30 | **Doanh nghiệp → Tạo doanh nghiệp**: mã `ABC-001`, tên "Công ty ABC", tên pháp lý, gói **Dùng thử**, giới hạn 50, quản trị viên "Nguyễn Sếp" `boss@abc.test`, **Mã nhân viên của quản trị viên** để `ADMIN01` (hoặc đổi, vd. `NV0001`) | Toast thành công kèm mã nhân viên; ABC-001 trong danh sách, trạng thái Hoạt động, 1 quản trị viên "chờ kích hoạt"; Mailpit có thư mời gửi boss@abc.test ghi đúng mã đã chọn | |
 | C-31 | Tạo lại với mã `ABC-001` | Báo mã doanh nghiệp đã tồn tại | |
 | C-32 | Tạo với mã sai định dạng (`ab`, có dấu cách…) | Báo định dạng mã (3–20 ký tự, chữ in hoa, số, gạch) | |
 | C-33 | Mở chi tiết ABC-001 → gửi lại thư mời quản trị viên | Thư mới trong Mailpit (bấm 2 lần liền → báo đợi 1 phút) | |
@@ -66,7 +66,7 @@ Quy ước:
 
 | Mã | Bước | Kết quả mong đợi | KQ |
 |---|---|---|---|
-| H-01 | Mở http://localhost:3000 → **Kích hoạt tài khoản**: mã `ADMIN01` + `boss@abc.test` | Gửi OTP; Mailpit có mã | |
+| H-01 | Mở http://localhost:3000 → **Kích hoạt tài khoản**: mã nhân viên ở C-30 (vd. `ADMIN01`) + `boss@abc.test` | Gửi OTP; Mailpit có mã | |
 | H-02 | Nhập sai mã nhân viên (vd. ADMIN02) | Báo mã nhân viên và email không khớp | |
 | H-03 | OTP đúng → đặt mật khẩu → quét QR (thêm tài khoản thứ ba trong ứng dụng xác thực) | Vào Tổng quan của **Công ty ABC** (không thấy dữ liệu Hải Đăng) | |
 | H-04 | Đăng xuất → đăng nhập bằng email (hoặc mã ADMIN01) + mật khẩu + mã xác thực | Vào được | |
@@ -76,17 +76,17 @@ Quy ước:
 
 | Mã | Bước | Kết quả mong đợi | KQ |
 |---|---|---|---|
-| H-10 | **Tổng quan → Thiết lập ban đầu** | Danh sách bước còn thiếu (địa điểm, nhân viên…) | |
+| H-10 | **Tổng quan → Thiết lập ban đầu** | Danh sách bước còn thiếu; mỗi bước ghi rõ thiếu gì (vd. "Đã tạo 1 địa điểm nhưng chưa áp dụng…") và nút Mở đi đúng chỗ | |
 | H-11 | **Cài đặt doanh nghiệp → Doanh nghiệp**: sửa thông tin, tải logo, ảnh bìa, liên hệ phòng Nhân sự | Lưu được; logo hiện ở web; (sau này) app hiện logo + liên hệ HR | |
-| H-12 | **Cài đặt → Quy định**: xem Phép năm, Làm thêm giờ, Giải trình công, Tạm ứng lương, Nhắc nhở | Có sẵn bộ mẫu theo luật VN; thêm phiên bản mới có ngày hiệu lực được; không sửa đè phiên bản cũ | |
+| H-12 | **Cài đặt → Quy định** (các ô nhập thẳng hàng, ghi chú luật nằm dưới ô): xem Phép năm, Làm thêm giờ, Giải trình công, Tạm ứng lương, Nhắc nhở | Có sẵn bộ mẫu theo luật VN; thêm phiên bản mới có ngày hiệu lực được; không sửa đè phiên bản cũ | |
 | H-13 | Quy định **Làm thêm giờ**: đổi "Tối đa mỗi ngày làm việc" (vd. 3 giờ) từ hôm nay | Phiên bản mới hiệu lực từ hôm nay | |
 | H-14 | **Cài đặt → Ngày lễ** | Có lịch lễ VN; thêm ngày nghỉ riêng của công ty được | |
 | H-15 | **Cài đặt → Dữ liệu cá nhân** | Có điều khoản; nhân viên phải đồng ý khi kích hoạt app | |
-| H-16 | **Cơ cấu tổ chức → Danh sách → Thêm đơn vị**: phòng "Kinh doanh", phòng con "Kinh doanh miền Nam" | Hiện trong cây và sơ đồ | |
+| H-16 | **Cơ cấu tổ chức → Danh sách → Thêm đơn vị**: phòng "Kinh doanh", phòng con "Kinh doanh miền Nam". *(Công ty mới chỉ có sẵn 2 phòng: Ban Giám đốc, Hành chính – Nhân sự — phải làm bước này thì H-30 mới chọn được phòng Kinh doanh)* | Hiện trong cây và sơ đồ; có trong danh sách chọn phòng ban khi thêm nhân viên | |
 | H-17 | **Ngừng** một phòng đang có nhân viên | Bị chặn, nêu lý do; phòng trống thì ngừng được | |
 | H-18 | **Ca & địa điểm → Mẫu ca** | Có ca mặc định; thêm ca mới (vd. 08:00–17:00, nghỉ trưa) được | |
-| H-19 | **Ca & địa điểm → Địa điểm → Thêm địa điểm**: tìm địa chỉ, kéo ghim, bán kính 50–100 m. Muốn thử ở nhà: bấm "Dùng vị trí hiện tại của trình duyệt" (Chrome/Safari) | Bản đồ hiện, ghim kéo được, vòng tròn đúng bán kính; lưu được | |
-| H-20 | **Ca & địa điểm → Áp dụng → Áp dụng mới**: Địa điểm (H-19) + Ca, tầng **Toàn công ty** | Hiện trong bảng áp dụng; Thiết lập ban đầu bớt một bước | |
+| H-19 | **Ca & địa điểm → Địa điểm → Thêm địa điểm**: tìm địa chỉ, kéo ghim, bán kính 50–100 m, **Hiệu lực từ ngày = hôm nay** (chọn ngày mai thì hôm nay chưa chấm công được). Muốn thử ở nhà: bấm "Dùng vị trí hiện tại của trình duyệt" (Chrome/Safari) | Bản đồ hiện, ghim kéo được, vòng tròn đúng bán kính; lưu được; nếu chọn ngày sau thì bảng ghi "Chưa hiệu lực" | |
+| H-20 | **Ca & địa điểm → Áp dụng → Áp dụng mới** hai lần: (1) loại **Địa điểm** = H-19, (2) loại **Ca** = ca hành chính; tầng **Toàn công ty**, hiệu lực từ hôm nay | Hai dòng "Đang áp dụng"; Thiết lập ban đầu: Địa điểm chấm công + Ca làm việc chuyển "Đã xong" | |
 
 ## 6. Web HR — nhân viên và phân quyền
 
@@ -108,7 +108,7 @@ Quy ước:
 
 | Mã | Bước | Kết quả mong đợi | KQ |
 |---|---|---|---|
-| M-01 | App → **Kích hoạt tài khoản**: `NV001` + `nv1@abc.test` → OTP (Mailpit) → mật khẩu → đồng ý điều khoản | Vào trang chủ; logo/tên Công ty ABC; máy đầu tiên tự được duyệt | |
+| M-01 | App → **Kích hoạt tài khoản** (ô mã/email để trống, không điền sẵn): `NV001` + `nv1@abc.test` → OTP (Mailpit) → mật khẩu (thử nút con mắt ẩn/hiện) → đồng ý điều khoản | Vào trang chủ; tiêu đề là **tên công ty đã đăng ký** (không phải Hải Đăng); dòng vị trí là địa điểm của công ty (chưa áp dụng thì "Chưa có địa điểm chấm công · liên hệ HR"); máy đầu tiên tự được duyệt | |
 | M-02 | Bật Face ID khi được hỏi | Lần mở sau dùng Face ID hệ thống | |
 | M-03 | Ở ngoài bán kính địa điểm → nhấn giữ **Vào ca** | Báo ngoài phạm vi, không ghi nhận | |
 | M-04 | Trong bán kính → nhấn giữ **Vào ca** | Ghi nhận giờ vào; web HR **Chấm công → Hôm nay** thấy ngay | |

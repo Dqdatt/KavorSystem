@@ -4,6 +4,7 @@
    Sau mật khẩu luôn có bước xác thực hai lớp (TOTP): lần đầu quét mã QR bằng ứng dụng xác thực, các lần sau chỉ nhập mã. */
 import { Suspense, useCallback, useEffect, useState, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { PasswordInput } from "@kavor/web-ui";
 import { ADMIN_ERRORS, passwordProblems, type ApiEnvelope, type MfaEnrollment, type MfaStatus } from "@kavor/contracts";
 
 class Failure extends Error { constructor(readonly code: string, message: string) { super(message); } }
@@ -70,7 +71,7 @@ function LoginForm() {
               <p className="muted" style={{ margin: "0 0 18px", fontSize: 13 }}>Dành cho quản trị viên, HR và quản lý của doanh nghiệp.</p>
               <div className="form-grid" style={{ gridTemplateColumns: "1fr" }}>
                 <div className="field"><label htmlFor="id">Mã nhân viên hoặc email công ty</label><input id="id" autoComplete="username" value={identifier} onChange={(e) => setIdentifier(e.target.value)} required /></div>
-                <div className="field"><label htmlFor="pw">Mật khẩu</label><input id="pw" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required /></div>
+                <div className="field"><label htmlFor="pw">Mật khẩu</label><PasswordInput id="pw" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required /></div>
               </div>
               {error ? <p className="text-red" style={{ fontSize: 12.5 }}>{error}</p> : null}
               <button className="btn primary block" style={{ marginTop: 16 }} disabled={busy}>{busy ? "Đang đăng nhập…" : "Đăng nhập"}</button>
@@ -127,7 +128,7 @@ function LoginForm() {
               <p className="muted" style={{ margin: "0 0 18px", fontSize: 13 }}>{info}</p>
               <div className="form-grid" style={{ gridTemplateColumns: "1fr" }}>
                 <div className="field"><label htmlFor="otp">Mã OTP (6 số)</label><input id="otp" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={otp} onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))} required /></div>
-                <div className="field"><label htmlFor="npw">Mật khẩu mới</label><input id="npw" type="password" autoComplete="new-password" value={newPw} onChange={(e) => setNewPw(e.target.value)} required />
+                <div className="field"><label htmlFor="npw">Mật khẩu mới</label><PasswordInput id="npw" autoComplete="new-password" value={newPw} onChange={(e) => setNewPw(e.target.value)} required />
                   <small>Ít nhất 8 ký tự, có chữ hoa và số, không chứa mã nhân viên.</small></div>
               </div>
               {error ? <p className="text-red" style={{ fontSize: 12.5 }}>{error}</p> : null}
