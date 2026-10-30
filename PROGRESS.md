@@ -371,6 +371,10 @@ ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AG
 - Cài bản mới lên iPhone: build `xcodebuild -workspace ios/Kavor.xcworkspace -scheme Kavor -configuration Release -destination 'generic/platform=iOS' -derivedDataPath ios/build-device -allowProvisioningUpdates build` (trong `apps/mobile`, có `EXPO_PUBLIC_API_URL`, xóa `$TMPDIR/metro-cache` trước) rồi `xcrun devicectl device install app --device 36F8CE4A-8C04-5232-AB9D-0041A426F6A0 ios/build-device/Build/Products/Release-iphoneos/Kavor.app`. Nếu devicectl báo "unavailable": mở khóa iPhone, bấm Tin cậy, cắm cáp dữ liệu.
 - Reset DB local: dùng `bash tools/db-reset.sh` (sau `supabase db reset` Kong giữ IP cũ của Auth → 502).
 - Bản trên iPhone hiện trỏ tới API `http://192.168.1.3:4000/api/v1` (cài bản sửa payroll qua Wi-Fi 26/10; thay bản .22). App báo "không kết nối máy chủ" thì kiểm tra `ipconfig getifaddr en0` trước — IP đổi thì phải build lại: Mac phải chạy `pnpm dev:backend`, cùng Wi-Fi. IP Mac đổi thì phải build lại app.
+- **Bản online đang chạy (30/10):** web HR https://kavor-system.vercel.app, Console https://kavor-system-wxlx.vercel.app, API
+  https://kavor-api.onrender.com (Render Free), Supabase `kavor-dev` (Singapore); Quản trị Console `kavor.admin@gmail.com` đã kích hoạt; cron-job.org
+  giữ API thức. iPhone đã cài bản Release trỏ API online (30/10). Sổ ghi nhớ riêng của người dùng: `private/KAVOR_ONLINE.md` (gitignore).
+  Migration mới → chạy `tools/cloud-supabase.sh` (CLI 2.108 lỗi đọc Storage sau khi Auth "up to date" — không sao).
 - Bản online (30/10): làm theo `docs/DEPLOY.md` — tạo project Supabase **mới** `kavor-dev` (project cũ `KavorSystem` có publishable key trong lịch sử
   repo công khai → xóa), Realtime/SMTP chưa kiểm trên cloud. Repo GitHub đang công khai: không commit khóa.
 

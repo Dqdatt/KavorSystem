@@ -19,3 +19,7 @@ apps/mobile/android/
 docs/ui-comparison/paired/
 docs/ui-comparison/paired-android/
 supabase/.branches/
+
+# Ghi chú riêng trên máy (link dịch vụ online…), không đưa lên GitHub công khai
+private/
+exports/
