@@ -10,6 +10,10 @@ simulator hay iPhone** vì phiên cloud không có Mac). Người dùng giao "c�
 ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AGENT_PLAYBOOK.md`; kiểm tra toàn bộ bằng `bash tools/verify-all.sh`.
 
 ## Đã xong
+- Thư mời trên bản online (30/10, Claude Desktop): Render Free chặn SMTP nên thư mời QTV/nhân viên không gửi được. API gửi qua trạm
+  `/api/internal/mail` của web HR (Vercel mở cổng 587; khóa `MAIL_RELAY_SECRET`, so khớp hằng thời gian, proxy bỏ qua `/api/internal`).
+  Đã thử trên Mac: sai khóa 401, thiếu nội dung 400, API (không SMTP, chỉ trạm) → thư mời tới Mailpit; unit test cấu hình; verify-all đạt.
+  **Chưa bật trên cloud**: người dùng phải thêm biến ở Render + Vercel (DEPLOY.md bước 4).
 - Chuẩn bị bản online miễn phí (30/10, Claude Desktop): `docs/DEPLOY.md` (Supabase Free + Render Free + Vercel Hobby + Gmail SMTP + cron-job.org
   giữ API thức), `render.yaml`, `tools/cloud-supabase.sh` (migration + cấu hình Auth lên cloud từ bản sao config.toml, không seed; `DRY_RUN=1` đã thử),
   API nhận cổng `PORT` (đã thử build + `pnpm start`). **Chưa đăng ký dịch vụ nào, chưa chạy trên cloud.** Kèm: web Địa điểm báo "Chưa áp dụng cho ai"
