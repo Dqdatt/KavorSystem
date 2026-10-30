@@ -7,7 +7,7 @@ import { STEP_RESOLVERS, type RequestItem, type RequestQueue, type RequestType, 
 import { call, useApi } from "../../_lib/client";
 import { Empty, ErrorLine, Field, Icon, LoadError, Modal, Person, Status, can, fmtDate, fmtDateTime, tenantToday, useAction, useMe } from "../../_ui/kit";
 import { REQUEST_STATUS, REQUEST_TYPE, RequestModal, requestSummary, slaLabel } from "../../_ui/request";
-import { Select } from "@kavor/web-ui";
+import { Select, SkeletonRows } from "@kavor/web-ui";
 
 export default function Page() { return <Suspense><RequestsPage /></Suspense>; }
 
@@ -48,6 +48,7 @@ function RequestsPage() {
         </div>
         {data && !items.length ? <Empty title={status === "pending" ? "Không còn đơn nào chờ duyệt" : "Không có đơn phù hợp"} /> : (
           <div className="table-wrap"><table className="data-table" style={{ minWidth: 960 }}><thead><tr><th>Mã đơn</th><th>Người gửi</th><th>Loại</th><th>Nội dung</th><th>Gửi lúc</th><th>{status === "pending" ? "Hạn xử lý" : "Trạng thái"}</th><th /></tr></thead><tbody>
+            {!data && !error ? <SkeletonRows cols={7} rows={6} /> : null}
             {items.map((r) => (
               <tr key={r.id} className="clickable" onClick={() => setOpen(r)}>
                 <td><b>{r.no}</b></td>

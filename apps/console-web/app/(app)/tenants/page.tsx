@@ -9,7 +9,7 @@ import { ACCOUNT, Drawer, Empty, ErrorLine, Field, Icon, LoadError, Modal, Perso
 import { DecideModal, KIND, RSTATUS, RecoveryForm } from "../../_ui/recovery";
 import { ACTION, PLAN, TSTATUS, adminHealth } from "../../_ui/labels";
 import { DeleteTenantModal, PlanModal, StatusModal, usageTone } from "../../_ui/tenant-ops";
-import { Select } from "@kavor/web-ui";
+import { Select, SkeletonLines, SkeletonRows } from "@kavor/web-ui";
 
 function TenantsPage() {
   const router = useRouter();
@@ -41,6 +41,7 @@ function TenantsPage() {
         </div>
         {data && !rows.length ? <Empty title="Không có doanh nghiệp phù hợp" /> : (
           <div className="table-wrap"><table className="data-table" style={{ minWidth: 960 }}><thead><tr><th>Doanh nghiệp</th><th>Gói</th><th>Nhân sự</th><th>Đã kích hoạt</th><th>Quản trị viên</th><th>Trạng thái</th><th>Tạo ngày</th><th /></tr></thead><tbody>
+            {!data && !error ? <SkeletonRows cols={8} rows={8} /> : null}
             {rows.map((t) => (
               <tr key={t.id} className="clickable" onClick={() => show(t.id)}>
                 <td><Person name={t.name} seed={t.code} sub={t.code} /></td>
@@ -190,7 +191,7 @@ function TenantDrawer({ id, onClose, onChanged }: { id: string; onClose: () => v
         <div className="card" style={{ marginTop: 14 }}><div className="card-head"><h3>Thao tác của Kavor trên doanh nghiệp</h3><p>Doanh nghiệp cũng thấy các dòng này trong nhật ký của mình</p></div><div className="detail-list">
           {t.audit.length ? t.audit.map((a) => <div key={a.id} className="detail-row"><span>{fmtDateTime(a.createdAt, t.timezone)} · {a.actor}</span><b>{ACTION[a.action] ?? a.action}</b></div>) : <p className="muted" style={{ fontSize: 12 }}>—</p>}
         </div></div>
-      </> : null}
+      </> : (error ? null : <SkeletonLines lines={6} avatar />)}
       {planning && t ? <PlanModal t={t} onClose={() => setPlanning(false)} onDone={(d) => { setData(d); onChanged(); }} /> : null}
       {deleting && t ? <DeleteTenantModal t={t} onClose={() => setDeleting(false)} onDone={(r) => {
         toast(r.warnings.length ? `Đã xóa ${r.code}; còn sót: ${r.warnings.join(", ")}` : `Đã xóa vĩnh viễn ${r.code}: ${num(r.rows)} dòng dữ liệu, ${num(r.accounts)} tài khoản, ${num(r.files)} file`, r.warnings.length ? "error" : undefined);

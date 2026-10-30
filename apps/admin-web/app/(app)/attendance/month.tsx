@@ -7,7 +7,7 @@ import { call, useApi } from "../../_lib/client";
 import { Drawer, Empty, Field, Icon, LoadError, Modal, Person, Status, dur, fmtDate, fmtDateTime, num, tenantToday, useAction, useMe } from "../../_ui/kit";
 import { ReasonModal } from "../../_ui/reason-modal";
 import { REQUEST_STATUS, RequestModal, requestSummary } from "../../_ui/request";
-import { Select } from "@kavor/web-ui";
+import { Select, SkeletonLines, SkeletonRows } from "@kavor/web-ui";
 
 const ROW: Record<TimesheetRow["status"], [string, string]> = { ok: ["Đủ dữ liệu", ""], needs_action: ["Cần xử lý", "warn"], short: ["Thiếu công", "bad"] };
 const ISSUE: Record<string, [string, string]> = {
@@ -62,6 +62,7 @@ export function MonthTab({ setAction }: { setAction: (n: ReactNode) => void }) {
         </div>
         {b && !rows.length ? <Empty title="Không có nhân viên phù hợp" /> : (
           <div className="table-wrap"><table className="data-table" style={{ minWidth: 960 }}><thead><tr><th>Nhân viên</th><th>Phòng ban</th><th>Ngày công</th><th>Đi muộn</th><th>Thiếu bản ghi</th><th>Giải trình chờ</th><th>Trạng thái kỳ</th><th /></tr></thead><tbody>
+            {!b && !error ? <SkeletonRows cols={8} rows={8} person /> : null}
             {rows.map((r) => (
               <tr key={r.employee.id} className="clickable" onClick={() => setOpen(r.employee.id)}>
                 <td><Person name={r.employee.fullName} seed={r.employee.code} sub={r.employee.code} /></td>
@@ -129,7 +130,7 @@ function EmployeeMonth({ id, month, onClose, onChanged }: { id: string; month: s
             <div key={r.id} className="detail-row clickable" style={{ cursor: "pointer" }} onClick={() => setReq(r)}><span>{r.no} · {requestSummary(r)}<small style={{ display: "block" }}>{fmtDateTime(r.submittedAt, tz)}</small></span><b><Status v={REQUEST_STATUS[r.status]} /></b></div>
           ))}</div> : <p className="muted" style={{ fontSize: 12 }}>Chưa có giải trình nào.</p>}
         </div>
-      </> : null}
+      </> : (error ? null : <SkeletonLines lines={6} avatar />)}
       {req ? <RequestModal r={req} onClose={() => setReq(null)} onDone={() => { void reload(); onChanged(); }} /> : null}
     </Drawer>
   );

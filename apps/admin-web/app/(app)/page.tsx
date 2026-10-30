@@ -3,6 +3,7 @@ import Link from "next/link";
 import type { AdminOverview, OverviewDay, SetupChecklist } from "@kavor/contracts";
 import { useApi } from "../_lib/client";
 import { ACCOUNT, Empty, Icon, LoadError, Person, Status, can, fmtDate, num, useMe } from "../_ui/kit";
+import { Skeleton, SkeletonRows } from "@kavor/web-ui";
 
 const WD = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
 
@@ -37,6 +38,8 @@ export default function Overview() {
   /* Checklist thiết lập ban đầu chỉ nhắc người cấu hình được công ty */
   const setup = useApi<SetupChecklist>(can(me, "tenant.settings.manage") ? "settings/checklist" : null).data;
   const pct = o && o.activeEmployees ? `${((o.presentToday / o.activeEmployees) * 100).toLocaleString("vi-VN", { maximumFractionDigits: 1 })}%` : "—";
+  /* Đang tải: khung chờ thay cho "—" ở thẻ số liệu */
+  const wait = !o && !error ? <Skeleton w={56} h={24} /> : "—";
 
   return (
     <section className="page active">
@@ -61,22 +64,22 @@ export default function Overview() {
       ) : null}
 
       <div className="grid metrics">
-        <article className="card metric-card"><span className="metric-icon"><Icon name="users" /></span><span className="metric-copy"><span>Nhân sự hoạt động</span><strong className="num">{o ? num(o.activeEmployees) : "—"}</strong><small>{o ? <><b className="delta down">{o.notActivated}</b> chưa kích hoạt</> : " "}</small></span></article>
-        <article className="card metric-card"><span className="metric-icon blue"><Icon name="clock" /></span><span className="metric-copy"><span>Có mặt hôm nay</span><strong className="num">{o && att ? num(o.presentToday) : "—"}</strong><small>{att ? <><b className="delta">{pct}</b> tổng nhân sự</> : "Không có quyền xem chấm công"}</small></span></article>
-        <article className="card metric-card"><span className="metric-icon amber"><Icon name="alert" /></span><span className="metric-copy"><span>Đi muộn hôm nay</span><strong className="num">{o && att ? num(o.lateToday) : "—"}</strong><small>Theo ca và thời gian ân hạn</small></span></article>
-        <article className="card metric-card"><span className="metric-icon violet"><Icon name="pin" /></span><span className="metric-copy"><span>Bị từ chối hôm nay</span><strong className="num">{o && att ? num(o.rejectedToday) : "—"}</strong><small>Ngoài vùng hoặc GPS kém</small></span></article>
+        <article className="card metric-card"><span className="metric-icon"><Icon name="users" /></span><span className="metric-copy"><span>Nhân sự hoạt động</span><strong className="num">{o ? num(o.activeEmployees) : wait}</strong><small>{o ? <><b className="delta down">{o.notActivated}</b> chưa kích hoạt</> : " "}</small></span></article>
+        <article className="card metric-card"><span className="metric-icon blue"><Icon name="clock" /></span><span className="metric-copy"><span>Có mặt hôm nay</span><strong className="num">{o && att ? num(o.presentToday) : wait}</strong><small>{att ? <><b className="delta">{pct}</b> tổng nhân sự</> : "Không có quyền xem chấm công"}</small></span></article>
+        <article className="card metric-card"><span className="metric-icon amber"><Icon name="alert" /></span><span className="metric-copy"><span>Đi muộn hôm nay</span><strong className="num">{o && att ? num(o.lateToday) : wait}</strong><small>Theo ca và thời gian ân hạn</small></span></article>
+        <article className="card metric-card"><span className="metric-icon violet"><Icon name="pin" /></span><span className="metric-copy"><span>Bị từ chối hôm nay</span><strong className="num">{o && att ? num(o.rejectedToday) : wait}</strong><small>Ngoài vùng hoặc GPS kém</small></span></article>
       </div>
 
       {att ? (
         <div className="grid two-one">
           <article className="card chart-card">
             <div className="card-head no-line"><div><h3>Có mặt & đi muộn</h3><p>7 ngày gần nhất · trong phạm vi của bạn</p></div><div className="card-actions"><span className="chart-legend"><span><i className="green" />Có mặt</span><span><i className="dark" />Đi muộn</span></span></div></div>
-            <div className="chart-wrap">{o ? <PresenceChart days={o.days} /> : null}</div>
+            <div className="chart-wrap">{o ? <PresenceChart days={o.days} /> : !error ? <Skeleton w="100%" h={220} /> : null}</div>
           </article>
           <div className="mini-stack">
-            <Link href="/attendance?tab=devices" className="card mini-stat" style={{ textDecoration: "none", color: "inherit" }}><span className="metric-icon amber"><Icon name="phone" /></span><span className="metric-copy"><span>Thiết bị chờ duyệt</span><strong className="num">{o?.devicesPending ?? "—"}</strong><small>Duyệt để nhân viên chấm công</small></span></Link>
-            <Link href="/attendance?tab=rejected" className="card mini-stat" style={{ textDecoration: "none", color: "inherit" }}><span className="metric-icon red"><Icon name="alert" /></span><span className="metric-copy"><span>Bản ghi bị từ chối</span><strong className="num">{o?.rejectedToday ?? "—"}</strong><small>Hôm nay</small></span></Link>
-            <Link href="/employees?account=pending" className="card mini-stat" style={{ textDecoration: "none", color: "inherit" }}><span className="metric-icon"><Icon name="mail" /></span><span className="metric-copy"><span>Chưa kích hoạt</span><strong className="num">{o?.notActivated ?? "—"}</strong><small>Gửi lại lời mời nếu cần</small></span></Link>
+            <Link href="/attendance?tab=devices" className="card mini-stat" style={{ textDecoration: "none", color: "inherit" }}><span className="metric-icon amber"><Icon name="phone" /></span><span className="metric-copy"><span>Thiết bị chờ duyệt</span><strong className="num">{o?.devicesPending ?? wait}</strong><small>Duyệt để nhân viên chấm công</small></span></Link>
+            <Link href="/attendance?tab=rejected" className="card mini-stat" style={{ textDecoration: "none", color: "inherit" }}><span className="metric-icon red"><Icon name="alert" /></span><span className="metric-copy"><span>Bản ghi bị từ chối</span><strong className="num">{o?.rejectedToday ?? wait}</strong><small>Hôm nay</small></span></Link>
+            <Link href="/employees?account=pending" className="card mini-stat" style={{ textDecoration: "none", color: "inherit" }}><span className="metric-icon"><Icon name="mail" /></span><span className="metric-copy"><span>Chưa kích hoạt</span><strong className="num">{o?.notActivated ?? wait}</strong><small>Gửi lại lời mời nếu cần</small></span></Link>
           </div>
         </div>
       ) : null}
@@ -86,6 +89,7 @@ export default function Overview() {
           <div className="card-head"><div><h3>Nhân viên mới thêm</h3><p>5 hồ sơ gần nhất trong phạm vi của bạn</p></div><Link className="btn small" href="/employees">Xem tất cả</Link></div>
           {o && !o.recentEmployees.length ? <Empty title="Chưa có nhân viên" /> : (
             <div className="table-wrap"><table className="data-table"><thead><tr><th>Nhân viên</th><th>Phòng ban</th><th>Ngày vào làm</th><th>Tài khoản</th></tr></thead><tbody>
+              {!o && !error ? <SkeletonRows cols={4} rows={5} person /> : null}
               {(o?.recentEmployees ?? []).map((e) => (
                 <tr key={e.id} className="clickable" onClick={() => { location.href = `/employees?id=${e.id}`; }}>
                   <td><Person name={e.fullName} sub={e.code} /></td><td>{e.department?.name ?? "—"}</td><td>{fmtDate(e.hireDate)}</td><td><Status v={ACCOUNT[e.account]} /></td>

@@ -13,7 +13,7 @@ import { call, useApi } from "../../_lib/client";
 import { SupportPanel } from "../../_ui/support";
 import { Empty, ErrorLine, Field, Icon, LoadError, Modal, SCOPE, Status, can, fmtDate, fmtDateTime, num, tenantToday, useAction, useMe } from "../../_ui/kit";
 import { ReasonModal } from "../../_ui/reason-modal";
-import { Select } from "@kavor/web-ui";
+import { Select, SkeletonRows } from "@kavor/web-ui";
 
 type Tab = "company" | "setup" | "rules" | "holidays" | "privacy" | "support";
 const TABS: Array<[Tab, string, string | null]> = [
@@ -361,6 +361,7 @@ function Holidays({ setAction }: { setAction: SetAction }) {
         </div>
         {data && !data.holidays.length ? <Empty title={`Chưa có ngày nghỉ nào năm ${year}`} /> : (
           <div className="table-wrap"><table className="data-table" style={{ minWidth: 760 }}><thead><tr><th>Ngày</th><th>Tên</th><th>Loại</th><th>Hưởng lương</th><th>Nguồn</th><th /></tr></thead><tbody>
+            {!data && !error ? <SkeletonRows cols={6} rows={6} /> : null}
             {(data?.holidays ?? []).map((h) => {
               const d = new Date(`${h.date}T12:00:00Z`);
               return (

@@ -7,7 +7,7 @@ import { LEAVE_TX_KINDS, type EmployeeLeave, type LeaveBalance, type LeaveBoard,
 import { call, useApi } from "../../_lib/client";
 import { Drawer, Empty, ErrorLine, Field, Icon, LoadError, Person, Status, fmtDate, fmtDateTime, useAction, useMe } from "../../_ui/kit";
 import { REQUEST_STATUS, RequestModal, requestSummary } from "../../_ui/request";
-import { Select } from "@kavor/web-ui";
+import { Select, SkeletonLines, SkeletonRows } from "@kavor/web-ui";
 
 const d1 = (n: number) => n.toLocaleString("vi-VN", { maximumFractionDigits: 2 });
 const signed = (n: number) => `${n > 0 ? "+" : ""}${d1(n)}`;
@@ -41,6 +41,7 @@ export default function LeavePage() {
         </div>
         {b && !rows.length ? <Empty title="Không có nhân viên phù hợp" /> : (
           <div className="table-wrap"><table className="data-table" style={{ minWidth: 900 }}><thead><tr><th>Nhân viên</th><th>Phòng ban</th><th>Được cấp</th><th>Tồn năm trước</th><th>Đã nghỉ</th><th>Đang chờ</th><th>Còn lại</th><th /></tr></thead><tbody>
+            {!b && !error ? <SkeletonRows cols={8} rows={8} person /> : null}
             {rows.map((r) => (
               <tr key={r.employee.id} className="clickable" onClick={() => setOpen(r.employee.id)}>
                 <td><Person name={r.employee.fullName} seed={r.employee.code} sub={r.employee.code} /></td>
@@ -61,6 +62,7 @@ export default function LeavePage() {
       <article className="card" style={{ marginTop: 14 }}>
         <div className="card-head"><div><h3>Loại nghỉ đang áp dụng</h3><p>Nhân viên chọn khi tạo đơn trên app. Mẫu theo Bộ luật Lao động — cần chuyên gia xác nhận trước khi dùng chính thức.</p></div></div>
         <div className="table-wrap"><table className="data-table"><thead><tr><th>Mã</th><th>Loại nghỉ</th><th>Hưởng lương</th><th>Trừ phép năm</th><th>Tối đa mỗi đơn</th><th>Ghi chú</th></tr></thead><tbody>
+          {!b && !error ? <SkeletonRows cols={6} rows={4} /> : null}
           {(b?.types ?? []).map((t) => (
             <tr key={t.id}><td><b>{t.code}</b></td><td>{t.name}</td><td>{t.paid ? "Có" : "Không"}</td><td>{t.deductsBalance ? <Status v={["Trừ phép", ""]} /> : "—"}</td>
               <td className="num">{t.maxDays ? `${d1(t.maxDays)} ngày` : "—"}</td><td className="muted" style={{ whiteSpace: "normal" }}>{[t.description, t.attachmentFromDays ? `Từ ${d1(t.attachmentFromDays)} ngày cần minh chứng (nộp cho HR).` : null].filter(Boolean).join(" ") || "—"}</td></tr>
@@ -100,7 +102,7 @@ function LeaveDrawer({ id, year, canManage, onClose, onChanged }: { id: string; 
             ))}
           </tbody></table></div></div>
         </div>
-      </>) : null}
+      </>) : (error ? null : <SkeletonLines lines={6} avatar />)}
       {e ? <div className="drawer-section"><h4>Đơn nghỉ năm {year}</h4>
         {e.requests.length ? <div className="card detail-list">{e.requests.map((r) => (
           <div key={r.id} className="detail-row clickable" style={{ cursor: "pointer" }} onClick={() => setReq(r)}><span>{r.no} · {requestSummary(r)}<small style={{ display: "block" }}>{fmtDateTime(r.submittedAt, tz)}</small></span><b><Status v={REQUEST_STATUS[r.status]} /></b></div>

@@ -8,7 +8,7 @@ import { ANNOUNCEMENT_CATEGORIES, ANNOUNCEMENT_MAX_BYTES, announcementBlocks, ty
   type AnnouncementDetail, type AnnouncementInput, type AnnouncementStatus, type AnnouncementUnit } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
 import { Drawer, Empty, ErrorLine, Field, Icon, LoadError, Modal, Person, Status, fmtDateTime, num, useAction, useMe } from "../../_ui/kit";
-import { Select } from "@kavor/web-ui";
+import { Select, SkeletonLines, SkeletonRows } from "@kavor/web-ui";
 
 const STATUS: Record<AnnouncementStatus, [string, string]> = { draft: ["Nháp", "muted"], scheduled: ["Hẹn giờ", "info"], published: ["Đang hiện", ""], expired: ["Hết hạn", "warn"], archived: ["Đã gỡ", "muted"] };
 const FILTERS: Array<[AnnouncementStatus | "all", string]> = [["all", "Tất cả"], ["published", "Đang hiện"], ["scheduled", "Hẹn giờ"], ["draft", "Nháp"], ["expired", "Hết hạn"], ["archived", "Đã gỡ"]];
@@ -87,6 +87,7 @@ function AnnouncementsPage() {
         </div>
         {b && !rows.length ? <Empty title="Không có bài phù hợp" /> : (
           <div className="table-wrap"><table className="data-table" style={{ minWidth: 900 }}><thead><tr><th>Bài viết</th><th>Danh mục</th><th>Người nhận</th><th>Trạng thái</th><th>Xuất bản</th><th>Đã đọc</th></tr></thead><tbody>
+            {!b && !error ? <SkeletonRows cols={6} rows={6} /> : null}
             {rows.map((a) => (
               <tr key={a.id} className="clickable" onClick={() => open(a.id)}>
                 <td style={{ whiteSpace: "normal" }}><b>{a.title}</b><div className="muted" style={{ fontSize: 10.5 }}>{[a.authorLabel, a.important ? "Quan trọng" : null, a.pinned ? "Đã ghim" : null, a.attachment ? "Có file đính kèm" : null].filter(Boolean).join(" · ")}</div></td>
@@ -134,7 +135,7 @@ function DetailDrawer({ id, onClose, onEdit, onPublish, onChanged }: { id: strin
     <Drawer onClose={onClose} head={<><div><b>Chi tiết bài viết</b><div className="muted" style={{ fontSize: 10 }}>{a ? `${ANNOUNCEMENT_CATEGORIES[a.category]} · ${a.authorLabel}` : "Đang tải…"}</div></div>
       {a ? <span style={{ marginLeft: "auto" }}><Status v={STATUS[a.status]} /></span> : null}</>}>
       <LoadError error={error} retry={reload} />
-      {!a ? null : (
+      {!a ? (error ? null : <SkeletonLines lines={6} />) : (
         <>
           <div className="row-actions" style={{ justifyContent: "flex-start", marginBottom: 14 }}>
             {a.status !== "archived" ? <button className="btn small" onClick={() => onEdit(a)}>Sửa bài</button> : null}

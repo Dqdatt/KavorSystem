@@ -7,7 +7,7 @@ import type { AdvanceBoard, CompensationBoard, CompensationRow, RequestItem } fr
 import { call, useApi } from "../../_lib/client";
 import { Empty, ErrorLine, Field, Icon, LoadError, Modal, Person, Status, fmtDate, fmtDateTime, tenantToday, useAction, useMe } from "../../_ui/kit";
 import { REQUEST_STATUS, RequestModal, money } from "../../_ui/request";
-import { Select } from "@kavor/web-ui";
+import { Select, SkeletonRows } from "@kavor/web-ui";
 
 const shift = (m: string, n: number) => { const [y, mo] = m.split("-").map(Number) as [number, number]; const d = new Date(Date.UTC(y, mo - 1 + n, 1)); return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`; };
 
@@ -44,6 +44,7 @@ export function Advances() {
         </div>
         {b && !b.rows.length ? <Empty title="Chưa có đơn tạm ứng nào" text="Nhân viên gửi đơn trên app; đơn qua Quản lý (và HR khi vượt ngưỡng) rồi tới Kế toán." /> : (
           <div className="table-wrap"><table className="data-table" style={{ minWidth: 900 }}><thead><tr><th>Mã đơn</th><th>Nhân viên</th><th>Số tiền</th><th>Gửi lúc</th><th>Trạng thái</th><th>Đã chi</th><th /></tr></thead><tbody>
+            {!b && !error ? <SkeletonRows cols={7} rows={6} /> : null}
             {(b?.rows ?? []).map(({ request: r, employee: e }) => (
               <tr key={r.id} className="clickable" onClick={() => setOpen(r)}>
                 <td><b>{r.no}</b></td>
@@ -98,6 +99,7 @@ export function Salary() {
         <div className="toolbar"><label className="search"><Icon name="search" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Tìm nhân viên…" /></label></div>
         {b && !rows.length ? <Empty title="Không có nhân viên phù hợp" /> : (
           <div className="table-wrap"><table className="data-table"><thead><tr><th>Nhân viên</th><th>Phòng ban</th><th>Lương cơ bản</th><th>Hiệu lực từ</th><th>Lịch sử</th><th>Tài khoản ngân hàng</th><th /></tr></thead><tbody>
+            {!b && !error ? <SkeletonRows cols={7} rows={6} person /> : null}
             {rows.map((r) => (
               <tr key={r.employee.id}>
                 <td><Person name={r.employee.fullName} seed={r.employee.code} sub={r.employee.code} /></td>

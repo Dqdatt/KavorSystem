@@ -4,7 +4,7 @@
    đặt lại xác thực hai lớp khi mất điện thoại. Không tự thao tác lên chính mình; luôn còn ít nhất một quản trị viên. */
 import { useState } from "react";
 import { OPERATOR_ROLES, type ConsoleOperator, type ConsoleOperators, type OperatorInviteResult, type OperatorRole } from "@kavor/contracts";
-import { Select } from "@kavor/web-ui";
+import { Select, SkeletonRows } from "@kavor/web-ui";
 import { call, useApi } from "../../_lib/client";
 import { Empty, ErrorLine, Field, Icon, LoadError, Modal, Person, Status, ago, fmtDateTime, num, useAction, useMe, useToast } from "../../_ui/kit";
 import { ISTATUS } from "../../_ui/labels";
@@ -41,6 +41,7 @@ export default function Operators() {
         <div className="card-head"><div><h3>Nhân viên Kavor</h3><p>Không đổi vai trò, khóa hay đặt lại xác thực của chính mình — nhờ một quản trị viên khác.</p></div></div>
         {data && !ops.length ? <Empty title="Chưa có nhân viên Kavor" /> : (
           <div className="table-wrap"><table className="data-table"><thead><tr><th>Họ tên</th><th>Vai trò</th><th>Xác thực hai lớp</th><th>Đăng nhập gần nhất</th><th>Trạng thái</th><th /></tr></thead><tbody>
+            {!data && !error ? <SkeletonRows cols={6} rows={4} /> : null}
             {ops.map((o) => (
               <tr key={o.userId}>
                 <td><Person name={o.fullName} sub={o.email} seed={o.userId} /></td>
@@ -65,6 +66,7 @@ export default function Operators() {
         <div className="card-head"><div><h3>Lời mời</h3><p>Thư mời gửi tới email; người nhận vào trang đăng nhập Console → "Kích hoạt tài khoản / Quên mật khẩu".</p></div></div>
         {data && !invites.length ? <Empty title="Chưa có lời mời nào" /> : (
           <div className="table-wrap"><table className="data-table"><thead><tr><th>Người được mời</th><th>Vai trò</th><th>Người mời</th><th>Gửi thư</th><th>Hết hạn</th><th>Trạng thái</th><th /></tr></thead><tbody>
+            {!data && !error ? <SkeletonRows cols={7} rows={3} /> : null}
             {invites.map((i) => (
               <tr key={i.id}>
                 <td><Person name={i.fullName} sub={i.email} seed={i.email} /></td>

@@ -6,6 +6,7 @@ import Link from "next/link";
 import { SUPPORT_SCOPES, type SupportBanner as Banner, type SupportSession, type SupportStatus } from "@kavor/contracts";
 import { call, useApi } from "../_lib/client";
 import { Empty, ErrorLine, Field, Icon, LoadError, Modal, Status, fmtDateTime, fmtTime, useAction, useMe } from "./kit";
+import { SkeletonRows } from "@kavor/web-ui";
 
 export const SSTATUS: Record<SupportStatus, [string, string]> = {
   pending: ["Chờ duyệt", "warn"], active: ["Đang hỗ trợ", "info"], rejected: ["Đã từ chối", "bad"], cancelled: ["Kavor đã hủy", "muted"],
@@ -55,6 +56,7 @@ export function SupportPanel() {
         <div className="card-head"><div><h3>Yêu cầu hỗ trợ từ Kavor</h3><p>Nhân viên Kavor không có quyền mặc định vào dữ liệu công ty. Mỗi yêu cầu nêu mã phiếu hỗ trợ, lý do, phạm vi và thời hạn; quyền tự hết hạn.</p></div></div>
         {data && !data.length ? <Empty title="Chưa có yêu cầu nào" text="Khi bạn liên hệ Kavor hỗ trợ, kỹ sư sẽ gửi yêu cầu truy cập để bạn duyệt tại đây." /> : (
           <div className="table-wrap"><table className="data-table" style={{ minWidth: 900 }}><thead><tr><th>Kỹ sư Kavor</th><th>Phiếu hỗ trợ · lý do</th><th>Phạm vi (chỉ đọc)</th><th>Thời hạn</th><th>Trạng thái</th><th /></tr></thead><tbody>
+            {!data && !error ? <SkeletonRows cols={6} rows={3} /> : null}
             {(data ?? []).map((s) => (
               <tr key={s.id}>
                 <td><b>{s.operator}</b><div className="muted" style={{ fontSize: 10.5 }}>gửi {fmtDateTime(s.requestedAt, tz)}</div></td>

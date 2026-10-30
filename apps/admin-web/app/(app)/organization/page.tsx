@@ -6,7 +6,7 @@ import { useMemo, useState } from "react";
 import { ORG_UNIT_KINDS, type OrgTree, type OrgUnit, type OrgUnitKind } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
 import { Empty, ErrorLine, Field, Icon, LoadError, Modal, Status, fmtDate, num, useAction, useMe } from "../../_ui/kit";
-import { Select } from "@kavor/web-ui";
+import { Select, Skeleton, SkeletonLines } from "@kavor/web-ui";
 
 type Edit = { mode: "create"; kind: OrgUnitKind; parent?: OrgUnit } | { mode: "edit"; unit: OrgUnit };
 
@@ -23,15 +23,17 @@ export default function OrganizationPage() {
   const total = (d: OrgUnit): number => d.employees + depts.filter((c) => c.parentId === d.id).reduce((n, c) => n + total(c), 0);
   const tops = depts.filter((d) => !d.parentId);
   const m = t?.metrics;
+  /* Đang tải: khung chờ thay cho "—" ở thẻ số liệu */
+  const wait = !t && !error ? <Skeleton w={56} h={24} /> : "—";
   return (
     <section className="page active">
       <div className="page-head"><div><p>Cấu trúc có ngày hiệu lực; đơn vị ngừng hoạt động vẫn giữ lịch sử.</p></div>
         <div className="head-actions">{t?.canManage ? <button className="btn primary" onClick={() => setEdit({ mode: "create", kind: "department" })}><Icon name="plus" /> Thêm đơn vị</button> : null}</div></div>
       <LoadError error={error} retry={reload} />
       <div className="grid three">
-        <article className="card metric-card"><span className="metric-icon"><Icon name="brief" /></span><span className="metric-copy"><span>Pháp nhân</span><strong>{m ? num(m.legalEntities) : "—"}</strong><small>{m ? `${num(m.branches)} chi nhánh` : " "}</small></span></article>
-        <article className="card metric-card"><span className="metric-icon blue"><Icon name="org" /></span><span className="metric-copy"><span>Phòng ban</span><strong>{m ? num(m.departments) : "—"}</strong><small>{m ? `${num(m.positions)} chức danh` : " "}</small></span></article>
-        <article className="card metric-card"><span className="metric-icon violet"><Icon name="users" /></span><span className="metric-copy"><span>Quản lý</span><strong>{m ? num(m.managers) : "—"}</strong><small>{m ? `${num(m.employees)} nhân sự đang làm` : " "}</small></span></article>
+        <article className="card metric-card"><span className="metric-icon"><Icon name="brief" /></span><span className="metric-copy"><span>Pháp nhân</span><strong>{m ? num(m.legalEntities) : wait}</strong><small>{m ? `${num(m.branches)} chi nhánh` : " "}</small></span></article>
+        <article className="card metric-card"><span className="metric-icon blue"><Icon name="org" /></span><span className="metric-copy"><span>Phòng ban</span><strong>{m ? num(m.departments) : wait}</strong><small>{m ? `${num(m.positions)} chức danh` : " "}</small></span></article>
+        <article className="card metric-card"><span className="metric-icon violet"><Icon name="users" /></span><span className="metric-copy"><span>Quản lý</span><strong>{m ? num(m.managers) : wait}</strong><small>{m ? `${num(m.employees)} nhân sự đang làm` : " "}</small></span></article>
       </div>
       <article className="card">
         <div className="card-head"><div><h3>{me.tenant.name}</h3><p>Hiệu lực tại {t ? fmtDate(t.today) : "—"}</p></div>
@@ -39,7 +41,7 @@ export default function OrganizationPage() {
             {list ? <label className="check-row" style={{ fontSize: 11.5 }}><input type="checkbox" checked={showEnded} onChange={(e) => setShowEnded(e.target.checked)} /> Hiện đơn vị đã ngừng</label> : null}
             <button className="btn small" onClick={() => setList(!list)}>{list ? "Sơ đồ" : "Danh sách"}</button>
           </div></div>
-        {!t ? null : list ? <UnitList t={t} units={units} total={total} onEdit={setEdit} onEnd={setEnding} /> : (
+        {!t ? (error ? null : <SkeletonLines lines={5} />) : list ? <UnitList t={t} units={units} total={total} onEdit={setEdit} onEnd={setEnding} /> : (
           <div className="card-body" style={{ overflow: "auto" }}><div style={{ minWidth: 760, textAlign: "center", padding: "8px 0 22px" }}>
             <div className="org-root">{me.tenant.name}
               <small style={{ display: "block", color: "var(--muted)", fontWeight: 500 }}>{num(m?.employees ?? 0)} nhân sự</small></div>

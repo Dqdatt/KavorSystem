@@ -6,6 +6,7 @@ import type { OwnerRecovery } from "@kavor/contracts";
 import { useApi } from "../../_lib/client";
 import { Empty, Icon, LoadError, Status, fmtDateTime, num } from "../../_ui/kit";
 import { DecideModal, KIND, RSTATUS, RecoveryForm } from "../../_ui/recovery";
+import { SkeletonRows } from "@kavor/web-ui";
 
 const TZ = "Asia/Ho_Chi_Minh";
 
@@ -29,6 +30,7 @@ export default function RecoveriesPage() {
       <article className="card">
         {data && !rows.length ? <Empty title="Chưa có yêu cầu khôi phục nào" text="Tạo yêu cầu khi quản trị viên công ty mất điện thoại hoặc công ty không còn ai quản trị." /> : (
           <div className="table-wrap"><table className="data-table" style={{ minWidth: 1100 }}><thead><tr><th>Doanh nghiệp</th><th>Loại</th><th>Người nhận</th><th>Đã xác minh</th><th>Người tạo</th><th>Hết hạn</th><th>Trạng thái</th><th /></tr></thead><tbody>
+            {!data && !error ? <SkeletonRows cols={8} rows={5} /> : null}
             {rows.map((r) => (
               <tr key={r.id}>
                 <td><b>{r.tenant.name}</b><br /><small className="muted">{r.tenant.code}</small></td>

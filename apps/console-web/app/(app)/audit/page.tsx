@@ -5,6 +5,7 @@ import type { ConsoleAuditEntry } from "@kavor/contracts";
 import { useApi } from "../../_lib/client";
 import { Empty, Icon, LoadError, fmtDateTime } from "../../_ui/kit";
 import { ACTION } from "../../_ui/labels";
+import { SkeletonRows } from "@kavor/web-ui";
 
 export default function AuditPage() {
   const { data, error, reload } = useApi<ConsoleAuditEntry[]>("audit");
@@ -19,6 +20,7 @@ export default function AuditPage() {
         <div className="toolbar"><label className="search"><Icon name="search" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Người thực hiện, doanh nghiệp, hành động hoặc đối tượng…" /></label></div>
         {data && !rows.length ? <Empty title="Không có dòng nhật ký phù hợp" /> : (
           <div className="table-wrap"><table className="data-table" style={{ minWidth: 960 }}><thead><tr><th>Thời gian</th><th>Người thực hiện</th><th>Doanh nghiệp</th><th>Hành động</th><th>Đối tượng</th><th>Lý do</th></tr></thead><tbody>
+            {!data && !error ? <SkeletonRows cols={6} rows={8} /> : null}
             {rows.map((a) => (
               <tr key={a.id}>
                 <td className="nowrap">{fmtDateTime(a.createdAt, "Asia/Ho_Chi_Minh")}</td>

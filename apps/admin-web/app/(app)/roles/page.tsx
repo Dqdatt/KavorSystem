@@ -6,7 +6,7 @@ import { useState } from "react";
 import type { OrgOptions, RoleAssignmentRow, RoleInfo, RolesBoard, ScopeType } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
 import { ACCOUNT, Drawer, Empty, ErrorLine, Field, Icon, LoadError, Modal, Person, Status, fmtDate, num, useAction, useMe } from "../../_ui/kit";
-import { Select } from "@kavor/web-ui";
+import { Select, SkeletonRows } from "@kavor/web-ui";
 
 const SCOPE: Record<string, string> = { tenant: "Toàn công ty", legal_entity: "Pháp nhân", branch: "Chi nhánh", department: "Phòng ban", direct_reports: "Nhân viên trực tiếp", self: "Bản thân" };
 const STATE: Record<RoleAssignmentRow["state"], [string, string]> = { active: ["Đang hiệu lực", ""], future: ["Sắp hiệu lực", "info"], ended: ["Đã kết thúc", "muted"] };
@@ -25,6 +25,7 @@ export default function RolesPage() {
       <article className="card">
         {b && !b.roles.length ? <Empty title="Chưa có vai trò" /> : (
           <div className="table-wrap"><table className="data-table"><thead><tr><th>Vai trò</th><th>Người dùng</th><th>Phạm vi mặc định</th><th>Dữ liệu lương</th><th>Lần cập nhật</th><th>Trạng thái</th></tr></thead><tbody>
+            {!b && !error ? <SkeletonRows cols={6} rows={5} /> : null}
             {(b?.roles ?? []).map((r) => (
               <tr key={r.code} className="clickable" onClick={() => setOpen(r.code)}>
                 <td><b>{r.name}</b><div className="muted" style={{ fontSize: 10.5 }}>{r.description}</div></td>

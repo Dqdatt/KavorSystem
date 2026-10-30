@@ -6,7 +6,7 @@ import type { LocationDef, OrgOptions, PolicyAssignment, PolicyKind, PolicyScope
 import { call, useApi } from "../../_lib/client";
 import { Empty, ErrorLine, Field, Icon, LoadError, Modal, SCOPE, Status, can, fmtDate, tenantToday, useAction, useMe } from "../../_ui/kit";
 import { ReasonModal } from "../../_ui/reason-modal";
-import { Select } from "@kavor/web-ui";
+import { Select, SkeletonRows } from "@kavor/web-ui";
 
 type Tab = "shifts" | "locations" | "assignments";
 /* Leaflet cần window → chỉ tải phía trình duyệt */
@@ -123,6 +123,7 @@ function Locations() {
       <article className="card">
         {data && !data.length ? <Empty title="Chưa có địa điểm chấm công" /> : (
           <div className="table-wrap"><table className="data-table" style={{ minWidth: 900 }}><thead><tr><th>Địa điểm</th><th>Chi nhánh</th><th>Tọa độ</th><th title="Bán kính · sai số GPS tối đa">Bán kính · sai số</th><th>Phiên bản</th><th>Trạng thái</th><th /></tr></thead><tbody>
+            {!data && !error ? <SkeletonRows cols={7} rows={4} /> : null}
             {(data ?? []).map((l) => (
               <tr key={l.id}>
                 <td className="wrap"><b>{l.code} · {l.name}</b><br /><small className="muted">{l.address ?? "—"}</small></td>
@@ -219,6 +220,7 @@ function Assignments() {
         </div>
         {data && !rows.length ? <Empty title="Chưa có áp dụng nào" /> : (
           <div className="table-wrap"><table className="data-table" style={{ minWidth: 900 }}><thead><tr><th>Loại</th><th>Áp dụng</th><th>Tầng</th><th>Hiệu lực</th><th>Trạng thái</th><th>Lý do · người tạo</th><th /></tr></thead><tbody>
+            {!data && !error ? <SkeletonRows cols={7} rows={5} /> : null}
             {rows.map((a) => (
               <tr key={a.id}>
                 <td>{a.kind === "shift" ? "Ca làm" : "Địa điểm"}</td>

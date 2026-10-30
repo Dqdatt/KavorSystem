@@ -9,7 +9,7 @@ import {
 } from "../../_ui/kit";
 import { ReasonModal } from "../../_ui/reason-modal";
 import { ImportModal } from "../../_ui/employee-import";
-import { Select } from "@kavor/web-ui";
+import { Select, Skeleton, SkeletonLines, SkeletonRows } from "@kavor/web-ui";
 
 const AUDIT: Record<string, string> = {
   "employee.created": "Tạo hồ sơ", "employee.updated": "Sửa hồ sơ", "employee.invited": "Gửi lời mời kích hoạt", "account.locked": "Khóa tài khoản", "account.unlocked": "Mở khóa tài khoản",
@@ -49,7 +49,7 @@ function EmployeesPage() {
   return (
     <section className="page active">
       <div className="page-head">
-        <div><p>{list.data ? `${rows.length} hồ sơ trong phạm vi của bạn` : "Đang tải…"} · trạng thái tài khoản và thiết bị chấm công.</p></div>
+        <div><p>{list.data ? `${rows.length} hồ sơ trong phạm vi của bạn` : <Skeleton w={150} h={10} style={{ display: "inline-block" }} />} · trạng thái tài khoản và thiết bị chấm công.</p></div>
         <div className="head-actions">{can(me, "employee.create") ? <><button className="btn" onClick={() => setImporting(true)}><Icon name="upload" /> Nhập từ file</button><button className="btn primary" onClick={() => setEditing("new")}><Icon name="plus" /> Thêm nhân viên</button></> : null}</div>
       </div>
       <LoadError error={list.error} retry={list.reload} />
@@ -67,6 +67,7 @@ function EmployeesPage() {
         </div>
         {list.data && !rows.length ? <Empty title="Không có nhân viên phù hợp" text="Thử bỏ bớt bộ lọc." /> : (
           <div className="table-wrap"><table className="data-table" style={{ minWidth: 900 }}><thead><tr><th>Nhân viên</th><th>Phòng ban</th><th>Chức danh</th><th>Ngày vào làm</th><th>Loại HĐ</th><th>Tài khoản</th><th>Trạng thái</th><th /></tr></thead><tbody>
+            {!list.data && !list.error ? <SkeletonRows cols={8} rows={8} person /> : null}
             {rows.map((e) => (
               <tr key={e.id} className="clickable" onClick={() => open(e.id)}>
                 <td><Person name={e.fullName} sub={`${e.email ?? "chưa có email"} · ${e.code}`} seed={e.code} /></td>
@@ -105,7 +106,7 @@ function EmployeeDrawer({ id, onClose, onEdit, onChanged }: { id: string; onClos
     <Drawer onClose={onClose} head={<><div><b>Hồ sơ nhân viên</b><div className="muted" style={{ fontSize: 10 }}>{e ? `Mã ${e.code}` : "Đang tải…"}</div></div>
       {e && can(me, "employee.update") ? <button className="btn small" style={{ marginLeft: "auto" }} onClick={() => onEdit(e)}>Sửa hồ sơ</button> : null}</>}>
       <LoadError error={error} retry={reload} />
-      {!e ? null : (
+      {!e ? (error ? null : <SkeletonLines lines={6} avatar />) : (
         <>
           <div className="profile-hero"><Avatar name={e.fullName} seed={e.code} /><div><h3>{e.fullName}</h3><p>{[e.position?.name, e.department?.name, e.code].filter(Boolean).join(" · ")}</p></div><div style={{ marginLeft: "auto" }}><Status v={EMP_STATUS[e.status]} /></div></div>
           <div className="card detail-list">

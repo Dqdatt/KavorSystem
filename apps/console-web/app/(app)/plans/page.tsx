@@ -7,6 +7,7 @@ import { useApi } from "../../_lib/client";
 import { Empty, LoadError, Person, Status, num, useMe } from "../../_ui/kit";
 import { PLAN, TSTATUS } from "../../_ui/labels";
 import { PlanModal, nearLimit, usageTone } from "../../_ui/tenant-ops";
+import { SkeletonRows } from "@kavor/web-ui";
 
 const TONE: Record<string, string> = { trial: "muted", starter: "muted", growth: "", enterprise: "violet" };
 
@@ -33,6 +34,7 @@ export default function Plans() {
         <div className="card-head"><div><h3>Doanh nghiệp gần giới hạn</h3><p>Dùng từ 90% giới hạn nhân sự trở lên</p></div></div>
         {tenants.data && !near.length ? <Empty title="Chưa doanh nghiệp nào gần giới hạn" /> : (
           <div className="table-wrap"><table className="data-table"><thead><tr><th>Doanh nghiệp</th><th>Gói</th><th>Đang dùng</th><th>Giới hạn</th><th>Tỷ lệ</th><th>Trạng thái</th><th /></tr></thead><tbody>
+            {!tenants.data && !tenants.error ? <SkeletonRows cols={7} rows={4} /> : null}
             {near.map((t) => (
               <tr key={t.id}>
                 <td><Person name={t.name} seed={t.code} sub={t.code} /></td><td>{PLAN[t.plan]}</td>

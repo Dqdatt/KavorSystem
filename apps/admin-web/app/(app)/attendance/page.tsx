@@ -7,6 +7,7 @@ import { DEVICE, Empty, Icon, LoadError, Person, REJECT_REASON, Status, can, dur
 import { ReasonModal } from "../../_ui/reason-modal";
 import { MonthTab } from "./month";
 import { OvertimeTab } from "./overtime";
+import { SkeletonRows } from "@kavor/web-ui";
 
 type Tab = "month" | "today" | "rejected" | "devices" | "overtime";
 const TABS: Array<[Tab, string, string?]> = [["month", "Bảng công"], ["today", "Hôm nay"], ["overtime", "Làm thêm giờ", "overtime.read"], ["rejected", "Bị từ chối"], ["devices", "Thiết bị"]];
@@ -61,6 +62,7 @@ function Today({ tz, tenantId }: { tz: string; tenantId: string }) {
         </div>
         {b && !rows.length ? <Empty title="Không có nhân viên phù hợp" /> : (
           <div className="table-wrap"><table className="data-table" style={{ minWidth: 900 }}><thead><tr><th>Nhân viên</th><th>Phòng ban</th><th>Ca</th><th>Giờ vào</th><th>Giờ ra</th><th>Trạng thái</th></tr></thead><tbody>
+            {!b && !error ? <SkeletonRows cols={6} rows={8} person /> : null}
             {rows.map((r) => (
               <tr key={r.employee.id}>
                 <td><Person name={r.employee.fullName} sub={r.employee.code} seed={r.employee.code} /></td>
@@ -89,6 +91,7 @@ function Rejected({ tz, tenantId }: { tz: string; tenantId: string }) {
         <div className="toolbar"><span className="muted" style={{ fontSize: 12.5 }}>Từ ngày</span><input className="select" type="date" value={from} max={to} onChange={(e) => e.target.value && setFrom(e.target.value)} /><span className="muted" style={{ fontSize: 12.5 }}>đến {fmtDate(to)}</span></div>
         {data && !data.length ? <Empty title="Không có bản ghi bị từ chối" text="Mọi lần chấm công trong khoảng này đều hợp lệ." /> : (
           <div className="table-wrap"><table className="data-table" style={{ minWidth: 900 }}><thead><tr><th>Thời gian</th><th>Nhân viên</th><th>Loại</th><th>Lý do</th><th>Khoảng cách · sai số GPS</th><th>Địa điểm gần nhất</th><th>Thiết bị</th></tr></thead><tbody>
+            {!data && !error ? <SkeletonRows cols={7} rows={6} /> : null}
             {(data ?? []).map((e) => (
               <tr key={e.id}>
                 <td className="nowrap">{fmtDateTime(e.occurredAt, tz)}{e.offline ? <span className="source-tag">offline</span> : null}</td>
@@ -121,6 +124,7 @@ function Devices({ tz, tenantId }: { tz: string; tenantId: string }) {
         <div className="toolbar">{([["pending", "Chờ duyệt"], ["active", "Đang dùng"], ["all", "Tất cả"]] as const).map(([k, l]) => <button key={k} className={`filter-chip ${status === k ? "active" : ""}`} onClick={() => setStatus(k)}>{l}</button>)}</div>
         {data && !data.length ? <Empty title={status === "pending" ? "Không có thiết bị chờ duyệt" : "Chưa có thiết bị"} /> : (
           <div className="table-wrap"><table className="data-table" style={{ minWidth: 900 }}><thead><tr><th>Nhân viên</th><th>Thiết bị</th><th>Đăng ký</th><th>Dùng gần nhất</th><th>Trạng thái</th><th /></tr></thead><tbody>
+            {!data && !error ? <SkeletonRows cols={6} rows={6} person /> : null}
             {(data ?? []).map((d) => (
               <tr key={d.id}>
                 <td><Person name={d.employee.fullName} sub={d.employee.code} seed={d.employee.code} /></td>

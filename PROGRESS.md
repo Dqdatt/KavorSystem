@@ -10,6 +10,11 @@ simulator hay iPhone** vì phiên cloud không có Mac). Người dùng giao "c�
 ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AGENT_PLAYBOOK.md`; kiểm tra toàn bộ bằng `bash tools/verify-all.sh`.
 
 ## Đã xong
+- Skeleton khi tải dữ liệu trên web (30/10, Claude Desktop): `Skeleton`/`SkeletonRows`/`SkeletonLines` trong `@kavor/web-ui` (CSS ở
+  `kavor.css`, theo theme, tắt nhấp nháy khi giảm chuyển động) thay bảng trống/"—"/"Đang tải…": 28 bảng (web HR + Console), 6 drawer chi tiết,
+  thẻ số liệu Tổng quan, Cơ cấu tổ chức; lỗi tải thì chỉ còn banner. Đã chụp web HR (sáng/tối, làm chậm API trong tab); Console chỉ typecheck.
+  Lưu ý khi kiểm bằng trình duyệt trong app: khung bị ẩn thì `requestAnimationFrame` không chạy → trang dùng Suspense (Nhân viên) đứng ở HTML
+  server, không hydrate — mở khung lên rồi mới kiểm.
 - Thư mời trên bản online (30/10, Claude Desktop): Render Free chặn SMTP nên thư mời QTV/nhân viên không gửi được. API gửi qua trạm
   `/api/internal/mail` của web HR (Vercel mở cổng 587; khóa `MAIL_RELAY_SECRET`, so khớp hằng thời gian, proxy bỏ qua `/api/internal`).
   Đã thử trên Mac: sai khóa 401, thiếu nội dung 400, API (không SMTP, chỉ trạm) → thư mời tới Mailpit; unit test cấu hình; verify-all đạt.

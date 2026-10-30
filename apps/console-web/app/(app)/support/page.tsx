@@ -8,7 +8,7 @@ import { SUPPORT_MINUTES, SUPPORT_SCOPES, type ConsoleTenant, type SupportScope,
 import { call, useApi } from "../../_lib/client";
 import { Empty, ErrorLine, Field, Icon, LoadError, Modal, Status, fmtDateTime, num, useAction } from "../../_ui/kit";
 import { SSTATUS } from "../../_ui/labels";
-import { Select } from "@kavor/web-ui";
+import { Select, SkeletonRows } from "@kavor/web-ui";
 
 const TZ = "Asia/Ho_Chi_Minh";
 
@@ -37,6 +37,7 @@ export default function SupportPage() {
       <article className="card">
         {data && !all.length ? <Empty title="Chưa có yêu cầu hỗ trợ nào" text="Tạo yêu cầu khi cần xem cấu hình hoặc danh sách nhân sự của khách để xử lý phiếu hỗ trợ." /> : (
           <div className="table-wrap"><table className="data-table" style={{ minWidth: 960 }}><thead><tr><th>Doanh nghiệp</th><th>Kỹ sư</th><th>Lý do</th><th>Phạm vi</th><th>Hết hạn</th><th>Trạng thái</th><th /></tr></thead><tbody>
+            {!data && !error ? <SkeletonRows cols={7} rows={5} /> : null}
             {all.map((s) => (
               <tr key={s.id}>
                 <td><b>{s.tenant.name}</b><div className="muted" style={{ fontSize: 10.5 }}>{s.tenant.code}</div></td>

@@ -9,7 +9,7 @@ import { DOCUMENT_CATEGORIES, type DocumentBoard, type DocumentCategory, type Do
 import { call, useApi } from "../../_lib/client";
 import { Drawer, Empty, ErrorLine, Field, Icon, LoadError, Modal, Person, Status, fmtDate, fmtDateTime, num, useAction, useMe } from "../../_ui/kit";
 import { ReasonModal } from "../../_ui/reason-modal";
-import { Select } from "@kavor/web-ui";
+import { Select, SkeletonLines, SkeletonRows } from "@kavor/web-ui";
 
 const MAX = 5 * 1024 * 1024;
 const VIS: Record<DocumentVisibility, [string, string]> = { hr_employee: ["HR + Nhân viên", ""], hr_only: ["Chỉ HR", "info"] };
@@ -63,6 +63,7 @@ function DocumentsPage() {
         </div>
         {b && !rows.length ? <Empty title={b.items.length ? "Không có tài liệu phù hợp" : "Chưa có tài liệu nào"} text={b.items.length ? undefined : "Bấm “Tải tài liệu” để lưu hợp đồng, quyết định hoặc hồ sơ của nhân viên."} /> : (
           <div className="table-wrap"><table className="data-table" style={{ minWidth: 900 }}><thead><tr><th>Tài liệu</th><th>Nhân viên</th><th>Danh mục</th><th>Version</th><th>Hết hạn</th><th>Quyền</th></tr></thead><tbody>
+            {!b && !error ? <SkeletonRows cols={6} rows={6} /> : null}
             {rows.map((d) => (
               <tr key={d.id} className="clickable" onClick={() => open(d.id)}>
                 <td style={{ whiteSpace: "normal" }}><b>{d.title}</b><div className="muted" style={{ fontSize: 10.5 }}>{d.current.fileName}{d.docNo ? ` · ${d.docNo}` : ""}{d.archivedAt ? " · Đã gỡ" : ""}</div></td>
@@ -94,7 +95,7 @@ function DetailDrawer({ id, onClose, onChanged }: { id: string; onClose: () => v
     <Drawer onClose={onClose} head={<><div><b>Chi tiết tài liệu</b><div className="muted" style={{ fontSize: 10 }}>{a ? `${DOCUMENT_CATEGORIES[a.category]} · v${a.current.versionNo}` : "Đang tải…"}</div></div>
       {a ? <span style={{ marginLeft: "auto" }}><Status v={a.archivedAt ? ["Đã gỡ", "muted"] : VIS[a.visibility]} /></span> : null}</>}>
       <LoadError error={error} retry={reload} />
-      {!a || !d ? null : (
+      {!a || !d ? (error ? null : <SkeletonLines lines={6} />) : (
         <>
           <div className="row-actions" style={{ justifyContent: "flex-start", marginBottom: 14 }}>
             <a className="btn small" href={`/api/documents/${a.id}/file`} target="_blank" rel="noreferrer"><Icon name="download" /> Mở bản hiện hành</a>

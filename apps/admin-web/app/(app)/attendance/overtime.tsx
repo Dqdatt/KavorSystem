@@ -6,7 +6,7 @@ import type { OvertimeBoard, RequestItem } from "@kavor/contracts";
 import { useApi } from "../../_lib/client";
 import { Empty, Icon, LoadError, Person, Status, fmtDateTime, useMe } from "../../_ui/kit";
 import { REQUEST_STATUS, RequestModal, requestSummary } from "../../_ui/request";
-import { Select } from "@kavor/web-ui";
+import { Select, SkeletonRows } from "@kavor/web-ui";
 
 const h = (n: number) => n.toLocaleString("vi-VN", { maximumFractionDigits: 1 });
 const shift = (m: string, n: number) => { const [y, mo] = m.split("-").map(Number) as [number, number]; const d = new Date(Date.UTC(y, mo - 1 + n, 1)); return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`; };
@@ -37,6 +37,7 @@ export function OvertimeTab() {
         </div>
         {b && !b.rows.length ? <Empty title="Chưa có ai đăng ký làm thêm" text="Nhân viên đăng ký OT trên app; đơn đi qua luồng Quản lý → HR." /> : (
           <div className="table-wrap"><table className="data-table" style={{ minWidth: 900 }}><thead><tr><th>Nhân viên</th><th>Phòng ban</th><th>Đã duyệt</th><th>Ngày thường</th><th>Ngày nghỉ</th><th>Ngày lễ</th><th>Đang chờ</th><th>So với giới hạn tháng</th><th>Cả năm</th></tr></thead><tbody>
+            {!b && !error ? <SkeletonRows cols={9} rows={6} person /> : null}
             {(b?.rows ?? []).map((r) => {
               const used = r.approvedHours + r.pendingHours, pct = r.monthLimit ? Math.round((used / r.monthLimit) * 100) : null;
               return (
@@ -58,6 +59,7 @@ export function OvertimeTab() {
         <div className="card-head"><div><h3>Đơn làm thêm trong tháng</h3><p>Hệ số chụp lại theo quy định lúc gửi; OT đã duyệt là đầu vào bảng lương.</p></div></div>
         {b && !b.requests.length ? <Empty title="Không có đơn nào" /> : (
           <div className="table-wrap"><table className="data-table"><thead><tr><th>Mã đơn</th><th>Người gửi</th><th>Nội dung</th><th>Gửi lúc</th><th>Trạng thái</th><th /></tr></thead><tbody>
+            {!b && !error ? <SkeletonRows cols={6} rows={4} /> : null}
             {(b?.requests ?? []).map((r) => (
               <tr key={r.id} className="clickable" onClick={() => setOpen(r)}>
                 <td><b>{r.no}</b></td><td>{r.requester.fullName}</td><td>{requestSummary(r)}</td><td className="nowrap">{fmtDateTime(r.submittedAt, me.tenant.timezone)}</td>
