@@ -55,6 +55,7 @@ echo "— Áp migration (không có seed)"
 supabase --workdir "$TMP" db push
 # Project Free dùng email mặc định thì Supabase từ chối đổi mẫu email (400) — kể cả khi cùng lượt có bật SMTP riêng.
 # Lượt 1: cấu hình Auth + SMTP Gmail, bỏ mẫu email; lượt 2: cấu hình đầy đủ (lúc này đã có SMTP riêng).
+push_auth() {
 FULL="$TMP/config.full.toml"; cp "$TMP/supabase/config.toml" "$FULL"
 python3 -I - "$TMP/supabase/config.toml" <<'PY'
 import re, sys
@@ -69,4 +70,10 @@ supabase --workdir "$TMP" config push --project-ref "$SUPABASE_PROJECT_REF"
 cp "$FULL" "$TMP/supabase/config.toml"
 echo "— Đẩy mẫu email OTP (lượt 2/2)"
 supabase --workdir "$TMP" config push --project-ref "$SUPABASE_PROJECT_REF"
+}
+if ! push_auth; then
+  echo "⚠ Không đẩy được hết cấu hình (CLI cũ đọc Storage của cloud lỗi). Nếu dòng 'Remote Auth config is up to date' đã hiện thì Auth đã đúng;"
+  echo "  dán mẫu email OTP bằng tay: Authentication → Emails → Templates → Magic Link, tiêu đề 'Mã xác thực Kavor', nội dung"
+  echo "  pbcopy < supabase/templates/otp.html (xem docs/DEPLOY.md bước 5)."
+fi
 echo "Xong. Kiểm tra trên Dashboard: Authentication → Sign In / Providers: 'Allow new users to sign up' phải TẮT."

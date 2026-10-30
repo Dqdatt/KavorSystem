@@ -64,7 +64,9 @@ supabase login
 SUPABASE_PROJECT_REF=<ref> ADMIN_WEB_URL=https://kavor-hr.vercel.app CONSOLE_WEB_URL=https://kavor-console.vercel.app GMAIL_USER=<gmail> bash tools/cloud-supabase.sh
 ```
 Script hỏi mật khẩu ứng dụng Gmail và mật khẩu DB; áp toàn bộ migration (không có dữ liệu mẫu) và cấu hình Auth (tắt đăng ký công khai,
-OTP 6 số/5 phút, MFA, mẫu email). Thử trước không đụng cloud: thêm `DRY_RUN=1`. Sau đó trên Dashboard kiểm Authentication → Sign In /
+OTP 6 số/5 phút, MFA, mẫu email). Thử trước không đụng cloud: thêm `DRY_RUN=1`. CLI 2.108 có thể báo `failed to read Storage config … databasePoolMode` sau
+khi Auth đã "up to date": khi đó dán mẫu email bằng tay — Authentication → Emails → Templates → **Magic Link**, Subject `Mã xác thực Kavor`,
+nội dung lấy bằng `pbcopy < supabase/templates/otp.html` (phải có `{{ .Token }}`: mẫu mặc định chỉ gửi link, không có mã 6 số). Sau đó trên Dashboard kiểm Authentication → Sign In /
 Providers: **Allow new users to sign up = tắt**. Mỗi lần có migration mới: chạy lại script.
 
 ## 6. Giữ API luôn thức
