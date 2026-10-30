@@ -37,7 +37,10 @@ https://vercel.com → đăng nhập GitHub → Add New → Project → chọn r
 | Biến môi trường | `KAVOR_API_URL`, `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `ENABLE_EXPERIMENTAL_COREPACK=1` | `KAVOR_API_URL`, `ENABLE_EXPERIMENTAL_COREPACK=1` |
 
 - `KAVOR_API_URL` = `https://kavor-api.onrender.com/api/v1` (đoán trước tên ở bước 4; nếu Render cấp tên khác thì sửa lại và Redeploy).
-- Sau khi tạo: Settings → Git → Production Branch = `claude/ecstatic-pascal-dblg7v`, rồi Deployments → Redeploy.
+- Lúc đăng ký chọn **"I'm working on personal projects" (Hobby)** — mặc định đang chọn Pro (bắt đầu dùng thử trả phí).
+- Đăng nhập Vercel bằng GitHub `Dqdatt` (chủ repo); email tài khoản Vercel tùy ý. Không import bằng URL (tạo bản sao, không tự cập nhật).
+- Sau khi tạo: Settings → Environments → Production → Branch Tracking = `claude/ecstatic-pascal-dblg7v` → Save. Nút "Redeploy" báo "No deployments
+  found" khi nhánh chưa có bản nào → push một commit lên nhánh (Vercel tự deploy Production) hoặc Deployments → Create Deployment.
 - Ghi lại hai địa chỉ, ví dụ `https://kavor-hr.vercel.app`, `https://kavor-console.vercel.app`.
 
 ## 4. Render: API
