@@ -10,7 +10,7 @@ import { useClock } from "../clock";
 import { CAT, dec, gh, hm, vnd, advLimit } from "../data";
 import { recentNewsViews } from "./news";
 import { REMOTE } from "../api/http";
-import { ACT, S, advEligible, ddmm, explainDue, fmtM, loadToday, explainLeft, go, holdDone, jump, lvAvail, pendingCount, phase, shiftLabel, shiftTime, tab, toast, worked } from "../store";
+import { ACT, S, advEligible, ddmm, explainDue, fmtM, loadToday, explainLeft, go, holdDone, jump, lvAvail, noLocation, pendingCount, phase, shiftLabel, shiftTime, tab, toast, worked } from "../store";
 
 /* ================= Punch hero ================= */
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
@@ -80,7 +80,7 @@ export function PunchHalos({ size, compact, small }: { size: number; compact?: b
 export function Punch({ size, compact, small, bare }: { size: number; compact?: boolean; small?: boolean; bare?: boolean }) {
   const ph = phase();
   const st: PunchSt = ph === "done" ? "done" : !S.inRange ? "blocked" : ph;
-  const label = { in: "VÀO CA", out: "RA CA", done: small ? "XONG CA" : "ĐÃ XONG CA", blocked: "NGOÀI VÙNG" }[st];
+  const label = { in: "VÀO CA", out: "RA CA", done: small ? "XONG CA" : "ĐÃ XONG CA", blocked: noLocation() ? "CHƯA CÓ VÙNG" : "NGOÀI VÙNG" }[st];
   const sub = st === "in" || st === "out" ? (small ? "Giữ 1 giây" : "Nhấn giữ 1 giây") : st === "blocked" ? (small ? "" : "Chạm để xem cách xử lý") : "";
   const color = st === "out" ? C.emerald : st === "done" ? C.ok : "#fff";
   const holdable = st === "in" || st === "out";
@@ -314,7 +314,7 @@ function ClockSync() {
 export function clockSpec(): ScreenSpec {
   const a = S.att;
   const dist = REMOTE
-    ? (a.distM == null ? "Chưa có vị trí" : `${fmtM(a.distM)} · ${S.inRange ? "trong vùng" : "ngoài vùng"}`)
+    ? (a.noLoc ? "Chưa có địa điểm" : a.distM == null ? "Chưa có vị trí" : `${fmtM(a.distM)} · ${S.inRange ? "trong vùng" : "ngoài vùng"}`)
     : (S.inRange ? "1,8 m · trong vùng" : "126 m · ngoài vùng");
   return {
     head: <TopBar title="Chấm công" />,
@@ -323,9 +323,11 @@ export function clockSpec(): ScreenSpec {
       <Card key="c">
         <Row>
           <Gi n="building" s={24} />
-          <View style={{ flex: 1 }}><T style={{ fontFamily: F.semibold }}>{a.loc.name}</T><T style={{ color: C.ink2, fontSize: 12.5, marginTop: 2 }}>{a.loc.address ? a.loc.address + " · " : ""}bán kính {a.loc.radiusM} m</T></View>
+          {noLocation()
+            ? <View style={{ flex: 1 }}><T style={{ fontFamily: F.semibold }}>Chưa có địa điểm chấm công</T><T style={{ color: C.ink2, fontSize: 12.5, marginTop: 2 }}>Phòng Nhân sự chưa áp dụng địa điểm nào cho bạn</T></View>
+            : <View style={{ flex: 1 }}><T style={{ fontFamily: F.semibold }}>{a.loc.name}</T><T style={{ color: C.ink2, fontSize: 12.5, marginTop: 2 }}>{a.loc.address ? a.loc.address + " · " : ""}bán kính {a.loc.radiusM} m</T></View>}
         </Row>
-        <InfoRow k="Khoảng cách" v={<St s={REMOTE && a.distM == null ? "mute" : S.inRange ? "ok" : "bad"}>{dist}</St>} />
+        <InfoRow k="Khoảng cách" v={<St s={REMOTE && (a.noLoc || a.distM == null) ? "mute" : S.inRange ? "ok" : "bad"}>{dist}</St>} />
         <InfoRow k="Độ chính xác GPS" v={REMOTE ? (a.accM == null ? "—" : `±${Math.round(a.accM)} m`) : "±2 m"} strong />
         <InfoRow k="Thiết bị" v={`${a.device} · đã đăng ký`} strong />
         {REMOTE && a.queued ? <InfoRow k="Chờ gửi" v={<St s="warn">{a.queued} lần lưu trên máy</St>} /> : null}

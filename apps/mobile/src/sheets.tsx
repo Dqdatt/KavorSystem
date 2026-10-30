@@ -6,7 +6,7 @@ import { Illus } from "./illus";
 import { Appear } from "./motion";
 import { Btn, BtnRow, Chip, Chips, ErrLine, Field, Inp, Ln, Note, SecT, T, TextArea } from "./ui";
 import { WDF, dur, gh, hm, hms, pad, wdOct } from "./data";
-import { ACT, ADV_DAY, S, WD_ISO_FULL, closeSheet, day, dayInfo, ddmm, emit, explainLeft, fmtM, go, issueText, shiftLabel, shiftTime, simNow, tsDay, verdict, support, type Route, type SheetKind } from "./store";
+import { ACT, ADV_DAY, S, WD_ISO_FULL, closeSheet, day, dayInfo, ddmm, emit, explainLeft, fmtM, go, noLocation, issueText, shiftLabel, shiftTime, simNow, tsDay, verdict, support, type Route, type SheetKind } from "./store";
 import { REMOTE } from "./api/http";
 import { GUIDES } from "./help";
 import { QA_ENABLED } from "./qa";
@@ -147,7 +147,13 @@ export function SheetContent({ kind, arg }: { kind: SheetKind; arg?: string }) {
         <Muted center>Mạng chậm. Ứng dụng đang kiểm tra máy chủ đã nhận bản ghi chưa, bạn không cần bấm lại.</Muted><Code>E26</Code>
       </View>
     );
-    case "blocked": return <>
+    case "blocked": return noLocation() ? <>
+      <Center><Gi n="pin" s={48} w={1.5} /><H3 center>Chưa có địa điểm chấm công</H3><Muted center>Công ty chưa áp dụng địa điểm chấm công nào cho bạn nên chưa chấm công được. Hãy báo phòng Nhân sự; HR áp dụng xong thì bấm “Tải lại”.</Muted></Center>
+      <BtnRow>
+        <Btn kind="ghost" icon={<Gi n="refresh" s={18} />} onPress={ACT.relocate}>{S.spin === "relocate" ? "Đang tải…" : "Tải lại"}</Btn>
+        <Btn onPress={() => go("explain")}>Giải trình</Btn>
+      </BtnRow>
+    </> : <>
       <Center><Gi n="pin" s={48} w={1.5} /><H3 center>Bạn đang ở ngoài vùng chấm công</H3><Muted center>{REMOTE ? `Vị trí hiện tại cách ${S.att.loc.name} khoảng ${S.att.distM == null ? "?" : fmtM(S.att.distM)}. Vùng hợp lệ là ${S.att.loc.radiusM} m quanh điểm chấm công.` : "Vị trí hiện tại cách Văn phòng Quận 1 khoảng 126 m. Vùng hợp lệ là 3 m quanh điểm chấm công."}</Muted></Center>
       <BtnRow>
         <Btn kind="ghost" icon={<Gi n="refresh" s={18} />} onPress={ACT.relocate}>{S.spin === "relocate" ? "Đang lấy…" : "Lấy lại vị trí"}</Btn>

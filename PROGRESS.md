@@ -10,6 +10,10 @@ simulator hay iPhone** vì phiên cloud không có Mac). Người dùng giao "c�
 ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AGENT_PLAYBOOK.md`; kiểm tra toàn bộ bằng `bash tools/verify-all.sh`.
 
 ## Đã xong
+- App (bản máy chủ thật) khi công ty chưa áp dụng địa điểm cho nhân viên (30/10, Claude Desktop): nút ghi "CHƯA CÓ VÙNG" thay "NGOÀI VÙNG", chạm vào
+  ra sheet "Chưa có địa điểm chấm công" (báo HR, nút "Tải lại" hỏi lại máy chủ), thẻ địa điểm ở màn Chấm công nói rõ chưa áp dụng. Test Node
+  `tools/location-mobile-test.mjs` 4 ca. Bản QA (dữ liệu mẫu) không có trạng thái này nên không có ảnh đối chiếu prototype;
+  đã cài bản Release lên iPhone 11 (API `Mac-cua-Dqdatt-2.local`), **chưa thử tay** (người dùng thử sau).
 - Sửa địa điểm chấm công ngay trong ngày hiệu lực (30/10, Claude Desktop): trước đây phiên bản đầu hiệu lực hôm nay thì HR không sửa được điểm/bán kính
   tới ngày mai. Nay thêm phiên bản trùng ngày = thay phiên bản đó (số lớn hơn thắng, bản cũ giữ làm lịch sử, audit `work_location.version_replaced`), chỉ khi
   chưa có lần chấm công nào ở địa điểm từ ngày đó (có rồi → 409). Migration `202611130001_location_version_same_day.sql`, pgTAP 4, unit test `pickVersion`,
@@ -388,8 +392,7 @@ ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AG
 - Giữ ảnh chụp toàn trang và ảnh simulator raw — bỏ vì trùng dữ liệu, làm commit phình to; chỉ giữ bản 390×844 dùng để so sánh.
 
 ## Vấn đề/bug còn tồn tại
-- App: công ty chưa áp dụng địa điểm cho nhân viên thì nút vẫn ghi "NGOÀI VÙNG" và sheet báo "vùng hợp lệ là 0 m" (chỉ dòng nhỏ dưới nút nói đúng
-  "Chưa có địa điểm chấm công") — `home.tsx` Punch + `store.ts` applyToday. Web: tạo địa điểm không nhắc phải áp dụng; tìm địa chỉ trên bản đồ (Photon/OSM)
+- Web: tạo địa điểm không nhắc phải áp dụng; tìm địa chỉ trên bản đồ (Photon/OSM)
   chỉ ra tâm đường/hẻm, lệch ~100 m (Thuỷ Sinh 30/10) — nên gợi ý lấy tọa độ bằng điện thoại tại chỗ. Ca làm vẫn chưa sửa được phiên bản cùng ngày.
 - Luật nhà nước dạng số (`statutory_rule_sets`: bảo hiểm, thuế, phép năm tối thiểu, giới hạn OT) chưa làm — làm cùng module phép/payroll. Lịch lễ quốc gia mới có 2026; 2027 chờ Chính phủ công bố lịch Tết. Nội dung điều khoản mẫu và ngày lễ cần chuyên gia xác nhận.
 - Server chưa chặn API chấm công khi nhân viên chưa đồng ý điều khoản (app tự chặn bằng màn đồng ý).

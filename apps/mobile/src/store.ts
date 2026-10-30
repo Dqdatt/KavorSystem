@@ -668,6 +668,8 @@ function applyToday(t: AttendanceToday) {
   S.att.device = t.device?.deviceModel ?? deviceSummary().model; S.att.info = t.device;
   emit();
 }
+/* Bản dùng API: công ty chưa áp dụng địa điểm chấm công nào cho nhân viên (khác "ngoài vùng": không có vùng nào để so) */
+export const noLocation = () => REMOTE && S.att.noLoc;
 const isLoggedIn = () => !["login", "forgot", "forgotOtp", "resetPassword", "activate", "otp"].includes(S.stack[0] ?? "login");
 
 /* Lỗi chấm công → màn lỗi tương ứng của prototype (E19 chờ duyệt, E20 quyền vị trí, E21 GPS, phiên hết hạn) */
@@ -1172,6 +1174,12 @@ export const ACT = {
   relocate: () => {
     if (REMOTE) {
       remote("relocate", async () => {
+        /* Chưa có địa điểm: hỏi lại máy chủ xem HR đã áp dụng chưa (loadToday cũng đọc lại vị trí) */
+        if (S.att.noLoc) {
+          await loadToday(); closeSheet();
+          toast(S.att.noLoc ? "Công ty vẫn chưa áp dụng địa điểm chấm công cho bạn. Liên hệ phòng Nhân sự." : S.inRange ? "Đã có địa điểm chấm công · bạn đang trong vùng" : `Đã có địa điểm chấm công · ${S.att.distM == null ? "chưa có vị trí" : `cách ${fmtM(S.att.distM)}`}`);
+          return;
+        }
         const f = await currentFix(true); applyFix(f); closeSheet();
         const d = S.att.distM == null ? "" : ` · cách ${fmtM(S.att.distM)}`;
         toast(S.inRange ? `Đã vào vùng chấm công${d}` : `Vẫn ngoài vùng${d} (±${Math.round(f.accuracyM)} m)`);

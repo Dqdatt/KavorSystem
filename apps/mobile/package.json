@@ -10,7 +10,7 @@
     "android": "expo run:android",
     "build": "expo export --platform ios && expo export --platform android",
     "typecheck": "tsc --noEmit",
-    "test": "cd ../.. && node tools/payroll-mobile-test.mjs && node tools/content-mobile-test.mjs && node tools/pin-mobile-test.mjs"
+    "test": "cd ../.. && node tools/payroll-mobile-test.mjs && node tools/content-mobile-test.mjs && node tools/pin-mobile-test.mjs && node tools/location-mobile-test.mjs"
   },
   "dependencies": {
     "@expo-google-fonts/montserrat": "^0.4.2",
