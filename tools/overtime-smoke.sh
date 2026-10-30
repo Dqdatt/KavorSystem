@@ -62,7 +62,9 @@ echo "— Web HR"
 MON=${WD:0:7}
 r=$(call GET "admin/overtime?month=$MON" "$HR")
 check "HR thấy tổng hợp OT tháng" "$(echo "$r" | py "[(x['employee']['code'], x['approvedHours'], x['byKind']['workday'], x['monthLimit']) for x in d['rows']]")" "[('HD0142', 2, 2, 40)]"
-check "Danh sách đơn OT trong tháng" "$(echo "$r" | py "len(d['requests'])>=2")" True
+# Cuối tháng, ngày làm việc kế tiếp (tháng $MON) và ngày nghỉ có thể khác tháng: chỉ đơn ngày làm việc nằm trong tháng $MON
+[ "${WE:0:7}" = "$MON" ] && MIN_OT=2 || MIN_OT=1
+check "Danh sách đơn OT trong tháng" "$(echo "$r" | py "len(d['requests'])>=$MIN_OT")" True
 check "Quản lý xem được phòng mình" "$(status GET "admin/overtime?month=$MON" "$MGRW")" 200
 check "Nhân viên không vào web được" "$(status GET admin/overtime "$EMP")" 403
 echo "Tất cả bước làm thêm giờ đều đạt."

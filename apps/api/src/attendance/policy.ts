@@ -41,16 +41,18 @@ export function pickTier(assignments: AssignmentRow[], kind: PolicyKind, employe
   return hit.filter((a) => TIER_RANK[a.scope_type] === top).sort((a, b) => b.effective_from.localeCompare(a.effective_from) || b.created_at.localeCompare(a.created_at));
 }
 
-/* Phiên bản áp dụng cho ngày D: effective_from lớn nhất ≤ D */
-export function pickVersion<T extends { effective_from: string }>(versions: T[], date: string): T | null {
+/* Phiên bản áp dụng cho ngày D: effective_from lớn nhất ≤ D; trùng ngày (địa điểm sửa trong ngày) thì version_no lớn hơn thắng */
+type Versioned = { effective_from: string; version_no?: number };
+const newer = (a: Versioned, b: Versioned) => a.effective_from > b.effective_from || (a.effective_from === b.effective_from && (a.version_no ?? 0) > (b.version_no ?? 0));
+export function pickVersion<T extends Versioned>(versions: T[], date: string): T | null {
   let best: T | null = null;
-  for (const v of versions) if (v.effective_from <= date && (!best || v.effective_from > best.effective_from)) best = v;
+  for (const v of versions) if (v.effective_from <= date && (!best || newer(v, best))) best = v;
   return best;
 }
 /* Phiên bản sắp có hiệu lực (gần nhất sau D), để web báo "từ ngày … đổi thành …" */
-export function nextVersion<T extends { effective_from: string }>(versions: T[], date: string): T | null {
+export function nextVersion<T extends Versioned>(versions: T[], date: string): T | null {
   let best: T | null = null;
-  for (const v of versions) if (v.effective_from > date && (!best || v.effective_from < best.effective_from)) best = v;
+  for (const v of versions) if (v.effective_from > date && (!best || v.effective_from < best.effective_from || (v.effective_from === best.effective_from && newer(v, best)))) best = v;
   return best;
 }
 

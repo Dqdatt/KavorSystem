@@ -184,7 +184,7 @@ function LocationForm({ loc, onClose, onSaved }: { loc: LocationDef | null; onCl
         <div className="field full"><button className="btn small" type="button" onClick={here} disabled={locating}><Icon name="pin" /> {locating ? "Đang lấy vị trí…" : "Dùng vị trí hiện tại của trình duyệt"}</button></div>
         <Field label="Bán kính (m)"><input type="number" min={10} max={5000} value={f.radiusM} onChange={set("radiusM")} /></Field>
         <Field label="Sai số GPS tối đa (m)" hint="Lần chấm công có sai số lớn hơn sẽ bị từ chối"><input type="number" min={5} max={1000} value={f.maxAccuracyM} onChange={set("maxAccuracyM")} /></Field>
-        <Field label="Hiệu lực từ ngày"><input type="date" min={tenantToday(me.tenant.timezone)} value={f.effectiveFrom} onChange={set("effectiveFrom")} /></Field>
+        <Field label="Hiệu lực từ ngày" hint={loc ? "Trùng ngày của phiên bản đang có = sửa phiên bản đó (khi chưa ai chấm công ở đây từ ngày này)" : undefined}><input type="date" min={tenantToday(me.tenant.timezone)} value={f.effectiveFrom} onChange={set("effectiveFrom")} /></Field>
         <Field label="Ghi chú"><input value={f.note} onChange={set("note")} /></Field>
       </div>
       <ErrorLine text={err} />

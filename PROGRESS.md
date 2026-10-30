@@ -1,5 +1,5 @@
 # PROGRESS
-_Cập nhật: 2026-10-29 — bởi Claude (Desktop)_
+_Cập nhật: 2026-10-30 — bởi Claude (Desktop)_
 
 ## Mục tiêu đang làm
 **Phiên cloud → Desktop: đọc `docs/CLOUD_HANDOFF.md` trước** (commit nào đã push, chưa test gì trên máy thật, quyết định chờ review).
@@ -10,6 +10,11 @@ simulator hay iPhone** vì phiên cloud không có Mac). Người dùng giao "c�
 ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AGENT_PLAYBOOK.md`; kiểm tra toàn bộ bằng `bash tools/verify-all.sh`.
 
 ## Đã xong
+- Sửa địa điểm chấm công ngay trong ngày hiệu lực (30/10, Claude Desktop): trước đây phiên bản đầu hiệu lực hôm nay thì HR không sửa được điểm/bán kính
+  tới ngày mai. Nay thêm phiên bản trùng ngày = thay phiên bản đó (số lớn hơn thắng, bản cũ giữ làm lịch sử, audit `work_location.version_replaced`), chỉ khi
+  chưa có lần chấm công nào ở địa điểm từ ngày đó (có rồi → 409). Migration `202611130001_location_version_same_day.sql`, pgTAP 4, unit test `pickVersion`,
+  hr-smoke thêm 5 bước; `verify-all` đầy đủ đạt. Đã thử đầu-cuối trên web (Chrome) + iPhone thật với công ty Thuỷ Sinh. Kèm sửa 2 smoke có sẵn:
+  overtime lỗi cuối tháng (ngày làm việc kế tiếp và ngày nghỉ khác tháng), purge thiếu bucket `tenant-branding` khi DB vừa reset.
 - Bản tin có thời hạn hiển thị + quyền app (30/10, Claude Desktop): HR chọn "Hiển thị đến" khi soạn/sửa bài (bắt đầu = giờ xuất bản/hẹn giờ), quá giờ
   bài tự ẩn trên app và không gửi thông báo; web hiện trạng thái "Hết hạn", gia hạn/bỏ hạn được. Migration `202611120001_announcement_visible_until.sql`,
   pgTAP 6, smoke bản tin thêm 11 bước (đã chạy riêng trên DB đang dùng). App: Bảo mật và thiết bị có mục "Quyền của ứng dụng" (Thông báo, Vị trí; hỏi lần
@@ -383,6 +388,9 @@ ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AG
 - Giữ ảnh chụp toàn trang và ảnh simulator raw — bỏ vì trùng dữ liệu, làm commit phình to; chỉ giữ bản 390×844 dùng để so sánh.
 
 ## Vấn đề/bug còn tồn tại
+- App: công ty chưa áp dụng địa điểm cho nhân viên thì nút vẫn ghi "NGOÀI VÙNG" và sheet báo "vùng hợp lệ là 0 m" (chỉ dòng nhỏ dưới nút nói đúng
+  "Chưa có địa điểm chấm công") — `home.tsx` Punch + `store.ts` applyToday. Web: tạo địa điểm không nhắc phải áp dụng; tìm địa chỉ trên bản đồ (Photon/OSM)
+  chỉ ra tâm đường/hẻm, lệch ~100 m (Thuỷ Sinh 30/10) — nên gợi ý lấy tọa độ bằng điện thoại tại chỗ. Ca làm vẫn chưa sửa được phiên bản cùng ngày.
 - Luật nhà nước dạng số (`statutory_rule_sets`: bảo hiểm, thuế, phép năm tối thiểu, giới hạn OT) chưa làm — làm cùng module phép/payroll. Lịch lễ quốc gia mới có 2026; 2027 chờ Chính phủ công bố lịch Tết. Nội dung điều khoản mẫu và ngày lễ cần chuyên gia xác nhận.
 - Server chưa chặn API chấm công khi nhân viên chưa đồng ý điều khoản (app tự chặn bằng màn đồng ý).
 - Đặt lại MFA (web HR hoặc Console) không đăng xuất phiên aal2 đang mở của người đó (hết hạn sau ≤ 1 giờ).
@@ -440,6 +448,9 @@ ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AG
   PIN/Face ID, tối đa 5 MB, "Thiếu hồ sơ" = chưa có hợp đồng còn hiệu lực.
 
 ## Nhật ký
+- 2026-10-30 — Claude (Desktop): thử chấm công Thuỷ Sinh trên iPhone: "ngoài vùng" do (1) chưa áp dụng địa điểm cho nhân viên, (2) điểm đặt từ tìm địa chỉ
+  lệch 106 m. Đã áp dụng địa điểm, nới tạm 200 m cho 30/10, đặt điểm theo GPS iPhone (±4 m) bán kính 50 m từ 31/10. NV001 đã vào ca 09:27. Sau đó chạy verify-all đầy đủ
+  (người dùng đồng ý) → DB local đã reset, **dữ liệu Thuỷ Sinh không còn**; thử lại phải tạo lại công ty trên Console.
 - 2026-10-29 — Claude (Desktop): checklist thử tay web HR + Console trên Mac bằng trình duyệt tự động (kết quả từng mục trong CLOUD_HANDOFF.md): lương,
   bản tin, tài liệu, tổ chức, vai trò, nhập nhân viên, Console gói/khóa/quyền hỗ trợ đều chạy. Sửa 4 lỗi tìm thấy: CSV dấu chấm phẩy (Excel VN), icon tải
   lên phủ modal nhập lương, toast lỗi hiện dấu tích, nhãn "Ticket". DB local có dữ liệu thử (kỳ lương 10/2026 đã công bố, 2 bản tin, hợp đồng HD0142,

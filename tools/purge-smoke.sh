@@ -24,6 +24,8 @@ check "Mã nhân viên quản trị viên đúng như chọn" "$(sql "select emp
 HRT=$(activate QT01 le.xoa@xoa.test); need "Quản trị viên công ty kích hoạt (có tài khoản đăng nhập)" "$HRT"
 UID_X=$(sql "select user_id from public.employees where tenant_id='$TID'")
 printf 'kavor-purge-test' > /tmp/kavor-purge.txt
+# Bucket chỉ được API tạo khi tải logo lần đầu: DB vừa reset thì chưa có (đã có → 400, bỏ qua)
+curl -s -o /dev/null -X POST "$URL/storage/v1/bucket" -H "apikey: $SRK" -H "authorization: Bearer $SRK" -H 'content-type: application/json' -d '{"id":"tenant-branding","name":"tenant-branding","public":false}'
 check "Có file trong thư mục doanh nghiệp trên Storage" "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$URL/storage/v1/object/tenant-branding/$TID/thu/logo.png" -H "apikey: $SRK" -H "authorization: Bearer $SRK" -H 'content-type: image/png' --data-binary @/tmp/kavor-purge.txt)" 200
 rm -f /tmp/kavor-purge.txt
 HDG=$(sql "select id from public.tenants where code='HDG-001'"); HDG_ROWS=$(rows "$HDG")

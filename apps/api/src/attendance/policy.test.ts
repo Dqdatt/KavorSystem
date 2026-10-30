@@ -40,3 +40,11 @@ test("phiên bản áp dụng là phiên bản mới nhất đã có hiệu lự
   assert.equal(nextVersion(vs, "2026-10-23")?.v, 3);
   assert.equal(nextVersion(vs, "2026-12-01"), null);
 });
+
+test("phiên bản cùng ngày hiệu lực: số phiên bản lớn hơn thắng, bất kể thứ tự", () => {
+  const vs = [{ version_no: 2, effective_from: "2026-10-30" }, { version_no: 1, effective_from: "2026-10-30" }, { version_no: 4, effective_from: "2026-11-05" }, { version_no: 3, effective_from: "2026-11-05" }];
+  assert.equal(pickVersion(vs, "2026-10-30")?.version_no, 2);
+  assert.equal(pickVersion([...vs].reverse(), "2026-10-30")?.version_no, 2);
+  assert.equal(nextVersion(vs, "2026-10-30")?.version_no, 4);
+  assert.equal(nextVersion([...vs].reverse(), "2026-10-30")?.version_no, 4);
+});

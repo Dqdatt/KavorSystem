@@ -9,6 +9,7 @@ MKT=40000000-0000-4000-8000-000000000005; AE=50000000-0000-4000-8000-00000000000
 OFFICE_LAT=10.774390; OFFICE_LNG=106.703940
 
 source "$(dirname "$0")/smoke-lib.sh"
+sql() { docker exec -i supabase_db_kavor-system psql -U postgres -d postgres -X -v ON_ERROR_STOP=1 -Atq -c "$1"; }
 
 # bash 3.2 (macOS) phân tích sai chuỗi JSON có \" lồng trong "$(...)" (bung ngoặc nhọn, gọi API nhiều lần):
 # luôn gán body vào biến B trước rồi mới gọi trong check
@@ -113,4 +114,18 @@ check "Bảng hôm nay: đếm bản ghi bị từ chối" "$(echo "$r" | py "d[
 check "Danh sách bị từ chối có lý do ngoài vùng" "$(call GET admin/attendance/rejected "$HR" | py "d[0]['rejectReason']+' · '+d[0]['employee']['code']")" "out_of_range · HD0142"
 check "Tổng quan có số liệu thật" "$(call GET admin/overview "$HR" | py "(d['presentToday'], d['rejectedToday'], d['notActivated']>0)")" "(1, 1, True)"
 check "Audit thiết bị: duyệt/thu hồi/từ chối" "$(call GET admin/employees/$HA "$HR" | py "all(a in {x['action'] for x in d['audit']} for a in ['device.approved','device.revoked','device.rejected','account.locked','account.unlocked'])")" True
+
+echo "— Sửa địa điểm ngay trong ngày hiệu lực"
+B="{\"code\":\"SMK-SD\",\"name\":\"Kho thử cùng ngày\",\"latitude\":10.757968,\"longitude\":106.60414,\"radiusM\":50,\"maxAccuracyM\":60,\"effectiveFrom\":\"$TODAY\"}"
+LOC=$(call POST admin/locations "$HR" "$B" | field data.id)
+[ -n "$LOC" ] && echo "✔ Tạo địa điểm hiệu lực từ hôm nay"
+B="{\"latitude\":10.757968,\"longitude\":106.60414,\"radiusM\":200,\"maxAccuracyM\":60,\"effectiveFrom\":\"$TODAY\",\"note\":\"Đặt sai bán kính\"}"
+r=$(call POST admin/locations/$LOC/versions "$HR" "$B")
+check "Chưa ai chấm công: sửa được phiên bản cùng ngày" "$(echo "$r" | field data.current.versionNo) · $(echo "$r" | field data.current.radiusM)" "2 · 200"
+_a=$(sql "select count(*) from audit_logs where resource_id = '$LOC' and action = 'work_location.version_replaced'") || :
+check "Audit ghi thay phiên bản" "$_a" 1
+B="{\"latitude\":$OFFICE_LAT,\"longitude\":$OFFICE_LNG,\"radiusM\":60,\"maxAccuracyM\":60,\"effectiveFrom\":\"$TODAY\"}"
+check "Văn phòng Quận 1: thêm phiên bản từ hôm nay" "$(status POST admin/locations/70000000-0000-4000-8000-000000000001/versions "$HR" "$B")" 201
+B="{\"latitude\":$OFFICE_LAT,\"longitude\":$OFFICE_LNG,\"radiusM\":70,\"maxAccuracyM\":60,\"effectiveFrom\":\"$TODAY\"}"
+check "Đã có người chấm công ở đó hôm nay: không sửa được phiên bản cùng ngày" "$(status POST admin/locations/70000000-0000-4000-8000-000000000001/versions "$HR" "$B")" 409
 echo "Tất cả bước HR/Admin đều đạt."

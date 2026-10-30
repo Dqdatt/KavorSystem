@@ -139,12 +139,26 @@ export class ScheduleAdmin {
       .eq("location_id", locationId).eq("tenant_id", ctx.tenantId).order("version_no", { ascending: false });
     const list = (vs ?? []) as LocationVersionRow[];
     if (!list.length) throw notFound("địa điểm");
-    if (list.some((x) => x.effective_from === v.effective_from)) throw conflict(`Đã có phiên bản hiệu lực từ ${v.effective_from}.`);
+    /* Trùng ngày hiệu lực = sửa phiên bản đó (đặt sai điểm/bán kính ngay ngày đầu): chỉ cho khi chưa ai chấm công ở địa điểm này
+       từ ngày đó, để công đã chấm vẫn ứng với phiên bản lúc chấm. Phiên bản số lớn hơn thắng; bản cũ giữ lại làm lịch sử. */
+    const replaces = list.some((x) => x.effective_from === v.effective_from);
+    if (replaces && (await this.locationUsedSince(ctx, locationId, v.effective_from))) {
+      throw conflict(`Đã có lần chấm công dùng phiên bản từ ${v.effective_from}; chọn ngày hiệu lực sau ngày này.`);
+    }
     const no = list[0]!.version_no + 1;
     const { error } = await ctx.db.from("work_location_versions").insert({ tenant_id: ctx.tenantId, location_id: locationId, version_no: no, ...v, created_by: ctx.userId });
     if (error) throw error;
-    await ctx.audit("work_location.version_added", "work_location", locationId, pickVersion(list, v.effective_from), { version_no: no, ...v });
+    await ctx.audit(replaces ? "work_location.version_replaced" : "work_location.version_added", "work_location", locationId, pickVersion(list, v.effective_from), { version_no: no, ...v });
     return this.locationById(ctx, locationId);
+  }
+
+  /* Có lần chấm công (kể cả bị từ chối) gắn với địa điểm từ ngày `from` (theo múi giờ công ty) trở đi không */
+  private async locationUsedSince(ctx: AdminContext, locationId: string, from: string) {
+    const { timezone } = await tenantSettings(this.sb, ctx.tenantId);
+    const { data } = await ctx.db.from("attendance_events").select("occurred_at").eq("tenant_id", ctx.tenantId).eq("location_id", locationId)
+      .gte("occurred_at", addDays(from, -1)).order("occurred_at", { ascending: false }).limit(1);
+    const last = (data ?? [])[0] as { occurred_at: string } | undefined;
+    return !!last && localParts(last.occurred_at, timezone).date >= from;
   }
 
   async updateLocation(ctx: AdminContext, locationId: string, b: Body): Promise<LocationDef> {
