@@ -10,6 +10,10 @@ simulator hay iPhone** vì phiên cloud không có Mac). Người dùng giao "c�
 ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AGENT_PLAYBOOK.md`; kiểm tra toàn bộ bằng `bash tools/verify-all.sh`.
 
 ## Đã xong
+- Chuẩn bị bản online miễn phí (30/10, Claude Desktop): `docs/DEPLOY.md` (Supabase Free + Render Free + Vercel Hobby + Gmail SMTP + cron-job.org
+  giữ API thức), `render.yaml`, `tools/cloud-supabase.sh` (migration + cấu hình Auth lên cloud từ bản sao config.toml, không seed; `DRY_RUN=1` đã thử),
+  API nhận cổng `PORT` (đã thử build + `pnpm start`). **Chưa đăng ký dịch vụ nào, chưa chạy trên cloud.** Kèm: web Địa điểm báo "Chưa áp dụng cho ai"
+  + nút Áp dụng; máy chủ chặn chấm công khi chưa đồng ý điều khoản hiện hành (`ATT_CONSENT_REQUIRED`, app mở màn đồng ý; smoke kích hoạt có đồng ý).
 - App (bản máy chủ thật) khi công ty chưa áp dụng địa điểm cho nhân viên (30/10, Claude Desktop): nút ghi "CHƯA CÓ VÙNG" thay "NGOÀI VÙNG", chạm vào
   ra sheet "Chưa có địa điểm chấm công" (báo HR, nút "Tải lại" hỏi lại máy chủ), thẻ địa điểm ở màn Chấm công nói rõ chưa áp dụng. Test Node
   `tools/location-mobile-test.mjs` 4 ca. Bản QA (dữ liệu mẫu) không có trạng thái này nên không có ảnh đối chiếu prototype;
@@ -367,8 +371,8 @@ ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AG
 - Cài bản mới lên iPhone: build `xcodebuild -workspace ios/Kavor.xcworkspace -scheme Kavor -configuration Release -destination 'generic/platform=iOS' -derivedDataPath ios/build-device -allowProvisioningUpdates build` (trong `apps/mobile`, có `EXPO_PUBLIC_API_URL`, xóa `$TMPDIR/metro-cache` trước) rồi `xcrun devicectl device install app --device 36F8CE4A-8C04-5232-AB9D-0041A426F6A0 ios/build-device/Build/Products/Release-iphoneos/Kavor.app`. Nếu devicectl báo "unavailable": mở khóa iPhone, bấm Tin cậy, cắm cáp dữ liệu.
 - Reset DB local: dùng `bash tools/db-reset.sh` (sau `supabase db reset` Kong giữ IP cũ của Auth → 502).
 - Bản trên iPhone hiện trỏ tới API `http://192.168.1.3:4000/api/v1` (cài bản sửa payroll qua Wi-Fi 26/10; thay bản .22). App báo "không kết nối máy chủ" thì kiểm tra `ipconfig getifaddr en0` trước — IP đổi thì phải build lại: Mac phải chạy `pnpm dev:backend`, cùng Wi-Fi. IP Mac đổi thì phải build lại app.
-- Chưa có môi trường staging: migration 23/10 **chưa push** lên project Supabase thật; project thật chưa có dữ liệu nhân viên, SMTP riêng và Realtime chưa kiểm tra ở đó.
-- Người dùng cần tự đổi publishable key trên Supabase Dashboard (Settings → API Keys: tạo publishable key mới, xóa key `default` cũ).
+- Bản online (30/10): làm theo `docs/DEPLOY.md` — tạo project Supabase **mới** `kavor-dev` (project cũ `KavorSystem` có publishable key trong lịch sử
+  repo công khai → xóa), Realtime/SMTP chưa kiểm trên cloud. Repo GitHub đang công khai: không commit khóa.
 
 ## Quyết định đã chốt
 - Chưa mua dịch vụ trả phí nào (hosting, domain, Resend, Supabase Pro, Apple Developer) cho tới khi hệ thống hoàn thiện; tiếp tục dev và test trên máy local + iPhone qua cáp. Staging làm sau — vì người dùng đang trong giai đoạn dev (người dùng quyết định 24/10).
@@ -392,10 +396,9 @@ ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AG
 - Giữ ảnh chụp toàn trang và ảnh simulator raw — bỏ vì trùng dữ liệu, làm commit phình to; chỉ giữ bản 390×844 dùng để so sánh.
 
 ## Vấn đề/bug còn tồn tại
-- Web: tạo địa điểm không nhắc phải áp dụng; tìm địa chỉ trên bản đồ (Photon/OSM)
+- Web: tìm địa chỉ trên bản đồ (Photon/OSM)
   chỉ ra tâm đường/hẻm, lệch ~100 m (Thuỷ Sinh 30/10) — nên gợi ý lấy tọa độ bằng điện thoại tại chỗ. Ca làm vẫn chưa sửa được phiên bản cùng ngày.
 - Luật nhà nước dạng số (`statutory_rule_sets`: bảo hiểm, thuế, phép năm tối thiểu, giới hạn OT) chưa làm — làm cùng module phép/payroll. Lịch lễ quốc gia mới có 2026; 2027 chờ Chính phủ công bố lịch Tết. Nội dung điều khoản mẫu và ngày lễ cần chuyên gia xác nhận.
-- Server chưa chặn API chấm công khi nhân viên chưa đồng ý điều khoản (app tự chặn bằng màn đồng ý).
 - Đặt lại MFA (web HR hoặc Console) không đăng xuất phiên aal2 đang mở của người đó (hết hạn sau ≤ 1 giờ).
 - Nhập nhân viên: chưa cập nhật hồ sơ cũ bằng file, chưa đọc .xlsx/kết nối Google Sheets. Gửi lời mời hàng loạt chạy tuần tự trong request
   (300 người ≈ vài chục giây với SMTP chậm) — cần hàng đợi nền khi có SMTP thật.

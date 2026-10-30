@@ -179,6 +179,7 @@ export const ATTENDANCE_ERRORS = {
   invalidSequence: "ATT_INVALID_SEQUENCE",
   clockSkew: "ATT_CLOCK_SKEW",
   noLocation: "ATT_NO_LOCATION",
+  consentRequired: "ATT_CONSENT_REQUIRED",
 } as const;
 
 /* Khoảng cách hai tọa độ (mét), công thức haversine */

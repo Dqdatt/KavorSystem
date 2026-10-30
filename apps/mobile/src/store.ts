@@ -679,6 +679,7 @@ function attError(e: unknown) {
   if (e instanceof ApiError) {
     if (e.status === 401) { showErr("session"); return; }
     if (e.code === "ATT_DEVICE_PENDING") { showErr("devicePending"); return; }
+    if (e.code === "ATT_CONSENT_REQUIRED") { askConsent("home"); toast(e.message); return; }
     if (e.code === "ATT_DEVICE_NOT_REGISTERED") { S.stack = ["device"]; render("fade"); toast(e.message); return; }
     if (e.code === "ATT_INVALID_SEQUENCE") void loadToday();
     toast(e.message); return;

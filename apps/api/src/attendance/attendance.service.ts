@@ -1,3 +1,4 @@
+import { consentMissing } from "../company/privacy.js";
 import {
   ATTENDANCE_ERRORS, distanceMeters,
   type AttendanceEvent, type AttendanceEventRequest, type AttendanceRejectReason, type AttendanceToday,
@@ -122,6 +123,8 @@ export class AttendanceService {
       return { event: toAttendanceEvent(existing as EventRow, index, policies.shift, s.timezone), created: false };
     }
 
+    /* Vị trí là dữ liệu cá nhân: chưa đồng ý điều khoản hiện hành thì không ghi (app tự hỏi, đây là chặn phía máy chủ) */
+    if (await consentMissing(db, emp.tenant_id, emp.id)) throw new AuthError(ATTENDANCE_ERRORS.consentRequired, "Bạn cần đồng ý điều khoản dữ liệu cá nhân trước khi chấm công.", 403);
     const { data: dev } = await db.from("employee_devices").select(DEVICE_COLS).eq("employee_id", emp.id).eq("installation_id", req.installationId).in("status", ["active", "pending"]).maybeSingle();
     if (!dev) throw new AuthError(ATTENDANCE_ERRORS.deviceNotRegistered, "Thiết bị này chưa được đăng ký chấm công.", 403);
     if ((dev as DeviceRow).status === "pending") throw new AuthError(ATTENDANCE_ERRORS.devicePending, "Thiết bị đang chờ HR duyệt nên chưa chấm công được.", 403);

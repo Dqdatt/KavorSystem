@@ -69,6 +69,8 @@ check "Quản lý không công bố điều khoản được" "$(status POST adm
 check "HR công bố điều khoản v2" "$(call POST admin/privacy/terms "$HR" "$B" | field data.current.versionNo)" 2
 r=$(call GET me/company "$EMP")
 check "App phải hỏi đồng ý lại" "$(echo "$r" | field data.privacy.required)" True
+B="{\"clientEventId\":\"smoke-consent-0001\",\"kind\":\"in\",\"installationId\":\"smoke-settings\",\"latitude\":10.77439,\"longitude\":106.70394,\"accuracyM\":8}"
+check "Chưa đồng ý bản mới: máy chủ chặn chấm công" "$(call POST me/attendance/events "$EMP" "$B" | field error.code)" ATT_CONSENT_REQUIRED
 V2=$(echo "$r" | field data.privacy.terms.id)
 B="{\"termsId\":\"$V1\"}"
 check "Đồng ý bản cũ → 409" "$(call POST me/privacy-consents "$EMP" "$B" | field error.code)" PRIVACY_TERMS_CHANGED

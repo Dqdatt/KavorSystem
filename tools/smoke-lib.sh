@@ -18,7 +18,7 @@ otp() {
   done
   curl -s "$MAIL/api/v1/message/$id" | python3 -c "import json,sys,re; print(re.search(r'\b(\d{6})\b', json.load(sys.stdin)['Text']).group(1))"
 }
-activate() { call POST auth/activate/start "" "{\"employeeCode\":\"$1\",\"email\":\"$2\"}" >/dev/null; local code; code=$(otp "$2"); call POST auth/activate/verify "" "{\"email\":\"$2\",\"code\":\"$code\",\"password\":\"$PW\"}" | field data.session.accessToken; }
+activate() { call POST auth/activate/start "" "{\"employeeCode\":\"$1\",\"email\":\"$2\"}" >/dev/null; local code; code=$(otp "$2"); call POST auth/activate/verify "" "{\"email\":\"$2\",\"code\":\"$code\",\"password\":\"$PW\",\"privacyAccepted\":true}" | field data.session.accessToken; }
 today() { python3 -c "import datetime,zoneinfo; print((datetime.datetime.now(zoneinfo.ZoneInfo('Asia/Ho_Chi_Minh'))+datetime.timedelta(days=int('${1:-0}'))).date())"; }
 
 # Mã TOTP hiện tại (RFC 6238, 30 giây, 6 số) từ secret base32 — như ứng dụng xác thực trên điện thoại

@@ -1,0 +1,34 @@
+# Render Blueprint: Kavor API bản online để thử (gói Free, Singapore). Web HR/Console chạy trên Vercel, CSDL trên Supabase Cloud.
+# Hướng dẫn và ý nghĩa từng biến: docs/DEPLOY.md. Biến sync:false nhập trên Render Dashboard, không commit giá trị.
+services:
+  - type: web
+    name: kavor-api
+    runtime: node
+    region: singapore
+    plan: free
+    branch: claude/ecstatic-pascal-dblg7v
+    buildCommand: npm install -g pnpm@11.0.9 && pnpm install --frozen-lockfile --filter "@kavor/api..." && pnpm --filter @kavor/api build
+    startCommand: pnpm --filter @kavor/api start
+    healthCheckPath: /api/v1/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: "24"
+      - key: NODE_ENV
+        value: staging
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: API_CORS_ORIGINS
+        sync: false
+      - key: ADMIN_WEB_URL
+        sync: false
+      - key: CONSOLE_WEB_URL
+        sync: false
+      - key: SMTP_URL
+        sync: false
+      - key: MAIL_FROM
+        sync: false
+      - key: CONSOLE_BOOTSTRAP_EMAIL
+        sync: false

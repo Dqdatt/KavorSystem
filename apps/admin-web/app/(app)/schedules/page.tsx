@@ -109,7 +109,11 @@ function ShiftForm({ shift, onClose, onSaved }: { shift: ShiftDef | null; onClos
 function Locations() {
   const me = useMe();
   const { data, error, reload } = useApi<LocationDef[]>("locations");
+  /* Địa điểm chưa có áp dụng đang/sắp hiệu lực thì không nhân viên nào chấm công được ở đó (app báo "chưa có địa điểm") */
+  const assigned = useApi<PolicyAssignment[]>("policy-assignments?kind=schedule");
+  const applied = new Set((assigned.data ?? []).filter((a) => a.kind === "work_location" && (a.state === "active" || a.state === "scheduled")).map((a) => a.target.id));
   const [form, setForm] = useState<LocationDef | "new" | null>(null);
+  const [applying, setApplying] = useState<LocationDef | null>(null);
   const { run } = useAction();
   const manage = can(me, "schedule.manage");
   return (
@@ -129,15 +133,16 @@ function Locations() {
                   <td>{v ? `${v.radiusM} m · ±${v.maxAccuracyM} m` : "—"}{l.current && l.next ? <><br /><small className="status info">Từ {fmtDate(l.next.effectiveFrom)}: {l.next.radiusM} m</small></> : null}</td>
                   <td>{v ? <>v{v.versionNo} · từ {fmtDate(v.effectiveFrom)}{l.current ? null : <><br /><small className="status warn">Chưa hiệu lực</small></>}</> : "—"}</td>
                 </>)(l.current ?? l.next)}
-                <td>{l.active ? <Status v={["Đang dùng", ""]} /> : <Status v={["Ngừng dùng", "muted"]} />}</td>
-                <td>{manage ? <span className="row-actions"><button className="btn small" onClick={() => setForm(l)}>Phiên bản mới</button>
+                <td>{l.active ? <Status v={["Đang dùng", ""]} /> : <Status v={["Ngừng dùng", "muted"]} />}{l.active && assigned.data && !applied.has(l.id) ? <><br /><small className="status warn">Chưa áp dụng cho ai</small></> : null}</td>
+                <td>{manage ? <span className="row-actions">{l.active && assigned.data && !applied.has(l.id) ? <button className="btn small primary" onClick={() => setApplying(l)}>Áp dụng</button> : null}<button className="btn small" onClick={() => setForm(l)}>Phiên bản mới</button>
                   <button className="btn small" onClick={() => run(l.id, () => call("PATCH", `locations/${l.id}`, { active: !l.active }), l.active ? "Đã ngừng dùng địa điểm" : "Đã dùng lại địa điểm").then(() => reload())}>{l.active ? "Ngừng" : "Dùng lại"}</button></span> : null}</td>
               </tr>
             ))}
           </tbody></table></div>
         )}
       </article>
-      {form ? <LocationForm loc={form === "new" ? null : form} onClose={() => setForm(null)} onSaved={() => { setForm(null); void reload(); }} /> : null}
+      {form ? <LocationForm loc={form === "new" ? null : form} onClose={() => setForm(null)} onSaved={() => { setForm(null); void reload(); void assigned.reload(); }} /> : null}
+      {applying ? <AssignmentForm preset={{ kind: "work_location", targetId: applying.id }} onClose={() => setApplying(null)} onSaved={() => { setApplying(null); void assigned.reload(); }} /> : null}
     </>
   );
 }
@@ -235,10 +240,10 @@ function Assignments() {
   );
 }
 
-function AssignmentForm({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
+function AssignmentForm({ preset, onClose, onSaved }: { preset?: { kind: PolicyKind; targetId: string }; onClose: () => void; onSaved: () => void }) {
   const me = useMe();
   const shifts = useApi<ShiftDef[]>("shifts"), locs = useApi<LocationDef[]>("locations"), org = useApi<OrgOptions>("org");
-  const [f, setF] = useState({ kind: "shift" as PolicyKind, targetId: "", scopeType: "department" as PolicyScopeType, scopeId: "", effectiveFrom: tenantToday(me.tenant.timezone), effectiveTo: "", reason: "" });
+  const [f, setF] = useState({ kind: preset?.kind ?? ("shift" as PolicyKind), targetId: preset?.targetId ?? "", scopeType: (preset ? "tenant" : "department") as PolicyScopeType, scopeId: "", effectiveFrom: tenantToday(me.tenant.timezone), effectiveTo: "", reason: "" });
   const [err, setErr] = useState<string | null>(null);
   const { busy, run } = useAction();
   const set = (k: keyof typeof f) => (e: { target: { value: string } }) => { setF({ ...f, [k]: e.target.value, ...(k === "kind" ? { targetId: "" } : k === "scopeType" ? { scopeId: "" } : {}) }); setErr(null); };

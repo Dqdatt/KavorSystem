@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+# Đẩy migration + cấu hình Auth (tắt đăng ký công khai, OTP 6 số, MFA TOTP, mẫu email, giới hạn) lên project Supabase Cloud.
+# Không đẩy seed (dữ liệu mẫu Hải Đăng). supabase/config.toml giữ localhost cho dev: script chép thư mục supabase/ ra thư mục tạm,
+# thay địa chỉ web và thêm SMTP Gmail rồi mới push — file trong repo không đổi.
+# Cần: `supabase login` một lần. Chạy lại được nhiều lần (chỉ áp migration chưa có).
+#   SUPABASE_PROJECT_REF=abcd... ADMIN_WEB_URL=https://kavor-hr.vercel.app CONSOLE_WEB_URL=https://kavor-console.vercel.app \
+#   GMAIL_USER=ban@gmail.com bash tools/cloud-supabase.sh
+# Mật khẩu ứng dụng Gmail và mật khẩu DB được hỏi khi chạy (không lưu, không in ra). DRY_RUN=1: chỉ in cấu hình sẽ đẩy.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+: "${SUPABASE_PROJECT_REF:?Thiếu SUPABASE_PROJECT_REF (Project Settings → General → Reference ID)}"
+: "${ADMIN_WEB_URL:?Thiếu ADMIN_WEB_URL (địa chỉ web HR trên Vercel, https://…)}"
+: "${CONSOLE_WEB_URL:?Thiếu CONSOLE_WEB_URL (địa chỉ Kavor Console trên Vercel, https://…)}"
+: "${GMAIL_USER:?Thiếu GMAIL_USER (địa chỉ Gmail gửi OTP)}"
+ADMIN_WEB_URL=${ADMIN_WEB_URL%/}; CONSOLE_WEB_URL=${CONSOLE_WEB_URL%/}
+if [ -z "${GMAIL_APP_PASSWORD:-}" ]; then
+  read -r -s -p "Mật khẩu ứng dụng Gmail (16 ký tự, không dấu cách): " GMAIL_APP_PASSWORD; echo
+fi
+export GMAIL_APP_PASSWORD
+
+TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT
+mkdir -p "$TMP/supabase"
+cp -R supabase/config.toml supabase/migrations supabase/templates "$TMP/supabase/"
+python3 -I - "$TMP/supabase/config.toml" "$ADMIN_WEB_URL" "$CONSOLE_WEB_URL" "$GMAIL_USER" <<'PY'
+import sys
+p, admin, console, user = sys.argv[1:]
+s = open(p, encoding="utf-8").read()
+old_site = 'site_url = "http://localhost:3000"'
+old_redir = 'additional_redirect_urls = ["http://localhost:3000/**", "http://localhost:3001/**", "kavor://**"]'
+assert old_site in s and old_redir in s, "config.toml đã đổi dạng site_url/additional_redirect_urls — sửa script"
+s = s.replace(old_site, f'site_url = "{admin}"')
+s = s.replace(old_redir, f'additional_redirect_urls = ["{admin}/**", "{console}/**", "kavor://**"]')
+# Mật khẩu đọc từ biến môi trường lúc push (env()), không ghi vào file tạm
+s += f'''
+[auth.email.smtp]
+enabled = true
+host = "smtp.gmail.com"
+port = 587
+user = "{user}"
+pass = "env(GMAIL_APP_PASSWORD)"
+admin_email = "{user}"
+sender_name = "Kavor"
+'''
+open(p, "w", encoding="utf-8").write(s)
+PY
+
+if [ -n "${DRY_RUN:-}" ]; then diff supabase/config.toml "$TMP/supabase/config.toml" || true; ls "$TMP/supabase/migrations" | wc -l | xargs echo "migration:"; exit 0; fi
+echo "— Liên kết project $SUPABASE_PROJECT_REF (CLI hỏi mật khẩu DB đặt lúc tạo project)"
+supabase --workdir "$TMP" link --project-ref "$SUPABASE_PROJECT_REF"
+echo "— Áp migration (không có seed)"
+supabase --workdir "$TMP" db push
+echo "— Đẩy cấu hình Auth"
+supabase --workdir "$TMP" config push --project-ref "$SUPABASE_PROJECT_REF"
+echo "Xong. Kiểm tra trên Dashboard: Authentication → Sign In / Providers: 'Allow new users to sign up' phải TẮT."

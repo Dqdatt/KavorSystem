@@ -37,7 +37,7 @@ export function loadConfig(source: Source = process.env): AppConfig {
   const env = (get("NODE_ENV") ?? "development") as AppEnv;
   if (!ENVS.includes(env)) problems.push(`NODE_ENV phải là một trong ${ENVS.join(", ")} (đang là "${env}")`);
 
-  const rawPort = get("API_PORT") ?? "4000";
+  const rawPort = get("API_PORT") ?? get("PORT") ?? "4000"; /* PORT: cổng do nền tảng cloud (Render) cấp */
   const port = Number(rawPort);
   if (!Number.isInteger(port) || port < 1 || port > 65535) problems.push(`API_PORT phải là số cổng hợp lệ (đang là "${rawPort}")`);
 

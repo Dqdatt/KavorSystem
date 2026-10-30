@@ -21,7 +21,7 @@ for _ in $(seq 1 30); do
   [ -n "$id" ] && break; sleep 0.5
 done
 code=$(curl -s "$MAIL/api/v1/message/$id" | python3 -c "import json,sys,re; print(re.search(r'\b(\d{6})\b', json.load(sys.stdin)['Text']).group(1))")
-TOKEN=$(post auth/activate/verify "{\"email\":\"$EMAIL\",\"code\":\"$code\",\"password\":\"Kavor2026A\"}" | field data.session.accessToken)
+TOKEN=$(post auth/activate/verify "{\"email\":\"$EMAIL\",\"code\":\"$code\",\"password\":\"Kavor2026A\",\"privacyAccepted\":true}" | field data.session.accessToken)
 [ -n "$TOKEN" ] && echo "✔ Đã kích hoạt và đăng nhập HD0142"
 
 r=$(post me/attendance/events "{\"clientEventId\":\"$(uuid)\",\"kind\":\"in\",\"installationId\":\"install-iphone-01\",\"latitude\":$OFFICE_LAT,\"longitude\":$OFFICE_LNG,\"accuracyM\":8}")

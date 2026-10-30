@@ -13,6 +13,14 @@ export async function currentTerms(db: SupabaseGateway["admin"], tenantId: strin
   return (data as TermsRow | null) ?? null;
 }
 
+/* Nhân viên chưa đồng ý phiên bản điều khoản hiện hành (công ty chưa có điều khoản thì không chặn) */
+export async function consentMissing(db: SupabaseGateway["admin"], tenantId: string, employeeId: string) {
+  const terms = await currentTerms(db, tenantId);
+  if (!terms) return false;
+  const { data } = await db.from("privacy_consents").select("terms_id").eq("employee_id", employeeId).eq("terms_id", terms.id).maybeSingle();
+  return !data;
+}
+
 /* Ghi một lượt đồng ý (chỉ thêm; đồng ý lại cùng phiên bản thì giữ lượt cũ) */
 export async function recordConsent(db: SupabaseGateway["admin"], c: { tenantId: string; employeeId: string; userId: string | null; termsId: string; installationId?: string | null; ip?: string | null; userAgent?: string | null }) {
   const { error } = await db.from("privacy_consents").upsert({
