@@ -49,6 +49,20 @@ echo "— Liên kết project $SUPABASE_PROJECT_REF (CLI hỏi mật khẩu DB �
 supabase --workdir "$TMP" link --project-ref "$SUPABASE_PROJECT_REF"
 echo "— Áp migration (không có seed)"
 supabase --workdir "$TMP" db push
-echo "— Đẩy cấu hình Auth"
+# Project Free dùng email mặc định thì Supabase từ chối đổi mẫu email (400) — kể cả khi cùng lượt có bật SMTP riêng.
+# Lượt 1: cấu hình Auth + SMTP Gmail, bỏ mẫu email; lượt 2: cấu hình đầy đủ (lúc này đã có SMTP riêng).
+FULL="$TMP/config.full.toml"; cp "$TMP/supabase/config.toml" "$FULL"
+python3 -I - "$TMP/supabase/config.toml" <<'PY'
+import re, sys
+p = sys.argv[1]
+s = open(p, encoding="utf-8").read()
+s, n = re.subn(r'\n\[auth\.email\.template\.[a-z_]+\][^\[]*', '\n', s)
+assert n, "Không tìm thấy mẫu email trong config.toml — sửa script"
+open(p, "w", encoding="utf-8").write(s)
+PY
+echo "— Đẩy cấu hình Auth + SMTP Gmail (lượt 1/2, chưa có mẫu email)"
+supabase --workdir "$TMP" config push --project-ref "$SUPABASE_PROJECT_REF"
+cp "$FULL" "$TMP/supabase/config.toml"
+echo "— Đẩy mẫu email OTP (lượt 2/2)"
 supabase --workdir "$TMP" config push --project-ref "$SUPABASE_PROJECT_REF"
 echo "Xong. Kiểm tra trên Dashboard: Authentication → Sign In / Providers: 'Allow new users to sign up' phải TẮT."
