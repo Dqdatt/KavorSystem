@@ -10,8 +10,8 @@ import { call, useApi } from "../../_lib/client";
 import { Drawer, Empty, ErrorLine, Field, Icon, LoadError, Modal, Person, Status, fmtDateTime, num, useAction, useMe } from "../../_ui/kit";
 import { Select } from "@kavor/web-ui";
 
-const STATUS: Record<AnnouncementStatus, [string, string]> = { draft: ["Nháp", "muted"], scheduled: ["Hẹn giờ", "info"], published: ["Đang hiện", ""], archived: ["Đã gỡ", "muted"] };
-const FILTERS: Array<[AnnouncementStatus | "all", string]> = [["all", "Tất cả"], ["published", "Đang hiện"], ["scheduled", "Hẹn giờ"], ["draft", "Nháp"], ["archived", "Đã gỡ"]];
+const STATUS: Record<AnnouncementStatus, [string, string]> = { draft: ["Nháp", "muted"], scheduled: ["Hẹn giờ", "info"], published: ["Đang hiện", ""], expired: ["Hết hạn", "warn"], archived: ["Đã gỡ", "muted"] };
+const FILTERS: Array<[AnnouncementStatus | "all", string]> = [["all", "Tất cả"], ["published", "Đang hiện"], ["scheduled", "Hẹn giờ"], ["draft", "Nháp"], ["expired", "Hết hạn"], ["archived", "Đã gỡ"]];
 const ICON: Record<AnnouncementCategory, [string, string]> = { notice: ["news", ""], policy: ["file", "blue"], event: ["calendar", "violet"] };
 const kb = (n: number) => (n >= 1024 * 1024 ? `${(n / 1024 / 1024).toLocaleString("vi-VN", { maximumFractionDigits: 1 })} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
 const pct = (a: AnnouncementAdmin) => (a.recipients ? Math.round((a.reads / a.recipients) * 100) : 0);
@@ -93,7 +93,7 @@ function AnnouncementsPage() {
                 <td>{ANNOUNCEMENT_CATEGORIES[a.category]}</td>
                 <td style={{ whiteSpace: "normal" }}>{audienceText(a)}</td>
                 <td><Status v={STATUS[a.status]} /></td>
-                <td className="nowrap">{a.publishAt ? fmtDateTime(a.publishAt, tz) : "—"}</td>
+                <td className="nowrap">{a.publishAt ? fmtDateTime(a.publishAt, tz) : "—"}{a.visibleUntil ? <div className="muted" style={{ fontSize: 10.5 }}>đến {fmtDateTime(a.visibleUntil, tz)}</div> : null}</td>
                 <td className="num">{a.status === "draft" || a.status === "scheduled" ? <span className="muted">{num(a.recipients)} người nhận</span> : `${num(a.reads)}/${num(a.recipients)} · ${pct(a)}%`}</td>
               </tr>
             ))}
@@ -141,7 +141,7 @@ function DetailDrawer({ id, onClose, onEdit, onPublish, onChanged }: { id: strin
             {a.status === "draft" ? <button className="btn small primary" onClick={() => onPublish(a)}>Xuất bản…</button> : null}
             {a.status === "scheduled" ? <button className="btn small" onClick={() => onPublish(a)}>Đổi giờ hẹn</button> : null}
             {a.status === "scheduled" ? <button className="btn small" disabled={!!busy} onClick={() => void act("unschedule", "unschedule", "Đã hủy hẹn, bài về nháp")}>Hủy hẹn</button> : null}
-            {a.status === "published" ? <button className="btn small danger" onClick={() => setConfirm("archive")}>Gỡ bài</button> : null}
+            {a.status === "published" || a.status === "expired" ? <button className="btn small danger" onClick={() => setConfirm("archive")}>Gỡ bài</button> : null}
             {a.status === "draft" || a.status === "scheduled" ? <button className="btn small danger" onClick={() => setConfirm("remove")}>Xóa</button> : null}
           </div>
           <article className="card" style={{ padding: 16 }}>
@@ -153,6 +153,7 @@ function DetailDrawer({ id, onClose, onEdit, onPublish, onChanged }: { id: strin
           <div className="card detail-list" style={{ marginTop: 12 }}>
             <div className="detail-row"><span>Người nhận</span><b>{audienceText(a)} · {num(a.recipients)} người</b></div>
             <div className="detail-row"><span>Đã đọc</span><b>{a.status === "draft" || a.status === "scheduled" ? "—" : `${num(a.reads)}/${num(a.recipients)} (${pct(a)}%)`}</b></div>
+            <div className="detail-row"><span>Hiển thị đến</span><b>{a.visibleUntil ? `${fmtDateTime(a.visibleUntil, tz)}${a.status === "expired" ? " · đã hết hạn, app không còn hiện" : ""}` : "Tới khi gỡ bài"}</b></div>
             <div className="detail-row"><span>Thông báo trong app</span><b>{!a.notify ? "Không gửi" : a.notifiedAt ? `Đã gửi ${fmtDateTime(a.notifiedAt, tz)}` : "Gửi khi xuất bản"}</b></div>
             {a.archivedAt ? <div className="detail-row"><span>Đã gỡ</span><b>{fmtDateTime(a.archivedAt, tz)}</b></div> : null}
           </div>
@@ -185,6 +186,9 @@ function DetailDrawer({ id, onClose, onEdit, onPublish, onChanged }: { id: strin
 }
 
 function Editor({ a, units, onClose, onSaved }: { a: AnnouncementAdmin | null; units: AnnouncementUnit[]; onClose: () => void; onSaved: (a: AnnouncementAdmin, publish: boolean) => void }) {
+  const tz = useMe().tenant.timezone;
+  /* "Hiển thị đến" (giờ công ty, datetime-local); trống = hiển thị tới khi gỡ */
+  const [until, setUntil] = useState(() => (a?.visibleUntil ? zonedLocal(a.visibleUntil, tz) : ""));
   const [f, setF] = useState<AnnouncementInput>(() => ({
     category: a?.category ?? "notice", title: a?.title ?? "", body: a?.body ?? "", authorLabel: a?.authorLabel ?? "Phòng Nhân sự",
     important: a?.important ?? false, pinned: a?.pinned ?? false, notify: a?.notify ?? false, audience: a?.audience ?? "tenant",
@@ -203,9 +207,13 @@ function Editor({ a, units, onClose, onSaved }: { a: AnnouncementAdmin | null; u
     if (!f.title.trim()) { setErr("Nhập tiêu đề bài viết."); return; }
     if (f.audience === "units" && !f.units.length) { setErr("Chọn ít nhất một chi nhánh hoặc phòng ban nhận bài."); return; }
     if (file && file.size > ANNOUNCEMENT_MAX_BYTES) { setErr("File đính kèm tối đa 5 MB."); return; }
+    const visibleUntil = until ? zonedToIso(until, tz) : null;
+    if (visibleUntil && Date.parse(visibleUntil) <= Date.now()) { setErr("Giờ hết hiển thị phải sau thời điểm hiện tại."); return; }
+    if (visibleUntil && a?.publishAt && visibleUntil <= a.publishAt) { setErr("Giờ hết hiển thị phải sau giờ xuất bản."); return; }
     setErr(null);
+    const body = { ...f, visibleUntil };
     await run("save", async () => {
-      let item = a ? await call<AnnouncementAdmin>("PATCH", `announcements/${a.id}`, f) : await call<AnnouncementAdmin>("POST", "announcements", f);
+      let item = a ? await call<AnnouncementAdmin>("PATCH", `announcements/${a.id}`, body) : await call<AnnouncementAdmin>("POST", "announcements", body);
       if (file) {
         const dataBase64 = await new Promise<string>((ok, bad) => { const r = new FileReader(); r.onload = () => ok(String(r.result)); r.onerror = () => bad(r.error); r.readAsDataURL(file); });
         item = await call<AnnouncementAdmin>("POST", `announcements/${item.id}/attachment`, { fileName: file.name, dataBase64 });
@@ -250,6 +258,12 @@ function Editor({ a, units, onClose, onSaved }: { a: AnnouncementAdmin | null; u
             {file ? <span className="source-tag" style={{ marginLeft: 0 }}>{file.name} · {kb(file.size)}</span> : current ? <span className="source-tag" style={{ marginLeft: 0 }}>{current.name} · {kb(current.size)}</span> : <span className="muted" style={{ fontSize: 12 }}>Chưa có file</span>}
             <button type="button" className="btn small" onClick={() => input.current?.click()}><Icon name="upload" /> {file || current ? "Chọn file khác" : "Chọn file"}</button>
             {file || current ? <button type="button" className="btn small" onClick={() => { setFile(null); setDropFile(true); }}>Bỏ file</button> : null}
+          </div>
+        </Field>
+        <Field label="Hiển thị đến (không bắt buộc)" hint="Quá giờ này bài tự ẩn trên app nhân viên. Để trống: hiển thị tới khi gỡ. Giờ bắt đầu hiện là giờ xuất bản/hẹn giờ.">
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <input type="datetime-local" value={until} onChange={(e) => { setUntil(e.target.value); setErr(null); }} style={{ flex: 1 }} />
+            {until ? <button type="button" className="btn small" onClick={() => setUntil("")}>Bỏ hạn</button> : null}
           </div>
         </Field>
         <div className="field full" style={{ display: "flex", gap: 18, flexWrap: "wrap" }}>

@@ -122,6 +122,9 @@ Quy ước:
 | M-11 | **Hồ sơ → Đề nghị sửa**: đổi số điện thoại + tài khoản ngân hàng | Hồ sơ hiện thẻ "đang chờ HR" | |
 | M-12 | **Hồ sơ → Bảo mật và thiết bị → Đổi mã PIN** | Đổi được (cần PIN cũ) | |
 | M-13 | Cài app trên máy thứ hai (simulator) đăng nhập cùng NV001 | Máy thứ hai chờ HR duyệt; web HR **Chấm công → Thiết bị** → Duyệt thiết bị → máy hai dùng được | |
+| M-14 | Cài app lần đầu (xóa app rồi cài lại) → đăng nhập | Lần lượt hiện hộp thoại hệ thống xin quyền **Thông báo** và **Vị trí**, sau đó mới hỏi Face ID | |
+| M-15 | Hồ sơ → Bảo mật và thiết bị → **Quyền của ứng dụng**: tắt công tắc Vị trí | Hiện cảnh báo "Không có quyền vị trí thì bạn không chấm công được…" → Mở Cài đặt; tắt xong quay lại app: công tắc tắt, có ghi chú cảnh báo, trang chủ hiện thẻ "Kavor chưa có quyền vị trí"; bật lại trong Cài đặt thì hết cảnh báo | |
+| M-16 | Công tắc Thông báo: tắt/bật | Mở Cài đặt của máy để đổi; quay lại app công tắc đúng trạng thái | |
 
 ## 8. Duyệt đơn và chấm công (web HR)
 
@@ -152,6 +155,7 @@ Quy ước:
 |---|---|---|---|
 | H-70 | **Bản tin**: đăng bài có PDF, gửi cả công ty, bật thông báo trong app | App thấy bài + thông báo, mở được PDF | |
 | H-71 | Bài hẹn giờ 15 phút sau | Đúng giờ (±10 phút) app mới thấy | |
+| H-71b | Tạo bài, đặt **Hiển thị đến** = 5 phút sau, xuất bản ngay → chờ quá giờ | App thấy bài, quá giờ thì bài biến khỏi tab Bản tin và Trang chủ (kéo làm mới/mở lại tab); web hiện "Hết hạn"; sửa bài đặt giờ mới (gia hạn) thì app thấy lại | |
 | H-72 | Bài chỉ gửi phòng Kinh doanh | Nhân viên phòng khác không thấy | |
 | H-73 | **Tài liệu**: tải hợp đồng cho NV001 (chia sẻ HR + nhân viên) | App: Hồ sơ → Hợp đồng và quyết định (qua PIN/Face ID) mở được | |
 | H-74 | Thay file hợp đồng | Thành phiên bản mới, bản cũ vẫn xem lại được | |

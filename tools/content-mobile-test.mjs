@@ -39,6 +39,7 @@ const mocks = new Map([
   ['./auth', `${noop} export const authenticate=async()=>({ok:true}), biometricLabel=async()=> 'Face ID', biometricKind=async()=>({kind:'face',label:'Face ID'}), biometricReady=async()=>false, loadSession=async()=>null, quickLoginEmployee=empty,quickRefreshToken=empty,clearQuickLogin=empty,clearSession=empty,loadBioPrefs=empty,loadSupport=empty,saveBioPrefs=empty,saveSession=empty,saveSupport=empty;`],
   ['./attendance', `${noop} export const currentFix=empty,deviceRegistration=empty,deviceSummary=empty,enqueue=empty,flushQueue=empty,installationId=empty,newEventId=empty,quietFix=empty,readQueue=empty;export class LocationError extends Error {}`],
   ['./notify', `${noop} export const clearExplainReminders=empty,scheduleExplainReminders=empty,onReminderTap=()=>()=>{};`],
+  ['./perms', `${noop} export const readPerms=async()=>({notif:'granted',loc:'granted'}),askFirstRun=async()=>null,askNotif=async()=>'granted',askLoc=async()=>'granted',openSystemSettings=()=>{};`],
   ['./api/http', `export const REMOTE=true,ApiError=globalThis.__newsTest.ApiError,announcementsApi=globalThis.__newsTest.announcementsApi,documentsApi=globalThis.__newsTest.documentsApi,companyApi=globalThis.__newsTest.companyApi,timesheetApi=globalThis.__newsTest.timesheetApi,authApi=globalThis.__newsTest.authApi;
     export const advanceApi={},attendanceApi={},leaveApi={},notificationsApi={},overtimeApi={},payslipApi={},setTokenSource=()=>{},isNetworkError=()=>false;`],
   ['../api/http', `export const REMOTE=true;`],
@@ -102,6 +103,11 @@ S.newsCat='event';listText=text(newsSpec().body);assert.ok(listText.includes('B�
 assert.deepEqual(recentNewsViews().map((n)=>n.key),['a1','a2'],'bài 5 ngày trước không lên Trang chủ');
 assert.equal(recentNewsViews()[0].rel,'Hôm nay');
 console.log('✔ Tab Bản tin đọc danh sách API, lọc danh mục; Trang chủ chỉ lấy bài 2 ngày gần nhất');
+{ const keep=S.annData;
+  S.annData={items:keep.items.map((x)=>x.id==='a1'?{...x,visibleUntil:new Date(Date.now()-1000).toISOString()}:x.id==='a2'?{...x,visibleUntil:new Date(Date.now()+3600e3).toISOString()}:x)};
+  const t=text(newsSpec().body);assert.ok(!t.includes('Bài a1'),'bài quá hạn tự ẩn');assert.ok(t.includes('Bài a2'),'bài còn hạn vẫn hiện');
+  assert.deepEqual(recentNewsViews().map((n)=>n.key),['a2']);S.annData=keep; }
+console.log('✔ Bài quá "Hiển thị đến" tự ẩn khỏi tab Bản tin và Trang chủ, bài còn hạn vẫn hiện');
 
 let release;list=()=>new Promise(r=>{release=r;});
 const slow=loadAnnouncements();ACT.logoutGo();release({items:[post('z9')]});await slow;

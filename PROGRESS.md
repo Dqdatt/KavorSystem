@@ -10,6 +10,10 @@ simulator hay iPhone** vì phiên cloud không có Mac). Người dùng giao "c�
 ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AGENT_PLAYBOOK.md`; kiểm tra toàn bộ bằng `bash tools/verify-all.sh`.
 
 ## Đã xong
+- Bản tin có thời hạn hiển thị + quyền app (30/10, Claude Desktop): HR chọn "Hiển thị đến" khi soạn/sửa bài (bắt đầu = giờ xuất bản/hẹn giờ), quá giờ
+  bài tự ẩn trên app và không gửi thông báo; web hiện trạng thái "Hết hạn", gia hạn/bỏ hạn được. Migration `202611120001_announcement_visible_until.sql`,
+  pgTAP 6, smoke bản tin thêm 11 bước (đã chạy riêng trên DB đang dùng). App: Bảo mật và thiết bị có mục "Quyền của ứng dụng" (Thông báo, Vị trí; hỏi lần
+  đầu theo hộp thoại hệ điều hành, bật/tắt qua Cài đặt, tắt vị trí có cảnh báo + thẻ cảnh báo trên trang chủ). Test Node 27 ca. Chưa thử trên iPhone.
 - Xóa vĩnh viễn doanh nghiệp trên Console (29/10, Claude Desktop): nút "Xóa vĩnh viễn" trong chi tiết doanh nghiệp (chỉ Quản trị Console, doanh nghiệp
   tạm khóa/đã đóng, tích ô + gõ lại mã + lý do). Migration `202611110001_purge_tenant.sql` (trigger bảo vệ bỏ qua khi đang xóa; `purge_tenant`), API xóa
   tài khoản Auth + file Storage, nhật ký `tenant.deleted`. pgTAP 9 (xóa thử toàn bộ Hải Đăng trong transaction), smoke `tools/purge-smoke.sh` 21 bước (đã chạy

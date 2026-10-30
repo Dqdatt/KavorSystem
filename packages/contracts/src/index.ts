@@ -859,8 +859,8 @@ export type MyPayslip = { cycle: PayrollCycle; result: PayrollResult; viewedAt: 
 /* ---------- Bản tin nội bộ ---------- */
 export type AnnouncementCategory = "notice" | "policy" | "event";
 export const ANNOUNCEMENT_CATEGORIES: Record<AnnouncementCategory, string> = { notice: "Thông báo", policy: "Chính sách", event: "Sự kiện" };
-/* draft: chưa xuất bản; scheduled: hẹn giờ; published: đang hiện; archived: đã gỡ */
-export type AnnouncementStatus = "draft" | "scheduled" | "published" | "archived";
+/* draft: chưa xuất bản; scheduled: hẹn giờ; published: đang hiện; expired: quá "Hiển thị đến" (tự ẩn trên app); archived: đã gỡ */
+export type AnnouncementStatus = "draft" | "scheduled" | "published" | "expired" | "archived";
 export const ANNOUNCEMENT_MAX_BYTES = 5 * 1024 * 1024;
 export type AnnouncementAttachment = { name: string; type: "application/pdf" | "image/png" | "image/jpeg" | "image/webp"; size: number };
 export type AnnouncementUnit = { type: "branch" | "department"; id: string; name: string };
@@ -868,7 +868,8 @@ export type AnnouncementAdmin = {
   id: string; category: AnnouncementCategory; title: string; body: string; authorLabel: string;
   important: boolean; pinned: boolean; notify: boolean; audience: "tenant" | "units"; units: AnnouncementUnit[];
   attachment: AnnouncementAttachment | null; status: AnnouncementStatus;
-  publishAt: string | null; notifiedAt: string | null; archivedAt: string | null; createdAt: string; updatedAt: string;
+  /* visibleUntil: giờ bài tự ẩn trên app (null = tới khi gỡ) */
+  publishAt: string | null; visibleUntil: string | null; notifiedAt: string | null; archivedAt: string | null; createdAt: string; updatedAt: string;
   /* Số người nhận hiện tại (nhân viên chưa nghỉ việc thuộc đơn vị đã chọn) và số người đã mở bài */
   recipients: number; reads: number;
 };
@@ -879,13 +880,15 @@ export type AnnouncementDetail = { item: AnnouncementAdmin; readers: Announcemen
 export type AnnouncementInput = {
   category: AnnouncementCategory; title: string; body: string; authorLabel: string;
   important: boolean; pinned: boolean; notify: boolean; audience: "tenant" | "units"; units: Array<{ type: "branch" | "department"; id: string }>;
+  /* ISO có múi giờ; null/không có = hiển thị tới khi gỡ */
+  visibleUntil?: string | null;
 };
 /* publishAt null/không có: xuất bản ngay */
 export type AnnouncementPublishInput = { publishAt?: string | null };
 export type AnnouncementAttachmentInput = { fileName: string; dataBase64: string };
 export type MyAnnouncement = {
   id: string; category: AnnouncementCategory; title: string; body: string; authorLabel: string; important: boolean; pinned: boolean;
-  publishAt: string; attachment: AnnouncementAttachment | null; readAt: string | null;
+  publishAt: string; visibleUntil: string | null; attachment: AnnouncementAttachment | null; readAt: string | null;
 };
 export type MyAnnouncements = { items: MyAnnouncement[] };
 

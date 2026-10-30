@@ -85,6 +85,23 @@ sql "update public.announcements set publish_at = now() - interval '1 minute' wh
 check "Tới giờ: chu kỳ quét gửi thông báo cho cả công ty" "$(sql "select public.notify_due_announcements()")/$(sql "select (select count(*) from public.notifications where link_id='$S') || '/' || (select count(*) from public.announcement_recipients('$S'))")" "1/9/9"
 check "Bài đã tới giờ hiện với nhân viên" "$(status GET "me/announcements/$S" "$HN")" 200
 
+echo "— Thời hạn hiển thị (Hiển thị đến)"
+_w1=$(call POST admin/announcements "$HR" "{\"category\":\"notice\",\"title\":\"Tin có hạn\",\"body\":\"Nội dung\",\"audience\":\"tenant\",\"visibleUntil\":\"$(iso -5)\"}") || :
+check "Hạn đã qua → 400" "$(echo "$_w1" | field error.code)" VALIDATION_FAILED
+_w2=$(call POST admin/announcements "$HR" "{\"category\":\"notice\",\"title\":\"Tin có hạn\",\"body\":\"Nội dung\",\"audience\":\"tenant\",\"visibleUntil\":\"$(iso 60)\"}") || :
+W=$(echo "$_w2" | field data.id); need "Tạo bài có Hiển thị đến" "$W"
+check "Xuất bản ngay: đang hiện, có hạn" "$(call POST "admin/announcements/$W/publish" "$HR" '{}' | py "(d['status'], d['visibleUntil'] is not None)")" "('published', True)"
+check "Nhân viên thấy bài trong danh sách" "$(call GET me/announcements "$HN" | py "len([i for i in d['items'] if i['id']=='$W' and i['visibleUntil']])")" 1
+sql "update public.announcements set visible_until = now() + interval '1 second' where id = '$W'" >/dev/null; sleep 2
+check "Quá hạn: web HR báo Hết hạn" "$(call GET "admin/announcements/$W" "$HR" | field data.item.status)" expired
+check "Quá hạn: app không còn trong danh sách" "$(call GET me/announcements "$HN" | py "len([i for i in d['items'] if i['id']=='$W'])")" 0
+check "Quá hạn: mở bài → 404" "$(status GET "me/announcements/$W" "$HN")" 404
+_w3=$(call PATCH "admin/announcements/$W" "$HR" "{\"category\":\"notice\",\"title\":\"Tin có hạn\",\"body\":\"Nội dung\",\"audience\":\"tenant\",\"visibleUntil\":\"$(iso 1440)\"}") || :
+check "Gia hạn: hiện lại" "$(echo "$_w3" | field data.status)" published
+check "Gia hạn xong nhân viên mở lại được" "$(status GET "me/announcements/$W" "$HN")" 200
+_w4=$(call PATCH "admin/announcements/$W" "$HR" '{"category":"notice","title":"Tin có hạn","body":"Nội dung","audience":"tenant","visibleUntil":null}') || :
+check "Bỏ hạn: hiển thị tới khi gỡ" "$(echo "$_w4" | py "(d['status'], d['visibleUntil'])")" "('published', None)"
+
 echo "— Nháp xóa được, audit"
 check "Xóa nháp" "$(call POST "admin/announcements/$DRAFT/remove" "$HR" '{}' | field data.id)" "$DRAFT"
 check "Nháp đã xóa → 404" "$(status GET "admin/announcements/$DRAFT" "$HR")" 404

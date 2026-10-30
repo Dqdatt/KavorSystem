@@ -14,7 +14,7 @@ import { useClock } from "../clock";
 import { REMOTE } from "../api/http";
 import { DOCUMENT_CATEGORIES, type NotificationKind } from "@kavor/contracts";
 import { dec, gh, hm } from "../data";
-import { ACT, S, go, jump, setBioPref, lvAvail, phase, profileFieldsText, shiftMinutes, toast, worked, type ErrKind, type Route } from "../store";
+import { ACT, S, go, jump, setBioPref, setPerm, lvAvail, phase, profileFieldsText, shiftMinutes, toast, worked, type ErrKind, type Route } from "../store";
 
 /* Ảnh bìa mặc định của Kavor (dùng khi công ty chưa tải ảnh bìa riêng) */
 const COVER = '<svg viewBox="0 0 320 124" preserveAspectRatio="xMidYMid slice"><defs><linearGradient id="pfSky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#CFF5E4"/><stop offset="1" stop-color="#F3FCF8"/></linearGradient></defs><rect width="320" height="124" fill="url(#pfSky)"/><circle cx="252" cy="36" r="15" fill="#FFF4D6"/><path d="M0 22c18 8 30 30 34 58l6 44H0z" fill="#2E9C77" opacity=".55"/><path d="M320 14c-20 10-34 34-38 64l-4 46h42z" fill="#2E9C77" opacity=".55"/><path d="M0 80c40-20 70-16 110-8s80-18 120-10 60 0 90-8v70H0z" fill="#A7F3D0"/><path d="M0 96c50-14 100-4 150-10s90-14 170 0v42H0z" fill="#34C79A"/><path d="M0 108c60-8 120 4 190-4s90-4 130 2v18H0z" fill="#0B7A5A"/></svg>';
@@ -450,6 +450,12 @@ export function securitySpec(): ScreenSpec {
       <Note key="n" icon="info">{Platform.OS === "ios"
         ? `Quyền dùng ${bio} của Kavor do iOS quản lý tại Cài đặt → ${S.bioKind === "finger" ? "Touch ID" : "Face ID"} & Mật mã. Nếu tắt ở đó, Kavor sẽ chỉ dùng mã PIN.`
         : `${bio[0]!.toUpperCase()}${bio.slice(1)} do Android quản lý tại Cài đặt → Bảo mật. Nếu xóa hết ${bio} ở đó, Kavor sẽ chỉ dùng mã PIN.`}</Note>,
+      REMOTE ? <SectionHead key="shq" title="Quyền của ứng dụng" /> : null,
+      REMOTE ? <Card key="perm">
+        <Row><Gi n="bell" s={24} /><View style={{ flex: 1 }}><T style={{ fontFamily: F.semibold }}>Thông báo</T><T style={{ color: C.ink2, fontSize: 12.5, marginTop: 2 }}>Nhắc hạn giải trình công trên màn hình khóa</T></View><Toggle label="Quyền thông báo" on={S.perm?.notif === "granted"} onChange={(v) => setPerm("notif", v)} /></Row>
+        <Row><Gi n="pin" s={24} /><View style={{ flex: 1 }}><T style={{ fontFamily: F.semibold }}>Vị trí</T><T style={{ color: C.ink2, fontSize: 12.5, marginTop: 2 }}>Chỉ lấy lúc bấm Vào ca/Ra ca để xác nhận bạn ở địa điểm làm việc</T></View><Toggle label="Quyền vị trí" on={S.perm?.loc === "granted"} onChange={(v) => setPerm("loc", v)} /></Row>
+      </Card> : null,
+      REMOTE && S.perm && S.perm.loc !== "granted" ? <Note key="locw" icon="alert" warn>Kavor chưa có quyền vị trí nên bạn không chấm công được. Bật công tắc Vị trí ở trên{S.perm.loc === "denied" ? " (mở Cài đặt của máy → Kavor → Vị trí)" : ""}.</Note> : null,
       <SectionHead key="sh2" title="Thiết bị chấm công" />,
       REMOTE ? <Card key="dev"><InfoRow k="Thiết bị" v={S.att.info ? [S.att.info.deviceModel, S.att.info.osVersion ? `${S.att.info.platform === "ios" ? "iOS" : "Android"} ${S.att.info.osVersion}` : null].filter(Boolean).join(" · ") || "—" : "—"} strong />
         <InfoRow k="Đăng ký từ" v={S.att.info ? dmy(S.att.info.registeredAt.slice(0, 10)) : "—"} strong />

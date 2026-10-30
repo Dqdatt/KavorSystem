@@ -20,9 +20,11 @@ export function fromApi(a: MyAnnouncement): NewsView {
     file: a.attachment ? `${a.attachment.name} · ${size(a.attachment.size)}` : undefined, fileName: a.attachment?.name, body: announcementBlocks(a.body) };
 }
 const fromMock = (n: News): NewsView => ({ ...n, key: String(n.id), year: 2026, rel: relDay(n.date), fileName: n.file?.split(" · ")[0] });
-export const newsViews = (): NewsView[] => (REMOTE ? (S.annData?.items ?? []).map(fromApi) : S.news.map(fromMock));
+/* Bài quá "Hiển thị đến" tự ẩn ngay cả khi danh sách tải từ trước (máy chủ cũng không trả bài hết hạn) */
+const live = () => (S.annData?.items ?? []).filter((a) => !a.visibleUntil || Date.parse(a.visibleUntil) > Date.now());
+export const newsViews = (): NewsView[] => (REMOTE ? live().map(fromApi) : S.news.map(fromMock));
 /* Thẻ "Bản tin mới" trên Trang chủ: bài trong 2 ngày gần nhất */
-export const recentNewsViews = (): NewsView[] => (REMOTE ? (S.annData?.items ?? []).filter((a) => dayDiff(a.publishAt) <= 2).slice(0, 6).map(fromApi) : recentNews(S.news).map(fromMock));
+export const recentNewsViews = (): NewsView[] => (REMOTE ? live().filter((a) => dayDiff(a.publishAt) <= 2).slice(0, 6).map(fromApi) : recentNews(S.news).map(fromMock));
 
 function NewsRow({ n, first }: { n: NewsView; first: boolean }) {
   return (

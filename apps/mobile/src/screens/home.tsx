@@ -273,6 +273,7 @@ export function homeSpec(): ScreenSpec {
     body: [
       <NewsCarousel key="nc" />,
       <Hero key="hero" compact />,
+      REMOTE && S.perm && S.perm.loc !== "granted" ? <Notice key="loc" icon={<Gi n="pin" s={26} />} title="Kavor chưa có quyền vị trí" sub="Không chấm công được khi tắt vị trí · chạm để bật" right={<St s="bad">Cần bật</St>} onPress={() => go("security")} /> : null,
       n ? <Notice key="ap" icon={<Gi n="checks" s={26} />} title="Cần bạn duyệt" sub={REMOTE ? "Giải trình công" : "Nghỉ phép, tạm ứng, giải trình công"} right={<Count n={n} />} onPress={() => jump("approve")} /> : null,
       REMOTE ? (due ? <Notice key="ex" icon={<Gi n="hour" s={26} />} title={`Hạn giải trình công: ${ddmm(due.deadline)}`} sub={`Ngày ${ddmm(due.date)} ${due.issue} · ${due.daysLeft ? `còn ${due.daysLeft} ngày` : "hạn hôm nay"}`} right={<St s="warn">{explainLeft()}/{S.explainLimit} lượt</St>} onPress={() => go("explain")} /> : null)
         : <Notice key="ex" icon={<Gi n="hour" s={26} />} title="Hạn giải trình công: 22/10" sub="Ngày 15/10 thiếu giờ vào · còn 6 ngày" right={<St s="warn">{explainLeft()}/3 lượt</St>} onPress={() => go("explain")} />,

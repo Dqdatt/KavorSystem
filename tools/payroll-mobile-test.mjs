@@ -25,6 +25,7 @@ const mocks = new Map([
   ['./auth', `${noop} export const authenticate=async()=>({ok:true}), biometricLabel=async()=> 'Face ID', biometricKind=async()=>({kind:'face',label:'Face ID'}), biometricReady=async()=>false, loadSession=async()=>null, quickLoginEmployee=empty,quickRefreshToken=empty,clearQuickLogin=empty,clearSession=empty,loadBioPrefs=empty,loadSupport=empty,saveBioPrefs=empty,saveSession=empty,saveSupport=empty;`],
   ['./attendance', `${noop} export const currentFix=empty,deviceRegistration=empty,deviceSummary=empty,enqueue=empty,flushQueue=empty,installationId=empty,newEventId=empty,quietFix=empty,readQueue=empty;export class LocationError extends Error {}`],
   ['./notify', `${noop} export const clearExplainReminders=empty,scheduleExplainReminders=empty,onReminderTap=()=>()=>{};`],
+  ['./perms', `${noop} export const readPerms=async()=>({notif:'granted',loc:'granted'}),askFirstRun=async()=>null,askNotif=async()=>'granted',askLoc=async()=>'granted',openSystemSettings=()=>{};`],
   ['./api/http', `export const REMOTE=true,ApiError=globalThis.__payrollTest.ApiError,payslipApi=globalThis.__payrollTest.payslipApi;
     export const advanceApi={},announcementsApi={},attendanceApi={},documentsApi={},authApi={},companyApi={},leaveApi={},notificationsApi={},overtimeApi={},timesheetApi={},setTokenSource=()=>{},isNetworkError=()=>false;`],
   ['../api/http', `export const REMOTE=true;`],

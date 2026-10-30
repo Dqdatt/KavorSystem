@@ -11,6 +11,7 @@ import { api, type Snapshot } from "./api";
 import { authenticate, biometricKind, biometricReady, clearQuickLogin, clearSession, loadBioPrefs, loadSession, loadSupport, quickLoginEmployee, quickRefreshToken, saveBioPrefs, saveSession, saveSupport, type BioPrefs , type BioKind } from "./auth";
 import { ApiError, REMOTE, advanceApi, announcementsApi, attendanceApi, documentsApi, authApi, companyApi, isNetworkError, leaveApi, notificationsApi, overtimeApi, payslipApi, setTokenSource, timesheetApi } from "./api/http";
 import { clearExplainReminders, onReminderTap, scheduleExplainReminders } from "./notify";
+import { askFirstRun, askLoc, askNotif, openSystemSettings, readPerms, type Perms } from "./perms";
 import { PIN_LENGTH, PIN_MAX_ATTEMPTS, checkPin, clearPin, hasPin, resetPinFailures, setPin, weakPin } from "./pin";
 import { MY_REQ_INIT, SUPPORT_SAMPLE } from "./api/mock-data";
 import {
@@ -194,6 +195,8 @@ const makeState = () => ({
   bio: (REMOTE ? { login: false, unlock: false } : { login: true, unlock: true }) as BioPrefs,
   /* Người đang đăng nhập (bản dùng API) — tên viết tắt trên avatar khi hồ sơ chưa tải xong */
   me: null as MeProfile | null,
+  /* Quyền Thông báo/Vị trí của máy (bản dùng API); null = chưa đọc */
+  perm: null as Perms | null,
   bioLabel: "Face ID", bioKind: "face" as BioKind,
   /* Chấm công: giá trị mặc định là dữ liệu mẫu của prototype; bản API thật ghi đè bằng địa điểm/khoảng cách thật */
   att: {
@@ -522,6 +525,7 @@ function openNotifications() {
 
 export function go(r: Route) {
   if (r === "notifications" && REMOTE) openNotifications();
+  if (r === "security" && REMOTE) void refreshPerms();
   if ((r === "leave" || r === "leaveNew") && REMOTE) void loadLeave(true);
   if (r === "ot" && REMOTE) { void loadOvertime(true); if (!S.ts) void loadTimesheet(); }
   if ((r === "advance" || r === "advanceNew" || r === "advanceDetail") && REMOTE) void loadAdvance(true);
@@ -604,7 +608,8 @@ async function signIn(employeeId: string, result?: AuthResult, viaPassword = fal
   /* Đăng xuất xóa phiên trên máy: hỏi lại máy chủ xem máy này đã được duyệt làm thiết bị chấm công chưa */
   if (REMOTE && !session.deviceRegistered && await deviceActiveOnServer()) session = await saveSession({ employeeId, deviceRegistered: true });
   const target: Route = session.deviceRegistered ? "home" : "device";
-  if (REMOTE && viaPassword) setTimeout(() => { void offerBio(); }, 900);
+  /* Lần đầu vào trang chủ trên máy: hộp thoại quyền Thông báo, Vị trí của hệ điều hành; xong mới hỏi Face ID (không chồng hộp thoại) */
+  if (REMOTE && target === "home") setTimeout(() => { void askFirstRun().then((p) => { if (p) { S.perm = p; emit(); } else void refreshPerms(); if (viaPassword) void offerBio(); }); }, 900);
   if ((await loadCompany())?.privacy.required) { askConsent(target); return; }
   S.stack = [target];
   render(session.deviceRegistered ? "fade" : "push");
@@ -757,6 +762,8 @@ if (REMOTE) setInterval(() => {
 if (REMOTE) AppState.addEventListener("change", (st) => {
   if (st !== "active") return;
   void loadToday();
+  /* Người dùng có thể vừa bật/tắt quyền trong Cài đặt của máy */
+  if (isLoggedIn()) void refreshPerms();
   if (isLoggedIn()) refreshWork();
   /* HR công bố điều khoản mới trong lúc app chạy nền → hỏi đồng ý ở lần mở kế tiếp */
   if (isLoggedIn()) void loadCompany().then((c) => { if (c?.privacy.required) askConsent(cur() === "device" ? "device" : "home"); });
@@ -826,6 +833,27 @@ export async function setBioPref(key: keyof BioPrefs, on: boolean) {
   toast(`Đã ${on ? "bật" : "tắt"} ${key === "login" ? "đăng nhập" : "mở khóa lương/tạm ứng"} bằng ${S.bioLabel}`);
 }
 
+/* ---------- Quyền Thông báo / Vị trí (Bảo mật và thiết bị) ---------- */
+export async function refreshPerms() { S.perm = await readPerms(); emit(); }
+/* Bật: hỏi bằng hộp thoại của hệ điều hành nếu chưa hỏi lần nào, đã từ chối thì mở Cài đặt. Tắt: app không tự thu hồi được — mở Cài đặt.
+   Tắt vị trí thì cảnh báo trước vì không chấm công được. */
+export function setPerm(kind: "notif" | "loc", on: boolean) {
+  const cur = S.perm?.[kind] ?? "undetermined";
+  const name = kind === "notif" ? "Thông báo" : "Vị trí";
+  if (on && cur === "undetermined") { void (kind === "notif" ? askNotif() : askLoc()).then(() => refreshPerms()); return; }
+  if (on) {
+    Alert.alert(`Bật quyền ${name}`, `Bạn đã từ chối quyền ${name.toLowerCase()} trước đó. Mở Cài đặt của máy → Kavor → ${name} để bật lại.`, [
+      { text: "Để sau", style: "cancel" }, { text: "Mở Cài đặt", onPress: openSystemSettings },
+    ]);
+    return;
+  }
+  Alert.alert(kind === "loc" ? "Tắt quyền vị trí?" : "Tắt thông báo?", kind === "loc"
+    ? "Không có quyền vị trí thì bạn không chấm công được (Kavor chỉ lấy vị trí lúc bấm Vào ca/Ra ca). Quyền này tắt trong Cài đặt của máy → Kavor → Vị trí."
+    : "Bạn sẽ không nhận nhắc hạn giải trình công trên màn hình khóa. Quyền này tắt trong Cài đặt của máy → Kavor → Thông báo.", [
+    { text: "Giữ nguyên", style: "cancel" }, { text: "Mở Cài đặt", style: kind === "loc" ? "destructive" : "default", onPress: openSystemSettings },
+  ]);
+}
+
 /* Bật cả đăng nhập lẫn mở khóa lương bằng sinh trắc học sau một lần xác thực của hệ điều hành */
 async function enableBio() {
   const r = await authenticate(`Bật ${S.bioLabel} cho Kavor`);
@@ -884,6 +912,7 @@ export async function restoreSession() {
   if ((await loadCompany())?.privacy.required) { askConsent(target); return; }
   S.stack = [target]; render();
   if (session.deviceRegistered) { void loadToday(); refreshWork(); replayReminder(); }
+  if (REMOTE && target === "home") setTimeout(() => { void askFirstRun().then((p) => { if (p) { S.perm = p; emit(); } else void refreshPerms(); }); }, 900);
 }
 
 function pinSuccess() { S.pinUntil = Date.now() + 5 * 60 * 1000; const f = S.pinOk; S.pinOk = null; closeSheet(); f && f(); }

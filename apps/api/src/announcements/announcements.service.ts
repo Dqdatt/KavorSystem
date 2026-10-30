@@ -13,15 +13,23 @@ type Db = SupabaseGateway["admin"];
 type Row = {
   id: string; category: AnnouncementCategory; title: string; body: string; author_label: string; important: boolean; pinned: boolean; notify: boolean;
   audience: "tenant" | "units"; attachment_path: string | null; attachment_name: string | null; attachment_type: AnnouncementAttachment["type"] | null;
-  attachment_size: number | null; publish_at: string | null; notified_at: string | null; archived_at: string | null; created_at: string; updated_at: string;
+  attachment_size: number | null; publish_at: string | null; visible_until: string | null; notified_at: string | null; archived_at: string | null; created_at: string; updated_at: string;
 };
-const COLS = "id, category, title, body, author_label, important, pinned, notify, audience, attachment_path, attachment_name, attachment_type, attachment_size, publish_at, notified_at, archived_at, created_at, updated_at";
+const COLS = "id, category, title, body, author_label, important, pinned, notify, audience, attachment_path, attachment_name, attachment_type, attachment_size, publish_at, visible_until, notified_at, archived_at, created_at, updated_at";
 const CATEGORIES: AnnouncementCategory[] = ["notice", "policy", "event"];
 const UUID = /^[0-9a-f-]{36}$/i;
 const LIST_LIMIT = 200;
 
 const status = (r: Row, now = Date.now()): AnnouncementStatus =>
-  r.archived_at ? "archived" : !r.publish_at ? "draft" : Date.parse(r.publish_at) > now ? "scheduled" : "published";
+  r.archived_at ? "archived" : !r.publish_at ? "draft" : Date.parse(r.publish_at) > now ? "scheduled"
+    : r.visible_until && Date.parse(r.visible_until) <= now ? "expired" : "published";
+/* Giờ ISO có múi giờ ("…Z" hoặc "…+07:00") → ISO UTC; rỗng/null → null */
+function isoAt(raw: unknown, label: string): string | null {
+  if (raw === undefined || raw === null || raw === "") return null;
+  const t = typeof raw === "string" && /T.*(Z|[+-]\d{2}:\d{2})$/.test(raw) ? Date.parse(raw) : NaN;
+  if (Number.isNaN(t)) throw invalid(`${label} không hợp lệ.`);
+  return new Date(t).toISOString();
+}
 const attachment = (r: Row): AnnouncementAttachment | null =>
   r.attachment_path && r.attachment_name && r.attachment_type ? { name: r.attachment_name, type: r.attachment_type, size: r.attachment_size ?? 0 } : null;
 
@@ -86,7 +94,7 @@ export class AnnouncementsService {
       id: r.id, category: r.category, title: r.title, body: r.body, authorLabel: r.author_label, important: r.important, pinned: r.pinned, notify: r.notify,
       audience: r.audience,
       units: (aud.data ?? []).filter((a) => a.announcement_id === r.id).map((a) => ({ type: a.scope_type as AnnouncementUnit["type"], id: a.scope_id as string, name: names.get(`${a.scope_type}:${a.scope_id}`) ?? "—" })),
-      attachment: attachment(r), status: status(r, now), publishAt: r.publish_at, notifiedAt: r.notified_at, archivedAt: r.archived_at,
+      attachment: attachment(r), status: status(r, now), publishAt: r.publish_at, visibleUntil: r.visible_until, notifiedAt: r.notified_at, archivedAt: r.archived_at,
       createdAt: r.created_at, updatedAt: r.updated_at, ...(counts.get(r.id) ?? { recipients: 0, reads: 0 }),
     }));
   }
@@ -136,13 +144,15 @@ export class AnnouncementsService {
       return { type: x.type, id: x.id };
     });
     for (const k of ["important", "pinned", "notify"]) if (b?.[k] !== undefined && typeof b[k] !== "boolean") throw invalid(`Trường "${k}" không hợp lệ.`);
+    const visibleUntil = isoAt(b?.visibleUntil, "Giờ hết hiển thị");
+    if (visibleUntil && Date.parse(visibleUntil) <= Date.now()) throw invalid("Giờ hết hiển thị phải sau thời điểm hiện tại.");
     const body = b?.body ?? "";
     if (typeof body !== "string" || body.length > 20000) throw invalid("Nội dung tối đa 20.000 ký tự.");
     return {
       data: {
         category: oneOf(b, "category", CATEGORIES)!, title: req(b, "title", { max: 200 }), body: body.trim(),
         authorLabel: text(b, "authorLabel", { max: 80, optional: true }) ?? "Phòng Nhân sự",
-        important: b?.important === true, pinned: b?.pinned === true, notify: b?.notify === true, audience,
+        important: b?.important === true, pinned: b?.pinned === true, notify: b?.notify === true, audience, visibleUntil,
       },
       units: audience === "units" ? units : [],
     };
@@ -164,9 +174,10 @@ export class AnnouncementsService {
     const r = await this.row(ctx.db, ctx.tenantId, id);
     if (r.archived_at) throw conflict("Bài đã gỡ, không sửa được.");
     const { data, units } = this.input(b);
+    if (data.visibleUntil && r.publish_at && data.visibleUntil <= r.publish_at) throw invalid("Giờ hết hiển thị phải sau giờ xuất bản.");
     const { error } = await ctx.db.rpc("save_announcement", { p_tenant: ctx.tenantId, p_user: ctx.userId, p_id: r.id, p_data: data, p_units: units });
     if (error) dbError(error);
-    await ctx.audit("announcement.updated", "announcement", r.id, { status: status(r) }, { category: data.category, audience: data.audience, units: units.length });
+    await ctx.audit("announcement.updated", "announcement", r.id, { status: status(r), visibleUntil: r.visible_until }, { category: data.category, audience: data.audience, units: units.length, visibleUntil: data.visibleUntil });
     return this.item(ctx, r.id);
   }
 
@@ -174,14 +185,9 @@ export class AnnouncementsService {
   async publish(ctx: AdminContext, id: string, b: Body): Promise<AnnouncementAdmin> {
     ctx.requireTenantWide("announcement.publish");
     const r = await this.row(ctx.db, ctx.tenantId, id);
-    const raw = b?.publishAt;
-    let at: string | null = null;
-    if (raw !== undefined && raw !== null && raw !== "") {
-      const t = typeof raw === "string" && /T.*(Z|[+-]\d{2}:\d{2})$/.test(raw) ? Date.parse(raw) : NaN;
-      if (Number.isNaN(t)) throw invalid("Giờ xuất bản không hợp lệ.");
-      if (t < Date.now() - 60_000 || t > Date.now() + 366 * 86400_000) throw invalid("Giờ hẹn phải từ bây giờ tới tối đa một năm.");
-      at = new Date(t).toISOString();
-    }
+    const at = isoAt(b?.publishAt, "Giờ xuất bản");
+    if (at && (Date.parse(at) < Date.now() - 60_000 || Date.parse(at) > Date.now() + 366 * 86400_000)) throw invalid("Giờ hẹn phải từ bây giờ tới tối đa một năm.");
+    if (r.visible_until && Date.parse(r.visible_until) <= Math.max(Date.now(), at ? Date.parse(at) : 0)) throw invalid("Giờ hết hiển thị phải sau giờ xuất bản. Sửa bài để đổi giờ hết hiển thị.");
     const { error } = await ctx.db.rpc("publish_announcement", { p_tenant: ctx.tenantId, p_user: ctx.userId, p_id: r.id, p_at: at });
     if (error) dbError(error);
     await ctx.audit("announcement.published", "announcement", r.id, { status: status(r) }, { scheduled: !!at, notify: r.notify });
@@ -284,14 +290,15 @@ export class AnnouncementsService {
 
   private mine1(r: Row, readAt: string | null): MyAnnouncement {
     return { id: r.id, category: r.category, title: r.title, body: r.body, authorLabel: r.author_label, important: r.important, pinned: r.pinned,
-      publishAt: r.publish_at!, attachment: attachment(r), readAt };
+      publishAt: r.publish_at!, visibleUntil: r.visible_until, attachment: attachment(r), readAt };
   }
 
   async mine(me: EmployeeRow): Promise<MyAnnouncements> {
     await this.requireReader(me);
     const db = this.sb.admin;
     const { data, error } = await db.from("announcements").select(COLS).eq("tenant_id", me.tenant_id).is("archived_at", null)
-      .lte("publish_at", new Date().toISOString()).order("publish_at", { ascending: false }).limit(LIST_LIMIT);
+      .lte("publish_at", new Date().toISOString()).or(`visible_until.is.null,visible_until.gt.${new Date().toISOString()}`)
+      .order("publish_at", { ascending: false }).limit(LIST_LIMIT);
     if (error) dbError(error);
     const rows = (data ?? []) as Row[];
     // Bài toàn công ty: mọi nhân viên đang làm (đã đăng nhập được) đều nhận; bài theo đơn vị kiểm bằng SQL
