@@ -33,3 +33,18 @@ test("báo lỗi cổng, NODE_ENV và URL sai; không lộ giá trị khóa", ()
     return true;
   });
 });
+
+test("gửi thư: trạm HTTPS được ưu tiên hơn SMTP; khóa trạm ngắn hoặc http ở staging bị chặn, không lộ khóa", () => {
+  const base = { NODE_ENV: "staging", SUPABASE_URL: "https://x.supabase.co", SUPABASE_SERVICE_ROLE_KEY: "k", API_CORS_ORIGINS: "https://admin.kavor.vn" };
+  const secret = "s".repeat(40);
+  const c = loadConfig({ ...base, SMTP_URL: "smtp://u:p@smtp.gmail.com:587", MAIL_RELAY_URL: "https://hr.example.app/api/internal/mail", MAIL_RELAY_SECRET: secret });
+  assert.deepEqual(c.mail, { kind: "relay", url: "https://hr.example.app/api/internal/mail", secret });
+  assert.equal(loadConfig({ NODE_ENV: "development", SMTP_URL: "smtp://127.0.0.1:55325" }).mail?.kind, "smtp");
+  assert.throws(() => loadConfig({ ...base, MAIL_RELAY_URL: "http://hr.example.app/api/internal/mail", MAIL_RELAY_SECRET: "ngan-qua" }), (e: unknown) => {
+    assert.ok(e instanceof ConfigError);
+    assert.ok(e.problems.some((p) => p.includes("https")));
+    assert.ok(e.problems.some((p) => p.includes("32 ký tự")));
+    assert.ok(!e.message.includes("ngan-qua"));
+    return true;
+  });
+});

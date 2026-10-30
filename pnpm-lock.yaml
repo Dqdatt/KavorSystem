@@ -38,6 +38,9 @@ importers:
       next:
         specifier: ^16.4.2
         version: 16.4.2(@types/node@24.19.2)(babel-plugin-react-compiler@1.0.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      nodemailer:
+        specifier: ^8.0.11
+        version: 8.0.11
       react:
         specifier: 19.3.0
         version: 19.3.0
@@ -51,6 +54,9 @@ importers:
       '@types/node':
         specifier: ^24.10.0
         version: 24.19.2
+      '@types/nodemailer':
+        specifier: ^8.0.2
+        version: 8.0.2
       '@types/react':
         specifier: ^19.2.2
         version: 19.3.0

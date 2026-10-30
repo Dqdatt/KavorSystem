@@ -1,8 +1,9 @@
-/* Thư mời kích hoạt Kavor gửi tới email công ty của nhân viên. Dev: Mailpit (SMTP_URL=smtp://127.0.0.1:55325).
+/* Thư mời kích hoạt Kavor gửi tới email công ty của nhân viên. Dev: Mailpit (SMTP_URL=smtp://127.0.0.1:55325); bản online: trạm gửi thư (MAIL_RELAY_URL).
    Chưa cấu hình SMTP thì báo lỗi rõ ràng thay vì giả vờ đã gửi. */
 import nodemailer, { type Transporter } from "nodemailer";
 import { ADMIN_ERRORS } from "@kavor/contracts";
 import { AuthError } from "../auth/auth.service.js";
+import type { MailConfig } from "../config.js";
 
 /* webUrl: lời mời quản trị viên (Kavor Console) — kích hoạt trên web HR/Admin thay vì ứng dụng điện thoại */
 export type InviteMail = { to: string; fullName: string; employeeCode: string; companyName: string; invitedBy: string; webUrl?: string };
@@ -75,25 +76,30 @@ export function operatorInviteContent(m: OperatorInviteMail) {
   return { subject, text, html };
 }
 
+/* Nội dung thư đã dựng; gửi thẳng SMTP hoặc chuyển cho trạm gửi thư trên web HR (POST /api/internal/mail) */
+type Message = { to: string; subject: string; text: string; html: string };
+
 export class Mailer {
   private transport: Transporter | null;
-  constructor(private readonly config: { smtpUrl: string; from: string } | null) {
-    this.transport = config ? nodemailer.createTransport(config.smtpUrl) : null;
+  constructor(private readonly config: MailConfig | null) {
+    this.transport = config?.kind === "smtp" ? nodemailer.createTransport(config.smtpUrl) : null;
   }
 
-  async sendInvite(m: InviteMail) {
-    if (!this.transport || !this.config) throw new AuthError(ADMIN_ERRORS.emailNotConfigured, "Máy chủ chưa cấu hình gửi email (SMTP_URL). Chưa gửi được lời mời.", 503, true);
-    try {
-      await this.transport.sendMail({ from: this.config.from, to: m.to, ...inviteContent(m) });
-    } catch {
-      throw new AuthError("EMAIL_SEND_FAILED", "Chưa gửi được email mời. Vui lòng thử lại.", 502, true);
-    }
-  }
+  async sendInvite(m: InviteMail) { await this.deliver({ to: m.to, ...inviteContent(m) }); }
+  async sendOperatorInvite(m: OperatorInviteMail) { await this.deliver({ to: m.to, ...operatorInviteContent(m) }); }
 
-  async sendOperatorInvite(m: OperatorInviteMail) {
-    if (!this.transport || !this.config) throw new AuthError(ADMIN_ERRORS.emailNotConfigured, "Máy chủ chưa cấu hình gửi email (SMTP_URL). Chưa gửi được lời mời.", 503, true);
+  private async deliver(msg: Message) {
+    const c = this.config;
+    if (!c) throw new AuthError(ADMIN_ERRORS.emailNotConfigured, "Máy chủ chưa cấu hình gửi email (SMTP_URL hoặc MAIL_RELAY_URL). Chưa gửi được lời mời.", 503, true);
     try {
-      await this.transport.sendMail({ from: this.config.from, to: m.to, ...operatorInviteContent(m) });
+      if (c.kind === "smtp") await this.transport!.sendMail({ from: c.from, ...msg });
+      else {
+        const res = await fetch(c.url, {
+          method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${c.secret}` },
+          body: JSON.stringify(msg), signal: AbortSignal.timeout(30_000),
+        });
+        if (!res.ok) throw new Error(`relay ${res.status}`);
+      }
     } catch {
       throw new AuthError("EMAIL_SEND_FAILED", "Chưa gửi được email mời. Vui lòng thử lại.", 502, true);
     }

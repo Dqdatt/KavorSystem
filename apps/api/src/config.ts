@@ -3,13 +3,16 @@
 
 export type AppEnv = "development" | "test" | "staging" | "production";
 
+/* SMTP trực tiếp (dev: Mailpit) hoặc trạm gửi thư HTTPS trên web HR (Render Free chặn cổng SMTP — xem docs/DEPLOY.md) */
+export type MailConfig = { kind: "smtp"; smtpUrl: string; from: string } | { kind: "relay"; url: string; secret: string };
+
 export type AppConfig = {
   env: AppEnv;
   port: number;
   corsOrigins: string[];
   supabase: { url: string; serviceRoleKey: string } | null;
   /* Gửi thư mời kích hoạt; null = chưa cấu hình (API báo lỗi khi HR bấm gửi lời mời) */
-  mail: { smtpUrl: string; from: string } | null;
+  mail: MailConfig | null;
   /* Địa chỉ web HR/Admin ghi trong thư mời Tenant Admin (Kavor Console) */
   adminWebUrl: string;
   /* Địa chỉ Kavor Console ghi trong thư mời nhân viên Kavor */
@@ -67,13 +70,20 @@ export function loadConfig(source: Source = process.env): AppConfig {
   }
   if (required && corsOrigins.some((o) => o.startsWith("http://localhost"))) problems.push("Không dùng origin localhost trong API_CORS_ORIGINS ở staging/production");
 
-  const smtpUrl = get("SMTP_URL");
+  const smtpUrl = get("SMTP_URL"), relayUrl = get("MAIL_RELAY_URL"), relaySecret = get("MAIL_RELAY_SECRET");
   let mail: AppConfig["mail"] = null;
-  if (smtpUrl) {
+  if (relayUrl) {
+    try {
+      const u = new URL(relayUrl);
+      if (required && u.protocol !== "https:") problems.push("MAIL_RELAY_URL phải dùng https ở staging/production");
+      if (!relaySecret || relaySecret.length < 32) problems.push("MAIL_RELAY_SECRET phải có ít nhất 32 ký tự khi dùng MAIL_RELAY_URL");
+      else mail = { kind: "relay", url: relayUrl, secret: relaySecret };
+    } catch { problems.push("MAIL_RELAY_URL không phải URL hợp lệ"); }
+  } else if (smtpUrl) {
     try {
       const u = new URL(smtpUrl);
       if (!["smtp:", "smtps:"].includes(u.protocol)) problems.push("SMTP_URL phải bắt đầu bằng smtp:// hoặc smtps://");
-      else mail = { smtpUrl, from: get("MAIL_FROM") ?? "Kavor <no-reply@kavor.vn>" };
+      else mail = { kind: "smtp", smtpUrl, from: get("MAIL_FROM") ?? "Kavor <no-reply@kavor.vn>" };
     } catch { problems.push("SMTP_URL không phải URL hợp lệ"); }
   }
 

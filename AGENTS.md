@@ -109,3 +109,6 @@ pnpm build
   có cảnh báo, trang chủ hiện thẻ "Kavor chưa có quyền vị trí". Test Node phải mock `./perms`.
 - Ảnh simulator không đồng nghĩa với kiểm thử máy thật. Animation, safe area, Face ID và hành vi navbar phải xác nhận lại trên thiết bị vật lý.
 - Không đưa Supabase publishable key hoặc thông tin đăng nhập vào tài liệu/commit; dùng biến môi trường.
+- Bản online (`docs/DEPLOY.md`): Render Free **chặn cổng SMTP** → API gửi thư mời qua trạm `apps/admin-web/app/api/internal/mail` (Vercel) bằng
+  `MAIL_RELAY_URL` + `MAIL_RELAY_SECRET` (khóa giống nhau ở Render và Vercel); dev vẫn SMTP Mailpit. OTP do Supabase gửi, không qua API.
+  Push lên nhánh `claude/ecstatic-pascal-dblg7v` = Render/Vercel tự deploy — chạy verify-all trước khi push.

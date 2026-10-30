@@ -34,7 +34,7 @@ https://vercel.com → đăng nhập GitHub → Add New → Project → chọn r
 |---|---|---|
 | Project name | `kavor-hr` | `kavor-console` |
 | Root Directory | `apps/admin-web` | `apps/console-web` |
-| Biến môi trường | `KAVOR_API_URL`, `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `ENABLE_EXPERIMENTAL_COREPACK=1` | `KAVOR_API_URL`, `ENABLE_EXPERIMENTAL_COREPACK=1` |
+| Biến môi trường | `KAVOR_API_URL`, `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `ENABLE_EXPERIMENTAL_COREPACK=1`, trạm gửi thư: `SMTP_URL`, `MAIL_FROM`, `MAIL_RELAY_SECRET` | `KAVOR_API_URL`, `ENABLE_EXPERIMENTAL_COREPACK=1` |
 
 - `KAVOR_API_URL` = `https://kavor-api.onrender.com/api/v1` (đoán trước tên ở bước 4; nếu Render cấp tên khác thì sửa lại và Redeploy).
 - Lúc đăng ký chọn **"I'm working on personal projects" (Hobby)** — mặc định đang chọn Pro (bắt đầu dùng thử trả phí).
@@ -52,9 +52,14 @@ https://render.com → đăng nhập GitHub → New → **Blueprint** → chọn
 | `SUPABASE_SERVICE_ROLE_KEY` | Secret key ở bước 2 |
 | `API_CORS_ORIGINS` | `https://kavor-hr.vercel.app,https://kavor-console.vercel.app` |
 | `ADMIN_WEB_URL` / `CONSOLE_WEB_URL` | hai địa chỉ Vercel |
-| `SMTP_URL` | `smtp://<gmail>:<mật khẩu ứng dụng>@smtp.gmail.com:587` (ký tự `@` trong email viết `%40`) |
-| `MAIL_FROM` | `Kavor <địa chỉ gmail>` |
+| `MAIL_RELAY_URL` | `https://<web HR>/api/internal/mail` |
+| `MAIL_RELAY_SECRET` | chuỗi ngẫu nhiên ≥ 32 ký tự (`openssl rand -hex 32`), **giống hệt** biến cùng tên trên Vercel web HR |
 | `CONSOLE_BOOTSTRAP_EMAIL` | email của bạn — quản trị Console đầu tiên |
+
+**Thư mời đi qua web HR:** Render Free chặn cổng SMTP (từ 9/2026), nên API không gửi thẳng Gmail mà POST nội dung thư tới
+`/api/internal/mail` của web HR trên Vercel (Vercel mở cổng 587), kèm `MAIL_RELAY_SECRET`. Web HR cần `SMTP_URL`
+(`smtp://<gmail, @ viết %40>:<mật khẩu ứng dụng>@smtp.gmail.com:587`), `MAIL_FROM` (`Kavor <gmail>`), `MAIL_RELAY_SECRET`. OTP không bị ảnh hưởng
+(Supabase tự gửi).
 
 Kiểm: mở `https://kavor-api.onrender.com/api/v1/health` → có `"status"`. API thiếu biến/còn localhost sẽ không khởi động (xem Logs).
 
