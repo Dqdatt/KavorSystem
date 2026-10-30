@@ -30,6 +30,10 @@ old_redir = 'additional_redirect_urls = ["http://localhost:3000/**", "http://loc
 assert old_site in s and old_redir in s, "config.toml đã đổi dạng site_url/additional_redirect_urls — sửa script"
 s = s.replace(old_site, f'site_url = "{admin}"')
 s = s.replace(old_redir, f'additional_redirect_urls = ["{admin}/**", "{console}/**", "kavor://**"]')
+# Không đẩy Storage: CLI 2.108 đọc cấu hình Storage của cloud lỗi (SchemaError databasePoolMode); giới hạn file mặc định đủ, bucket do API tạo
+old_storage = '[storage]\nenabled = true'
+assert old_storage in s, "config.toml đã đổi dạng [storage] — sửa script"
+s = s.replace(old_storage, '[storage]\nenabled = false')
 # Mật khẩu đọc từ biến môi trường lúc push (env()), không ghi vào file tạm
 s += f'''
 [auth.email.smtp]
