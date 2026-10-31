@@ -4,11 +4,27 @@ import { Blur } from "../blur";
 import { C, EASE, F, GL, glass, tint } from "../theme";
 import { Gi, Ic } from "../icons";
 import { Illus } from "../illus";
-import { Avatar, Balanced, Btn, BtnRow, Card, Chip, Chips, Empty, InfoRow, LinkBtn, Seg, St, T, Tag, Timeline } from "../ui";
+import { Avatar, Balanced, Btn, BtnRow, Card, Chip, Chips, Empty, InfoRow, LinkBtn, Note, RowBtn, Seg, SectionHead, St, T, Tag, Timeline } from "../ui";
 import { Foot, TabHead, TopBar, type ScreenSpec } from "../screen";
 import { TYPE_ICON, type Approval, type MyReq } from "../data";
 import { EXPLANATION_KINDS, OVERTIME_DAY_KINDS, PROFILE_FIELDS, STEP_RESOLVERS, type ProfileField, type ProfileValues, type RequestItem } from "@kavor/contracts";
 import { ACT, S, dayCount, go, leaveRange, reqKind, reqSub, reqTitle, stamp } from "../store";
+import { sizeText } from "../attach";
+
+/* Minh chứng của đơn (bản dùng API): bấm để mở bằng trình duyệt hệ thống; người gửi thêm được khi đơn còn chờ */
+function proofs(r: RequestItem, approver?: boolean) {
+  if (!r.attachments.length && !r.attachmentRequired && !r.canAttach) return [];
+  const missing = r.attachmentRequired && !r.attachments.length;
+  return [
+    <SectionHead key="pfh" title={r.attachmentRequired ? "Minh chứng (bắt buộc)" : "Minh chứng"} />,
+    r.attachments.length ? <Card key="pf">{r.attachments.map((a) => (
+      <RowBtn key={a.id} icon={<Gi n="clip" s={24} />} title={a.name} sub={`${a.type === "application/pdf" ? "PDF" : "Ảnh"} · ${sizeText(a.size)} · ${stamp(a.createdAt)}`}
+        disabled={S.spin === "attOpen"} onPress={() => ACT.attOpen(r.no, a.id)} />
+    ))}</Card> : null,
+    missing ? <Note key="pfn" icon="clip" warn>{approver ? "Nhân viên chưa đính kèm minh chứng. Bước duyệt cuối chỉ hoàn tất được khi đã có minh chứng." : "Đơn cần minh chứng mới được duyệt xong. Thêm ảnh hoặc PDF giấy tờ liên quan."}</Note> : null,
+    r.canAttach ? <Btn key="pfa" kind="ghost" block spinKey="attAdd" onPress={() => ACT.attPick(r.no)}>Thêm minh chứng</Btn> : null,
+  ];
+}
 
 /* Luồng duyệt của đơn thật: "Đã gửi" + từng bước theo phiên bản workflow lúc gửi */
 function flowOf(r: RequestItem): { steps: Array<[string, string]>; cur: number } {
@@ -218,6 +234,7 @@ function remoteReqDetail(r: RequestItem): ScreenSpec {
         <ReqRows r={r} />
         <InfoRow k="Lý do" v={r.payload.reason || "—"} strong /><InfoRow k="Gửi lúc" v={stamp(r.submittedAt)} strong />
       </Card>,
+      ...proofs(r),
       <Card key="tl" pad><Timeline steps={f.steps} cur={f.cur} allDone={r.status === "approved"} fail={stopped} /></Card>,
       r.canCancel ? <Btn key="x" kind="danger" block onPress={() => ACT.cancelAsk(r.no)}>Hủy đơn</Btn> : null,
     ],
@@ -241,6 +258,7 @@ export function approvalDetailSpec(): ScreenSpec {
           <ReqRows r={it} approver />
           <InfoRow k="Lý do" v={it.payload.reason} strong /><InfoRow k="Gửi lúc" v={stamp(it.submittedAt)} strong />
         </Card>,
+        ...proofs(it, true),
         <Card key="tl" pad><Timeline steps={f.steps} cur={f.cur} /></Card>,
         <Spacer key="sp" />,
       ],

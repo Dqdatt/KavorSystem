@@ -10,7 +10,7 @@
     "android": "expo run:android",
     "build": "expo export --platform ios && expo export --platform android",
     "typecheck": "tsc --noEmit",
-    "test": "cd ../.. && node tools/payroll-mobile-test.mjs && node tools/content-mobile-test.mjs && node tools/pin-mobile-test.mjs && node tools/location-mobile-test.mjs"
+    "test": "cd ../.. && node tools/payroll-mobile-test.mjs && node tools/content-mobile-test.mjs && node tools/pin-mobile-test.mjs && node tools/location-mobile-test.mjs && node tools/attach-mobile-test.mjs"
   },
   "dependencies": {
     "@expo-google-fonts/montserrat": "^0.4.2",
@@ -21,7 +21,9 @@
     "expo-blur": "~57.0.3",
     "expo-crypto": "~57.0.4",
     "expo-device": "~57.0.2",
+    "expo-document-picker": "~57.0.3",
     "expo-font": "~57.0.4",
+    "expo-image-picker": "~57.0.20",
     "expo-linear-gradient": "~57.0.2",
     "expo-local-authentication": "~57.0.3",
     "expo-location": "~57.0.22",

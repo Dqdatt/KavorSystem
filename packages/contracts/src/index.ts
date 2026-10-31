@@ -791,7 +791,16 @@ type RequestItemBase = {
   /* Bước đang chờ mà người xem được duyệt (null nếu không) */
   myTaskId: string | null;
   canCancel: boolean;
+  /* Minh chứng (giải trình, nghỉ phép): tối đa REQUEST_ATTACHMENT_MAX file; đơn nghỉ đủ số ngày theo loại nghỉ thì bắt buộc,
+     bước duyệt cuối bị chặn khi chưa có. canAttach: người gửi, đơn đang chờ, chưa đủ số file */
+  attachments: RequestAttachment[];
+  attachmentRequired: boolean;
+  canAttach: boolean;
 };
+export type RequestAttachment = { id: string; name: string; type: "application/pdf" | "image/png" | "image/jpeg" | "image/webp"; size: number; createdAt: string };
+export const REQUEST_ATTACHMENT_MAX = 3;
+/* Tải minh chứng: tên file + nội dung base64 (PDF/PNG/JPEG/WebP ≤ 5 MB) */
+export type RequestAttachmentInput = { fileName: string; dataBase64: string };
 export type MyApprovals = { canApprove: boolean; items: RequestItem[] };
 export type ApprovalDecision = { comment?: string | null };
 

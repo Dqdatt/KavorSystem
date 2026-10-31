@@ -26,6 +26,7 @@ const mocks = new Map([
   ['./attendance', `${noop} export const currentFix=empty,deviceRegistration=empty,deviceSummary=empty,enqueue=empty,flushQueue=empty,installationId=empty,newEventId=empty,quietFix=empty,readQueue=empty;export class LocationError extends Error {}`],
   ['./notify', `${noop} export const clearExplainReminders=empty,scheduleExplainReminders=empty,onReminderTap=()=>()=>{};`],
   ['./perms', `${noop} export const readPerms=async()=>({notif:'granted',loc:'granted'}),askFirstRun=async()=>null,askNotif=async()=>'granted',askLoc=async()=>'granted',openSystemSettings=()=>{};`],
+  ['./attach', `export const chooseSource=async()=>null,pickFile=async()=>null,sizeText=(n)=>String(n),PICK_MAX_BYTES=5242880;`],
   ['./api/http', `export const REMOTE=true,ApiError=globalThis.__payrollTest.ApiError,payslipApi=globalThis.__payrollTest.payslipApi;
     export const advanceApi={},announcementsApi={},attendanceApi={},documentsApi={},authApi={},companyApi={},leaveApi={},notificationsApi={},overtimeApi={},timesheetApi={},setTokenSource=()=>{},isNetworkError=()=>false;`],
   ['../api/http', `export const REMOTE=true;`],

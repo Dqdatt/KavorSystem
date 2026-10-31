@@ -2,7 +2,7 @@
    Bật khi build có EXPO_PUBLIC_API_URL (và không ở chế độ QA chụp ảnh dùng dữ liệu mẫu). */
 import type {
   AttendanceEvent, AttendanceEventRequest, AttendanceToday, DeviceInfo, DeviceRegisterRequest,
-  ActivationStartRequest, ActivationVerifyRequest, ApiEnvelope, AuthResult, BrandingKind, ExplanationInput, LoginRequest, MeProfile, AdvanceInput, LeaveInput, MyAdvance, MyApprovals, MyCompany, MyLeave, MyOvertime, MyTimesheet, NotificationFeed, OvertimeInput, RequestItem,
+  ActivationStartRequest, ActivationVerifyRequest, ApiEnvelope, AuthResult, BrandingKind, ExplanationInput, LoginRequest, MeProfile, AdvanceInput, LeaveInput, MyAdvance, MyApprovals, MyCompany, MyLeave, MyOvertime, MyTimesheet, NotificationFeed, OvertimeInput, RequestAttachmentInput, RequestItem,
   MyAnnouncement, MyAnnouncements, MyDocuments, MyPayslip, MyProfile, ProfileChangeInput, MyPayslips, OtpSentResponse, PasswordForgotRequest, PasswordResetRequest, PrivacyConsentRequest, RefreshRequest,
 } from "@kavor/contracts";
 import { QA_ENABLED } from "../qa";
@@ -84,6 +84,9 @@ export const timesheetApi = {
   explain: async (b: ExplanationInput) => call<RequestItem>("POST", "/me/requests/explanations", b, await token()),
   mine: async () => call<RequestItem[]>("GET", "/me/requests", undefined, await token()),
   cancel: async (id: string) => call<RequestItem>("POST", `/me/requests/${id}/cancel`, {}, await token()),
+  /* Minh chứng: tải từng file khi đơn đang chờ; mở bằng trình duyệt hệ thống qua liên kết ký 5 phút */
+  attach: async (id: string, b: RequestAttachmentInput) => call<RequestItem>("POST", `/me/requests/${encodeURIComponent(id)}/attachments`, b, await token()),
+  attachmentUrl: async (id: string, attId: string) => `${BASE}/${(await call<{ path: string; expiresAt: string }>("POST", `/me/requests/${encodeURIComponent(id)}/attachments/${encodeURIComponent(attId)}/file-link`, {}, await token())).path}`,
   approvals: async () => call<MyApprovals>("GET", "/me/approvals", undefined, await token()),
   decide: async (taskId: string, approve: boolean, comment?: string) => call<RequestItem>("POST", `/me/approvals/${taskId}/${approve ? "approve" : "reject"}`, { comment: comment ?? null }, await token()),
 };

@@ -14,7 +14,7 @@ Cột **Schema**: thiết kế trong `DATABASE_SCHEMA.md` (đã có migration ha
 | 3 | Ảnh đại diện | Chữ viết tắt | Nhân viên tự đổi hoặc HR tải lên; có/không cần duyệt | Chưa có trường | Chưa làm |
 | 4 | Địa điểm chấm công | Nút dev `/dev/work-location` | Bản đồ, tọa độ, bán kính, sai số tối đa; nhiều địa điểm; gán theo nhóm | `work_locations` + `work_location_versions` + `policy_assignments` | Xong 23/10 (chưa có bản đồ) |
 | 5 | Thiết bị chấm công | Màn E19, "yêu cầu chuyển máy" mô phỏng | Duyệt/từ chối/reset/thu hồi; lịch sử máy | `employee_devices` (+ quyết định HR) | Xong 23/10 |
-| 6 | Quy định giải trình | Cứng 3 lượt/tháng, hạn 22/10 | Số lượt, hạn = chốt công − N ngày, bắt buộc đính kèm | Chưa có | Xong (quy định có phiên bản/tầng: số lượt, hạn); **chưa đính kèm minh chứng** |
+| 6 | Quy định giải trình | Cứng 3 lượt/tháng, hạn 22/10 | Số lượt, hạn = chốt công − N ngày, bắt buộc đính kèm | Chưa có | Xong (quy định có phiên bản/tầng: số lượt, hạn); minh chứng đính kèm xong 31/10 |
 | 7 | Chính sách tạm ứng | Cứng 30% lương, khóa ngày 20, chặn thử việc/sắp nghỉ, 6 bước | % hạn mức, ngày khóa, đối tượng; kế toán đánh dấu đã chi; trừ vào kỳ lương | `salary_advances`, `salary_advance_events` (chưa có policy) | Xong (quy định %, ngày khóa, đối tượng; Kế toán duyệt/đánh dấu đã chi; trừ khi công bố phiếu lương) |
 | 8 | Lịch nghỉ lễ | Đơn phép chỉ bỏ T7/CN | Lịch lễ quốc gia (Kavor) + ngày nghỉ riêng (công ty) | Chưa có bảng | Xong 23/10 (lịch quốc gia do Kavor + ngày nghỉ riêng công ty) |
 | 9 | Liên hệ HR | Cứng "028 3822 0142 · hr@haidang.vn" | Thông tin hỗ trợ trong cài đặt công ty | `tenant_settings` | Xong 23/10 |

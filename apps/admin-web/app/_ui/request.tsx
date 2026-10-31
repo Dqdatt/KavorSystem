@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { EXPLANATION_KINDS, OVERTIME_DAY_KINDS, PROFILE_FIELDS, REQUEST_TYPES, STEP_RESOLVERS, type ProfileField, type ProfileValues, type RequestItem, type RequestStatus, type StepStatus } from "@kavor/contracts";
 import { call } from "../_lib/client";
-import { ErrorLine, Field, Modal, Person, Status, fmtDate, fmtDateTime, useAction, useMe } from "./kit";
+import { ErrorLine, Field, Icon, Modal, Person, Status, fmtDate, fmtDateTime, useAction, useMe } from "./kit";
 
 export const REQUEST_TYPE = REQUEST_TYPES;
 export const REQUEST_STATUS: Record<RequestStatus, [string, string]> = { pending: ["Chờ duyệt", "warn"], approved: ["Đã duyệt", ""], rejected: ["Từ chối", "bad"], cancelled: ["Đã hủy", "muted"] };
@@ -99,7 +99,15 @@ export function RequestModal({ r, onClose, onDone }: { r: RequestItem; onClose: 
         <div className="detail-row"><span>Lý do</span><b style={{ whiteSpace: "normal", maxWidth: 420 }}>{r.payload.reason || "—"}</b></div>
         <div className="detail-row"><span>Gửi lúc</span><b>{fmtDateTime(r.submittedAt, tz)}</b></div>
         <div className="detail-row"><span>Trạng thái</span><b><Status v={REQUEST_STATUS[r.status]} /></b></div>
+        {r.attachments.length || r.attachmentRequired ? <div className="detail-row"><span>Minh chứng</span><b style={{ whiteSpace: "normal", maxWidth: 460 }}>
+          {r.attachments.length ? r.attachments.map((a) => (
+            <a key={a.id} className="btn small" style={{ margin: "0 0 4px 6px" }} href={`/api/requests/${r.id}/attachments/${a.id}`} target="_blank" rel="noreferrer">
+              <Icon name="download" /> {a.name} · {kb(a.size)}</a>
+          )) : <Status v={["Bắt buộc · nhân viên chưa đính kèm", "bad"]} />}
+        </b></div> : null}
       </div>
+      {r.myTaskId && r.attachmentRequired && !r.attachments.length ? <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>
+        Đơn cần minh chứng: bước duyệt cuối chỉ duyệt được sau khi nhân viên đính kèm trên app. Có thể từ chối nếu không có minh chứng.</div> : null}
       <h4 style={{ margin: "14px 0 8px", fontSize: 12, textTransform: "uppercase", letterSpacing: ".04em", color: "var(--muted)" }}>Luồng duyệt</h4>
       <Steps r={r} tz={tz} />
       {r.myTaskId ? <Field label="Ghi chú nội bộ (bắt buộc khi từ chối)" full><textarea rows={3} value={note} onChange={(e) => { setNote(e.target.value); setErr(null); }} placeholder="Không bắt buộc khi duyệt" /></Field> : null}
@@ -107,3 +115,5 @@ export function RequestModal({ r, onClose, onDone }: { r: RequestItem; onClose: 
     </Modal>
   );
 }
+
+const kb = (n: number) => n >= 1024 * 1024 ? `${(n / 1024 / 1024).toLocaleString("vi-VN", { maximumFractionDigits: 1 })} MB` : `${Math.max(1, Math.round(n / 1024))} KB`;

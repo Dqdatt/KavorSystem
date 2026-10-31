@@ -12,10 +12,11 @@ import { authenticate, biometricKind, biometricReady, clearQuickLogin, clearSess
 import { ApiError, REMOTE, advanceApi, announcementsApi, attendanceApi, documentsApi, authApi, companyApi, isNetworkError, leaveApi, notificationsApi, overtimeApi, payslipApi, setTokenSource, timesheetApi } from "./api/http";
 import { clearExplainReminders, onReminderTap, scheduleExplainReminders } from "./notify";
 import { askFirstRun, askLoc, askNotif, openSystemSettings, readPerms, type Perms } from "./perms";
+import { chooseSource, pickFile, type PickedFile } from "./attach";
 import { PIN_LENGTH, PIN_MAX_ATTEMPTS, checkPin, clearPin, hasPin, resetPinFailures, setPin, weakPin } from "./pin";
 import { MY_REQ_INIT, SUPPORT_SAMPLE } from "./api/mock-data";
 import {
-  EXPLANATION_KINDS, PROFILE_FIELDS, distanceMeters, passwordProblems,
+  EXPLANATION_KINDS, PROFILE_FIELDS, REQUEST_ATTACHMENT_MAX, distanceMeters, passwordProblems,
   type AttendanceEvent, type AttendanceToday, type AuthResult, type ExplanationKind, type AppNotification, type MyAdvance, type MyAnnouncement, type MyAnnouncements, type MyDocuments, type MeProfile, type MyProfile, type ProfileChangeInput, type ProfileField, type MyCompany, type MyLeave, type MyOvertime, type MyPayslip, type MyPayslips, type MyTimesheet, type NotificationFeed, type RequestItem, type SupportContact, type TimesheetDay, type WorkLocation,
 } from "@kavor/contracts";
 import { currentFix, deviceRegistration, deviceSummary, enqueue, flushQueue, installationId, LocationError, newEventId, quietFix, readQueue, type Fix } from "./attendance";
@@ -91,14 +92,24 @@ function lvSubmitRemote() {
     const res = await leaveApi.create({ leaveType: type.code, from: r.from!, to: r.to ?? r.from!, half: (r.to ?? r.from) === r.from ? v.half as "full" | "am" | "pm" : "full", reason: v.reason.trim() });
     const step = res.steps.find((x) => x.status === "pending");
     const days = res.type === "leave" ? res.payload.days : 0;
-    S.lvr = { type: null, from: null, to: null }; S.lv = { ...S.lv, half: "full", reason: "", err: "" };
+    const proof = await uploadFiles(res, v.files);
+    S.lvr = { type: null, from: null, to: null }; S.lv = { ...S.lv, half: "full", reason: "", files: [], err: "" };
     await Promise.all([loadLeave(), loadRequests()]);
     S.done = { illus: "leave", title: "Đã gửi đơn nghỉ",
-      text: type.deductsBalance ? `${dayCount(days)} phép được giữ chỗ đến khi đơn được duyệt. Còn ${dec(lvAvail())} ngày có thể xin thêm.` : "Loại nghỉ này không trừ phép năm.",
+      text: (type.deductsBalance ? `${dayCount(days)} phép được giữ chỗ đến khi đơn được duyệt. Còn ${dec(lvAvail())} ngày có thể xin thêm.` : "Loại nghỉ này không trừ phép năm.") + proof,
       rows: [["Mã đơn", res.no], ["Người duyệt", step?.resolver === "hr" ? "Phòng Nhân sự" : step?.assignee ?? "—"], ...(res.steps.some((x) => x.resolver === "hr" && x.status === "waiting") ? [["Sau đó", "Phòng Nhân sự duyệt"] as [string, string]] : [])],
       primary: ["Xem đơn của tôi", "requests"] };
     S.stack = ["done"]; render("push");
   }, (e) => { v.err = e.message; emit(); return true; });
+}
+
+/* Tải minh chứng đã chọn sau khi đơn được tạo (từng file). File lỗi không làm hỏng đơn: trả câu nhắc để người dùng thêm lại trong chi tiết đơn */
+async function uploadFiles(r: RequestItem, files: PickedFile[]): Promise<string> {
+  let failed = 0;
+  for (const f of files) {
+    try { await timesheetApi.attach(r.id, { fileName: f.name, dataBase64: f.base64 }); } catch { failed++; }
+  }
+  return failed ? ` Chưa gửi được ${failed}/${files.length} file minh chứng — mở đơn ${r.no} để thêm lại.` : "";
 }
 
 /* Gửi giải trình thật: loại theo bất thường của ngày, giờ đề nghị gắn vào giờ vào hoặc giờ ra tương ứng */
@@ -115,9 +126,10 @@ function exSubmitRemote() {
   remote("exSubmit", async () => {
     const r = await timesheetApi.explain(body);
     const step = r.steps.find((x) => x.status === "pending");
-    S.ex = { ...S.ex, reason: "", file: null, err: false }; S.exDay = null;
+    const proof = await uploadFiles(r, S.ex.files);
+    S.ex = { ...S.ex, reason: "", file: null, files: [], err: false }; S.exDay = null;
     await Promise.all([loadTimesheet(S.ts?.period.month), loadRequests()]);
-    S.done = { illus: "explain", title: "Đã gửi yêu cầu giải trình", text: `${step?.resolver === "hr" ? "Phòng Nhân sự" : step?.assignee ?? "Người duyệt"} sẽ nhận thông báo để duyệt. Bạn còn ${explainLeft()}/${S.explainLimit} lượt trong kỳ này.`,
+    S.done = { illus: "explain", title: "Đã gửi yêu cầu giải trình", text: `${step?.resolver === "hr" ? "Phòng Nhân sự" : step?.assignee ?? "Người duyệt"} sẽ nhận thông báo để duyệt. Bạn còn ${explainLeft()}/${S.explainLimit} lượt trong kỳ này.${proof}`,
       rows: [["Mã đơn", r.no], ["Hạn duyệt", step?.dueAt ? stamp(step.dueAt) : "—"]], primary: ["Xem đơn của tôi", "requests"] };
     S.stack = ["done"]; render("push");
   });
@@ -139,8 +151,8 @@ const makeState = () => ({
   pinMode: "enter" as "enter" | "old" | "create" | "confirm", pinFirst: "", pinErr: "", pinChange: false, pinBusy: false,
   quickOpen: false,
   explainUsed: 1, explainLimit: 3,
-  ex: { date: 15, type: "in", time: 478, reason: "", file: null as string | null, err: false },
-  lv: { type: "annual", from: null as number | null, to: null as number | null, half: "full", reason: "", err: "" },
+  ex: { date: 15, type: "in", time: 478, reason: "", file: null as string | null, files: [] as PickedFile[], err: false },
+  lv: { type: "annual", from: null as number | null, to: null as number | null, half: "full", reason: "", files: [] as PickedFile[], err: "" },
   ot: { date: 16, from: 1050, to: 1170, reason: "" },
   leave: { granted: 12, carry: 2, used: 4, pending: 0.5 },
   advance: null as null | { id: string; amount: number; step: number; created: string; reason: string },
@@ -1227,7 +1239,7 @@ export const ACT = {
     const tn = ({ in: "quên chấm vào", out: "quên chấm ra", trip: "đi công tác", device: "lỗi thiết bị/GPS", other: "khác" } as Record<string, string>)[S.ex.type];
     const req: MyReq = { id, type: "explain", title: "Giải trình công", sub: `${WD[wdOct(S.ex.date)]} ${pad(S.ex.date)}/10 · ${tn}`, status: "pending", created: "16/10 " + hm(simNow()), reason: S.ex.reason };
     S.myReq.unshift(req); sync(api.submitRequest(req));
-    S.ex = { date: 12, type: "in", time: 478, reason: "", file: null, err: false };
+    S.ex = { date: 12, type: "in", time: 478, reason: "", file: null, files: [], err: false };
     S.done = { illus: "explain", title: "Đã gửi yêu cầu giải trình", text: `Lê Quang Huy sẽ nhận thông báo để duyệt. Bạn còn ${explainLeft()}/3 lượt trong tháng 10.`, rows: [["Mã đơn", id], ["Hạn duyệt", "22/10"]], primary: ["Xem đơn của tôi", "requests"] };
     S.stack = ["done"]; render("push");
   },
@@ -1260,7 +1272,7 @@ export const ACT = {
     const id = "NP-" + pad(fd) + pad(fm);
     const req: MyReq = { id, type: "leave", title: tname, sub: `${pad(fd)}/${pad(fm)}${to !== v.from ? "–" + pad(td) + "/" + pad(tm) : ""}${half} · ${dec(n)} ngày`, status: "pending", created: "16/10 " + hm(simNow()), reason: v.reason || "—" };
     S.myReq.unshift(req); sync(api.submitRequest(req));
-    S.lv = { type: "annual", from: null, to: null, half: "full", reason: "", err: "" };
+    S.lv = { type: "annual", from: null, to: null, half: "full", reason: "", files: [], err: "" };
     S.done = { illus: "leave", title: "Đã gửi đơn nghỉ", text: v.type === "annual" ? `${dec(n)} ngày phép được giữ chỗ đến khi đơn được duyệt.` : "Loại nghỉ này không trừ phép năm.", rows: [["Mã đơn", id], ["Người duyệt", "Lê Quang Huy"]], primary: ["Xem đơn của tôi", "requests"] };
     S.stack = ["done"]; render("push");
   },
@@ -1311,6 +1323,32 @@ export const ACT = {
   newsCat: (a: string) => { S.newsCat = a; emit(); },
   openNews: (id: string) => { S.param = id; go("newsDetail"); },
   /* Hợp đồng/quyết định: mở bằng trình duyệt hệ thống (mỗi lần mở ghi audit trên máy chủ) */
+  /* Minh chứng: chọn file cho form đang soạn (ex/lv, tối đa 3) hoặc thêm thẳng vào đơn đang chờ (số đơn) */
+  attPick: (target: string) => {
+    void (async () => {
+      const src = await chooseSource();
+      if (!src) return;
+      let f: PickedFile | null;
+      try { f = await pickFile(src); } catch (e) { toast(e instanceof Error ? e.message : "Không chọn được tệp."); return; }
+      if (!f) return;
+      if (target === "ex" || target === "lv") {
+        const list = S[target].files;
+        if (list.length >= REQUEST_ATTACHMENT_MAX) { toast(`Tối đa ${REQUEST_ATTACHMENT_MAX} file minh chứng.`); return; }
+        S[target].files = [...list, f]; emit(); return;
+      }
+      const it = S.reqItems.get(target);
+      if (!it) return;
+      remote("attAdd", async () => {
+        const next = await timesheetApi.attach(it.id, { fileName: f.name, dataBase64: f.base64 });
+        S.reqItems.set(next.no, next); toast("Đã thêm minh chứng");
+      });
+    })();
+  },
+  attRemove: (target: "ex" | "lv", i: number) => { S[target].files = S[target].files.filter((_, k) => k !== i); emit(); },
+  attOpen: (no: string, attId: string) => {
+    const it = S.reqItems.get(no);
+    if (it) remote("attOpen", async () => { await Linking.openURL(await timesheetApi.attachmentUrl(it.id, attId)); });
+  },
   openDoc: (id: string) => { remote("openDoc", async () => { await Linking.openURL(await documentsApi.fileUrl(id)); }); },
   /* File đính kèm: bản dùng API mở bằng trình duyệt hệ thống (PDF/ảnh xem được ngay); bản mẫu giữ toast như prototype */
   openNewsFile: (id: string, name: string) => {

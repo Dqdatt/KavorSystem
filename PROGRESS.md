@@ -10,6 +10,10 @@ simulator hay iPhone** vì phiên cloud không có Mac). Người dùng giao "c�
 ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AGENT_PLAYBOOK.md`; kiểm tra toàn bộ bằng `bash tools/verify-all.sh`.
 
 ## Đã xong
+- Minh chứng đính kèm đơn giải trình/nghỉ phép (31/10, Claude Desktop; quyết định mặc định chờ review — `docs/plans/request-attachments.md`):
+  migration `202611140001_request_attachments.sql` (bất biến, tối đa 3 file, chặn duyệt bước cuối khi đơn bắt buộc mà chưa có), pgTAP 13, API tải lên/
+  liên kết ký/tải web + audit, smoke `tools/attachments-smoke.sh` 25 bước, web HR modal đơn, app chọn ảnh/chụp/PDF (`expo-image-picker`,
+  `expo-document-picker` — **cần build native mới**), test Node 4 ca. Bản online cần chạy `tools/cloud-supabase.sh` (migration mới).
 - CI + sao lưu bản online (31/10, Claude Desktop): CI (`.github/workflows/ci.yml`) chạy cả khi push nhánh deploy `claude/ecstatic-pascal-dblg7v`
   (trước đây chỉ `main` — nhánh deploy chưa từng có CI). `.github/workflows/db-backup.yml`: 02:00 hằng đêm dump CSDL online (vai trò/cấu trúc/dữ liệu,
   gồm Auth), mã hóa AES-256 (openssl, giải mã được bằng openssl có sẵn của macOS), giữ 14 ngày ở Artifacts. Đã thử dump + mã hóa + giải mã trên DB
@@ -443,9 +447,9 @@ ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AG
 - Bản đồ chọn vị trí: DNS nhà mạng VNPT chặn openstreetmap.org (tile + Nominatim), CARTO cần API key → dev dùng tile.openstreetmap.de + Photon
   (máy chủ cộng đồng, không hợp cho production; nhãn kèm phiên âm kiểu Đức). Cần chọn nhà cung cấp có key (VietMap/Goong/Map4D) trước pilot.
 - Ca qua đêm, tầng "loại hợp đồng", lịch xếp ca theo ngày chưa có. Trình duyệt nhúng trong app Claude không cấp quyền vị trí; nút "Dùng vị trí hiện tại của trình duyệt" cần Chrome/Safari thật.
-- Giải trình chưa có đính kèm minh chứng (cần Storage + quét file); Bảng công đã tính nghỉ phép (có lương = công) và hiện giờ OT đã duyệt (từ 24–25/10) (từ 31/10 chỉ tính phần trùng giờ chấm công), nhưng chưa có ca qua đêm; thiếu cả ngày chỉ giải trình theo giờ ca. Snapshot khóa kỳ chưa có trang xem lịch sử khóa/mở.
+- Minh chứng chưa quét virus; Bảng công đã tính nghỉ phép (có lương = công) và hiện giờ OT đã duyệt (từ 24–25/10) (từ 31/10 chỉ tính phần trùng giờ chấm công), nhưng chưa có ca qua đêm; thiếu cả ngày chỉ giải trình theo giờ ca. Snapshot khóa kỳ chưa có trang xem lịch sử khóa/mở.
 - Thông báo trên mobile không đến tức thì (iPhone trong LAN không nối Realtime của Supabase local; chưa có push) — app hỏi lại mỗi 30 giây khi đang mở, và khi mở/quay lại app; app tắt thì không biết cho tới lần mở sau. E19 vẫn hỏi lại 8 giây/lần. Ngưỡng "sắp quá hạn" 4 giờ và chu kỳ quét 10 phút là hằng số của hệ thống, chưa cấu hình theo tenant. Thông báo phiếu lương đã mở phiếu thật qua PIN/Face ID; chờ xác nhận trên iPhone bản 26/10. Chưa có nhắc chấm công/thông báo bản tin/dọn thông báo cũ.
-- Nghỉ phép chưa có: đính kèm minh chứng, ủy quyền người duyệt khi vắng, đơn vượt năm (phải tách), sửa loại nghỉ trên web (đang dùng mẫu), tầng "loại hợp đồng"; thâm niên tính tại 01/01 (đủ năm giữa năm thì năm sau mới cộng); phép tồn tự chuyển chỉ khi sổ năm trước có trong Kavor (năm đầu nhập tay).
+- Nghỉ phép chưa có: ủy quyền người duyệt khi vắng, đơn vượt năm (phải tách), sửa loại nghỉ trên web (đang dùng mẫu), tầng "loại hợp đồng"; thâm niên tính tại 01/01 (đủ năm giữa năm thì năm sau mới cộng); phép tồn tự chuyển chỉ khi sổ năm trước có trong Kavor (năm đầu nhập tay).
 - Phạm vi/tầng dùng phân công tổ chức hiện tại; danh sách nhân viên/chấm công lọc trong bộ nhớ API — đủ cho vài nghìn nhân viên, cần phân trang ở SQL khi lớn hơn. RLS `employees` gọi hàm phạm vi theo từng dòng (chậm nếu client đọc trực tiếp nhiều dòng; hiện client không đọc trực tiếp).
 - Khi máy Mac quá tải (build Xcode), GoTrue chậm → web báo "Máy chủ xác thực đang bận" (không còn tự đăng xuất).
 - Ảnh native lấy từ simulator; chưa có ảnh/video từ iPhone 11 thật.
@@ -470,7 +474,7 @@ ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AG
    `/announcements`, `/documents`, Đơn & phê duyệt (đơn HS); build Release iPhone mới để thử tab Bản tin, Hồ sơ → Hợp đồng và quyết định, mở file,
    bấm thông báo, Hồ sơ → Đề nghị sửa (gửi, thẻ đang chờ, HR duyệt rồi xem lại); thử lại vòng chờ Face ID. Review quyết định mặc định trong
    `docs/plans/documents.md`. Ổn thì merge vào main. Export/PDF phiếu lương và mở lại kỳ đã công bố để sau.
-2. Ảnh đại diện, quên PIN trên app (A11), đính kèm minh chứng giải trình/nghỉ phép.
+2. Ảnh đại diện, quên PIN trên app (A11).
 3. Phần còn lại của Kavor Console theo prototype: Usage chi tiết, Sync jobs, Sự cố, Releases (phiên bản app tối thiểu iOS/Android), Feature flags, Cài đặt nền tảng.
 - Push từ máy chủ khi app tắt (APNs/FCM) cần tài khoản Apple Developer trả phí → làm khi mua (xem "Quyết định đã chốt"); lúc đó thay luôn việc E19 hỏi lại 8 giây/lần.
 - Staging: **hoãn tới khi hệ thống hoàn thiện** (quyết định 24/10). Phương án đã phân tích sẵn: Render Singapore cho API + 2 web (~$21/tháng, địa chỉ onrender.com, chưa cần domain), Gmail SMTP như CarRental cho OTP và thư mời, project Supabase `KavorSystem` (Singapore) làm staging, chỉ dùng dữ liệu mẫu; cần đổi các giá trị localhost trong `supabase/config.toml` sang biến môi trường trước khi `config push`.

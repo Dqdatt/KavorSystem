@@ -1,4 +1,4 @@
-/* File riêng tư trên Supabase Storage (đính kèm bản tin, tài liệu nhân sự): bucket riêng, thư mục theo tenant; chỉ API đọc/ghi
+/* File riêng tư trên Supabase Storage (đính kèm bản tin, tài liệu nhân sự, minh chứng đơn): bucket riêng, thư mục theo tenant; chỉ API đọc/ghi
    (như logo/ảnh bìa — iPhone trong LAN không tới được Storage local, và không lộ đường dẫn tenant khác).
    Chưa có dịch vụ quét virus: chỉ nhận PDF/PNG/JPEG/WebP, nhận dạng theo byte đầu file, không tin content-type client gửi. */
 import { createHash, createHmac, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
@@ -19,7 +19,7 @@ export const safeName = (name: string) => name.replace(/[\\/\r\n\t]/g, "_");
 
 /* Liên kết tải ngắn hạn để app mở file bằng trình duyệt hệ thống (không gửi được header Authorization). Chữ ký gắn loại tài nguyên +
    id + nhân viên. Khóa ngẫu nhiên theo tiến trình: API khởi động lại thì liên kết cũ hết hiệu lực — chấp nhận vì liên kết chỉ sống 5 phút. */
-export type LinkKind = "announcement" | "document";
+export type LinkKind = "announcement" | "document" | "request_attachment";
 const KEY = randomBytes(32);
 export const LINK_TTL_SECONDS = 300;
 const sig = (kind: LinkKind, id: string, employeeId: string, exp: number) => createHmac("sha256", KEY).update(`${kind}.${id}.${employeeId}.${exp}`).digest("base64url");

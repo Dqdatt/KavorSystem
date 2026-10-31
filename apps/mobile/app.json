@@ -13,12 +13,17 @@
       "bundleIdentifier": "vn.kavor.mobile",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Kavor dùng vị trí khi bạn chấm công để xác minh địa điểm làm việc.",
-        "NSFaceIDUsageDescription": "Kavor dùng Face ID để mở khóa phiếu lương, tạm ứng và đăng nhập nhanh."
+        "NSFaceIDUsageDescription": "Kavor dùng Face ID để mở khóa phiếu lương, tạm ứng và đăng nhập nhanh.",
+        "NSCameraUsageDescription": "Kavor dùng camera khi bạn chụp giấy tờ làm minh chứng cho đơn từ.",
+        "NSPhotoLibraryUsageDescription": "Kavor mở thư viện ảnh khi bạn chọn ảnh làm minh chứng cho đơn từ."
       }
     },
     "android": {
       "package": "vn.kavor.mobile",
-      "permissions": ["ACCESS_COARSE_LOCATION", "ACCESS_FINE_LOCATION"],
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION"
+      ],
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#065F46"
@@ -64,6 +69,14 @@
           "locationWhenInUsePermission": "Kavor dùng vị trí khi bạn chấm công để xác minh địa điểm làm việc.",
           "isIosBackgroundLocationEnabled": false,
           "isAndroidBackgroundLocationEnabled": false
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Kavor mở thư viện ảnh khi bạn chọn ảnh làm minh chứng cho đơn từ.",
+          "cameraPermission": "Kavor dùng camera khi bạn chụp giấy tờ làm minh chứng cho đơn từ.",
+          "microphonePermission": false
         }
       ]
     ]

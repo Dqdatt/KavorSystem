@@ -4,8 +4,8 @@
    - Duyệt: người được giao (bước quản lý) hoặc người có request.hr_review với người gửi (bước HR); không ai tự duyệt đơn
      của mình. Chuyển bước nguyên tử bằng decide_approval; duyệt hết thì tạo điều chỉnh giờ công. */
 import {
-  EXPLANATION_KINDS, REQUEST_TYPES, STEP_RESOLVERS,
-  type AdvancePayload, type ExplanationKind, type ExplanationPayload, type LeavePayload, type MyApprovals, type OvertimePayload, type MyTimesheet, type ProfileChangePayload, type RequestItem, type RequestQueue, type RequestStatus, type RequestStep, type StepResolver, type StepStatus,
+  EXPLANATION_KINDS, REQUEST_ATTACHMENT_MAX, REQUEST_TYPES, STEP_RESOLVERS,
+  type AdvancePayload, type RequestAttachment, type ExplanationKind, type ExplanationPayload, type LeavePayload, type MyApprovals, type OvertimePayload, type MyTimesheet, type ProfileChangePayload, type RequestItem, type RequestQueue, type RequestStatus, type RequestStep, type StepResolver, type StepStatus,
   type WorkflowDef, type WorkflowStepInput,
 } from "@kavor/contracts";
 import type { EmployeeRow } from "../auth/auth.service.js";
@@ -14,6 +14,7 @@ import { conflict, forbidden, invalid, notFound, type AdminContext } from "../ad
 import { date, number, oneOf, req, time, type Body } from "../admin/validate.js";
 import { monthOf } from "./compute.js";
 import { EMP_LITE, type EmployeeLite, type TimesheetService } from "./timesheet.service.js";
+import { FILE_MAX_BYTES, PrivateFiles, checkLink, safeName, sha256, signLink, sniffFile } from "../files/private-files.js";
 
 type Db = SupabaseGateway["admin"];
 /* Người xem/thao tác: nhân viên trên mobile hoặc HR/quản lý trên web — đều là một tài khoản gắn hồ sơ nhân viên */
@@ -26,11 +27,16 @@ const KINDS = Object.keys(EXPLANATION_KINDS) as ExplanationKind[];
 const RESOLVERS = Object.keys(STEP_RESOLVERS) as StepResolver[];
 const TYPES = Object.keys(REQUEST_TYPES) as Array<RequestItem["type"]>;
 /* Quyền xác định người duyệt các bước không chỉ định người (theo phạm vi người gửi) */
+type AttachmentRow = { id: string; request_id: string; storage_path: string; file_name: string; mime_type: RequestAttachment["type"]; size_bytes: number; created_at: string };
+const ATT_COLS = "id, request_id, storage_path, file_name, mime_type, size_bytes, created_at";
+const ATTACHABLE: Array<RequestItem["type"]> = ["explanation", "leave"];
+const UUID = /^[0-9a-f-]{36}$/i;
 const STEP_PERM = { hr: "request.hr_review", payroll: "salary_advance.process" } as const;
 type Scopes = Record<keyof typeof STEP_PERM, Set<string>>;
 
 export class RequestsService {
-  constructor(private readonly sb: SupabaseGateway, private readonly timesheets: TimesheetService) {}
+  private readonly files: PrivateFiles;
+  constructor(private readonly sb: SupabaseGateway, private readonly timesheets: TimesheetService) { this.files = new PrivateFiles(sb, "request-attachments"); }
 
   private async audit(db: Db, v: Viewer, action: string, type: string, id: string | null, before: unknown, after: unknown, reason: string | null = null) {
     await db.from("audit_logs").insert({ tenant_id: v.tenantId, actor_user_id: v.userId, actor_type: "user", action, resource_type: type, resource_id: id, before_data: before, after_data: after, reason, correlation_id: v.correlationId });
@@ -188,9 +194,93 @@ export class RequestsService {
     const { data, error } = await db.rpc("decide_approval", { p_task: taskId, p_actor: v.userId, p_approve: approve, p_comment: comment });
     if (error?.message?.includes("TASK_NOT_PENDING")) throw conflict("Bước này vừa được người khác xử lý.");
     if (error?.message?.includes("PERIOD_LOCKED")) throw conflict("Kỳ công của ngày này đã khóa. Mở lại kỳ công trước khi duyệt.");
+    if (error?.message?.includes("ATTACHMENT_REQUIRED")) throw conflict("Đơn cần minh chứng nhưng nhân viên chưa đính kèm. Nhắc nhân viên bổ sung trên app, hoặc từ chối đơn.");
     if (error) throw error;
     await this.audit(db, v, approve ? "approval.approved" : "approval.rejected", "request", task.request_id, { step: task.step_no, status: "pending" }, { step: task.step_no, result: data, no: task.requests.request_no }, comment);
     return (await this.items(db, v, [task.request_id]))[0]!;
+  }
+
+  /* ---------- Minh chứng ---------- */
+  /* Người gửi tải lên khi đơn đang chờ; SQL kiểm lại loại đơn, trạng thái và số file (khóa dòng đơn) */
+  async attach(emp: EmployeeRow, id: string, b: Body, correlationId: string): Promise<RequestItem> {
+    const db = this.sb.admin;
+    if (!UUID.test(id)) throw notFound("đơn");
+    const { data: r } = await db.from("requests").select("id, requester_employee_id, request_no").eq("id", id).eq("tenant_id", emp.tenant_id).maybeSingle();
+    if (!r || (r as { requester_employee_id: string }).requester_employee_id !== emp.id) throw notFound("đơn");
+    const fileName = safeName(req(b, "fileName", { max: 200 }));
+    const raw = req(b, "dataBase64", { max: Math.ceil(FILE_MAX_BYTES * 1.4) });
+    const data = Buffer.from(raw, "base64");
+    if (!data.length) throw invalid("File trống.");
+    if (data.length > FILE_MAX_BYTES) throw invalid("File tối đa 5 MB.");
+    const type = sniffFile(data);
+    if (!type) throw invalid("Chỉ nhận PDF hoặc ảnh PNG, JPEG, WebP.");
+    const path = await this.files.put(emp.tenant_id, id, data, type);
+    const { data: row, error } = await db.from("request_attachments").insert({ tenant_id: emp.tenant_id, request_id: id, storage_path: path, file_name: fileName, mime_type: type,
+      size_bytes: data.length, sha256: sha256(data), created_by: emp.user_id }).select("id").single();
+    if (error) {
+      await this.files.remove(path);
+      if (error.message.includes("REQUEST_NOT_PENDING")) throw conflict("Đơn đã được xử lý, không thêm minh chứng được.");
+      if (error.message.includes("ATTACHMENT_LIMIT")) throw conflict(`Mỗi đơn tối đa ${REQUEST_ATTACHMENT_MAX} file minh chứng.`);
+      if (error.message.includes("ATTACHMENT_NOT_ALLOWED")) throw invalid("Loại đơn này không đính kèm minh chứng.");
+      throw error;
+    }
+    const v: Viewer = { userId: emp.user_id ?? "", employeeId: emp.id, tenantId: emp.tenant_id, correlationId };
+    await this.audit(db, v, "request.attachment_added", "request", id, null, { no: (r as { request_no: string }).request_no, attachmentId: (row as { id: string }).id, type, bytes: data.length });
+    return (await this.items(db, v, [id]))[0]!;
+  }
+
+  /* App: người gửi, quản lý được giao một bước của đơn, hoặc người duyệt theo quyền (HR/Kế toán) với người gửi */
+  private async attachmentFor(v: Viewer, id: string, attId: string) {
+    const db = this.sb.admin;
+    if (!UUID.test(id) || !UUID.test(attId)) throw notFound("minh chứng");
+    const [{ data: r }, { data: a }] = await Promise.all([
+      db.from("requests").select("id, requester_employee_id, request_no").eq("id", id).eq("tenant_id", v.tenantId).maybeSingle(),
+      db.from("request_attachments").select(ATT_COLS).eq("id", attId).eq("request_id", id).eq("tenant_id", v.tenantId).maybeSingle(),
+    ]);
+    if (!r || !a) throw notFound("minh chứng");
+    const rq = r as { requester_employee_id: string; request_no: string };
+    let ok = rq.requester_employee_id === v.employeeId;
+    if (!ok && v.employeeId) {
+      const { count } = await db.from("approval_tasks").select("id", { count: "exact", head: true }).eq("request_id", id).eq("assignee_employee_id", v.employeeId);
+      ok = (count ?? 0) > 0;
+    }
+    if (!ok) { const sc = await this.scopes(db, v); ok = sc.hr.has(rq.requester_employee_id) || sc.payroll.has(rq.requester_employee_id); }
+    if (!ok) throw notFound("minh chứng");
+    return { att: a as AttachmentRow, no: rq.request_no };
+  }
+
+  /* Liên kết 5 phút để app mở file bằng trình duyệt hệ thống; đường dẫn tương đối với /api/v1 */
+  async attachmentLink(v: Viewer, id: string, attId: string): Promise<{ path: string; expiresAt: string }> {
+    await this.attachmentFor(v, id, attId);
+    const { exp, sig } = signLink("request_attachment", attId, v.employeeId!, Date.now());
+    return { path: `me/requests/${id}/attachments/${attId}/file?e=${v.employeeId}&exp=${exp}&sig=${sig}`, expiresAt: new Date(exp * 1000).toISOString() };
+  }
+
+  /* Tải theo liên kết đã ký: kiểm chữ ký rồi kiểm lại quyền (người xem có thể vừa mất quyền) */
+  async linkedAttachment(id: string, attId: string, employeeId: string, exp: number, sig: string, correlationId: string) {
+    if (!UUID.test(attId) || !UUID.test(employeeId) || !checkLink("request_attachment", attId, employeeId, exp, sig)) throw notFound("minh chứng");
+    const { data: e } = await this.sb.admin.from("employees").select("id, tenant_id, user_id, status").eq("id", employeeId).maybeSingle();
+    const emp = e as { id: string; tenant_id: string; user_id: string | null; status: string } | null;
+    if (!emp || emp.status === "terminated") throw notFound("minh chứng");
+    const v: Viewer = { userId: emp.user_id ?? "", employeeId: emp.id, tenantId: emp.tenant_id, correlationId };
+    const { att, no } = await this.attachmentFor(v, id, attId);
+    return this.readAttachment(v, att, no, "app");
+  }
+
+  /* Web HR: người có request.read với người gửi */
+  async adminAttachment(ctx: AdminContext, id: string, attId: string) {
+    const r = await this.detail(ctx, id);
+    const a = r.attachments.find((x) => x.id === attId);
+    if (!a) throw notFound("minh chứng");
+    const { data } = await ctx.db.from("request_attachments").select(ATT_COLS).eq("id", attId).single();
+    return this.readAttachment(viewerOf(ctx), data as AttachmentRow, r.no, "web");
+  }
+
+  private async readAttachment(v: Viewer, a: AttachmentRow, no: string, by: "app" | "web") {
+    const data = await this.files.get(a.storage_path);
+    if (!data) throw notFound("file minh chứng");
+    await this.audit(this.sb.admin, v, "request.attachment_downloaded", "request", a.request_id, null, { no, attachmentId: a.id, by });
+    return { data, contentType: a.mime_type, name: a.file_name };
   }
 
   /* ---------- Web HR ---------- */
@@ -272,11 +362,14 @@ export class RequestsService {
   /* ---------- Dựng RequestItem ---------- */
   async items(db: Db, v: Viewer, ids: string[], scPre?: Scopes): Promise<RequestItem[]> {
     if (!ids.length) return [];
-    const [{ data: rs }, { data: ts }, { data: vs }] = await Promise.all([
+    const [{ data: rs }, { data: ts }, { data: vs }, { data: as }] = await Promise.all([
       db.from("requests").select(REQ_COLS).eq("tenant_id", v.tenantId).in("id", ids),
       db.from("approval_tasks").select(TASK_COLS).in("request_id", ids).order("step_no"),
       db.from("request_versions").select("request_id, version_no, payload, policy_snapshot").in("request_id", ids),
+      db.from("request_attachments").select(ATT_COLS).eq("tenant_id", v.tenantId).in("request_id", ids).order("created_at"),
     ]);
+    const atts = new Map<string, RequestAttachment[]>();
+    for (const a of (as ?? []) as AttachmentRow[]) atts.set(a.request_id, [...(atts.get(a.request_id) ?? []), { id: a.id, name: a.file_name, type: a.mime_type, size: a.size_bytes, createdAt: a.created_at }]);
     const rows = (rs ?? []) as RequestRow[];
     const tasks = (ts ?? []) as TaskRow[];
     const empIds = new Set<string>([...rows.map((r) => r.requester_employee_id), ...tasks.map((t) => t.assignee_employee_id).filter((x): x is string => !!x)]);
@@ -290,7 +383,7 @@ export class RequestsService {
     const actor = new Map(((actors ?? []) as Array<{ user_id: string; full_name: string }>).map((e) => [e.user_id, e.full_name]));
     const dept = new Map<string, string>();
     for (const d of (deps ?? []) as unknown as Array<{ employee_id: string; effective_to: string | null; departments: { name: string } | null }>) if (!d.effective_to && !dept.has(d.employee_id)) dept.set(d.employee_id, d.departments?.name ?? "");
-    const ver = new Map(((vs ?? []) as Array<{ request_id: string; version_no: number; payload: ExplanationPayload | LeavePayload | OvertimePayload | AdvancePayload; policy_snapshot: { day?: { rawIn: string | null; rawOut: string | null; shift: { name: string; start: string; end: string } | null } } }>)
+    const ver = new Map(((vs ?? []) as Array<{ request_id: string; version_no: number; payload: ExplanationPayload | LeavePayload | OvertimePayload | AdvancePayload; policy_snapshot: { attachmentRequired?: boolean; day?: { rawIn: string | null; rawOut: string | null; shift: { name: string; start: string; end: string } | null } } }>)
       .map((x) => [`${x.request_id}|${x.version_no}`, x]));
     const sc = scPre ?? (tasks.some((t) => t.resolver !== "direct_manager" && t.status === "pending") ? await this.scopes(db, v) : { hr: new Set<string>(), payroll: new Set<string>() });
     const advIds = rows.filter((r) => r.request_type === "salary_advance").map((r) => r.id);
@@ -341,6 +434,8 @@ export class RequestsService {
         requester: { id: r.requester_employee_id, code: e?.employee_code ?? "", fullName: e?.full_name ?? "—", department: dept.get(r.requester_employee_id) || null },
         steps, day: day ? { rawIn: day.rawIn, rawOut: day.rawOut, shift: day.shift ? `${day.shift.name} ${day.shift.start}–${day.shift.end}` : null } : null,
         myTaskId: mine?.id ?? null, canCancel: r.status === "pending" && r.requester_employee_id === v.employeeId,
+        attachments: atts.get(r.id) ?? [], attachmentRequired: !!x?.policy_snapshot?.attachmentRequired,
+        canAttach: r.status === "pending" && r.requester_employee_id === v.employeeId && ATTACHABLE.includes(r.request_type) && (atts.get(r.id)?.length ?? 0) < REQUEST_ATTACHMENT_MAX,
       };
     });
   }

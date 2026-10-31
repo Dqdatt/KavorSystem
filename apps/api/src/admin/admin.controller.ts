@@ -351,6 +351,16 @@ export class AdminController {
   requests(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Query("status") status?: string) { return this.run(r, a, (s, c) => s.requests.queue(c, { status })); }
   @Get("requests/:id")
   request(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string) { return this.run(r, a, (s, c) => s.requests.detail(c, id)); }
+  /* Minh chứng (nhị phân) — web mở qua route Next cùng origin; mỗi lần tải ghi audit */
+  @Get("requests/:id/attachments/:attId/file")
+  async requestAttachment(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string, @Param("attId") attId: string, @Res({ passthrough: true }) res: Response) {
+    const env = await this.run(r, a, (s, c) => s.requests.adminAttachment(c, id, attId));
+    res.setHeader("content-type", env.data!.contentType);
+    res.setHeader("content-disposition", `inline; filename*=UTF-8''${encodeURIComponent(env.data!.name)}`);
+    res.setHeader("cache-control", "private, no-store");
+    res.setHeader("x-content-type-options", "nosniff");
+    return new StreamableFile(env.data!.data);
+  }
   @Post("approvals/:taskId/:action") @HttpCode(200)
   decideApproval(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("taskId") taskId: string, @Param("action") action: string, @Body() b: Json) {
     return this.run(r, a, (s, c) => {

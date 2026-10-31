@@ -115,6 +115,15 @@ export class TimesheetController {
   }
   @Post("requests/profile") @HttpCode(201)
   profileRequest(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Body() b: Json) { return this.run(r, a, (s, emp, v) => s.profile.createChange(emp, b, v.correlationId)); }
+  @Post("requests/:id/attachments") @HttpCode(201)
+  attach(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string, @Body() b: Json) { return this.run(r, a, (s, emp, v) => s.requests.attach(emp, id, b, v.correlationId)); }
+  @Post("requests/:id/attachments/:attId/file-link") @HttpCode(200)
+  attachmentLink(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string, @Param("attId") attId: string) { return this.run(r, a, (s, _e, v) => s.requests.attachmentLink(v, id, attId)); }
+  /* Mở minh chứng trong trình duyệt hệ thống: chữ ký ngắn hạn từ file-link, mỗi lần tải ghi audit */
+  @Get("requests/:id/attachments/:attId/file")
+  async attachmentFile(@Req() r: CorrelatedRequest, @Param("id") id: string, @Param("attId") attId: string, @Query("e") e: string, @Query("exp") exp: string, @Query("sig") sig: string, @Res({ passthrough: true }) res: Response) {
+    return this.signedFile(r, res, (s, correlationId) => s.requests.linkedAttachment(id, attId, String(e ?? ""), Number(exp), String(sig ?? ""), correlationId));
+  }
   @Post("requests/:id/cancel") @HttpCode(200)
   cancel(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string) { return this.run(r, a, (s, emp, v) => s.requests.cancel(emp, id, v.correlationId)); }
 

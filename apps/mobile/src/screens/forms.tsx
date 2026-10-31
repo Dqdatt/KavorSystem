@@ -8,9 +8,27 @@ import { Foot, TopBar, type ScreenSpec } from "../screen";
 import { LV_DAYS, WD, dec, hm, lvKey, pad, wdOct } from "../data";
 import { REMOTE } from "../api/http";
 import { ACT, S, WD_ISO, day, dayCount, ddmm, emit, exPick, explainLeft, go, issueText, leaveRange, lvAvail, lvCount, lvrCount, monthTitle, tsDay } from "../store";
-import { OVERTIME_DAY_KINDS, type LeaveCalendarDay } from "@kavor/contracts";
+import { OVERTIME_DAY_KINDS, REQUEST_ATTACHMENT_MAX, type LeaveCalendarDay } from "@kavor/contracts";
+import { sizeText } from "../attach";
 
 const Spacer = () => <View style={{ height: 76 }} />;
+
+/* Minh chứng đang chọn trên form (bản dùng API): thẻ file như prototype, tối đa REQUEST_ATTACHMENT_MAX; tải lên sau khi gửi đơn */
+function AttachList({ target }: { target: "ex" | "lv" }) {
+  const files = S[target].files;
+  return <View style={{ gap: 8, width: "100%" }}>
+    {files.map((f, i) => (
+      <Appear key={`${f.name}-${i}`} style={[glass, styles.file]}>
+        <Gi n="clip" s={20} />
+        <T numberOfLines={1} style={{ flex: 1, fontSize: 13, fontFamily: F.medium }}>{f.name} · {sizeText(f.size)}</T>
+        <Pressable accessibilityLabel="Bỏ tệp" onPress={() => ACT.attRemove(target, i)} hitSlop={8}><Ic n="x" s={18} /></Pressable>
+      </Appear>
+    ))}
+    {files.length < REQUEST_ATTACHMENT_MAX ? <Pressable accessibilityRole="button" onPress={() => ACT.attPick(target)} style={styles.upload}>
+      <Gi n="clip" s={20} /><T style={{ fontSize: 13.5, color: C.ink2, flex: 1 }}>{files.length ? "Thêm file" : "Thêm ảnh hoặc PDF, tối đa 5 MB"}</T>
+    </Pressable> : null}
+  </View>;
+}
 
 /* Giải trình từ bảng công thật: ngày còn hạn, lý do theo bất thường của ngày, người duyệt theo luồng của công ty */
 function remoteExplainSpec(): ScreenSpec {
@@ -52,9 +70,7 @@ function remoteExplainSpec(): ScreenSpec {
             onChangeText={(v) => { S.ex.reason = v; if (S.ex.err && v.trim()) { S.ex.err = false; emit(); } }} />
           {e.err ? <ErrLine>Nhập mô tả để người duyệt có đủ thông tin xét duyệt.</ErrLine> : null}
         </Field>
-        <Field label="Minh chứng (không bắt buộc)">
-          <View style={[styles.upload, { opacity: 0.55 }]}><Gi n="clip" s={20} /><T style={{ fontSize: 13.5, color: C.ink2, flex: 1 }}>Đính kèm ảnh/PDF sẽ có ở bản sau</T></View>
-        </Field>
+        <Field label="Minh chứng (không bắt buộc)"><AttachList target="ex" /></Field>
         <Card><InfoRow k="Người duyệt" v={t.approver ?? "Phòng Nhân sự"} strong /></Card>
       </Form>,
       <Spacer key="sp" />,
@@ -245,7 +261,10 @@ function remoteLeaveNewSpec(): ScreenSpec {
         {deduct && !b ? <ErrLine>Công ty chưa áp dụng quy định phép năm cho bạn. Chọn loại nghỉ khác hoặc liên hệ phòng Nhân sự.</ErrLine>
           : over ? <ErrLine>Không đủ phép: còn {dec(b!.available)} ngày, đơn cần {dec(n)} ngày{b!.allowNegative ? ` (được nghỉ trước tối đa ${dec(b!.allowNegative)} ngày)` : ""}.</ErrLine> : null}
         {tooLong ? <ErrLine>{type!.name} tối đa {dec(type!.maxDays!)} ngày mỗi đơn.</ErrLine> : null}
-        {proof ? <Note icon="clip">Nghỉ từ {dec(type!.attachmentFromDays!)} ngày cần minh chứng — nộp cho phòng Nhân sự (đính kèm trên app sẽ có ở bản sau).</Note> : null}
+        <Field label={proof ? "Minh chứng (bắt buộc)" : "Minh chứng (không bắt buộc)"}>
+          <AttachList target="lv" />
+          {proof && !v.files.length ? <Note icon="clip">Nghỉ từ {dec(type!.attachmentFromDays!)} ngày cần minh chứng. Có thể gửi đơn trước rồi bổ sung trong Đơn của tôi — đơn chỉ được duyệt xong khi đã có minh chứng.</Note> : null}
+        </Field>
         <Card>
           <InfoRow k="Số ngày nghỉ" v={n ? `${dayCount(n)}${r.from ? ` · ${leaveRange({ from: r.from, to: r.to ?? r.from, half: single ? v.half : "full" })}` : ""}` : "Chưa chọn"} strong />
           <InfoRow k={deduct ? "Còn lại sau đơn" : "Trừ phép năm"} v={deduct ? (n && b ? `${dec(after)} ngày${after < 0 ? " (nghỉ trước)" : ""}` : "—") : "Không trừ"} strong />
