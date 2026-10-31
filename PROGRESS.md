@@ -10,6 +10,9 @@ simulator hay iPhone** vì phiên cloud không có Mac). Người dùng giao "c�
 ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AGENT_PLAYBOOK.md`; kiểm tra toàn bộ bằng `bash tools/verify-all.sh`.
 
 ## Đã xong
+- Nghỉ nửa ngày xét đi muộn/về sớm theo nửa ca còn làm (31/10, Claude Desktop): nửa ca chia ở nghỉ trưa của ca (sáng = bắt đầu → nghỉ trưa,
+  chiều = hết nghỉ trưa → kết thúc; ca không nghỉ trưa chia giữa ca), dùng ân hạn của ca; muộn/sớm thành lỗi giải trình được như ngày thường,
+  công không đổi (0,5 phép có lương + 0,5 khi chấm đủ vào/ra). Chỉ sửa `computeDay`; unit test thêm 5 ca. Quyết định chia ca chờ người dùng review.
 - Đối chiếu OT với chấm công (31/10, Claude Desktop): bảng công chỉ tính giờ OT đã duyệt trùng với giờ vào → ra đã ghi nhận (sau điều
   chỉnh) của ngày đã qua, làm tròn xuống bước 5 phút, không quá giờ đã duyệt; hôm nay/ngày tới chưa tính (`overtimeOf` trong
   `apps/api/src/timesheet/compute.ts`). Contracts: `overtime.approvedMinutes/checked`, tổng `overtimeApprovedMinutes`/`overtimeShortDays`; ảnh chụp
@@ -435,10 +438,9 @@ ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AG
 - Bản đồ chọn vị trí: DNS nhà mạng VNPT chặn openstreetmap.org (tile + Nominatim), CARTO cần API key → dev dùng tile.openstreetmap.de + Photon
   (máy chủ cộng đồng, không hợp cho production; nhãn kèm phiên âm kiểu Đức). Cần chọn nhà cung cấp có key (VietMap/Goong/Map4D) trước pilot.
 - Ca qua đêm, tầng "loại hợp đồng", lịch xếp ca theo ngày chưa có. Trình duyệt nhúng trong app Claude không cấp quyền vị trí; nút "Dùng vị trí hiện tại của trình duyệt" cần Chrome/Safari thật.
-- Giải trình chưa có đính kèm minh chứng (cần Storage + quét file); Bảng công đã tính nghỉ phép (có lương = công) và hiện giờ OT đã duyệt (từ 24–25/10) (từ 31/10 chỉ tính phần trùng giờ chấm công), nhưng chưa có ca qua đêm, nghỉ nửa ngày chưa xét
-  muộn/sớm theo nửa ca; thiếu cả ngày chỉ giải trình theo giờ ca. Snapshot khóa kỳ chưa có trang xem lịch sử khóa/mở.
+- Giải trình chưa có đính kèm minh chứng (cần Storage + quét file); Bảng công đã tính nghỉ phép (có lương = công) và hiện giờ OT đã duyệt (từ 24–25/10) (từ 31/10 chỉ tính phần trùng giờ chấm công), nhưng chưa có ca qua đêm; thiếu cả ngày chỉ giải trình theo giờ ca. Snapshot khóa kỳ chưa có trang xem lịch sử khóa/mở.
 - Thông báo trên mobile không đến tức thì (iPhone trong LAN không nối Realtime của Supabase local; chưa có push) — app hỏi lại mỗi 30 giây khi đang mở, và khi mở/quay lại app; app tắt thì không biết cho tới lần mở sau. E19 vẫn hỏi lại 8 giây/lần. Ngưỡng "sắp quá hạn" 4 giờ và chu kỳ quét 10 phút là hằng số của hệ thống, chưa cấu hình theo tenant. Thông báo phiếu lương đã mở phiếu thật qua PIN/Face ID; chờ xác nhận trên iPhone bản 26/10. Chưa có nhắc chấm công/thông báo bản tin/dọn thông báo cũ.
-- Nghỉ phép chưa có: đính kèm minh chứng, ủy quyền người duyệt khi vắng, nghỉ nửa ngày xét muộn/sớm theo nửa ca, đơn vượt năm (phải tách), sửa loại nghỉ trên web (đang dùng mẫu), tầng "loại hợp đồng"; thâm niên tính tại 01/01 (đủ năm giữa năm thì năm sau mới cộng); phép tồn tự chuyển chỉ khi sổ năm trước có trong Kavor (năm đầu nhập tay).
+- Nghỉ phép chưa có: đính kèm minh chứng, ủy quyền người duyệt khi vắng, đơn vượt năm (phải tách), sửa loại nghỉ trên web (đang dùng mẫu), tầng "loại hợp đồng"; thâm niên tính tại 01/01 (đủ năm giữa năm thì năm sau mới cộng); phép tồn tự chuyển chỉ khi sổ năm trước có trong Kavor (năm đầu nhập tay).
 - Phạm vi/tầng dùng phân công tổ chức hiện tại; danh sách nhân viên/chấm công lọc trong bộ nhớ API — đủ cho vài nghìn nhân viên, cần phân trang ở SQL khi lớn hơn. RLS `employees` gọi hàm phạm vi theo từng dòng (chậm nếu client đọc trực tiếp nhiều dòng; hiện client không đọc trực tiếp).
 - Khi máy Mac quá tải (build Xcode), GoTrue chậm → web báo "Máy chủ xác thực đang bận" (không còn tự đăng xuất).
 - Ảnh native lấy từ simulator; chưa có ảnh/video từ iPhone 11 thật.

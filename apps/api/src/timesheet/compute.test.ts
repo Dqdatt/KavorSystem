@@ -68,11 +68,22 @@ test("nghỉ phép: cả ngày có lương = 1 công, không cần chấm công;
   assert.equal(full.credit, 1);
   assert.equal(full.issue, null);
   assert.equal(day("2026-10-20", [], { leave: { ...al, paid: false, half: "full" } }).credit, 0);
-  const pm = day("2026-10-20", [["in", "08:30"], ["out", "12:00"]], { leave: { ...al, half: "pm" } });
+  const pm = day("2026-10-20", [["in", "08:00"], ["out", "12:00"]], { leave: { ...al, half: "pm" } });
   assert.equal(pm.kind, "work");
   assert.equal(pm.credit, 1);
-  assert.equal(pm.lateMinutes, 0);
+  assert.equal(pm.issue, null);
   assert.equal(day("2026-10-20", [], { leave: { ...al, half: "am" } }).issue, "absent");
+  /* Nửa ngày: muộn/sớm theo nửa ca còn làm (nghỉ trưa 12:00–13:00), ân hạn muộn 5 phút như ngày thường */
+  const pmLate = day("2026-10-20", [["in", "08:30"], ["out", "11:40"]], { leave: { ...al, half: "pm" } });
+  assert.deepEqual([pmLate.lateMinutes, pmLate.earlyMinutes, pmLate.issue, pmLate.credit], [30, 20, "late_early", 1]);
+  const am = day("2026-10-20", [["in", "13:04"], ["out", "17:00"]], { leave: { ...al, half: "am" } });
+  assert.deepEqual([am.lateMinutes, am.issue], [0, null]);
+  assert.deepEqual([day("2026-10-20", [["in", "13:20"], ["out", "17:00"]], { leave: { ...al, half: "am" } }).lateMinutes], [20]);
+  /* Ca không nghỉ trưa: chia giữa ca (08:00–16:00 → 12:00) */
+  const noBreak = { ...HC, end: "16:00", breakStart: null, breakEnd: null };
+  assert.equal(day("2026-10-20", [["in", "12:15"], ["out", "16:00"]], { shift: noBreak, leave: { ...al, half: "am" } }).lateMinutes, 15);
+  /* Hôm nay nghỉ sáng, vào 13:30: báo muộn theo nửa chiều */
+  assert.equal(day("2026-10-23", [["in", "13:30"]], { today: "2026-10-23", leave: { ...al, half: "am" } }).issue, "late");
   /* Ngày nghỉ theo ca thì đơn nghỉ không có tác dụng */
   assert.equal(day("2026-10-18", [], { leave: { ...al, half: "full" } }).kind, "off");
 });

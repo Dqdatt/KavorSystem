@@ -97,8 +97,12 @@ export function computeDay(i: DayInput): Omit<TimesheetDay, "canExplain" | "expl
     return { ...base, kind: i.holiday ? "holiday" : "off", ...empty };
   }
   const s = minutesOf(shift!.start), e = minutesOf(shift!.end);
-  const late = inMin != null && inMin > s + shift!.lateGraceMinutes ? inMin - s : 0;
-  const early = outMin != null && outMin < e - shift!.earlyGraceMinutes ? e - outMin : 0;
+  /* Nghỉ nửa ngày: muộn/sớm xét theo nửa ca còn phải làm (chia ở nghỉ trưa; ca không nghỉ trưa chia giữa ca) */
+  const mid = Math.round((s + e) / 2);
+  const ws = leave?.half === "am" ? (shift!.breakEnd ? minutesOf(shift!.breakEnd) : mid) : s;
+  const we = leave?.half === "pm" ? (shift!.breakStart ? minutesOf(shift!.breakStart) : mid) : e;
+  const late = inMin != null && inMin > ws + shift!.lateGraceMinutes ? inMin - ws : 0;
+  const early = outMin != null && outMin < we - shift!.earlyGraceMinutes ? we - outMin : 0;
   let worked = 0;
   if (inMin != null && outMin != null && outMin > inMin) {
     worked = Math.max(0, Math.min(outMin, e) - Math.max(inMin, s));
@@ -109,16 +113,13 @@ export function computeDay(i: DayInput): Omit<TimesheetDay, "canExplain" | "expl
   }
   if (i.date === i.today) {
     /* Hôm nay chưa kết thúc: chỉ báo đi muộn, chưa coi là thiếu */
-    return { ...base, kind: "today", lateMinutes: leave ? 0 : late, earlyMinutes: 0, workedMinutes: worked, credit: 0, issue: late && !leave ? "late" : null, workday, leave };
-  }
-  if (leave) {
-    /* Nghỉ nửa ngày: nửa còn lại phải chấm đủ vào/ra; chưa xét muộn/sớm theo nửa ca (giờ ca chưa chia buổi) */
-    const issue: DayIssue | null = inMin == null && outMin == null ? "absent" : inMin == null ? "missing_in" : outMin == null ? "missing_out" : null;
-    return { ...base, kind: "work", lateMinutes: 0, earlyMinutes: 0, workedMinutes: worked, credit: (leave.paid ? 0.5 : 0) + (inMin != null && outMin != null ? 0.5 : 0), issue, workday, leave };
+    return { ...base, kind: "today", lateMinutes: late, earlyMinutes: 0, workedMinutes: worked, credit: 0, issue: late ? "late" : null, workday, leave };
   }
   const issue: DayIssue | null = inMin == null && outMin == null ? "absent" : inMin == null ? "missing_in" : outMin == null ? "missing_out"
     : late && early ? "late_early" : late ? "late" : early ? "early" : null;
-  return { ...base, kind: "work", lateMinutes: late, earlyMinutes: early, workedMinutes: worked, credit: inMin != null && outMin != null ? 1 : 0, issue, workday, leave: null };
+  /* Nghỉ nửa ngày: nửa nghỉ có lương 0,5 công, nửa còn lại phải chấm đủ vào/ra */
+  const credit = leave ? (leave.paid ? 0.5 : 0) + (inMin != null && outMin != null ? 0.5 : 0) : inMin != null && outMin != null ? 1 : 0;
+  return { ...base, kind: "work", lateMinutes: late, earlyMinutes: early, workedMinutes: worked, credit, issue, workday, leave };
 }
 
 /* Hạn giải trình: ngày làm việc thứ N sau ngày phát sinh (bỏ ngày nghỉ theo ca và ngày lễ) */
