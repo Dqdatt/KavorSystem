@@ -32,6 +32,9 @@ export const F = {
   semibold: "Montserrat_600SemiBold",
   bold: "Montserrat_700Bold",
   extrabold: "Montserrat_800ExtraBold",
+  /* Chữ nghiêng trong nội dung bản tin có định dạng */
+  italic: "Montserrat_400Regular_Italic",
+  boldItalic: "Montserrat_700Bold_Italic",
 } as const;
 
 /* Liquid glass layer (prototype: --gl-*) */

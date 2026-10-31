@@ -43,12 +43,37 @@ test("rule config keeps declared fields and rejects bad values", () => {
   assert.equal(checkRuleConfig("explanation", { monthlyLimit: 2.5, deadlineDays: 3 }).problems.length, 1);
 });
 
-import { announcementBlocks, announcementReadMinutes } from "./index.js";
+import { announcementExcerpt, announcementListMarkers, announcementPlainText, announcementReadMinutes, parseAnnouncement, parseAnnouncementInline } from "./index.js";
 
-test("tách nội dung bản tin thành đoạn và danh sách", () => {
-  assert.deepEqual(announcementBlocks("Đoạn 1\r\n\r\n- Ý a\n- Ý b\n\n  \nĐoạn 2\ndòng 2"), ["Đoạn 1", ["Ý a", "Ý b"], "Đoạn 2\ndòng 2"]);
-  assert.deepEqual(announcementBlocks("- chỉ một dòng gạch\nkhông gạch"), ["- chỉ một dòng gạch\nkhông gạch"]);
-  assert.deepEqual(announcementBlocks("   "), []);
+test("bản tin: bài chữ thuần cũ vẫn tách đúng đoạn, xuống dòng và gạch đầu dòng", () => {
+  assert.deepEqual(parseAnnouncement("Đoạn 1\r\n\r\n- Ý a\n- Ý b\n\n  \nĐoạn 2\ndòng 2"), [
+    { kind: "p", indent: 0, lines: [[{ text: "Đoạn 1" }]] },
+    { kind: "list", items: [{ ordered: false, level: 0, content: [{ text: "Ý a" }] }, { ordered: false, level: 0, content: [{ text: "Ý b" }] }] },
+    { kind: "p", indent: 0, lines: [[{ text: "Đoạn 2" }], [{ text: "dòng 2" }]] },
+  ]);
+  /* Dòng "- " xen giữa đoạn (như bài HR gõ tay) thành mục danh sách */
+  assert.deepEqual(parseAnnouncement("Vì vậy:\n- Ý 1\nCảm ơn").map((b) => b.kind), ["p", "list", "p"]);
+  assert.deepEqual(parseAnnouncement("   "), []);
+});
+
+test("bản tin: tiêu đề, danh sách số nhiều cấp, thụt lề, đường kẻ", () => {
+  const b = parseAnnouncement("## Mục 1\n1. Một\n  - con\n2. Hai\n\n> thụt 1\n>> thụt 2\n---");
+  assert.deepEqual(b.map((x) => x.kind), ["h", "list", "p", "p", "hr"]);
+  assert.deepEqual(b[1], { kind: "list", items: [
+    { ordered: true, level: 0, content: [{ text: "Một" }] }, { ordered: false, level: 1, content: [{ text: "con" }] }, { ordered: true, level: 0, content: [{ text: "Hai" }] },
+  ] });
+  assert.deepEqual([b[2], b[3]].map((x) => (x?.kind === "p" ? x.indent : -1)), [1, 2]);
+  const l = parseAnnouncement("1. a\n2. b\n  1. b1\n  2. b2\n3. c\n  - c1");
+  assert.deepEqual(l[0]?.kind === "list" ? announcementListMarkers(l[0].items) : [], ["1.", "2.", "1.", "2.", "3.", "◦"]);
+});
+
+test("bản tin: đậm, nghiêng, gạch chân, ký tự thoát và ký hiệu lẻ", () => {
+  assert.deepEqual(parseAnnouncementInline("a **đậm *cả nghiêng*** ++gạch++ b"), [
+    { text: "a " }, { text: "đậm ", b: true }, { text: "cả nghiêng", b: true, i: true }, { text: " " }, { text: "gạch", u: true }, { text: " b" },
+  ]);
+  assert.deepEqual(parseAnnouncementInline("5 \\* 3 = 15, giá *chưa đóng"), [{ text: "5 * 3 = 15, giá *chưa đóng" }]);
+  assert.equal(announcementPlainText("## Tiêu đề\n**Đậm** và *nghiêng*\n\n- ý"), "Tiêu đề\n\nĐậm và nghiêng\n\ný");
+  assert.equal(announcementExcerpt("**Mở đầu** bài\n\nĐoạn 2"), "Mở đầu bài");
   assert.equal(announcementReadMinutes("ngắn"), 1);
-  assert.equal(announcementReadMinutes(Array(600).fill("từ").join(" ")), 3);
+  assert.equal(announcementReadMinutes(Array(600).fill("**từ**").join(" ")), 3);
 });

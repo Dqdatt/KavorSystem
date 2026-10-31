@@ -10,6 +10,10 @@ simulator hay iPhone** vì phiên cloud không có Mac). Người dùng giao "c�
 ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AGENT_PLAYBOOK.md`; kiểm tra toàn bộ bằng `bash tools/verify-all.sh`.
 
 ## Đã xong
+- Bản tin có định dạng + màn chi tiết gọn (30/10, Claude Desktop): web soạn trực quan (TipTap 3.32.0) lưu chữ có ký hiệu,
+  `parseAnnouncement`/`announcementListMarkers` ở contracts (unit test), drawer web và app hiển thị đậm/nghiêng/gạch chân/tiêu đề mục/
+  danh sách nhiều cấp/thụt lề/đường kẻ; app thêm font Montserrat nghiêng (Android cần build lại native). Màn chi tiết app bỏ biểu tượng lớn,
+  hộp "Bạn cần biết", nhãn "NỘI DUNG" (`docs/plans/announcements.md`). Đã thử web trên trình duyệt (soạn, lưu, mở lại khớp).
 - Skeleton khi tải dữ liệu trên web (30/10, Claude Desktop): `Skeleton`/`SkeletonRows`/`SkeletonLines` trong `@kavor/web-ui` (CSS ở
   `kavor.css`, theo theme, tắt nhấp nháy khi giảm chuyển động) thay bảng trống/"—"/"Đang tải…": 28 bảng (web HR + Console), 6 drawer chi tiết,
   thẻ số liệu Tổng quan, Cơ cấu tổ chức; lỗi tải thì chỉ còn banner. Đã chụp web HR (sáng/tối, làm chậm API trong tab); Console chỉ typecheck.

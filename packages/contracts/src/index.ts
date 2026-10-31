@@ -893,16 +893,92 @@ export type MyAnnouncement = {
 };
 export type MyAnnouncements = { items: MyAnnouncement[] };
 
-/* Nội dung bản tin là chữ thuần: đoạn cách nhau bằng dòng trống; đoạn mà mọi dòng bắt đầu bằng "- " là danh sách gạch đầu dòng.
-   Trả về đúng cấu trúc prototype mobile (string = đoạn, string[] = danh sách). */
-export function announcementBlocks(body: string): Array<string | string[]> {
-  return body.replace(/\r\n?/g, "\n").split(/\n\s*\n/).map((b) => b.trim()).filter(Boolean).map((b) => {
-    const lines = b.split("\n").map((l) => l.trim()).filter(Boolean);
-    return lines.every((l) => /^[-•]\s+/.test(l)) ? lines.map((l) => l.replace(/^[-•]\s+/, "")) : lines.join("\n");
+/* ---------- Nội dung bản tin có định dạng ----------
+   Lưu dạng chữ có ký hiệu (gần Markdown, không HTML) để an toàn và bài cũ (chữ thuần) vẫn đọc đúng. Mỗi dòng:
+     dòng trống = hết đoạn · "---" = đường kẻ · "## " = tiêu đề mục · "- " / "1. " = danh sách chấm/số (thụt 2 dấu cách mỗi cấp)
+     "> " / ">> " = đoạn thụt lề 1/2 cấp · dòng khác = đoạn văn (các dòng liền nhau là một đoạn, giữ xuống dòng).
+   Trong dòng: **đậm**, *nghiêng*, ++gạch chân++; "\" trước một ký tự để giữ nguyên ký tự đó.
+   Trình soạn web (apps/admin-web/app/_ui/rich-text.tsx) đọc/ghi đúng dạng này; mobile và web hiển thị qua parseAnnouncement. */
+export type AnnouncementInline = { text: string; b?: true; i?: true; u?: true };
+export type AnnouncementListItem = { ordered: boolean; level: number; content: AnnouncementInline[] };
+export type AnnouncementBlock =
+  | { kind: "p"; indent: number; lines: AnnouncementInline[][] }
+  | { kind: "h"; content: AnnouncementInline[] }
+  | { kind: "list"; items: AnnouncementListItem[] }
+  | { kind: "hr" };
+
+export const ANNOUNCEMENT_MAX_LEVEL = 3;
+type Mark = "b" | "i" | "u";
+const MARKS: Array<[string, Mark]> = [["**", "b"], ["++", "u"], ["*", "i"]];
+
+export function parseAnnouncementInline(line: string): AnnouncementInline[] {
+  /* Tách chữ và ký hiệu; ký hiệu không có cặp (lẻ ở cuối) thành chữ thường */
+  const toks: Array<{ text: string; mark?: Mark }> = [];
+  for (let k = 0; k < line.length;) {
+    if (line[k] === "\\" && k + 1 < line.length) { toks.push({ text: line[k + 1]! }); k += 2; continue; }
+    const m = MARKS.find(([sym]) => line.startsWith(sym, k));
+    if (m) { toks.push({ text: m[0], mark: m[1] }); k += m[0].length; continue; }
+    toks.push({ text: line[k]! }); k++;
+  }
+  for (const [, mark] of MARKS) {
+    const at = toks.flatMap((t, n) => (t.mark === mark ? [n] : []));
+    if (at.length % 2) delete toks[at[at.length - 1]!]!.mark;
+  }
+  const out: AnnouncementInline[] = [];
+  const on: Record<Mark, boolean> = { b: false, i: false, u: false };
+  for (const t of toks) {
+    if (t.mark) { on[t.mark] = !on[t.mark]; continue; }
+    const last = out[out.length - 1];
+    if (last && !!last.b === on.b && !!last.i === on.i && !!last.u === on.u) { last.text += t.text; continue; }
+    out.push({ text: t.text, ...(on.b ? { b: true as const } : {}), ...(on.i ? { i: true as const } : {}), ...(on.u ? { u: true as const } : {}) });
+  }
+  return out;
+}
+
+export function parseAnnouncement(body: string): AnnouncementBlock[] {
+  const blocks: AnnouncementBlock[] = [];
+  let gap = false; /* vừa qua dòng trống: dòng sau bắt đầu khối mới */
+  const level = (spaces: string) => Math.min(ANNOUNCEMENT_MAX_LEVEL, Math.floor(spaces.replace(/\t/g, "  ").length / 2));
+  for (const raw of body.replace(/\r\n?/g, "\n").split("\n")) {
+    const line = raw.replace(/\s+$/, "");
+    const last = blocks[blocks.length - 1];
+    let m: RegExpMatchArray | null;
+    if (!line.trim()) { gap = true; continue; }
+    const fresh = gap; gap = false;
+    if (/^\s*(-{3,}|_{3,})$/.test(line)) { blocks.push({ kind: "hr" }); continue; }
+    if ((m = line.match(/^\s*#{1,6}\s+(.*)$/))) { blocks.push({ kind: "h", content: parseAnnouncementInline(m[1]!) }); continue; }
+    if ((m = line.match(/^(\s*)(?:([-•*+])|(\d{1,3})[.)])\s+(.*)$/))) {
+      const item = { ordered: !m[2], level: level(m[1]!), content: parseAnnouncementInline(m[4]!) };
+      if (last?.kind === "list" && !fresh) last.items.push(item); else blocks.push({ kind: "list", items: [item] });
+      continue;
+    }
+    m = line.match(/^\s*(>{1,3})\s?(.*)$/);
+    const indent = m ? m[1]!.length : 0, text = m ? m[2]! : line.trim();
+    if (last?.kind === "p" && last.indent === indent && !fresh) last.lines.push(parseAnnouncementInline(text));
+    else blocks.push({ kind: "p", indent, lines: [parseAnnouncementInline(text)] });
+  }
+  return blocks;
+}
+
+/* Ký hiệu đầu mục: danh sách số đếm theo từng cấp (về 1 khi đổi loại hoặc sau mục cấp nông hơn), chấm đổi kiểu theo cấp */
+export function announcementListMarkers(items: AnnouncementListItem[]): string[] {
+  const count: number[] = [], kind: boolean[] = [];
+  return items.map((it) => {
+    count.length = kind.length = it.level + 1;
+    if (kind[it.level] !== it.ordered) { count[it.level] = 0; kind[it.level] = it.ordered; }
+    count[it.level] = (count[it.level] ?? 0) + 1;
+    return it.ordered ? `${count[it.level]}.` : (["•", "◦", "▪", "▪"][it.level] ?? "•");
   });
 }
+/* Chữ thuần (bỏ ký hiệu) — dùng cho đoạn trích và ước tính thời gian đọc */
+export function announcementPlainText(body: string): string {
+  const flat = (c: AnnouncementInline[]) => c.map((x) => x.text).join("");
+  return parseAnnouncement(body).map((b) => b.kind === "p" ? b.lines.map(flat).join("\n") : b.kind === "h" ? flat(b.content) : b.kind === "list" ? b.items.map((x) => flat(x.content)).join("\n") : "").filter(Boolean).join("\n\n");
+}
+/* Đoạn đầu tiên dạng chữ thuần (đoạn trích trên danh sách tin) */
+export const announcementExcerpt = (body: string) => announcementPlainText(body).split("\n\n")[0] ?? "";
 /* Thời gian đọc ước tính ("1 phút" như prototype): ~200 từ/phút, tối thiểu 1 */
-export const announcementReadMinutes = (body: string) => Math.max(1, Math.round(body.trim().split(/\s+/).filter(Boolean).length / 200));
+export const announcementReadMinutes = (body: string) => Math.max(1, Math.round(announcementPlainText(body).split(/\s+/).filter(Boolean).length / 200));
 
 /* ---------- Tài liệu nhân sự ---------- */
 export type DocumentCategory = "contract" | "appendix" | "decision" | "personal" | "insurance" | "other";

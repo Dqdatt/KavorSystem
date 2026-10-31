@@ -1,14 +1,15 @@
 "use client";
 /* Bản tin nội bộ — bám page-announcements của prototype HR ("Bài đang xuất bản", "Lịch xuất bản", nút "Tạo bài viết").
    Thiết kế bổ sung: bảng tất cả bài, soạn/sửa bài, xuất bản/hẹn giờ, chi tiết + danh sách đã đọc. Mở bài trên app = đã đọc
-   (không có nút xác nhận). Nội dung chữ thuần: dòng trống tách đoạn, dòng "- " thành gạch đầu dòng (announcementBlocks). */
+   (không có nút xác nhận). Nội dung có định dạng (đậm, nghiêng, danh sách, thụt lề…) soạn bằng _ui/rich-text.tsx, lưu chữ có ký hiệu. */
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ANNOUNCEMENT_CATEGORIES, ANNOUNCEMENT_MAX_BYTES, announcementBlocks, type AnnouncementAdmin, type AnnouncementBoard, type AnnouncementCategory,
+import { ANNOUNCEMENT_CATEGORIES, ANNOUNCEMENT_MAX_BYTES, type AnnouncementAdmin, type AnnouncementBoard, type AnnouncementCategory,
   type AnnouncementDetail, type AnnouncementInput, type AnnouncementStatus, type AnnouncementUnit } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
 import { Drawer, Empty, ErrorLine, Field, Icon, LoadError, Modal, Person, Status, fmtDateTime, num, useAction, useMe } from "../../_ui/kit";
 import { Select, SkeletonLines, SkeletonRows } from "@kavor/web-ui";
+import { RichText, RichTextEditor } from "../../_ui/rich-text";
 
 const STATUS: Record<AnnouncementStatus, [string, string]> = { draft: ["Nháp", "muted"], scheduled: ["Hẹn giờ", "info"], published: ["Đang hiện", ""], expired: ["Hết hạn", "warn"], archived: ["Đã gỡ", "muted"] };
 const FILTERS: Array<[AnnouncementStatus | "all", string]> = [["all", "Tất cả"], ["published", "Đang hiện"], ["scheduled", "Hẹn giờ"], ["draft", "Nháp"], ["expired", "Hết hạn"], ["archived", "Đã gỡ"]];
@@ -110,14 +111,6 @@ function AnnouncementsPage() {
 }
 export default function Page() { return <Suspense><AnnouncementsPage /></Suspense>; }
 
-function Body({ text }: { text: string }) {
-  const blocks = announcementBlocks(text);
-  if (!blocks.length) return <p className="muted" style={{ margin: 0 }}>Chưa có nội dung.</p>;
-  return <>{blocks.map((x, i) => Array.isArray(x)
-    ? <ul key={i} style={{ margin: "0 0 10px", paddingLeft: 20 }}>{x.map((l, j) => <li key={j} style={{ margin: "3px 0" }}>{l}</li>)}</ul>
-    : <p key={i} style={{ margin: "0 0 10px", whiteSpace: "pre-line" }}>{x}</p>)}</>;
-}
-
 function DetailDrawer({ id, onClose, onEdit, onPublish, onChanged }: { id: string; onClose: () => void; onEdit: (a: AnnouncementAdmin) => void; onPublish: (a: AnnouncementAdmin) => void; onChanged: () => void }) {
   const me = useMe();
   const tz = me.tenant.timezone;
@@ -148,7 +141,7 @@ function DetailDrawer({ id, onClose, onEdit, onPublish, onChanged }: { id: strin
           <article className="card" style={{ padding: 16 }}>
             <div className="muted" style={{ fontSize: 10.5 }}>{a.publishAt ? `${a.status === "scheduled" ? "Hẹn xuất bản" : "Xuất bản"} ${fmtDateTime(a.publishAt, tz)}` : "Chưa xuất bản"}{a.important ? " · Quan trọng" : ""}{a.pinned ? " · Đã ghim" : ""}</div>
             <h3 style={{ margin: "6px 0 12px", fontSize: 16 }}>{a.title}</h3>
-            <div style={{ fontSize: 12.5, lineHeight: 1.6 }}><Body text={a.body} /></div>
+            <div style={{ fontSize: 12.5, lineHeight: 1.6 }}><RichText body={a.body} /></div>
             {a.attachment ? <a className="btn small" href={`/api/announcements/${a.id}/attachment`} target="_blank" rel="noreferrer"><Icon name="file" /> {a.attachment.name} · {kb(a.attachment.size)}</a> : null}
           </article>
           <div className="card detail-list" style={{ marginTop: 12 }}>
@@ -206,6 +199,7 @@ function Editor({ a, units, onClose, onSaved }: { a: AnnouncementAdmin | null; u
 
   async function save(publish: boolean) {
     if (!f.title.trim()) { setErr("Nhập tiêu đề bài viết."); return; }
+    if (f.body.length > 20000) { setErr("Nội dung quá dài (tối đa 20.000 ký tự)."); return; }
     if (f.audience === "units" && !f.units.length) { setErr("Chọn ít nhất một chi nhánh hoặc phòng ban nhận bài."); return; }
     if (file && file.size > ANNOUNCEMENT_MAX_BYTES) { setErr("File đính kèm tối đa 5 MB."); return; }
     const visibleUntil = until ? zonedToIso(until, tz) : null;
@@ -250,8 +244,8 @@ function Editor({ a, units, onClose, onSaved }: { a: AnnouncementAdmin | null; u
             </div>
           ) : null}
         </Field>
-        <Field label="Nội dung" full hint="Dòng trống tách đoạn; các dòng bắt đầu bằng “- ” thành danh sách gạch đầu dòng.">
-          <textarea rows={9} value={f.body} maxLength={20000} onChange={(e) => setF({ ...f, body: e.target.value })} placeholder={"Đoạn mở đầu…\n\n- Ý thứ nhất\n- Ý thứ hai"} />
+        <Field label="Nội dung" full hint="Tab / Shift+Tab để thụt lề hoặc đổi cấp danh sách; dán từ Word giữ đậm, nghiêng, gạch chân, danh sách.">
+          <RichTextEditor value={f.body} onChange={(body) => setF((x) => ({ ...x, body }))} placeholder="Đoạn mở đầu…" />
         </Field>
         <Field label="File đính kèm (không bắt buộc)" full hint="PDF hoặc ảnh PNG, JPEG, WebP; tối đa 5 MB. Nhân viên mở được trên app.">
           <input ref={input} type="file" accept="application/pdf,image/png,image/jpeg,image/webp" hidden onChange={(e) => { setFile(e.target.files?.[0] ?? null); setDropFile(false); e.target.value = ""; }} />

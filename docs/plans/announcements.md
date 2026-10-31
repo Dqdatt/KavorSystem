@@ -22,8 +22,13 @@ dạng theo byte đầu file), "Lưu tin"/"Chia sẻ" theo người dùng (giữ
 
 ## Quyết định kỹ thuật (Claude)
 
-- Nội dung là chữ thuần, không HTML/Markdown: đoạn cách nhau bằng dòng trống, đoạn mà mọi dòng bắt đầu bằng `- ` là danh sách
-  gạch đầu dòng — đúng cấu trúc `body: Array<string | string[]>` của prototype mobile. Hàm tách dùng chung ở `@kavor/contracts`.
+- ~~Nội dung là chữ thuần~~ → **từ 30/10/2026 có định dạng** (người dùng yêu cầu như Word): web soạn trực quan bằng TipTap
+  (`apps/admin-web/app/_ui/rich-text.tsx`: đậm, nghiêng, gạch chân, tiêu đề mục, danh sách chấm/số nhiều cấp, thụt lề Tab/Shift+Tab,
+  đường kẻ, hoàn tác) nhưng **lưu chữ có ký hiệu gần Markdown**, không lưu HTML (không phải lọc mã độc, bài chữ thuần cũ vẫn đúng,
+  dán từ Word chỉ giữ định dạng hỗ trợ). Cú pháp và bộ tách `parseAnnouncement` ở `@kavor/contracts` (unit test); web và mobile hiển thị
+  từ cùng cây khối. Mobile dùng font Montserrat nghiêng (400/700 Italic). Khác trước: dòng `- ` xen giữa đoạn cũng thành mục danh sách.
+- Màn chi tiết mobile lệch prototype có chủ ý (người dùng chọn 30/10): khung tiêu đề gọn (bỏ biểu tượng lớn, không căn giữa tin
+  Thông báo), bỏ hộp "Bạn cần biết" và nhãn "NỘI DUNG" để nội dung bắt đầu ở khoảng 1/3 trên màn hình.
 - Người nhận: nhân viên chưa nghỉ việc có phân công chính đang hiệu lực (theo ngày của công ty) thuộc chi nhánh đã chọn, hoặc thuộc
   phòng ban đã chọn **hoặc phòng ban con** của nó. Tính lúc đọc (người mới vào phòng sau khi đăng vẫn thấy bài).
 - Trạng thái suy ra từ cột: nháp (`publish_at` null), hẹn giờ (`publish_at` > now), đã xuất bản, đã gỡ (`archived_at`).

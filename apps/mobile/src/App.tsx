@@ -4,7 +4,7 @@ import { Blur, BlurSource } from "./blur";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
 import {
-  Montserrat_300Light, Montserrat_400Regular, Montserrat_500Medium, Montserrat_600SemiBold, Montserrat_700Bold, Montserrat_800ExtraBold, useFonts,
+  Montserrat_300Light, Montserrat_400Regular, Montserrat_400Regular_Italic, Montserrat_500Medium, Montserrat_600SemiBold, Montserrat_700Bold, Montserrat_700Bold_Italic, Montserrat_800ExtraBold, useFonts,
 } from "@expo-google-fonts/montserrat";
 import { C, EASE, F, GL, SPRING, glass } from "./theme";
 import { Gi, Ic, type IconName } from "./icons";
@@ -321,7 +321,7 @@ function KavorApp() {
   }, [splash]);
   /* Android: Montserrat đã nhúng native (plugin expo-font trong app.json). Nạp thêm lúc chạy làm bộ đo chữ
      và bộ vẽ chữ dùng hai typeface khác nhau, chữ bị ngắt dòng sai ("Đăng nhập" chỉ còn "Đăng"). */
-  const [fonts] = useFonts(Platform.OS === "android" ? {} : { Montserrat_300Light, Montserrat_400Regular, Montserrat_500Medium, Montserrat_600SemiBold, Montserrat_700Bold, Montserrat_800ExtraBold });
+  const [fonts] = useFonts(Platform.OS === "android" ? {} : { Montserrat_300Light, Montserrat_400Regular, Montserrat_400Regular_Italic, Montserrat_500Medium, Montserrat_600SemiBold, Montserrat_700Bold, Montserrat_700Bold_Italic, Montserrat_800ExtraBold });
   useEffect(() => {
     const handle = (url: string | null) => {
       if (!url) return;

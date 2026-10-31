@@ -21,7 +21,7 @@ NOTES = {
     "home-scrolled": "Khớp hành vi: navbar ẩn khi cuộn xuống, thanh tiêu đề chuyển kính.",
     "spring-home": "Khớp. Thông báo vị trí trượt xuống sau 1 giây như prototype.",
     "error-e26-slow-network": "Khớp. Trạng thái 'Đang gửi chấm công…' chỉ kéo dài 2,4 giây nên được chụp sớm.",
-    "news-detail": "Khớp. Tin loại Thông báo giữ nguyên bố cục căn giữa phần đầu như prototype (do class .notice trùng tên).",
+    "news-detail": "Lệch có chủ ý (người dùng chọn 30/10/2026): khung tiêu đề gọn căn trái, bỏ biểu tượng lớn, hộp \"Bạn cần biết\" và nhãn \"NỘI DUNG\" để nội dung bắt đầu ở 1/3 trên màn hình; nội dung hiển thị định dạng (docs/plans/announcements.md).",
     "login": "Khớp. Nút Face ID dùng biểu tượng hệ thống iOS (SF Symbol faceid) theo yêu cầu.",
 }
 KNOWN = "Khác biệt cố ý: thanh trạng thái/vạch home thật của iOS thay cho hình vẽ; font Montserrat render bằng CoreText nên nét chữ hơi khác Chrome."
@@ -44,7 +44,7 @@ def main():
             "prototype": f"prototype/{s}.png",
             "native": f"native/{s}.png" if has else None,
             "paired": f"paired/{s}.png",
-            "status": ("intentional-change" if s == "faceid-scanning" else "reviewed-existing-differences" if s.startswith("payroll-api-") else "matched") if has else "missing",
+            "status": ("intentional-change" if s in ("faceid-scanning", "news-detail") else "reviewed-existing-differences" if s.startswith("payroll-api-") else "matched") if has else "missing",
             "diff": d,
             "note": NOTES.get(s, "Khớp bố cục, màu, chữ và trạng thái."),
         })
