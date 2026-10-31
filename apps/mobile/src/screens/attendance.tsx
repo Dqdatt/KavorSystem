@@ -74,7 +74,7 @@ function tsModel(d: TimesheetDay, filtered?: boolean): RowModel {
     : d.issue === "missing_in" ? ["Thiếu giờ vào", "bad"] : d.issue === "missing_out" ? ["Thiếu giờ ra", "bad"] : d.issue === "absent" ? ["Không chấm công", "bad"]
     : d.issue === "late" || d.issue === "late_early" ? [`Muộn ${d.lateMinutes} phút`, "bad"] : d.issue === "early" ? [`Về sớm ${d.earlyMinutes} phút`, "bad"]
     : d.leave && d.kind !== "leave" ? [`${d.leave.typeName} buổi ${d.leave.half === "am" ? "sáng" : "chiều"}`, "mute"]
-    : d.overtime ? [`Làm thêm ${String(Math.round(d.overtime.minutes / 6) / 10).replace(".", ",")} giờ · ${d.overtime.ratePercent}%`, "ok"] : null;
+    : d.overtime ? otNote(d.overtime) : null;
   return {
     dayNum: d.date.slice(8, 10), wd: WD_ISO[d.weekday]!, today: d.kind === "today", leave: d.kind === "holiday" || d.kind === "leave",
     leaveLabel: d.kind === "leave" ? d.leave?.typeName ?? "Nghỉ phép" : d.holidayName ?? "Nghỉ lễ",
@@ -279,3 +279,11 @@ const styles = StyleSheet.create({
   exBtn: { marginLeft: "auto", height: 28, paddingHorizontal: 12, borderRadius: 14, justifyContent: "center", experimental_backgroundImage: GL.tint, boxShadow: GL.tintSh },
   wk: { marginVertical: 8, marginHorizontal: 12, padding: 14, borderRadius: 12, backgroundColor: C.warnSoft },
 });
+
+/* OT đã duyệt: ngày đã qua chỉ tính phần trùng giờ vào → ra (API đối chiếu); thiếu thì báo */
+const otH = (min: number) => String(Math.round(min / 6) / 10).replace(".", ",");
+function otNote(o: NonNullable<TimesheetDay["overtime"]>): [string, string] {
+  if (!o.checked) return [`Làm thêm ${otH(o.approvedMinutes)} giờ đã duyệt · ${o.ratePercent}%`, "mute"];
+  if (o.minutes < o.approvedMinutes) return [`Làm thêm ${otH(o.minutes)}/${otH(o.approvedMinutes)} giờ · thiếu giờ chấm`, "warn"];
+  return [`Làm thêm ${otH(o.minutes)} giờ · ${o.ratePercent}%`, "ok"];
+}

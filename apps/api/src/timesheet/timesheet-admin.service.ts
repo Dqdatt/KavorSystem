@@ -109,9 +109,9 @@ export class TimesheetAdmin {
   async exportCsv(ctx: AdminContext, m?: string): Promise<{ filename: string; body: string }> {
     const b = await this.board(ctx, m);
     const esc = (v: unknown) => { const s = String(v ?? ""); return /[",\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
-    const head = ["Mã NV", "Họ tên", "Phòng ban", "Ngày công", "Công chuẩn", "Số ngày đi muộn", "Phút đi muộn", "Số ngày về sớm", "Thiếu công chưa giải trình", "Giải trình chờ duyệt", "Trạng thái"];
+    const head = ["Mã NV", "Họ tên", "Phòng ban", "Ngày công", "Công chuẩn", "Số ngày đi muộn", "Phút đi muộn", "Số ngày về sớm", "Thiếu công chưa giải trình", "Giải trình chờ duyệt", "Giờ OT được tính", "Giờ OT đã duyệt", "Trạng thái"];
     const label = { ok: "Đủ dữ liệu", needs_action: "Cần xử lý", short: "Thiếu công" } as const;
-    const lines = b.rows.map((r) => [r.employee.code, r.employee.fullName, r.employee.department ?? "", r.summary.credited, r.summary.standard, r.summary.lateDays, r.summary.lateMinutes, r.summary.earlyDays, r.summary.missingDays, r.summary.pendingRequests, label[r.status]].map(esc).join(","));
+    const lines = b.rows.map((r) => [r.employee.code, r.employee.fullName, r.employee.department ?? "", r.summary.credited, r.summary.standard, r.summary.lateDays, r.summary.lateMinutes, r.summary.earlyDays, r.summary.missingDays, r.summary.pendingRequests, r.summary.overtimeMinutes / 60, r.summary.overtimeApprovedMinutes / 60, label[r.status]].map(esc).join(","));
     await ctx.audit("timesheet.exported", "timesheet", null, null, { month: b.period.month, rows: b.rows.length });
     return { filename: `bang-cong-${b.period.month}.csv`, body: "﻿" + [head.join(","), ...lines].join("\r\n") + "\r\n" };
   }

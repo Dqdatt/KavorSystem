@@ -62,6 +62,8 @@ async function all<T>(query: (from: number, to: number) => PromiseLike<{ data: u
   }
 }
 
+const otHours = (min: number) => String(Math.round(min / 6) / 10).replace(".", ",");
+
 export class PayrollService {
   constructor(private readonly sb: SupabaseGateway, private readonly timesheets: TimesheetService) {}
 
@@ -206,7 +208,9 @@ export class PayrollService {
       if (adv.some((a) => a.deducted_cycle_id !== null)) warn("ADVANCE_ALREADY_DEDUCTED", "Có tạm ứng đã được ghi nhận khấu trừ.", r, "ADVANCE");
       const hasOt = ots.some((o) => o.employee_id === r.employeeId && o.minutes > 0), hasPay = (r.items.find((i) => i.componentId === otId)?.amount ?? 0) > 0;
       if (hasOt !== hasPay) warn("OT_MISMATCH", hasOt ? "Có OT đã duyệt trong kỳ nhưng không có OT_PAY." : "Có OT_PAY nhưng không có OT đã duyệt trong kỳ.", r, "OT_PAY");
-      const credited = sheets.sheets.get(r.employeeId)?.summary.credited;
+      const sum = sheets.sheets.get(r.employeeId)?.summary;
+      if (sum && sum.overtimeShortDays > 0) warn("OT_SHORT", `${sum.overtimeShortDays} ngày giờ chấm công không phủ hết OT đã duyệt: tính ${otHours(sum.overtimeMinutes)}/${otHours(sum.overtimeApprovedMinutes)} giờ.`, r, "OT_PAY");
+      const credited = sum?.credited;
       if (r.workDays !== null && credited !== undefined && r.workDays !== credited) warn("WORK_DAYS_MISMATCH", "work_days khác ngày công credited trong bảng công của kỳ.", r, "work_days");
     }
     // Thiếu cả dòng nhân viên có tạm ứng đã chi vẫn phải hiện đối chiếu, không chỉ cảnh báo thiếu nhân viên.

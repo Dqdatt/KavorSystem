@@ -726,8 +726,9 @@ export type TimesheetDay = {
   workday: boolean;
   /* Nghỉ phép đã duyệt: cả ngày → kind "leave"; nửa ngày vẫn là ngày làm việc, nửa còn lại phải chấm công */
   leave: { typeName: string; half: LeaveHalf; paid: boolean; requestNo: string } | null;
-  /* Làm thêm giờ đã duyệt của ngày (cộng các đơn) */
-  overtime: { minutes: number; ratePercent: number; requestNos: string[] } | null;
+  /* Làm thêm giờ đã duyệt của ngày (cộng các đơn). minutes = giờ được tính (phần trùng với giờ vào → ra), approvedMinutes = giờ trên đơn;
+     checked = false với hôm nay/ngày tới (chưa đối chiếu, minutes = 0). */
+  overtime: { minutes: number; approvedMinutes: number; checked: boolean; ratePercent: number; requestNos: string[] } | null;
   canExplain: boolean;
   explainDeadline: string | null;
 };
@@ -738,8 +739,11 @@ export type TimesheetSummary = {
   pendingRequests: number;
   /* Số ngày nghỉ phép đã duyệt trong kỳ (nửa ngày = 0,5); ngày nghỉ có lương đã tính vào credited */
   leaveDays: number;
-  /* Phút làm thêm đã duyệt trong kỳ */
+  /* Phút làm thêm được tính trong kỳ (đã đối chiếu chấm công) và phút trên các đơn đã duyệt */
   overtimeMinutes: number;
+  overtimeApprovedMinutes: number;
+  /* Ngày đã qua có giờ chấm công không phủ hết giờ OT đã duyệt */
+  overtimeShortDays: number;
 };
 export type ExplanationQuota = { limit: number; used: number; left: number; deadlineDays: number };
 export type MyTimesheet = {

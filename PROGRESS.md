@@ -1,5 +1,5 @@
 # PROGRESS
-_Cập nhật: 2026-10-30 — bởi Claude (Desktop)_
+_Cập nhật: 2026-10-31 — bởi Claude (Desktop)_
 
 ## Mục tiêu đang làm
 **Phiên cloud → Desktop: đọc `docs/CLOUD_HANDOFF.md` trước** (commit nào đã push, chưa test gì trên máy thật, quyết định chờ review).
@@ -10,6 +10,12 @@ simulator hay iPhone** vì phiên cloud không có Mac). Người dùng giao "c�
 ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AGENT_PLAYBOOK.md`; kiểm tra toàn bộ bằng `bash tools/verify-all.sh`.
 
 ## Đã xong
+- Đối chiếu OT với chấm công (31/10, Claude Desktop): bảng công chỉ tính giờ OT đã duyệt trùng với giờ vào → ra đã ghi nhận (sau điều
+  chỉnh) của ngày đã qua, làm tròn xuống bước 5 phút, không quá giờ đã duyệt; hôm nay/ngày tới chưa tính (`overtimeOf` trong
+  `apps/api/src/timesheet/compute.ts`). Contracts: `overtime.approvedMinutes/checked`, tổng `overtimeApprovedMinutes`/`overtimeShortDays`; ảnh chụp
+  khóa kỳ cũ được chuẩn hóa khi đọc (giờ đã duyệt = giờ tính). Payroll thêm cảnh báo `OT_SHORT`; CSV bảng công thêm 2 cột giờ OT; web HR (dòng ngày +
+  drawer) và app (danh sách ngày, sheet ngày) hiện "được tính/đã duyệt", tô cảnh báo khi thiếu. Unit test 44, smoke OT thêm 6 bước.
+  **Chưa xem UI trên trình duyệt/simulator.** Còn: OT ngày nghỉ quên chấm ra chưa giải trình được (giải trình chỉ mở cho ngày làm việc) — HR điều chỉnh.
 - Bản tin có định dạng + màn chi tiết gọn (30/10, Claude Desktop): web soạn trực quan (TipTap 3.32.0) lưu chữ có ký hiệu,
   `parseAnnouncement`/`announcementListMarkers` ở contracts (unit test), drawer web và app hiển thị đậm/nghiêng/gạch chân/tiêu đề mục/
   danh sách nhiều cấp/thụt lề/đường kẻ; app thêm font Montserrat nghiêng (Android cần build lại native). Màn chi tiết app bỏ biểu tượng lớn,
@@ -429,7 +435,8 @@ ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AG
 - Bản đồ chọn vị trí: DNS nhà mạng VNPT chặn openstreetmap.org (tile + Nominatim), CARTO cần API key → dev dùng tile.openstreetmap.de + Photon
   (máy chủ cộng đồng, không hợp cho production; nhãn kèm phiên âm kiểu Đức). Cần chọn nhà cung cấp có key (VietMap/Goong/Map4D) trước pilot.
 - Ca qua đêm, tầng "loại hợp đồng", lịch xếp ca theo ngày chưa có. Trình duyệt nhúng trong app Claude không cấp quyền vị trí; nút "Dùng vị trí hiện tại của trình duyệt" cần Chrome/Safari thật.
-- Giải trình chưa có đính kèm minh chứng (cần Storage + quét file); Bảng công chưa tính nghỉ phép/OT/ca qua đêm; thiếu cả ngày chỉ giải trình theo giờ ca. Snapshot khóa kỳ chưa có trang xem lịch sử khóa/mở.
+- Giải trình chưa có đính kèm minh chứng (cần Storage + quét file); Bảng công đã tính nghỉ phép (có lương = công) và hiện giờ OT đã duyệt (từ 24–25/10) (từ 31/10 chỉ tính phần trùng giờ chấm công), nhưng chưa có ca qua đêm, nghỉ nửa ngày chưa xét
+  muộn/sớm theo nửa ca; thiếu cả ngày chỉ giải trình theo giờ ca. Snapshot khóa kỳ chưa có trang xem lịch sử khóa/mở.
 - Thông báo trên mobile không đến tức thì (iPhone trong LAN không nối Realtime của Supabase local; chưa có push) — app hỏi lại mỗi 30 giây khi đang mở, và khi mở/quay lại app; app tắt thì không biết cho tới lần mở sau. E19 vẫn hỏi lại 8 giây/lần. Ngưỡng "sắp quá hạn" 4 giờ và chu kỳ quét 10 phút là hằng số của hệ thống, chưa cấu hình theo tenant. Thông báo phiếu lương đã mở phiếu thật qua PIN/Face ID; chờ xác nhận trên iPhone bản 26/10. Chưa có nhắc chấm công/thông báo bản tin/dọn thông báo cũ.
 - Nghỉ phép chưa có: đính kèm minh chứng, ủy quyền người duyệt khi vắng, nghỉ nửa ngày xét muộn/sớm theo nửa ca, đơn vượt năm (phải tách), sửa loại nghỉ trên web (đang dùng mẫu), tầng "loại hợp đồng"; thâm niên tính tại 01/01 (đủ năm giữa năm thì năm sau mới cộng); phép tồn tự chuyển chỉ khi sổ năm trước có trong Kavor (năm đầu nhập tay).
 - Phạm vi/tầng dùng phân công tổ chức hiện tại; danh sách nhân viên/chấm công lọc trong bộ nhớ API — đủ cho vài nghìn nhân viên, cần phân trang ở SQL khi lớn hơn. RLS `employees` gọi hàm phạm vi theo từng dòng (chậm nếu client đọc trực tiếp nhiều dòng; hiện client không đọc trực tiếp).
@@ -444,7 +451,7 @@ ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AG
   đính kèm (chỉ nhận PDF/PNG/JPEG/WebP theo byte đầu), chọn người nhận theo vai trò, người đăng phạm vi phòng ban, nhiều file/bài, "Lưu tin" theo người dùng.
   Thống kê người nhận gọi hàm SQL theo từng bài (≤ 200 bài/trang) — đủ cho pilot, cần gộp khi công ty lớn.
 - Tạm ứng: DB/API payroll đã nối đối chiếu và đánh dấu khấu trừ khi công bố; web `/payroll` và phiếu cá nhân trên app đã có. Tài khoản ngân hàng lấy từ hồ sơ HR đã duyệt (tab Lương cơ bản); chưa chặn khi kỳ lương đã chốt, nhiều lần/tháng. Quy định mẫu nhận đơn đến ngày 20 nên sau ngày 20 nhân viên không gửi được đơn tháng đó (đúng prototype); thử trên máy sau ngày 20 thì tạo quy định riêng hạn 31.
-- OT chưa có: OT ban đêm (+30%/+20%), OT qua nửa đêm (phải tách hai đơn), đối chiếu giờ OT với chấm công thực tế, ngoại lệ 300 giờ/năm theo ngành (chỉnh trong quy định). API payroll đã đọc `overtime_entries` đã duyệt để cảnh báo OT_PAY hai chiều, không tính tiền OT.
+- OT chưa có: OT ban đêm (+30%/+20%), OT qua nửa đêm (phải tách hai đơn), ngoại lệ 300 giờ/năm theo ngành (chỉnh trong quy định). API payroll đã đọc `overtime_entries` đã duyệt để cảnh báo OT_PAY hai chiều, không tính tiền OT.
 - Android chưa thử luồng chấm công thật (GPS/hàng đợi) trên emulator.
 - Test tự động của admin-web, console-web, web-ui vẫn là placeholder; mobile có 17 ca hành vi (payroll 6, bản tin 5, tài liệu 3, hồ sơ 3), chưa có bộ kiểm UI/native đầy đủ.
 - Trên bản dev, gõ phím "r" khi không focus ô nhập sẽ làm Metro reload (chỉ ảnh hưởng dev).

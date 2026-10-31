@@ -13,7 +13,7 @@ import { conflict, invalid, type AdminContext } from "../admin/context.js";
 import { addDays, date, req, time, type Body } from "../admin/validate.js";
 import { PolicyIndex, loadPlacements, minutesOf, type Placement } from "../attendance/policy.js";
 import { holidaysOf } from "../company/company.service.js";
-import { datesBetween, isoWeekday, monthOf, periodOf } from "../timesheet/compute.js";
+import { OT_STEP_MIN, datesBetween, isoWeekday, monthOf, periodOf } from "../timesheet/compute.js";
 import type { RequestsService, Viewer } from "../timesheet/requests.service.js";
 import type { TimesheetService } from "../timesheet/timesheet.service.js";
 
@@ -22,7 +22,6 @@ type EntryRow = { employee_id: string; request_id: string; work_date: string; st
 const ENTRY_COLS = "employee_id, request_id, work_date, start_time, end_time, minutes, day_kind, requests!inner(request_no, status)";
 const ACTIVE: RequestStatus[] = ["pending", "approved"];
 /* Bước giờ làm thêm (phản hồi người dùng 29/10: chọn phút theo bước 5) */
-const OT_STEP_MIN = 5;
 const AHEAD_DAYS = 30;
 const r1 = (n: number) => Math.round(n * 10) / 10;
 const hours = (min: number) => r1(min / 60);

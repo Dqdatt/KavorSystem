@@ -180,7 +180,8 @@ export function SheetContent({ kind, arg }: { kind: SheetKind; arg?: string }) {
           </Box> : null}
           <Box>
             {x.workedMinutes ? <Ln k="Giờ làm" v={gh(x.workedMinutes)} /> : null}
-            {x.overtime ? <Ln k={`Làm thêm (${x.overtime.ratePercent}%)`} v={`${gh(x.overtime.minutes)} · ${x.overtime.requestNos.join(", ")}`} /> : null}
+            {x.overtime ? <Ln k={`Làm thêm (${x.overtime.ratePercent}%)`} v={`${x.overtime.checked ? `${gh(x.overtime.minutes)}/${gh(x.overtime.approvedMinutes)}` : `${gh(x.overtime.approvedMinutes)} đã duyệt`} · ${x.overtime.requestNos.join(", ")}`} /> : null}
+            {x.overtime?.checked && x.overtime.minutes < x.overtime.approvedMinutes ? <ErrLine>Giờ chấm công không phủ hết giờ làm thêm đã duyệt — chỉ tính phần có mặt.</ErrLine> : null}
             <Ln k="Kết quả công" v={<T style={{ fontFamily: F.bold }}>{result}</T>} />
           </Box>
           {x.canExplain ? <Btn block onPress={() => ACT.exFromDay(x.date)}>Giải trình ngày này</Btn>

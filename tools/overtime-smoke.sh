@@ -54,7 +54,7 @@ check "Người gửi nhận thông báo" "$(call GET me/notifications "$EMP" | 
 M=$(python3 -c "
 import datetime; d=datetime.date.fromisoformat('$WD'); s=26
 m=d.month+1 if d.day>=s else d.month; y=d.year+(1 if m==13 else 0); m=1 if m==13 else m; print(f'{y}-{m:02d}')")
-check "Bảng công có giờ OT đã duyệt" "$(call GET "me/timesheet?month=$M" "$EMP" | py "([x['overtime'] for x in d['days'] if x['date']=='$WD'][0]['minutes'], d['summary']['overtimeMinutes'])")" "(120, 120)"
+check "Bảng công có OT đã duyệt, ngày chưa tới chưa tính giờ" "$(call GET "me/timesheet?month=$M" "$EMP" | py "(lambda o: (o['approvedMinutes'], o['minutes'], o['checked'], d['summary']['overtimeApprovedMinutes'], d['summary']['overtimeMinutes']))([x['overtime'] for x in d['days'] if x['date']=='$WD'][0])")" "(120, 0, False, 120, 0)"
 check "Quản lý từ chối đơn ngày nghỉ" "$(call POST me/approvals/$T2/reject "$MGR" '{"comment":"Không cần làm cuối tuần này"}' | field data.status)" rejected
 check "Đơn bị từ chối không còn tính giờ, đăng ký lại được" "$(ot "$WE" 08:00 10:00 | py "d['payload']['hours']")" 2
 
@@ -67,4 +67,27 @@ check "HR thấy tổng hợp OT tháng" "$(echo "$r" | py "[(x['employee']['cod
 check "Danh sách đơn OT trong tháng" "$(echo "$r" | py "len(d['requests'])>=$MIN_OT")" True
 check "Quản lý xem được phòng mình" "$(status GET "admin/overtime?month=$MON" "$MGRW")" 200
 check "Nhân viên không vào web được" "$(status GET admin/overtime "$EMP")" 403
+echo "— Đối chiếu OT với giờ chấm công (ngày đã qua)"
+sql() { docker exec -i supabase_db_kavor-system psql -U postgres -d postgres -X -v ON_ERROR_STOP=1 -Atq -c "$1"; }
+YD=$(call GET me/overtime "$EMP" | py "[x['date'] for x in d['days'] if x['date']<d['today']][-1]")
+need "Ngày hôm qua $YD trong lịch đăng ký bù" "$YD"
+r=$(ot "$YD" 17:30 19:30 "Chốt số liệu cuối ngày"); NO3=$(echo "$r" | field data.no); T3=$(echo "$r" | field data.steps.0.taskId)
+call POST me/approvals/$T3/approve "$MGR" '{}' >/dev/null
+H3=$(call GET "admin/requests?status=pending" "$HR" | py "[i['myTaskId'] for i in d['items'] if i['no']=='$NO3'][0]")
+check "HR duyệt đơn OT bù hôm qua" "$(call POST admin/approvals/$H3/approve "$HR" '{}' | field data.status)" approved
+# Chấm công seed ra trước 17:30; thêm vào 07:55 + ra 18:47 (giờ công ty) cho hôm qua
+punch() { sql "insert into public.attendance_events (tenant_id,employee_id,kind,client_event_id,occurred_at,received_at,status)
+  select t.id,'60000000-0000-4000-8000-000000000142','$1','smoke-ot-$YD-$1-$2',('$YD'::date+time '$2') at time zone t.timezone,now(),'accepted'
+  from public.tenants t where t.id='10000000-0000-4000-8000-000000000001'" >/dev/null; }
+punch in 07:55; punch out 18:47
+MY=$(python3 -c "
+import datetime; d=datetime.date.fromisoformat('$YD'); s=26
+m=d.month+1 if d.day>=s else d.month; y=d.year+(1 if m==13 else 0); m=1 if m==13 else m; print(f'{y}-{m:02d}')")
+ydot() { call GET "me/timesheet?month=$MY" "$EMP" | py "(lambda o: (o['minutes'], o['approvedMinutes'], o['checked'], d['summary']['overtimeShortDays']>0))([x['overtime'] for x in d['days'] if x['date']=='$YD'][0])"; }
+check "Ra 18:47 → chỉ tính 75 phút (bước 5 phút), báo thiếu" "$(ydot)" "(75, 120, True, True)"
+HRSHEET=$(call GET "admin/timesheets/60000000-0000-4000-8000-000000000142?month=$MY" "$HR" | py "(d['summary']['overtimeMinutes']>=75, d['summary']['overtimeShortDays']>=1)")
+check "HR thấy giờ OT được tính và ngày thiếu" "$HRSHEET" "(True, True)"
+check "CSV bảng công có cột giờ OT" "$(curl -s "$API/admin/timesheets/export?month=$MY" -H "authorization: Bearer $HR" | python3 -c "import sys; print('Giờ OT được tính' in sys.stdin.read().splitlines()[0])")" True
+punch out 19:40
+check "Chấm ra 19:40 → tính đủ 120 phút, không quá giờ đã duyệt" "$(ydot)" "(120, 120, True, False)"
 echo "Tất cả bước làm thêm giờ đều đạt."

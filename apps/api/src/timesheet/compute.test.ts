@@ -84,11 +84,25 @@ test("công chuẩn chỉ đếm ngày làm việc, kể cả ngày chưa tới 
   assert.equal(s.standard, 2); // T6 23 + T2 26; T7, CN không tính
 });
 
-test("làm thêm giờ đã duyệt: hiện trên ngày (kể cả ngày nghỉ) và cộng vào tổng kỳ", () => {
-  const ot = { minutes: 120, ratePercent: 200, requestNos: ["OT-0001"] };
-  const off = day("2026-10-18", [["in", "08:00"], ["out", "10:00"]], { overtime: ot });
+test("làm thêm giờ: chỉ tính phần trùng với giờ vào → ra của ngày đã qua, không quá giờ đã duyệt", () => {
+  const ot = (start: string, end: string, minutes: number, ratePercent = 150, requestNo = "OT-0001") => ({ start, end, minutes, ratePercent, requestNo });
+  const full = day("2026-10-20", [["in", "08:00"], ["out", "19:40"]], { overtime: [ot("17:30", "19:30", 120)] });
+  assert.deepEqual(full.overtime, { minutes: 120, approvedMinutes: 120, checked: true, ratePercent: 150, requestNos: ["OT-0001"] });
+  /* Về 18:47 → trùng 77 phút, làm tròn xuống bước 5 phút */
+  assert.equal(day("2026-10-20", [["in", "08:00"], ["out", "18:47"]], { overtime: [ot("17:30", "19:30", 120)] }).overtime?.minutes, 75);
+  /* Không chấm ra → không tính; điều chỉnh đã duyệt (giải trình quên chấm ra) thì tính lại */
+  assert.equal(day("2026-10-20", [["in", "08:00"]], { overtime: [ot("17:30", "19:30", 120)] }).overtime?.minutes, 0);
+  assert.equal(day("2026-10-20", [["in", "08:00"]], { overtime: [ot("17:30", "19:30", 120)], adjustment: { clockIn: null, clockOut: "19:30" } }).overtime?.minutes, 120);
+  /* OT trước ca dùng giờ vào */
+  assert.equal(day("2026-10-20", [["in", "06:30"], ["out", "17:00"]], { overtime: [ot("06:00", "08:00", 120)] }).overtime?.minutes, 90);
+  /* Ngày nghỉ, hai đơn: hệ số lấy cao nhất */
+  const off = day("2026-10-18", [["in", "08:00"], ["out", "10:00"]], { overtime: [ot("08:00", "10:00", 120, 200), ot("14:00", "16:00", 120, 200, "OT-0002")] });
   assert.equal(off.kind, "off");
-  assert.deepEqual(off.overtime, ot);
-  const s = summarize([{ ...off, canExplain: false, explainDeadline: null }, { ...day("2026-10-19", [["in", "08:00"], ["out", "17:00"]], { overtime: { ...ot, minutes: 90, ratePercent: 150 } }), canExplain: false, explainDeadline: null }]);
-  assert.equal(s.overtimeMinutes, 210);
+  assert.deepEqual(off.overtime, { minutes: 120, approvedMinutes: 240, checked: true, ratePercent: 200, requestNos: ["OT-0001", "OT-0002"] });
+  /* Hôm nay và ngày tới chưa đối chiếu */
+  const today = day("2026-10-23", [["in", "08:00"], ["out", "19:30"]], { today: "2026-10-23", overtime: [ot("17:30", "19:30", 120)] });
+  assert.deepEqual([today.overtime?.minutes, today.overtime?.checked], [0, false]);
+  assert.equal(day("2026-10-20", []).overtime, null);
+  const s = summarize([full, off, today].map((d) => ({ ...d, canExplain: false, explainDeadline: null })));
+  assert.deepEqual([s.overtimeMinutes, s.overtimeApprovedMinutes, s.overtimeShortDays], [240, 480, 1]);
 });

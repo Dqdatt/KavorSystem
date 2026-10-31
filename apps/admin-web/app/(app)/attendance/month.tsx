@@ -120,6 +120,11 @@ function EmployeeMonth({ id, month, onClose, onChanged }: { id: string; month: s
           <div className="card card-body"><b>{num(e.summary.lateDays)} · {dur(e.summary.lateMinutes)}</b><div className="muted" style={{ fontSize: 10 }}>Đi muộn</div></div>
           <div className="card card-body"><b className={e.summary.missingDays ? "text-red" : ""}>{num(e.summary.missingDays)}</b><div className="muted" style={{ fontSize: 10 }}>Thiếu chưa giải trình</div></div>
         </div>
+        {e.summary.overtimeApprovedMinutes ? <div className="card card-body" style={{ marginTop: 10, fontSize: 12 }}>
+          Làm thêm được tính <b className={e.summary.overtimeShortDays ? "text-red" : ""}>{hrs(e.summary.overtimeMinutes)}/{hrs(e.summary.overtimeApprovedMinutes)} giờ</b> đã duyệt
+          {e.summary.overtimeShortDays ? <b className="text-red"> · {num(e.summary.overtimeShortDays)} ngày giờ chấm công không phủ hết giờ làm thêm</b> : null}
+          <div className="muted" style={{ fontSize: 10 }}>Chỉ tính phần trùng với giờ vào → ra đã ghi nhận; ngày chưa qua chưa tính.</div>
+        </div> : null}
         <div className="drawer-section"><h4>Từng ngày</h4>
           <div className="card"><div className="table-wrap"><table className="data-table compact"><thead><tr><th>Ngày</th><th>Vào</th><th>Ra</th><th>Giờ làm</th><th>Ghi chú</th></tr></thead><tbody>
             {days.map((d) => <DayRow key={d.date} d={d} onRequest={() => { const r = e.requests.find((x) => x.id === d.request?.id); if (r) setReq(r); }} />)}
@@ -148,7 +153,15 @@ function DayRow({ d, onRequest }: { d: TimesheetDay; onRequest: () => void }) {
       <td>{d.kind === "off" && !d.clockIn ? "" : t(d.clockIn, d.rawIn)}{d.lateMinutes ? <small className="text-red"> +{d.lateMinutes}′</small> : null}</td>
       <td>{d.kind === "off" && !d.clockOut ? "" : t(d.clockOut, d.rawOut)}{d.earlyMinutes ? <small className="text-red"> −{d.earlyMinutes}′</small> : null}</td>
       <td className="num">{d.workedMinutes ? `${Math.floor(d.workedMinutes / 60)}:${String(d.workedMinutes % 60).padStart(2, "0")}` : "—"}</td>
-      <td>{note}{d.overtime ? <span className="source-tag" title={d.overtime.requestNos.join(", ")}>OT {(d.overtime.minutes / 60).toLocaleString("vi-VN")} giờ · {d.overtime.ratePercent}%</span> : null}</td>
+      <td>{note}{d.overtime ? <OtTag ot={d.overtime} /> : null}</td>
     </tr>
   );
+}
+
+const hrs = (min: number) => (Math.round(min / 6) / 10).toLocaleString("vi-VN");
+/* OT của ngày: được tính/đã duyệt; thiếu thì tô cảnh báo */
+function OtTag({ ot }: { ot: NonNullable<TimesheetDay["overtime"]> }) {
+  const short = ot.checked && ot.minutes < ot.approvedMinutes;
+  const text = !ot.checked ? `OT ${hrs(ot.approvedMinutes)} giờ đã duyệt` : short ? `OT ${hrs(ot.minutes)}/${hrs(ot.approvedMinutes)} giờ` : `OT ${hrs(ot.minutes)} giờ`;
+  return <span className={`source-tag${short ? " text-red" : ""}`} title={`${ot.requestNos.join(", ")}${short ? " · giờ chấm công không phủ hết giờ đã duyệt" : !ot.checked ? " · chưa đối chiếu chấm công" : ""}`}>{text} · {ot.ratePercent}%</span>;
 }

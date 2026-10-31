@@ -65,6 +65,7 @@ from public.privacy_terms where tenant_id = '10000000-0000-4000-8000-00000000000
 on conflict (employee_id, terms_id) do nothing;
 -- DB có thể đã có dữ liệu thử (smoke script): so với số đếm thật thay vì giả định DB trống
 select set_config('test.ha_consents', (select count(*)::text from public.privacy_consents where employee_id = '60000000-0000-4000-8000-000000000142'), true);
+select set_config('test.huy_consents', (select count(*)::text from public.privacy_consents where employee_id = '60000000-0000-4000-8000-000000000003'), true);
 select set_config('test.a_consents', (select count(*)::text from public.privacy_consents where tenant_id = '10000000-0000-4000-8000-000000000001'), true);
 select set_config('test.a_terms', (select count(*)::text from public.privacy_terms where tenant_id = '10000000-0000-4000-8000-000000000001'), true);
 select throws_ok($$ delete from public.privacy_consents where employee_id = '60000000-0000-4000-8000-000000000142' $$, 'P0001', null, 'Lượt đồng ý chỉ thêm, không xóa');
@@ -87,7 +88,8 @@ select throws_ok($$ select public.provision_tenant('10000000-0000-4000-8000-0000
 
 -- Quản lý Huy (không có privacy.read): không xem lượt đồng ý của nhân viên
 select set_config('request.jwt.claims', '{"sub":"a2000000-0000-4000-8000-000000000003","role":"authenticated"}', true);
-select is((select count(*)::int from public.privacy_consents), 0, 'Quản lý không có privacy.read không thấy lượt đồng ý');
+-- Chỉ thấy lượt của chính mình (smoke có thể đã kích hoạt Huy kèm đồng ý)
+select is((select count(*)::int from public.privacy_consents), current_setting('test.huy_consents')::int, 'Quản lý không có privacy.read không thấy lượt đồng ý của nhân viên');
 
 -- HR Admin Thảo: thấy lượt đồng ý trong phạm vi
 select set_config('request.jwt.claims', '{"sub":"a2000000-0000-4000-8000-000000000007","role":"authenticated"}', true);

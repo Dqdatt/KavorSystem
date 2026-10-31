@@ -1,6 +1,7 @@
 /* Tính bảng công theo ngày (hàm thuần, không đọc DB): kỳ công, ngày làm việc theo ca + lịch lễ, giờ vào/ra sau điều chỉnh,
    đi muộn/về sớm theo ân hạn của ca, thiếu giờ, ngày công, hạn giải trình. Event gốc không bị sửa: điều chỉnh đã duyệt
-   ghi đè giờ vào/ra khi hiển thị và tính công. Ca qua đêm chưa hỗ trợ (giống module ca). */
+   ghi đè giờ vào/ra khi hiển thị và tính công. OT đã duyệt chỉ được tính phần trùng với giờ có mặt (vào → ra) của ngày đã qua.
+   Ca qua đêm chưa hỗ trợ (giống module ca). */
 import type { DayIssue, LeaveHalf, RequestStatus, ShiftInfo, TimesheetDay, TimesheetPeriod, TimesheetSummary } from "@kavor/contracts";
 import { addDays } from "../admin/validate.js";
 import { minutesOf } from "../attendance/policy.js";
@@ -35,8 +36,10 @@ export type DayAdjustment = { clockIn: string | null; clockOut: string | null };
 export type DayRequest = { id: string; no: string; status: RequestStatus };
 /* Nghỉ phép đã duyệt của ngày */
 export type DayLeave = { typeName: string; half: LeaveHalf; paid: boolean; requestNo: string };
-/* Làm thêm giờ đã duyệt của ngày */
-export type DayOvertime = { minutes: number; ratePercent: number; requestNos: string[] };
+/* Một đơn làm thêm giờ đã duyệt của ngày (giờ HH:MM công ty) */
+export type DayOvertimeEntry = { start: string; end: string; minutes: number; ratePercent: number; requestNo: string };
+/* Bước tính giờ OT, trùng bước đăng ký đơn OT */
+export const OT_STEP_MIN = 5;
 export type DayInput = {
   date: string;
   today: string;
@@ -47,8 +50,23 @@ export type DayInput = {
   adjustment: DayAdjustment | null;
   request: DayRequest | null;
   leave?: DayLeave | null;
-  overtime?: DayOvertime | null;
+  overtime?: DayOvertimeEntry[];
 };
+
+/* OT của ngày: đã qua thì chỉ tính phần trùng giữa khung đơn và giờ có mặt (làm tròn xuống theo bước đăng ký), không quá giờ đã duyệt.
+   Hôm nay/ngày tới chưa đối chiếu: minutes = 0, checked = false. */
+export function overtimeOf(entries: DayOvertimeEntry[] | undefined, inMin: number | null, outMin: number | null, past: boolean): TimesheetDay["overtime"] {
+  if (!entries?.length) return null;
+  const approvedMinutes = entries.reduce((n, e) => n + e.minutes, 0);
+  let minutes = 0;
+  if (past && inMin != null && outMin != null && outMin > inMin) {
+    for (const e of entries) {
+      const overlap = Math.max(0, Math.min(minutesOf(e.end), outMin) - Math.max(minutesOf(e.start), inMin));
+      minutes += Math.min(e.minutes, overlap - (overlap % OT_STEP_MIN));
+    }
+  }
+  return { minutes, approvedMinutes, checked: past, ratePercent: Math.max(...entries.map((e) => e.ratePercent)), requestNos: entries.map((e) => e.requestNo) };
+}
 
 export function computeDay(i: DayInput): Omit<TimesheetDay, "canExplain" | "explainDeadline"> {
   const weekday = isoWeekday(i.date);
@@ -63,7 +81,7 @@ export function computeDay(i: DayInput): Omit<TimesheetDay, "canExplain" | "expl
     date: i.date, weekday, holidayName: i.holiday, shift: shift ? { name: shift.name, start: shift.start, end: shift.end } : null,
     clockIn: inMin == null ? null : hm(inMin), clockOut: outMin == null ? null : hm(outMin),
     rawIn: rawIn == null ? null : hm(rawIn), rawOut: rawOut == null ? null : hm(rawOut), adjusted: !!i.adjustment,
-    request: i.request, overtime: i.overtime ?? null,
+    request: i.request, overtime: overtimeOf(i.overtime, inMin, outMin, i.date < i.today),
   };
   const workday = !!shift && shift.workDays.includes(weekday) && !i.holiday;
   const leave = workday ? i.leave ?? null : null;
@@ -124,8 +142,13 @@ export function summarize(days: TimesheetDay[]): TimesheetSummary {
     pendingRequests: days.filter((d) => d.request?.status === "pending").length,
     leaveDays: days.reduce((n, d) => n + (d.leave ? (d.leave.half === "full" ? 1 : 0.5) : 0), 0),
     overtimeMinutes: days.reduce((n, d) => n + (d.overtime?.minutes ?? 0), 0),
+    overtimeApprovedMinutes: days.reduce((n, d) => n + (d.overtime?.approvedMinutes ?? 0), 0),
+    overtimeShortDays: days.filter((d) => overtimeShort(d)).length,
   };
 }
+
+/* Ngày đã qua có OT đã duyệt nhưng giờ chấm công không phủ hết */
+export const overtimeShort = (d: Pick<TimesheetDay, "overtime">) => !!d.overtime?.checked && d.overtime.minutes < d.overtime.approvedMinutes;
 
 export const periodView = (month: string, startDay: number, lock: { locked_at: string } | null): TimesheetPeriod =>
   ({ month, ...periodOf(month, startDay), locked: !!lock, lockedAt: lock?.locked_at ?? null });
