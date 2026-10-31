@@ -19,6 +19,8 @@ ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AG
   gồm Auth), mã hóa AES-256 (openssl, giải mã được bằng openssl có sẵn của macOS), giữ 14 ngày ở Artifacts. Đã thử dump + mã hóa + giải mã trên DB
   local; **chưa chạy trên GitHub, chưa thử khôi phục**. Cần người dùng thêm secret `SUPABASE_DB_URL` + `BACKUP_PASSPHRASE` và đưa workflow lên `main`
   (lịch chạy chỉ có hiệu lực trên nhánh mặc định) — `docs/DEPLOY.md` mục 9. Chưa sao lưu file Storage.
+- Bản online có minh chứng (31/10, Claude Desktop): migration `202611140001` đã áp lên `kavor-dev`, push `b25a1e8` (CI đạt, API online có route mới).
+  Đã cài bản Release mới lên iPhone 11 (API `https://kavor-api.onrender.com/api/v1`, có module chọn ảnh/PDF) — **người dùng chưa thử tay**.
 - Nghỉ nửa ngày xét đi muộn/về sớm theo nửa ca còn làm (31/10, Claude Desktop): nửa ca chia ở nghỉ trưa của ca (sáng = bắt đầu → nghỉ trưa,
   chiều = hết nghỉ trưa → kết thúc; ca không nghỉ trưa chia giữa ca), dùng ân hạn của ca; muộn/sớm thành lỗi giải trình được như ngày thường,
   công không đổi (0,5 phép có lương + 0,5 khi chấm đủ vào/ra). Chỉ sửa `computeDay`; unit test thêm 5 ca. Quyết định chia ca chờ người dùng review.
