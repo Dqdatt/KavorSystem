@@ -1,0 +1,59 @@
+name: Sao lưu CSDL online
+
+# Supabase Free không có khôi phục theo thời điểm: mỗi đêm dump CSDL bản online (vai trò + cấu trúc + dữ liệu),
+# mã hóa AES-256 bằng khóa riêng rồi giữ 14 ngày trong Artifacts. Repo công khai → KHÔNG BAO GIỜ lưu file chưa mã hóa.
+# Cần 2 secret (docs/DEPLOY.md mục 9): SUPABASE_DB_URL (chuỗi Session pooler, cổng 5432) và BACKUP_PASSPHRASE.
+# Lịch chạy chỉ có hiệu lực khi file này nằm trên nhánh mặc định (main) của GitHub.
+# Chưa sao lưu file Storage (logo, ảnh bìa, tài liệu, file bản tin).
+
+on:
+  schedule:
+    - cron: "0 19 * * *" # 02:00 giờ Việt Nam
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: db-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Kiểm tra secret
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          [ -n "$SUPABASE_DB_URL" ] || { echo "Thiếu secret SUPABASE_DB_URL"; exit 1; }
+          [ "${#BACKUP_PASSPHRASE}" -ge 24 ] || { echo "BACKUP_PASSPHRASE phải có ít nhất 24 ký tự"; exit 1; }
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.108.0
+      - name: Dump CSDL
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          mkdir -p dump
+          supabase db dump --db-url "$SUPABASE_DB_URL" -f dump/roles.sql --role-only
+          supabase db dump --db-url "$SUPABASE_DB_URL" -f dump/schema.sql
+          supabase db dump --db-url "$SUPABASE_DB_URL" -f dump/data.sql --use-copy --data-only
+          ls -l dump
+      - name: Mã hóa
+        env:
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          STAMP=$(TZ=Asia/Ho_Chi_Minh date +%Y-%m-%d)
+          # Giải mã trên Mac (openssl có sẵn): docs/DEPLOY.md mục 9
+          tar -czf - -C dump . | openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt -pass env:BACKUP_PASSPHRASE -out "kavor-db-$STAMP.tar.gz.enc"
+          rm -rf dump
+          echo "STAMP=$STAMP" >> "$GITHUB_ENV"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kavor-db-${{ env.STAMP }}
+          path: kavor-db-${{ env.STAMP }}.tar.gz.enc
+          retention-days: 14
+          if-no-files-found: error

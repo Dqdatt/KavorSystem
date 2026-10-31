@@ -87,6 +87,25 @@ Console (`CONSOLE_WEB_URL`) → Kích hoạt tài khoản bằng `CONSOLE_BOOTST
 hoạt trên web HR → tạo ca, địa điểm (tọa độ lấy bằng GPS điện thoại tại chỗ) → **Áp dụng** → nhân viên kích hoạt trên app → chấm công.
 Chi tiết: `docs/TEST_WORKFLOW.md`.
 
+## 9. Sao lưu CSDL hằng đêm (GitHub Actions)
+Supabase Free không có khôi phục theo thời điểm. `.github/workflows/db-backup.yml` dump CSDL lúc 02:00 (vai trò + cấu trúc + dữ liệu, gồm cả
+tài khoản Auth), mã hóa AES-256 rồi giữ 14 ngày ở **Actions → Sao lưu CSDL online → Artifacts**. Repo công khai nên file luôn được mã hóa; mất
+khóa = không mở được bản sao lưu. **Chưa sao lưu file Storage** (logo, ảnh bìa, tài liệu, file bản tin).
+
+1. Supabase → Connect → **Session pooler** (GitHub không có IPv6 nên không dùng Direct connection) → chép chuỗi `postgresql://postgres.<ref>:…@…pooler.supabase.com:5432/postgres`, thay mật khẩu DB.
+2. Tạo khóa: `openssl rand -base64 32` — lưu vào `private/KAVOR_ONLINE.md` (gitignore) **và** trình quản lý mật khẩu.
+3. GitHub repo → Settings → Secrets and variables → Actions → New repository secret: `SUPABASE_DB_URL` và `BACKUP_PASSPHRASE`.
+4. Lịch chạy và nút "Run workflow" chỉ có khi file workflow nằm trên nhánh `main`. Chạy thử một lần: Actions → Sao lưu CSDL online → Run workflow.
+
+Giải mã trên Mac (tải file `.enc` từ Artifacts, giải nén zip):
+```bash
+BACKUP_PASSPHRASE='<khóa>' openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -pass env:BACKUP_PASSPHRASE -in kavor-db-<ngày>.tar.gz.enc | tar -xzf - -C <thư mục trống>
+```
+Khôi phục vào **một project Supabase mới, trống** (theo hướng dẫn backup/restore của Supabase), không đè lên project đang chạy:
+```bash
+psql --single-transaction -v ON_ERROR_STOP=1 --file roles.sql --file schema.sql --command 'SET session_replication_role = replica' --file data.sql --dbname '<chuỗi kết nối project mới>'
+```
+
 ## Giới hạn đã biết
 - Render Free có thể khởi động lại bất chợt: liên kết tải file 5 phút tạo trước đó hết hiệu lực sớm; lần gọi đầu sau khi ngủ chậm ~1 phút.
 - 750 giờ Render/tháng chỉ đủ cho **một** dịch vụ chạy suốt — không thêm dịch vụ Render khác.

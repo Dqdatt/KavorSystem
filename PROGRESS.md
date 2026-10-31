@@ -10,6 +10,11 @@ simulator hay iPhone** vì phiên cloud không có Mac). Người dùng giao "c�
 ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AGENT_PLAYBOOK.md`; kiểm tra toàn bộ bằng `bash tools/verify-all.sh`.
 
 ## Đã xong
+- CI + sao lưu bản online (31/10, Claude Desktop): CI (`.github/workflows/ci.yml`) chạy cả khi push nhánh deploy `claude/ecstatic-pascal-dblg7v`
+  (trước đây chỉ `main` — nhánh deploy chưa từng có CI). `.github/workflows/db-backup.yml`: 02:00 hằng đêm dump CSDL online (vai trò/cấu trúc/dữ liệu,
+  gồm Auth), mã hóa AES-256 (openssl, giải mã được bằng openssl có sẵn của macOS), giữ 14 ngày ở Artifacts. Đã thử dump + mã hóa + giải mã trên DB
+  local; **chưa chạy trên GitHub, chưa thử khôi phục**. Cần người dùng thêm secret `SUPABASE_DB_URL` + `BACKUP_PASSPHRASE` và đưa workflow lên `main`
+  (lịch chạy chỉ có hiệu lực trên nhánh mặc định) — `docs/DEPLOY.md` mục 9. Chưa sao lưu file Storage.
 - Nghỉ nửa ngày xét đi muộn/về sớm theo nửa ca còn làm (31/10, Claude Desktop): nửa ca chia ở nghỉ trưa của ca (sáng = bắt đầu → nghỉ trưa,
   chiều = hết nghỉ trưa → kết thúc; ca không nghỉ trưa chia giữa ca), dùng ân hạn của ca; muộn/sớm thành lỗi giải trình được như ngày thường,
   công không đổi (0,5 phép có lương + 0,5 khi chấm đủ vào/ra). Chỉ sửa `computeDay`; unit test thêm 5 ca. Quyết định chia ca chờ người dùng review.

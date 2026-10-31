@@ -3,7 +3,8 @@ name: CI
 on:
   pull_request:
   push:
-    branches: [main]
+    # Nhánh claude/ecstatic-pascal-dblg7v là nhánh Render/Vercel tự deploy (docs/DEPLOY.md): phải có CI ở mỗi lần push
+    branches: [main, claude/ecstatic-pascal-dblg7v]
 
 jobs:
   verify:
