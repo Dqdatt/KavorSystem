@@ -181,7 +181,7 @@ export class AuthService {
   /* ---------- Phiên ---------- */
   async refresh(refreshToken: string): Promise<AuthResult> {
     const { data, error } = await this.sb.authClient().auth.refreshSession({ refresh_token: refreshToken });
-    if (error || !data.session || !data.user) throw new AuthError(AUTH_ERRORS.sessionExpired, "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.", 401);
+    if (error || !data.session || !data.user) throw refreshFailure(error);
     const emp = await this.findEmployeeByUser(data.user.id);
     if (!emp) throw new AuthError(AUTH_ERRORS.sessionExpired, "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.", 401);
     if (emp.status === "terminated" || emp.status === "suspended") throw new AuthError(AUTH_ERRORS.accountDisabled, "Tài khoản đang bị khóa. Liên hệ phòng Nhân sự.", 403);
@@ -280,6 +280,14 @@ export class AuthService {
   private async audit(tenantId: string, actor: string | null, action: string, employeeId: string, correlationId: string) {
     await this.sb.admin.from("audit_logs").insert({ tenant_id: tenantId, actor_user_id: actor, actor_type: actor ? "user" : "system", action, resource_type: "employee", resource_id: employeeId, correlation_id: correlationId });
   }
+}
+
+/* Làm mới phiên thất bại: Supabase trả 4xx (refresh token không còn, đã dùng, phiên bị thu hồi) mới là hết hạn thật → 401, client đăng xuất.
+   Lỗi mạng (status 0) hoặc 5xx là lỗi tạm thời (API vừa khởi động lại, Supabase chậm) → 503 thử lại, client giữ phiên. */
+export function refreshFailure(error: { status?: number } | null): AuthError {
+  const st = error?.status ?? 0;
+  if (error && (st === 0 || st >= 500)) return new AuthError("AUTH_UNAVAILABLE", "Máy chủ xác thực đang bận. Vui lòng thử lại.", 503, true);
+  return new AuthError(AUTH_ERRORS.sessionExpired, "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.", 401);
 }
 
 function toSession(s: Session): AuthSession {

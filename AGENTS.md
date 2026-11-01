@@ -77,6 +77,8 @@ pnpm build
   bằng OTP); DB luôn giữ ít nhất một Quản trị Console đang hoạt động (trigger). `tools/create-operator.sh` chỉ còn cho smoke. Khôi phục chủ sở hữu cần hai
   người khác nhau. Cookie Console là `kc_*`, web HR là `kv_*` (cùng host localhost nên cookie không tách theo cổng). Kiểm thử:
   `bash tools/db-reset.sh && bash tools/console-smoke.sh` và `bash tools/db-reset.sh && bash tools/operators-smoke.sh`.
+- Làm mới phiên: chỉ đăng xuất khi API trả 4xx; 5xx/mất mạng phải giữ phiên (`refreshFailure` ở `auth.service.ts`, proxy hai web).
+  Đừng gộp mọi lỗi refresh thành 401 — Render khởi động lại/deploy sẽ đăng xuất tất cả người dùng (đã xảy ra 31/10).
 - Supabase Auth: signup công khai tắt; API tạo user bằng admin rồi gửi OTP (`shouldCreateUser:false`). Không dùng client admin để đăng nhập (supabase-js sẽ gắn token người dùng vào client) — dùng `authClient()` mới cho mỗi lần.
 - Bản đồ chọn vị trí chấm công (`apps/admin-web/app/_ui/location-map.tsx`, Leaflet): DNS nhà mạng VNPT trả NXDOMAIN cho mọi tên miền
   `openstreetmap.org` (tile + Nominatim) và CARTO bắt buộc API key → bản dev dùng `tile.openstreetmap.de` + Photon (komoot); đổi tile bằng

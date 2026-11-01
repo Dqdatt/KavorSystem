@@ -10,6 +10,11 @@ simulator hay iPhone** vì phiên cloud không có Mac). Người dùng giao "c�
 ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AGENT_PLAYBOOK.md`; kiểm tra toàn bộ bằng `bash tools/verify-all.sh`.
 
 ## Đã xong
+- Không còn bị đăng xuất vì lỗi tạm thời (1/11, Claude Desktop; người dùng báo web HR online tự đăng xuất sau vài giờ): API `auth/refresh` và
+  `console/auth/refresh` chỉ trả 401 khi Supabase báo 4xx (refresh token hết hạn/đã dùng/bị thu hồi), lỗi mạng/5xx trả 503 thử lại (`refreshFailure`,
+  unit test 2); proxy web HR + Console chỉ xóa phiên khi 4xx, 5xx/mất API thì giữ cookie, trang hiện "Máy chủ Kavor đang bận" tự tải lại 5 giây.
+  App mobile vốn chỉ đăng xuất khi 401 nên được sửa theo API. Đã thử bằng curl trên web HR local: token sai → về /login; tắt API → 503, không xóa cookie.
+  Nguyên nhân trên bản online chưa xác nhận bằng log Render (khả năng: API khởi động lại/deploy). Console chỉ typecheck.
 - Minh chứng đính kèm đơn giải trình/nghỉ phép (31/10, Claude Desktop; quyết định mặc định chờ review — `docs/plans/request-attachments.md`):
   migration `202611140001_request_attachments.sql` (bất biến, tối đa 3 file, chặn duyệt bước cuối khi đơn bắt buộc mà chưa có), pgTAP 13, API tải lên/
   liên kết ký/tải web + audit, smoke `tools/attachments-smoke.sh` 25 bước, web HR modal đơn, app chọn ảnh/chụp/PDF (`expo-image-picker`,

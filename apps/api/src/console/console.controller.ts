@@ -2,7 +2,7 @@ import { Body, Controller, Get, Headers, HttpCode, HttpException, Inject, Param,
 import { ADMIN_ERRORS, AUTH_ERRORS, type ApiEnvelope, type AuthSession, type ConsoleAuthResult } from "@kavor/contracts";
 import type { Session } from "@supabase/supabase-js";
 import type { CorrelatedRequest } from "../correlation.middleware.js";
-import { AuthError, RateLimiter } from "../auth/auth.service.js";
+import { AuthError, RateLimiter, refreshFailure } from "../auth/auth.service.js";
 import { SupabaseGateway } from "../auth/supabase.js";
 import type { MfaAdmin } from "../admin/mfa.service.js";
 import { EMAIL, req, type Body as Json } from "../admin/validate.js";
@@ -78,7 +78,7 @@ export class ConsoleController {
     return this.envelope(r, async (sb): Promise<ConsoleAuthResult> => {
       const expired = new AuthError(AUTH_ERRORS.sessionExpired, "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.", 401);
       const { data, error } = await sb.authClient().auth.refreshSession({ refresh_token: req(b, "refreshToken", { max: 4000 }) });
-      if (error || !data.session || !data.user) throw expired;
+      if (error || !data.session || !data.user) throw refreshFailure(error);
       const op = await operatorOf(sb, data.user.id);
       if (!op) throw expired;
       return { session: toSession(data.session), operator: op };
