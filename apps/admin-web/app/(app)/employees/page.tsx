@@ -2,6 +2,7 @@
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { AdminDevice, BulkInviteResult, EmployeeDetail, EmployeeListItem, EmployeeStatus, EmploymentType, OrgOptions } from "@kavor/contracts";
+import { managerTierOk } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
 import {
   ACCOUNT, Avatar, DEVICE, EMP_STATUS, EMPLOYMENT, Drawer, Empty, ErrorLine, Field, Icon, LoadError, Modal, Person, REJECT_REASON, Status, scopeText,
@@ -228,6 +229,11 @@ function EmployeeForm({ org, employee, onClose, onSaved }: { org: OrgOptions; em
   const [err, setErr] = useState<string | null>(null);
   const { busy, run } = useAction();
   const set = (k: keyof typeof f) => (e: { target: { value: string } }) => { setF({ ...f, [k]: e.target.value }); setErr(null); };
+  /* Danh sách chọn quản lý trực tiếp: chỉ người có cấp quản lý cao hơn chức danh đang chọn (managerTierOk); giữ người đang được chọn
+     dù sai cấp để không âm thầm đổi dữ liệu cũ — API chặn khi lưu */
+  const posTier = org.positions.find((p) => p.id === f.positionId)?.tier ?? null;
+  const mgrOptions = org.employees.filter((x) => x.id !== employee?.id && (managerTierOk(x.tier, posTier) || x.id === f.managerEmployeeId))
+    .sort((a, b) => (b.tier ?? 0) - (a.tier ?? 0) || a.name.localeCompare(b.name, "vi"));
   /* Quản lý trực tiếp chưa có vai trò xem dữ liệu nhân viên trên web (Quản lý / Nhân sự vận hành / Quản trị viên): gợi ý gán */
   const mgrNoRole = ((m) => (m && !m.roles.some((r) => r === "manager" || r === "hr_ops" || r === "tenant_admin") ? m : null))(org.employees.find((x) => x.id === f.managerEmployeeId));
   const placementChanged = !!employee && (f.departmentId !== (employee.department?.id ?? "") || f.positionId !== (employee.position?.id ?? "") || f.managerEmployeeId !== (employee.manager?.id ?? ""));
@@ -257,7 +263,8 @@ function EmployeeForm({ org, employee, onClose, onSaved }: { org: OrgOptions; em
         <Field label="Điện thoại"><input value={f.phone} onChange={set("phone")} /></Field>
         <Field label="Phòng ban"><Select value={f.departmentId} onChange={set("departmentId")}><option value="">Chọn phòng ban</option>{org.departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}</Select></Field>
         <Field label="Chức danh"><Select value={f.positionId} onChange={set("positionId")}><option value="">Chọn chức danh</option>{org.positions.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</Select></Field>
-        <Field label="Quản lý trực tiếp"><Select value={f.managerEmployeeId} onChange={set("managerEmployeeId")}><option value="">Không có</option>{org.employees.filter((x) => x.id !== employee?.id).map((x) => <option key={x.id} value={x.id}>{x.name} · {x.code}</option>)}</Select>
+        <Field label="Quản lý trực tiếp"><Select value={f.managerEmployeeId} onChange={set("managerEmployeeId")}><option value="">Không có</option>{mgrOptions.map((x) => <option key={x.id} value={x.id}>{x.name} · {x.code}{x.position ? ` · ${x.position}` : ""}{managerTierOk(x.tier, posTier) ? "" : " (sai cấp)"}</option>)}</Select>
+          {f.positionId && !posTier ? <small className="muted" style={{ display: "block", marginTop: 6 }}>Chức danh này chưa đặt cấp quản lý nên đang hiện mọi người. Đặt cấp ở Cơ cấu tổ chức → Chức danh.</small> : null}
           {mgrNoRole ? <small className="muted" style={{ display: "block", marginTop: 6 }}>{mgrNoRole.name} sẽ duyệt đơn của nhân viên này trên app, nhưng chưa có vai trò Quản lý nên chưa xem được đơn và bảng công trên web. <a href="/roles">Gán vai trò Quản lý</a> (phạm vi Nhân viên trực tiếp).</small> : null}
         </Field>
         <Field label="Ngày vào làm"><input type="date" value={f.hireDate} onChange={set("hireDate")} /></Field>

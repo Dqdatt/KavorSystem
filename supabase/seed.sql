@@ -62,6 +62,9 @@ insert into public.positions (id, tenant_id, code, name, job_level, effective_fr
   ('50000000-0000-4000-8000-000000000007','10000000-0000-4000-8000-000000000001','DSN','Senior Designer','L3','2026-01-01'),
   ('50000000-0000-4000-8000-000000000008','10000000-0000-4000-8000-000000000001','AE','Account Executive','L2','2026-01-01')
 on conflict (tenant_id, code) do nothing;
+-- Cấp quản lý (1 Nhân viên, 2 Trưởng nhóm, 3 Quản lý, 4 Ban Giám đốc); job_level là ngạch riêng của công ty
+update public.positions set management_tier = case code when 'CEO' then 4 when 'HRM' then 3 when 'MKTM' then 3 when 'OM' then 2 else 1 end
+where tenant_id = '10000000-0000-4000-8000-000000000001';
 
 insert into public.employees (
   id, tenant_id, employee_code, full_name, work_email, phone, hire_date,

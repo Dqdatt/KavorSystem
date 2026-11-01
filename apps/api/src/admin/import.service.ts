@@ -1,11 +1,12 @@
 /* Nhập nhân viên hàng loạt từ CSV (docs/plans/employee-import.md). Kiểm tra toàn file → xem trước; chỉ ghi khi cả file không lỗi,
    ghi nguyên khối bằng import_employees. Mã đã có thì bỏ qua. Không chép email/điện thoại vào audit tổng. */
 import {
-  ADMIN_ERRORS, EMPLOYEE_IMPORT_REQUIRED, type EmployeeImportResult, type EmployeeImportRow, type EmploymentType,
+  ADMIN_ERRORS, EMPLOYEE_IMPORT_REQUIRED, MANAGEMENT_TIERS, managerTierOk, type EmployeeImportResult, type EmployeeImportRow, type EmploymentType, type ManagementTier,
 } from "@kavor/contracts";
 import { AuthError } from "../auth/auth.service.js";
 import { readCsv } from "../payroll/csv.js";
 import { localParts, tenantSettings } from "../attendance/attendance.service.js";
+import { loadPlacements } from "../attendance/policy.js";
 import type { SupabaseGateway } from "../auth/supabase.js";
 import { invalid, type AdminContext } from "./context.js";
 import { EMAIL, req, type Body } from "./validate.js";
@@ -89,13 +90,17 @@ export class EmployeeImport {
     const [{ data: deps }, { data: brs }, { data: pos }, { data: emps }, plan] = await Promise.all([
       db.from("departments").select("id, code, name, branch_id").eq("tenant_id", ctx.tenantId).or(live),
       db.from("branches").select("id, legal_entity_id").eq("tenant_id", ctx.tenantId).or(live),
-      db.from("positions").select("id, code, name").eq("tenant_id", ctx.tenantId).or(live),
+      db.from("positions").select("id, code, name, management_tier, effective_from, effective_to").eq("tenant_id", ctx.tenantId),
       db.from("employees").select("id, employee_code, status").eq("tenant_id", ctx.tenantId),
       planOf(db, ctx.tenantId),
     ]);
     const dept = new Map(((deps ?? []) as Array<{ id: string; code: string; name: string; branch_id: string | null }>).map((d) => [d.code.toUpperCase(), d]));
     const branchLe = new Map(((brs ?? []) as Array<{ id: string; legal_entity_id: string }>).map((x) => [x.id, x.legal_entity_id]));
-    const posi = new Map(((pos ?? []) as Array<{ id: string; code: string; name: string }>).map((p) => [p.code.toUpperCase(), p]));
+    type Pos = { id: string; code: string; name: string; management_tier: number | null; effective_from: string; effective_to: string | null };
+    /* Chức danh còn hoạt động để chọn; cấp quản lý tra theo id gồm cả chức danh đã ngừng (quản lý có sẵn có thể đang giữ) */
+    const allPos = (pos ?? []) as Pos[];
+    const posi = new Map(allPos.filter((p) => !p.effective_to || p.effective_to >= today).map((p) => [p.code.toUpperCase(), p]));
+    const tierById = new Map(allPos.map((p) => [p.id, p.management_tier]));
     const existing = new Map(((emps ?? []) as Array<{ id: string; employee_code: string; status: string }>).map((e) => [e.employee_code.toUpperCase(), e]));
     /* Email dùng ở hồ sơ khác (toàn hệ thống — email là khóa đăng nhập) */
     const emails = [...new Set(rows.filter((r) => !existing.has(r.code) && EMAIL.test(r.email)).map((r) => r.email))];
@@ -106,6 +111,10 @@ export class EmployeeImport {
     }
     const scopes = ctx.scopes("employee.create");
     const fileCodes = new Set(rows.map((r) => r.code));
+    const fileRow = new Map(rows.map((r) => [r.code, r]));
+    /* Cấp quản lý của quản lý đã có trong Kavor (theo chức danh hiện tại) */
+    const mgrIds = [...new Set(rows.map((r) => r.managerCode).filter((c): c is string => !!c && existing.has(c)).map((c) => existing.get(c)!.id))];
+    const mgrPlace = mgrIds.length ? await loadPlacements(db, ctx.tenantId, today, mgrIds) : new Map();
     const out: EmployeeImportRow[] = [];
     const apply: Array<Record<string, unknown>> = [];
     for (const r of rows) {
@@ -123,6 +132,14 @@ export class EmployeeImport {
         if (r.managerCode) {
           const m = existing.get(r.managerCode);
           if (m ? m.status === "terminated" : !fileCodes.has(r.managerCode)) errs.push(`Quản lý ${r.managerCode} không có hoặc đã nghỉ việc`);
+          const mt = m ? tierById.get(mgrPlace.get(m.id)?.position_id ?? "") ?? null : posi.get(fileRow.get(r.managerCode)?.posCode ?? "")?.management_tier ?? null;
+          const et = p?.management_tier ?? null;
+          if (!managerTierOk(mt, et)) errs.push(`Quản lý ${r.managerCode} ở cấp ${MANAGEMENT_TIERS[mt as ManagementTier]}, chức danh ${r.posCode} ở cấp ${MANAGEMENT_TIERS[et as ManagementTier]}: quản lý phải có cấp cao hơn`);
+          /* Vòng quản lý giữa các dòng mới trong file */
+          for (let c: string | null = r.managerCode, i = 0; c && !existing.has(c) && i < rows.length; i++) {
+            c = fileRow.get(c)?.managerCode ?? null;
+            if (c === r.code) { errs.push(`Quản lý ${r.managerCode} và ${r.code} tạo vòng quản lý trong file`); break; }
+          }
         }
       }
       const action: EmployeeImportRow["action"] = errs.length ? "error" : exists ? "exists" : "create";

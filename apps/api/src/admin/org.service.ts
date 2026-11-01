@@ -2,7 +2,7 @@
    Đơn vị không xóa: ngừng = đặt ngày kết thúc, chặn khi còn người/đơn vị con/vai trò/quy định đang dùng. Gán vai trò theo mẫu hệ thống,
    phạm vi hợp lệ theo từng vai trò, hiệu lực từ hôm nay; thu hồi có hiệu lực ngay (API đọc quyền mỗi request). */
 import type {
-  AccountStatus, OrgTree, OrgUnit, OrgUnitKind, RoleAssignmentRow, RoleInfo, RolesBoard, ScopeType,
+  AccountStatus, ManagementTier, OrgTree, OrgUnit, OrgUnitKind, RoleAssignmentRow, RoleInfo, RolesBoard, ScopeType,
 } from "@kavor/contracts";
 import { AuthError } from "../auth/auth.service.js";
 import type { SupabaseGateway } from "./../auth/supabase.js";
@@ -28,7 +28,17 @@ const ROLE_META: Record<string, { description: string; defaultScope: string; pay
 const ROLE_ORDER = ["tenant_admin", "hr_ops", "payroll", "manager", "auditor"];
 const SCOPE_NAME: Record<string, string> = { tenant: "Toàn công ty", direct_reports: "Nhân viên trực tiếp", self: "Bản thân" };
 
-type UnitRow = { id: string; code: string; name: string; effective_from: string; effective_to: string | null; legal_entity_id?: string; branch_id?: string | null; parent_id?: string | null; tax_code?: string | null; job_level?: string | null };
+type UnitRow = { id: string; code: string; name: string; effective_from: string; effective_to: string | null; legal_entity_id?: string; branch_id?: string | null; parent_id?: string | null; tax_code?: string | null; job_level?: string | null; management_tier?: number | null };
+
+/* Cấp quản lý 1–4 hoặc trống (null/"") */
+function tierOf(b: Body): number | null | undefined {
+  const v = b?.tier;
+  if (v === undefined) return undefined;
+  if (v === null || v === "") return null;
+  const n = Number(v);
+  if (!Number.isInteger(n) || n < 1 || n > 4) throw invalid("Cấp quản lý không hợp lệ.");
+  return n;
+}
 
 export class OrgAdmin {
   constructor(private readonly sb: SupabaseGateway) {}
@@ -43,7 +53,7 @@ export class OrgAdmin {
       db.from("legal_entities").select("id, code, name, tax_code, effective_from, effective_to").eq("tenant_id", tenantId).order("code"),
       db.from("branches").select("id, code, name, legal_entity_id, effective_from, effective_to").eq("tenant_id", tenantId).order("code"),
       db.from("departments").select("id, code, name, branch_id, parent_id, effective_from, effective_to").eq("tenant_id", tenantId).order("code"),
-      db.from("positions").select("id, code, name, job_level, effective_from, effective_to").eq("tenant_id", tenantId).order("code"),
+      db.from("positions").select("id, code, name, job_level, management_tier, effective_from, effective_to").eq("tenant_id", tenantId).order("code"),
     ]);
     for (const r of [le, br, de, po]) if (r.error) throw r.error;
     return { le: (le.data ?? []) as UnitRow[], br: (br.data ?? []) as UnitRow[], de: (de.data ?? []) as UnitRow[], po: (po.data ?? []) as UnitRow[] };
@@ -66,7 +76,7 @@ export class OrgAdmin {
     }
     const live = (u: UnitRow) => u.effective_from <= today && (!u.effective_to || u.effective_to >= today) || u.effective_from > today;
     const unit = (kind: OrgUnitKind, u: UnitRow, parentId: string | null, branchId: string | null): OrgUnit => ({
-      id: u.id, kind, code: u.code, name: u.name, parentId, branchId, taxCode: u.tax_code ?? null, jobLevel: u.job_level ?? null,
+      id: u.id, kind, code: u.code, name: u.name, parentId, branchId, taxCode: u.tax_code ?? null, jobLevel: u.job_level ?? null, tier: (u.management_tier ?? null) as ManagementTier | null,
       effectiveFrom: u.effective_from, effectiveTo: u.effective_to, active: live(u), employees: n.get(u.id) ?? 0,
     });
     const units = [
@@ -94,7 +104,7 @@ export class OrgAdmin {
     const { le, br, de } = await this.units(ctx.db, ctx.tenantId);
     const activeIn = (rows: UnitRow[], id: string) => rows.find((r) => r.id === id && (!r.effective_to || r.effective_to >= effectiveFrom));
     if (kind === "legal_entity") row.tax_code = nullableText(b, "taxCode", 20) ?? null;
-    if (kind === "position") row.job_level = nullableText(b, "jobLevel", 40) ?? null;
+    if (kind === "position") { row.job_level = nullableText(b, "jobLevel", 40) ?? null; row.management_tier = tierOf(b) ?? null; }
     if (kind === "branch") {
       const parent = uuid(b, "parentId")!;
       if (!activeIn(le, parent)) throw invalid("Chọn pháp nhân đang hoạt động.");
@@ -127,6 +137,7 @@ export class OrgAdmin {
     if (b?.name !== undefined) patch.name = req(b, "name", { min: 2, max: 120 });
     if (kind === "legal_entity" && b?.taxCode !== undefined) patch.tax_code = nullableText(b, "taxCode", 20) ?? null;
     if (kind === "position" && b?.jobLevel !== undefined) patch.job_level = nullableText(b, "jobLevel", 40) ?? null;
+    if (kind === "position" && b?.tier !== undefined) patch.management_tier = tierOf(b) ?? null;
     const changed = Object.fromEntries(Object.entries(patch).filter(([k, v]) => (before as Record<string, unknown>)[k] !== v));
     if (!Object.keys(changed).length) throw invalid("Không có thay đổi.");
     const { error } = await ctx.db.from(TABLE[kind]).update(changed).eq("id", id).eq("tenant_id", ctx.tenantId);

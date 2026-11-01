@@ -1,7 +1,8 @@
 /* Nhân viên và tài khoản đăng nhập (web HR/Admin). Mọi truy vấn đi qua phạm vi của người gọi; mọi thao tác ghi có audit. */
 import type {
-  AccountStatus, AdminDevice, BulkInviteResult, AdminOverview, AttendanceBoard, OverviewDay, AdminMe, AuditEntry, EmployeeDetail, EmployeeListItem, EmployeeStatus, EmployeeUpsert, EmploymentType, OrgOptions, Ref, ScopeType,
+  AccountStatus, AdminDevice, BulkInviteResult, AdminOverview, AttendanceBoard, OverviewDay, AdminMe, AuditEntry, EmployeeDetail, EmployeeListItem, EmployeeStatus, EmployeeUpsert, EmploymentType, ManagementTier, OrgOptions, Ref, ScopeType,
 } from "@kavor/contracts";
+import { MANAGEMENT_TIERS, managerTierOk } from "@kavor/contracts";
 import { AuthError } from "../auth/auth.service.js";
 import type { SupabaseGateway } from "../auth/supabase.js";
 import { localParts, tenantSettings } from "../attendance/attendance.service.js";
@@ -59,16 +60,50 @@ export class EmployeesAdmin {
       db.from("legal_entities").select("id, name").eq("tenant_id", ctx.tenantId).or(live).order("name"),
       db.from("branches").select("id, name").eq("tenant_id", ctx.tenantId).or(live).order("name"),
       db.from("departments").select("id, name, branch_id").eq("tenant_id", ctx.tenantId).or(live).order("name"),
-      db.from("positions").select("id, name").eq("tenant_id", ctx.tenantId).or(live).order("name"),
+      db.from("positions").select("id, name, management_tier").eq("tenant_id", ctx.tenantId).or(live).order("name"),
       ctx.scopedEmployees("employee.read", "id, full_name, employee_code, status").order("full_name"),
     ]);
     const emps = ((em.data ?? []) as unknown as Array<{ id: string; full_name: string; employee_code: string; status: string }>).filter((e) => e.status !== "terminated");
-    const roles = await this.activeRoles(ctx, emps.map((e) => e.id), today);
+    const [roles, places, tiers] = await Promise.all([this.activeRoles(ctx, emps.map((e) => e.id), today), loadPlacements(ctx.db, ctx.tenantId, today, emps.map((e) => e.id)), this.positionTiers(ctx)]);
+    const posName = new Map(((po.data ?? []) as Array<{ id: string; name: string }>).map((p) => [p.id, p.name]));
+    const depName = new Map(((de.data ?? []) as Array<{ id: string; name: string }>).map((d) => [d.id, d.name]));
     return {
-      legalEntities: (le.data ?? []) as Ref[], branches: (br.data ?? []) as Ref[], positions: (po.data ?? []) as Ref[],
+      legalEntities: (le.data ?? []) as Ref[], branches: (br.data ?? []) as Ref[],
+      positions: ((po.data ?? []) as Array<{ id: string; name: string; management_tier: number | null }>).map((p) => ({ id: p.id, name: p.name, tier: p.management_tier as ManagementTier | null })),
       departments: ((de.data ?? []) as Array<{ id: string; name: string; branch_id: string | null }>).map((d) => ({ id: d.id, name: d.name, branchId: d.branch_id })),
-      employees: emps.map((e) => ({ id: e.id, name: e.full_name, code: e.employee_code, roles: (roles.get(e.id) ?? []).map((r) => r.code) })),
+      employees: emps.map((e) => {
+        const p = places.get(e.id);
+        return { id: e.id, name: e.full_name, code: e.employee_code, roles: (roles.get(e.id) ?? []).map((r) => r.code),
+          tier: p ? (tiers.get(p.position_id) ?? null) as ManagementTier | null : null, position: p ? posName.get(p.position_id) ?? null : null, department: p ? depName.get(p.department_id) ?? null : null };
+      }),
     };
+  }
+
+  /* Cấp quản lý của mọi chức danh (kể cả đã ngừng: hồ sơ cũ vẫn có thể đang dùng) */
+  private async positionTiers(ctx: AdminContext) {
+    const { data, error } = await ctx.db.from("positions").select("id, management_tier").eq("tenant_id", ctx.tenantId);
+    if (error) throw error;
+    return new Map(((data ?? []) as Array<{ id: string; management_tier: number | null }>).map((p) => [p.id, p.management_tier]));
+  }
+
+  /* Quản lý trực tiếp: chức danh của người quản lý phải có cấp cao hơn (managerTierOk) và không tạo vòng (A quản lý B, B lại quản lý A) */
+  private async assertManagerValid(ctx: AdminContext, org: Org, employeeId: string | null, positionId: string, managerId: string | null, today: string) {
+    if (!managerId) return;
+    if (managerId === employeeId) throw invalid("Nhân viên không thể là quản lý trực tiếp của chính mình.");
+    const [tiers, mp] = await Promise.all([this.positionTiers(ctx), loadPlacements(ctx.db, ctx.tenantId, today, [managerId])]);
+    const m = mp.get(managerId), mt = m ? tiers.get(m.position_id) ?? null : null, et = tiers.get(positionId) ?? null;
+    if (!managerTierOk(mt, et)) {
+      const name = org.names.get(managerId) ?? "Người được chọn";
+      throw conflict(`Quản lý trực tiếp phải có cấp quản lý cao hơn: ${name} đang ở cấp ${MANAGEMENT_TIERS[mt as ManagementTier]}, chức danh ${org.names.get(positionId) ?? ""} ở cấp ${MANAGEMENT_TIERS[et as ManagementTier]}. Chọn người cấp cao hơn hoặc sửa cấp chức danh ở Cơ cấu tổ chức.`);
+    }
+    if (!employeeId) return;
+    /* Đi ngược chuỗi quản lý từ người được chọn; gặp lại chính nhân viên này là vòng */
+    let cur: string | null = managerId;
+    for (let i = 0; cur && i < 50; i++) {
+      const next: string | null = (await loadPlacements(ctx.db, ctx.tenantId, today, [cur])).get(cur)?.manager_employee_id ?? null;
+      if (next === employeeId) throw conflict(`Không chọn được: ${org.names.get(managerId) ?? "người này"} đang do nhân viên này quản lý (trực tiếp hoặc gián tiếp), sẽ tạo vòng quản lý.`);
+      cur = next;
+    }
   }
 
   /* Vai trò đang giữ hôm nay (theo tenant) của các nhân viên, trừ vai trò Nhân viên */
@@ -148,6 +183,7 @@ export class EmployeesAdmin {
     const placement = this.placementFor(org, input.departmentId, input.positionId);
     await this.assertPlacementAllowed(ctx, "employee.create", placement);
     if (input.managerEmployeeId) await ctx.requireEmployee("employee.read", input.managerEmployeeId);
+    await this.assertManagerValid(ctx, org, null, input.positionId, input.managerEmployeeId ?? null, localParts(new Date(), (await tenantSettings(this.sb, ctx.tenantId)).timezone).date);
     await this.assertEmailFree(ctx, input.workEmail, null);
     if ((input.status ?? "active") !== "terminated") await assertEmployeeCapacity(ctx.db, ctx.tenantId);
     const { data, error } = await ctx.db.from("employees").insert({
@@ -203,6 +239,7 @@ export class EmployeesAdmin {
       const manager = input.managerEmployeeId !== undefined ? input.managerEmployeeId : current?.manager_employee_id ?? null;
       if (manager === id) throw invalid("Nhân viên không thể là quản lý trực tiếp của chính mình.");
       if (manager && manager !== current?.manager_employee_id) await ctx.requireEmployee("employee.read", manager);
+      if (manager && (manager !== current?.manager_employee_id || next.position_id !== current?.position_id)) await this.assertManagerValid(ctx, org, id, next.position_id, manager, today);
       const changed = !current || current.department_id !== next.department_id || current.position_id !== next.position_id || (current.manager_employee_id ?? null) !== (manager ?? null);
       if (changed) {
         await this.assertPlacementAllowed(ctx, "employee.update", next);

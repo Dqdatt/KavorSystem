@@ -204,14 +204,14 @@ export const ORG_UNIT_KINDS: Record<OrgUnitKind, string> = { legal_entity: "Phá
 /* parentId: chi nhánh → pháp nhân; phòng ban → phòng ban cha (null nếu cấp cao nhất trong chi nhánh). employees = nhân viên đang phân công trực tiếp */
 export type OrgUnit = {
   id: string; kind: OrgUnitKind; code: string; name: string; parentId: string | null; branchId: string | null;
-  taxCode: string | null; jobLevel: string | null; effectiveFrom: string; effectiveTo: string | null; active: boolean; employees: number;
+  taxCode: string | null; jobLevel: string | null; tier: ManagementTier | null; effectiveFrom: string; effectiveTo: string | null; active: boolean; employees: number;
 };
 export type OrgTree = {
   units: OrgUnit[]; today: string; canManage: boolean;
   metrics: { legalEntities: number; branches: number; departments: number; positions: number; managers: number; employees: number };
 };
-export type OrgUnitInput = { kind: OrgUnitKind; code: string; name: string; parentId?: string | null; branchId?: string | null; taxCode?: string | null; jobLevel?: string | null; effectiveFrom?: string };
-export type OrgUnitUpdate = { code?: string; name?: string; taxCode?: string | null; jobLevel?: string | null };
+export type OrgUnitInput = { kind: OrgUnitKind; code: string; name: string; parentId?: string | null; branchId?: string | null; taxCode?: string | null; jobLevel?: string | null; tier?: ManagementTier | null; effectiveFrom?: string };
+export type OrgUnitUpdate = { code?: string; name?: string; taxCode?: string | null; jobLevel?: string | null; tier?: ManagementTier | null };
 
 export type RoleAssignmentRow = {
   id: string; employee: { id: string; code: string; fullName: string }; account: AccountStatus;
@@ -376,8 +376,16 @@ export type PolicyAssignment = {
 };
 export type PolicyAssignmentInput = { kind: PolicyKind; targetId: string; scopeType: PolicyScopeType; scopeId?: string | null; effectiveFrom: string; effectiveTo?: string | null; reason?: string | null };
 
+/* Cấp quản lý của chức danh (tách khỏi ngạch jobLevel): quản lý trực tiếp phải có cấp cao hơn, Ban Giám đốc được quản lý Ban Giám đốc;
+   một bên chưa phân cấp thì không chặn */
+export type ManagementTier = 1 | 2 | 3 | 4;
+export const MANAGEMENT_TIERS: Record<ManagementTier, string> = { 1: "Nhân viên", 2: "Trưởng nhóm", 3: "Quản lý", 4: "Ban Giám đốc" };
+export const managerTierOk = (manager: number | null | undefined, employee: number | null | undefined) =>
+  manager == null || employee == null || manager > employee || (manager === 4 && employee === 4);
+
 /* employees[].roles: mã vai trò đang giữ (trừ Nhân viên) — để gợi ý gán vai trò Quản lý khi chọn quản lý trực tiếp */
-export type OrgOptions = { legalEntities: Ref[]; branches: Ref[]; departments: Array<Ref & { branchId: string | null }>; positions: Ref[]; employees: Array<Ref & { code: string; roles: string[] }> };
+export type OrgOptions = { legalEntities: Ref[]; branches: Ref[]; departments: Array<Ref & { branchId: string | null }>; positions: Array<Ref & { tier: ManagementTier | null }>;
+  employees: Array<Ref & { code: string; roles: string[]; tier: ManagementTier | null; position: string | null; department: string | null }> };
 
 export type TodayState = "not_started" | "working" | "done" | "absent" | "no_shift";
 export type TodayRow = {

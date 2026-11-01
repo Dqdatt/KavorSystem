@@ -17,7 +17,15 @@ ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AG
   "Kế toán" (cảnh báo khi thiếu), chỉ đếm vai trò còn hiệu lực. Modal đơn web nói rõ vì sao không duyệt được + cần vai trò gì. Màn Vai trò ghi rõ quyền
   cộng dồn, form gán hiện vai trò đang giữ; hồ sơ nhân viên hiện vai trò; form nhân viên nhắc khi quản lý trực tiếp chưa có vai trò xem web.
   pgTAP `approver_roles` 6 (sửa `tenant_local_date` dùng Kế toán thay HR), smoke `tools/approvers-smoke.sh` 17 bước. Chưa xem giao diện web trên trình duyệt.
-  **Bản online cần chạy `tools/cloud-supabase.sh`** (migration mới) trước khi push. Tiếp theo: cấp bậc chức danh cho danh sách quản lý trực tiếp.
+  **Bản online cần chạy `tools/cloud-supabase.sh`** (migration mới) trước khi push.
+- Cấp quản lý của chức danh (1/11, Claude Desktop; người dùng báo danh sách "Quản lý trực tiếp" có cả nhân viên thường): migration
+  `202611160001_position_management_tier.sql` thêm `positions.management_tier` (1 Nhân viên, 2 Trưởng nhóm, 3 Quản lý, 4 Ban Giám đốc) — tách khỏi
+  `job_level` (ngạch tự do, dữ liệu mẫu L2–L6); mẫu công ty mới thêm chức danh Ban Giám đốc (4), Quản lý 3, Nhân viên 1, Quản trị viên để trống;
+  seed Hải Đăng có cấp. Quy tắc `managerTierOk` (contracts, unit test): quản lý trực tiếp phải cấp cao hơn, BGĐ quản lý được BGĐ, chưa phân cấp thì
+  không chặn. API chặn khi tạo/sửa hồ sơ (sai cấp, vòng quản lý) và khi nhập file (sai cấp, vòng giữa các dòng mới); web Cơ cấu tổ chức chọn cấp cho
+  chức danh, form nhân viên chỉ hiện người cấp cao hơn (kèm chức danh); checklist "Quan hệ quản lý trực tiếp" liệt kê hồ sơ sai/vòng, nhắc chức danh
+  chưa đặt cấp. pgTAP `position_tier` 3, smoke approvers thêm 11 bước (tổng 28), sửa dữ liệu thử của import-smoke theo quy tắc cấp. Dữ liệu cũ không tự sửa. Chưa xem giao diện trên trình duyệt.
+  **Bản online cần chạy `tools/cloud-supabase.sh`** (2 migration 202611150001 + 202611160001) trước khi push; công ty đã có trên online: chức danh chưa có cấp → HR đặt ở Cơ cấu tổ chức.
 - Không còn bị đăng xuất vì lỗi tạm thời (1/11, Claude Desktop; người dùng báo web HR online tự đăng xuất sau vài giờ): API `auth/refresh` và
   `console/auth/refresh` chỉ trả 401 khi Supabase báo 4xx (refresh token hết hạn/đã dùng/bị thu hồi), lỗi mạng/5xx trả 503 thử lại (`refreshFailure`,
   unit test 2); proxy web HR + Console chỉ xóa phiên khi 4xx, 5xx/mất API thì giữ cookie, trang hiện "Máy chủ Kavor đang bận" tự tải lại 5 giây.

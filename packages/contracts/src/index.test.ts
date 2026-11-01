@@ -77,3 +77,16 @@ test("bản tin: đậm, nghiêng, gạch chân, ký tự thoát và ký hiệu 
   assert.equal(announcementReadMinutes("ngắn"), 1);
   assert.equal(announcementReadMinutes(Array(600).fill("**từ**").join(" ")), 3);
 });
+
+import { managerTierOk } from "./index.js";
+
+test("quản lý trực tiếp phải có cấp quản lý cao hơn; Ban Giám đốc quản lý Ban Giám đốc; chưa phân cấp thì không chặn", () => {
+  assert.equal(managerTierOk(3, 1), true);
+  assert.equal(managerTierOk(4, 3), true);
+  assert.equal(managerTierOk(1, 1), false, "nhân viên không quản lý nhân viên");
+  assert.equal(managerTierOk(3, 3), false, "quản lý của quản lý phải là Ban Giám đốc");
+  assert.equal(managerTierOk(2, 3), false);
+  assert.equal(managerTierOk(4, 4), true);
+  assert.equal(managerTierOk(null, 3), true);
+  assert.equal(managerTierOk(1, null), true);
+});

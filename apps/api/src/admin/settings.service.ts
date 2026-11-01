@@ -11,6 +11,8 @@ import { currentTerms, toTerms, type TermsRow } from "../company/privacy.js";
 import { MFA_REQUIRED_FOR_WEB, conflict, invalid, notFound, type AdminContext } from "./context.js";
 import type { ScheduleAdmin } from "./schedule.service.js";
 import { planOf } from "../tenancy/plan.js";
+import { loadPlacements } from "../attendance/policy.js";
+import { managerTierOk } from "@kavor/contracts";
 import { EMAIL, date, nullableText, number, oneOf, req, text, uuid, type Body } from "./validate.js";
 
 const KINDS: readonly BrandingKind[] = ["logo", "cover"];
@@ -233,6 +235,29 @@ export class SettingsAdmin {
     return this.privacy(ctx);
   }
 
+  /* Hồ sơ có quản lý trực tiếp sai cấp (managerTierOk) hoặc nằm trong vòng quản lý; số chức danh đang dùng chưa đặt cấp */
+  private async reportingIssues(ctx: AdminContext, today: string) {
+    const [places, { data: pos }, { data: emps }] = await Promise.all([
+      loadPlacements(ctx.db, ctx.tenantId, today),
+      ctx.db.from("positions").select("id, management_tier").eq("tenant_id", ctx.tenantId),
+      ctx.db.from("employees").select("id, full_name, status").eq("tenant_id", ctx.tenantId).neq("status", "terminated"),
+    ]);
+    const tier = new Map(((pos ?? []) as Array<{ id: string; management_tier: number | null }>).map((p) => [p.id, p.management_tier]));
+    const name = new Map(((emps ?? []) as Array<{ id: string; full_name: string }>).map((e) => [e.id, e.full_name]));
+    const bad: string[] = [];
+    for (const [id, p] of places) {
+      if (!name.has(id) || !p.manager_employee_id) continue;
+      const m = places.get(p.manager_employee_id);
+      if (m && !managerTierOk(tier.get(m.position_id), tier.get(p.position_id))) { bad.push(`${name.get(id)} do ${name.get(p.manager_employee_id) ?? "người cấp thấp hơn"} quản lý (sai cấp)`); continue; }
+      for (let c: string | null = p.manager_employee_id, i = 0; c && i < 50; i++) {
+        c = places.get(c)?.manager_employee_id ?? null;
+        if (c === id) { bad.push(`${name.get(id)} nằm trong vòng quản lý`); break; }
+      }
+    }
+    const used = new Set([...places].filter(([id]) => name.has(id)).map(([, p]) => p.position_id));
+    return { bad, untiered: [...used].filter((id) => tier.get(id) == null).length };
+  }
+
   /* ---------- Checklist thiết lập ban đầu (plan.md §24.1) ---------- */
   async checklist(ctx: AdminContext): Promise<SetupChecklist> {
     ctx.require("tenant.read");
@@ -248,6 +273,7 @@ export class SettingsAdmin {
       db.from("role_assignments").select("effective_from, effective_to, roles!inner(code)").eq("tenant_id", tid).in("roles.code", ["manager", "hr_ops", "payroll"]),
       head("work_locations"),
     ]);
+    const reporting = await this.reportingIssues(ctx, today);
     const n = (r: { count: number | null }) => r.count ?? 0;
     const active = ((assigns.data ?? []) as Array<{ kind: string; effective_from: string; effective_to: string | null }>)
       .filter((a) => a.effective_from <= today && (a.effective_to == null || a.effective_to >= today));
@@ -292,6 +318,11 @@ export class SettingsAdmin {
       step("payroll", "Kế toán: tạm ứng và lương", payroll > 0, payroll ? `${payroll} người có vai trò Kế toán.`
         : "Chưa ai có vai trò Kế toán: đơn tạm ứng sẽ dừng ở bước Kế toán, kỳ lương không ai nhập và duyệt được.", "/roles", payroll ? "done" : "warn"),
       step("admins", "Quản trị viên thứ hai", adminCount >= 2, adminCount >= 2 ? `${adminCount} quản trị viên.` : "Chỉ có 1 quản trị viên: nên có ít nhất 2 để không mất quyền quản trị.", null, adminCount >= 2 ? "done" : "warn"),
+      step("reporting", "Quan hệ quản lý trực tiếp", !reporting.bad.length && !reporting.untiered,
+        reporting.bad.length ? `${reporting.bad.length} hồ sơ cần sửa: ${reporting.bad.slice(0, 3).join("; ")}${reporting.bad.length > 3 ? "…" : ""}.`
+        : reporting.untiered ? `${reporting.untiered} chức danh đang dùng chưa đặt cấp quản lý: chưa kiểm được quản lý trực tiếp có đúng cấp không.`
+        : "Quản lý trực tiếp đều có cấp cao hơn, không có vòng quản lý.",
+        reporting.bad.length ? "/employees" : "/organization", reporting.bad.length ? "warn" : undefined),
       step("trial", "Chạy thử chấm công", n(accepted) > 0, n(accepted) ? `${n(accepted)} lần chấm công hợp lệ.` : "Chưa có lần chấm công hợp lệ nào.", "/attendance"),
     ];
     const counted = steps.filter((x) => x.state !== "unavailable");

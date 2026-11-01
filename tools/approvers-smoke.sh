@@ -26,7 +26,7 @@ check "Checklist cảnh báo chưa có Nhân sự vận hành (quản trị viê
 echo "— Nhân viên gửi đơn chỉ có bước Phòng Nhân sự"
 org=$(call GET admin/org "$ADM")
 DEP=$(echo "$org" | py "[x['id'] for x in d['departments'] if x['name']=='Hành chính – Nhân sự'][0]")
-POS=$(echo "$org" | py "d['positions'][0]['id']")
+POS=$(echo "$org" | py "[x['id'] for x in d['positions'] if x['name']=='Nhân viên'][0]")
 ADMIN_ID=$(echo "$org" | py "[x['id'] for x in d['employees'] if x['code']=='ADMIN01'][0]")
 check "Danh sách chọn quản lý có vai trò đang giữ" "$(echo "$org" | py "[x['roles'] for x in d['employees'] if x['code']=='ADMIN01'][0]")" "['tenant_admin']"
 B="{\"employeeCode\":\"TS001\",\"fullName\":\"Đoàn Nhân Viên\",\"workEmail\":\"nv1@tsd.test\",\"hireDate\":\"$TODAY\",\"employmentType\":\"official\",\"departmentId\":\"$DEP\",\"positionId\":\"$POS\",\"managerEmployeeId\":\"$ADMIN_ID\"}"
@@ -49,4 +49,25 @@ B="{\"employeeId\":\"$ADMIN_ID\",\"roleCode\":\"hr_ops\",\"scopeType\":\"tenant\
 check "Gán thêm Nhân sự vận hành cho quản trị viên" "$(status POST admin/roles/assignments "$ADM" "$B")" 201
 check "Hồ sơ hiện cả hai vai trò" "$(call GET admin/employees/$ADMIN_ID "$ADM" | py "sorted(r['code'] for r in d['roles'])")" "['hr_ops', 'tenant_admin']"
 check "Checklist hết cảnh báo Nhân sự vận hành" "$(call GET admin/settings/checklist "$ADM" | py "[s['state'] for s in d['steps'] if s['key']=='hr_ops'][0]")" done
+echo "— Cấp quản lý của chức danh và quản lý trực tiếp"
+org=$(call GET admin/org "$ADM")
+check "Chức danh mẫu có cấp quản lý" "$(echo "$org" | py "sorted((x['name'], x['tier']) for x in d['positions'] if x['tier'])")" "[('Ban Giám đốc', 4), ('Nhân viên', 1), ('Quản lý', 3)]"
+pid() { echo "$org" | py "[x['id'] for x in d['positions'] if x['name']=='$1'][0]"; }
+P_NV=$(pid "Nhân viên"); P_QL=$(pid "Quản lý"); P_QTV=$(pid "Quản trị viên")
+emp() { echo "{\"employeeCode\":\"$1\",\"fullName\":\"$2\",\"workEmail\":\"$3\",\"hireDate\":\"$TODAY\",\"employmentType\":\"official\",\"departmentId\":\"$DEP\",\"positionId\":\"$4\"${5:+,\"managerEmployeeId\":\"$5\"}}"; }
+r=$(call POST admin/employees "$ADM" "$(emp TS002 'Nhân Viên Hai' nv2@tsd.test "$P_NV" "$NV_ID")")
+check "Nhân viên không làm quản lý trực tiếp của nhân viên → 409 kèm lý do" "$(echo "$r" | field error.code) $(echo "$r" | field error.message | cut -d: -f1)" "CONFLICT Quản lý trực tiếp phải có cấp quản lý cao hơn"
+QL_ID=$(call POST admin/employees "$ADM" "$(emp TS003 'Trưởng Phòng' ql@tsd.test "$P_QL")" | field data.id); need "Tạo quản lý (cấp Quản lý)" "$QL_ID"
+check "Quản lý quản lý nhân viên được" "$(call PATCH admin/employees/$NV_ID "$ADM" "{\"managerEmployeeId\":\"$QL_ID\"}" | field data.manager.name)" "Trưởng Phòng"
+check "Đổi nhân viên lên chức danh Quản lý khi quản lý cũng là Quản lý → 409" "$(status PATCH admin/employees/$NV_ID "$ADM" "{\"positionId\":\"$P_QL\"}")" 409
+check "Danh sách chọn quản lý có cấp, chức danh của từng người" "$(call GET admin/org "$ADM" | py "[(x['tier'], x['position']) for x in d['employees'] if x['code']=='TS003'][0]")" "(3, 'Quản lý')"
+Q2=$(call POST admin/employees "$ADM" "$(emp TS004 'Trợ Lý' tl@tsd.test "$P_QTV" "$ADMIN_ID")" | field data.id); need "Chức danh chưa phân cấp: không chặn" "$Q2"
+r=$(call PATCH admin/employees/$ADMIN_ID "$ADM" "{\"managerEmployeeId\":\"$Q2\"}")
+check "A quản lý B thì B không quản lý A được (vòng) → 409" "$(echo "$r" | field error.code) $(echo "$r" | field error.message | grep -c 'vòng quản lý')" "CONFLICT 1"
+check "Checklist: không sai, còn chức danh chưa đặt cấp" "$(call GET admin/settings/checklist "$ADM" | py "[(s['state'], 'chưa đặt cấp' in s['detail']) for s in d['steps'] if s['key']=='reporting'][0]")" "('todo', True)"
+CSV=$(mktemp); printf 'employee_code,full_name,work_email,hire_date,employment_type,department_code,position_code,manager_code\nTS010,Mười,muoi@tsd.test,%s,official,HCNS,QTV,TS011\nTS011,Mười Một,muoimot@tsd.test,%s,official,HCNS,QTV,TS010\nTS012,Mười Hai,muoihai@tsd.test,%s,official,HCNS,QL,TS002X\nTS013,Mười Ba,muoiba@tsd.test,%s,official,HCNS,QL,TS005\nTS005,Năm,nam@tsd.test,%s,official,HCNS,NV,\n' "$TODAY" "$TODAY" "$TODAY" "$TODAY" "$TODAY" > "$CSV"
+B=$(python3 -c "import json,sys; print(json.dumps({'fileName':'x.csv','csv':open(sys.argv[1],encoding='utf-8').read(),'dryRun':True}))" "$CSV"); rm -f "$CSV"
+r=$(call POST admin/employees/import "$ADM" "$B")
+check "Nhập file: vòng quản lý giữa hai dòng mới bị báo lỗi" "$(echo "$r" | py "[any('vòng' in e for e in x['errors']) for x in d['rows'] if x['code'] in ('TS010','TS011')]")" "[True, True]"
+check "Nhập file: quản lý cấp thấp hơn (Nhân viên quản lý Quản lý) bị báo lỗi" "$(echo "$r" | py "[any('cấp cao hơn' in e for e in x['errors']) for x in d['rows'] if x['code']=='TS013']")" "[True]"
 echo "Tất cả bước người duyệt ở công ty mới đều đạt."

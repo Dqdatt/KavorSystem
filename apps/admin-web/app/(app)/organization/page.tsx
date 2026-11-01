@@ -3,7 +3,7 @@
    Thêm (thiết kế bổ sung): danh sách cây pháp nhân → chi nhánh → phòng ban, danh mục chức danh, thêm/sửa/ngừng đơn vị (docs/plans/org-roles.md).
    Chưa có: Import (nút của prototype), khối nhiều chi nhánh, vị trí định biên. */
 import { useMemo, useState } from "react";
-import { ORG_UNIT_KINDS, type OrgTree, type OrgUnit, type OrgUnitKind } from "@kavor/contracts";
+import { MANAGEMENT_TIERS, ORG_UNIT_KINDS, type ManagementTier, type OrgTree, type OrgUnit, type OrgUnitKind } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
 import { Empty, ErrorLine, Field, Icon, LoadError, Modal, Status, fmtDate, num, useAction, useMe } from "../../_ui/kit";
 import { Select, Skeleton, SkeletonLines } from "@kavor/web-ui";
@@ -104,9 +104,9 @@ function Positions({ t, units, onEdit, onEnd }: { t: OrgTree; units: OrgUnit[]; 
     <article className="card" style={{ marginTop: 14 }}>
       <div className="card-head"><div><h3>Chức danh</h3><p>Dùng khi thêm và chuyển công tác nhân viên</p></div>
         {t.canManage ? <button className="btn small" onClick={() => onEdit({ mode: "create", kind: "position" })}><Icon name="plus" /> Chức danh</button> : null}</div>
-      <div className="table-wrap"><table className="data-table"><thead><tr><th>Chức danh</th><th>Mã</th><th>Cấp bậc</th><th>Nhân sự</th><th>Trạng thái</th><th /></tr></thead><tbody>
+      <div className="table-wrap"><table className="data-table"><thead><tr><th>Chức danh</th><th>Mã</th><th>Cấp quản lý</th><th>Ngạch</th><th>Nhân sự</th><th>Trạng thái</th><th /></tr></thead><tbody>
         {ps.map((p) => (
-          <tr key={p.id}><td><b>{p.name}</b></td><td>{p.code}</td><td>{p.jobLevel ?? "—"}</td><td className="num">{num(p.employees)}</td>
+          <tr key={p.id}><td><b>{p.name}</b></td><td>{p.code}</td><td>{p.tier ? MANAGEMENT_TIERS[p.tier] : <span className="muted">Chưa đặt</span>}</td><td>{p.jobLevel ?? "—"}</td><td className="num">{num(p.employees)}</td>
             <td><Status v={p.active ? ["Hoạt động", ""] : ["Đã ngừng", "muted"]} /></td>
             <td>{t.canManage && p.active ? <span className="row-actions"><button className="btn small" onClick={() => onEdit({ mode: "edit", unit: p })}>Sửa</button><button className="btn small" onClick={() => onEnd(p)}>Ngừng</button></span> : null}</td></tr>
         ))}
@@ -120,7 +120,7 @@ function UnitModal({ t, edit, onClose, onDone }: { t: OrgTree; edit: Edit; onClo
   const [kind, setKind] = useState<OrgUnitKind>(u?.kind ?? (edit.mode === "create" ? edit.kind : "department"));
   const parent0 = edit.mode === "create" ? edit.parent : undefined;
   const [f, setF] = useState({
-    code: u?.code ?? "", name: u?.name ?? "", taxCode: u?.taxCode ?? "", jobLevel: u?.jobLevel ?? "", effectiveFrom: t.today,
+    code: u?.code ?? "", name: u?.name ?? "", taxCode: u?.taxCode ?? "", jobLevel: u?.jobLevel ?? "", tier: u?.tier ? String(u.tier) : "", effectiveFrom: t.today,
     legalEntityId: parent0?.kind === "legal_entity" ? parent0.id : "",
     branchId: parent0?.kind === "branch" ? parent0.id : parent0?.kind === "department" ? parent0.branchId ?? "" : "",
     parentId: parent0?.kind === "department" ? parent0.id : "",
@@ -135,8 +135,8 @@ function UnitModal({ t, edit, onClose, onDone }: { t: OrgTree; edit: Edit; onClo
     if (!u && kind === "department" && !f.branchId) { setErr("Chọn chi nhánh."); return; }
     await run("save", async () => {
       const r = u
-        ? await call<OrgTree>("PATCH", `organization/units/${u.kind}/${u.id}`, { code: f.code, name: f.name, ...(u.kind === "legal_entity" ? { taxCode: f.taxCode || null } : {}), ...(u.kind === "position" ? { jobLevel: f.jobLevel || null } : {}) })
-        : await call<OrgTree>("POST", "organization/units", { kind, code: f.code, name: f.name, effectiveFrom: f.effectiveFrom, taxCode: f.taxCode || null, jobLevel: f.jobLevel || null,
+        ? await call<OrgTree>("PATCH", `organization/units/${u.kind}/${u.id}`, { code: f.code, name: f.name, ...(u.kind === "legal_entity" ? { taxCode: f.taxCode || null } : {}), ...(u.kind === "position" ? { jobLevel: f.jobLevel || null, tier: f.tier ? Number(f.tier) : null } : {}) })
+        : await call<OrgTree>("POST", "organization/units", { kind, code: f.code, name: f.name, effectiveFrom: f.effectiveFrom, taxCode: f.taxCode || null, jobLevel: f.jobLevel || null, tier: f.tier ? Number(f.tier) : null,
             parentId: kind === "branch" ? f.legalEntityId : kind === "department" ? f.parentId || null : null, branchId: kind === "department" ? f.branchId : null });
       onDone(r); onClose();
     }, u ? "Đã lưu đơn vị" : `Đã thêm ${ORG_UNIT_KINDS[kind].toLowerCase()}`);
@@ -155,7 +155,12 @@ function UnitModal({ t, edit, onClose, onDone }: { t: OrgTree; edit: Edit; onClo
           <Field label="Phòng ban cha (không bắt buộc)"><Select value={f.parentId} onChange={set("parentId")} disabled={!f.branchId}><option value="">— Cấp cao nhất —</option>{live.filter((x) => x.kind === "department" && x.branchId === f.branchId).map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</Select></Field>
         </> : null}
         {(u?.kind ?? kind) === "legal_entity" ? <Field label="Mã số thuế"><input value={f.taxCode} onChange={set("taxCode")} inputMode="numeric" /></Field> : null}
-        {(u?.kind ?? kind) === "position" ? <Field label="Cấp bậc (không bắt buộc)"><input value={f.jobLevel} onChange={set("jobLevel")} placeholder="L2" /></Field> : null}
+        {(u?.kind ?? kind) === "position" ? <>
+          <Field label="Cấp quản lý"><Select value={f.tier} onChange={set("tier")}><option value="">Chưa đặt</option>
+            {([1, 2, 3, 4] as ManagementTier[]).map((n) => <option key={n} value={String(n)}>{MANAGEMENT_TIERS[n]}</option>)}</Select>
+            <small className="muted" style={{ display: "block", marginTop: 6 }}>Quản lý trực tiếp phải có cấp cao hơn (Ban Giám đốc quản lý được Ban Giám đốc).</small></Field>
+          <Field label="Ngạch (không bắt buộc)"><input value={f.jobLevel} onChange={set("jobLevel")} placeholder="L2" /></Field>
+        </> : null}
       </div>
       <ErrorLine text={err} />
     </Modal>
