@@ -199,10 +199,15 @@ export class AuthService {
 
   /* Nhân viên của phiên hiện tại; dùng cho mọi endpoint /me/*. Tenant lấy từ hồ sơ, không tin client. */
   async employeeFromToken(accessToken: string): Promise<EmployeeRow> {
-    const { data, error } = await this.sb.admin.auth.getUser(accessToken);
-    if (error && error.status !== 401 && error.status !== 403) throw new AuthError("AUTH_UNAVAILABLE", "Máy chủ xác thực đang bận. Vui lòng thử lại.", 503, true);
-    if (error || !data.user) throw new AuthError(AUTH_ERRORS.sessionExpired, "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.", 401);
-    const emp = await this.findEmployeeByUser(data.user.id);
+    /* getClaims: kiểm chữ ký + hạn token tại API bằng khóa công khai (JWKS, có cache) — không gọi Auth ở mỗi request của app (chậm trên gói
+       miễn phí). Project dùng khóa đối xứng kiểu cũ thì thư viện tự quay về getUser. Phiên bị thu hồi vẫn dùng được tới khi token hết hạn (≤ 1 giờ);
+       khóa tài khoản/tạm ngừng công ty vẫn chặn ngay vì kiểm ở DB bên dưới. */
+    const { data, error } = await this.sb.admin.auth.getClaims(accessToken);
+    const st = (error as { status?: number } | null)?.status ?? 0;
+    if (error && (st === 0 || st >= 500) && !/jwt|token|expired|signature|invalid/i.test(error.message)) throw new AuthError("AUTH_UNAVAILABLE", "Máy chủ xác thực đang bận. Vui lòng thử lại.", 503, true);
+    const sub = data?.claims?.sub;
+    if (error || !sub) throw new AuthError(AUTH_ERRORS.sessionExpired, "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.", 401);
+    const emp = await this.findEmployeeByUser(sub);
     if (!emp) throw new AuthError(AUTH_ERRORS.notActivated, "Tài khoản chưa gắn với hồ sơ nhân viên.", 403);
     if (emp.status === "terminated" || emp.status === "suspended") throw new AuthError(AUTH_ERRORS.accountDisabled, "Tài khoản đang bị khóa. Liên hệ phòng Nhân sự.", 403);
     await this.assertNotLocked(emp);

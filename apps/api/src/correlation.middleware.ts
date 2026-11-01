@@ -11,6 +11,14 @@ export class CorrelationMiddleware implements NestMiddleware {
     const correlationId = incoming && incoming.length <= 128 ? incoming : randomUUID();
     request.correlationId = correlationId;
     response.setHeader("x-correlation-id", correlationId);
+    /* Đo tốc độ trên Render: một dòng log mỗi request (đường dẫn bỏ query — liên kết tải file có chữ ký); bỏ /health của cron giữ thức */
+    const started = process.hrtime.bigint();
+    response.on("finish", () => {
+      const path = (request.originalUrl ?? request.url).split("?")[0] ?? "";
+      if (path.endsWith("/health")) return;
+      const ms = Number(process.hrtime.bigint() - started) / 1e6;
+      console.log(`[req] ${request.method} ${path} ${response.statusCode} ${ms.toFixed(0)}ms`);
+    });
     next();
   }
 }

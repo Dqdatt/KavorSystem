@@ -10,6 +10,10 @@ simulator hay iPhone** vì phiên cloud không có Mac). Người dùng giao "c�
 ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AGENT_PLAYBOOK.md`; kiểm tra toàn bộ bằng `bash tools/verify-all.sh`.
 
 ## Đã xong
+- Tốc độ API app (1/11, Claude Desktop): `/me/*` xác thực bằng `getClaims` (kiểm chữ ký JWT tại API qua JWKS có cache, không gọi Auth mỗi request; khóa
+  đối xứng kiểu cũ thì thư viện tự dùng getUser) — local `/me/requests` 42→15 ms, `/me/timesheet` 72→~30 ms. Web/Console vẫn getUser (cần factors,
+  app_metadata). Mỗi request ghi `[req] METHOD path status ms` vào log (bỏ query, bỏ /health) để đo trên Render. Chưa đo trên online; chưa làm app
+  hiện dữ liệu cũ ngay khi mở.
 - Danh sách đơn để đối chiếu (1/11, Claude Desktop; người dùng hỏi duyệt xong đơn đi đâu): API `GET /admin/requests` lọc ở máy chủ (trạng thái pending/
   approved/closed/all — `rejected`/`cancelled` cũ gộp vào closed, loại, phòng ban hiện tại, nhân viên, khoảng ngày theo **ngày áp dụng** — giải trình/OT =
   ngày công, nghỉ = từ–đến, tạm ứng = tháng khấu trừ, sửa hồ sơ = ngày gửi — hoặc ngày gửi, tìm mã/tên không dấu), đếm theo trạng thái, phân trang
