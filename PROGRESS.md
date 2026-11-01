@@ -10,6 +10,14 @@ simulator hay iPhone** vì phiên cloud không có Mac). Người dùng giao "c�
 ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AGENT_PLAYBOOK.md`; kiểm tra toàn bộ bằng `bash tools/verify-all.sh`.
 
 ## Đã xong
+- Người duyệt ở công ty mới + phân quyền dễ hiểu (1/11, Claude Desktop; người dùng báo đơn GT kẹt ở bước Phòng Nhân sự): công ty tạo từ Console chỉ có
+  Quản trị viên, mà bước HR chỉ vai trò Nhân sự vận hành duyệt được → mọi đơn qua HR kẹt (dữ liệu mẫu che lỗi vì HD0007 có cả hai vai trò). Migration
+  `202611150001_tenant_admin_hr_review.sql` cấp `request.hr_review` cho Quản trị viên (đơn đang kẹt tự có người duyệt, quản trị viên nhận thông báo);
+  bước Kế toán cố ý không cấp. Checklist tách "Vai trò Quản lý", "Người duyệt bước Phòng Nhân sự" (cảnh báo khi quản trị viên đang duyệt thay),
+  "Kế toán" (cảnh báo khi thiếu), chỉ đếm vai trò còn hiệu lực. Modal đơn web nói rõ vì sao không duyệt được + cần vai trò gì. Màn Vai trò ghi rõ quyền
+  cộng dồn, form gán hiện vai trò đang giữ; hồ sơ nhân viên hiện vai trò; form nhân viên nhắc khi quản lý trực tiếp chưa có vai trò xem web.
+  pgTAP `approver_roles` 6 (sửa `tenant_local_date` dùng Kế toán thay HR), smoke `tools/approvers-smoke.sh` 17 bước. Chưa xem giao diện web trên trình duyệt.
+  **Bản online cần chạy `tools/cloud-supabase.sh`** (migration mới) trước khi push. Tiếp theo: cấp bậc chức danh cho danh sách quản lý trực tiếp.
 - Không còn bị đăng xuất vì lỗi tạm thời (1/11, Claude Desktop; người dùng báo web HR online tự đăng xuất sau vài giờ): API `auth/refresh` và
   `console/auth/refresh` chỉ trả 401 khi Supabase báo 4xx (refresh token hết hạn/đã dùng/bị thu hồi), lỗi mạng/5xx trả 503 thử lại (`refreshFailure`,
   unit test 2); proxy web HR + Console chỉ xóa phiên khi 4xx, 5xx/mất API thì giữ cookie, trang hiện "Máy chủ Kavor đang bận" tự tải lại 5 giây.

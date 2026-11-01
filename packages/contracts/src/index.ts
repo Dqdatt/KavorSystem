@@ -337,6 +337,8 @@ export type EmployeeDetail = EmployeeListItem & {
   audit: AuditEntry[];
   /* Thông tin cá nhân đã duyệt; số tài khoản đầy đủ chỉ khi người xem có employee.sensitive.read */
   personal: PersonalInfo;
+  /* Vai trò đang giữ (còn hiệu lực hôm nay, trừ Nhân viên): một người giữ được nhiều vai trò, quyền cộng dồn */
+  roles: Array<{ code: string; name: string; scope: string }>;
 };
 
 export type EmployeeUpsert = {
@@ -374,7 +376,8 @@ export type PolicyAssignment = {
 };
 export type PolicyAssignmentInput = { kind: PolicyKind; targetId: string; scopeType: PolicyScopeType; scopeId?: string | null; effectiveFrom: string; effectiveTo?: string | null; reason?: string | null };
 
-export type OrgOptions = { legalEntities: Ref[]; branches: Ref[]; departments: Array<Ref & { branchId: string | null }>; positions: Ref[]; employees: Array<Ref & { code: string }> };
+/* employees[].roles: mã vai trò đang giữ (trừ Nhân viên) — để gợi ý gán vai trò Quản lý khi chọn quản lý trực tiếp */
+export type OrgOptions = { legalEntities: Ref[]; branches: Ref[]; departments: Array<Ref & { branchId: string | null }>; positions: Ref[]; employees: Array<Ref & { code: string; roles: string[] }> };
 
 export type TodayState = "not_started" | "working" | "done" | "absent" | "no_shift";
 export type TodayRow = {

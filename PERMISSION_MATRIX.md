@@ -12,7 +12,7 @@
 | `manager` | Manager | Quản lý và phê duyệt trong phạm vi đội ngũ |
 | `hr_ops` | HR Operations | Vận hành hồ sơ, công, phép, đơn từ |
 | `payroll` | Payroll/Accountant | Vận hành lương, tạm ứng và dữ liệu tài chính |
-| `tenant_admin` | Tenant Admin | Quản trị tenant, user, role và cấu hình |
+| `tenant_admin` | Tenant Admin | Quản trị tenant, user, role và cấu hình; duyệt thay bước Phòng Nhân sự. Một người giữ được nhiều vai trò, quyền cộng dồn |
 | `auditor` | Auditor | Đọc dữ liệu/audit được cấp, không chỉnh sửa |
 | `platform_operator` | Kavor Platform Operator | Vận hành tenant và nền tảng |
 | `platform_support` | Kavor Support | Hỗ trợ có lý do, thời hạn và scope |
@@ -70,6 +70,8 @@ Một người có thể mang nhiều role. Quyền hiệu lực là hợp các 
 | Điều chỉnh leave ledger | — | — | ✓ | — | S | — |
 | Tạo đơn của mình | ✓ | ✓ | ✓ | ✓ | ✓ | — |
 | Duyệt đơn | — | A | A | A | A | — |
+| Duyệt bước "Phòng Nhân sự" (`request.hr_review`) | — | — | ✓ | — | ✓ (từ 01/11/2026: công ty mới chỉ có quản trị viên) | — |
+| Duyệt bước "Quản lý trực tiếp" | theo cơ cấu: người được đặt làm quản lý trực tiếp, không phụ thuộc vai trò | | | | | |
 | Cấu hình workflow | — | — | Theo cấp | Theo cấp | ✓ | R |
 | Xem payroll của mình | Self | Self | Self nếu là NV | Self | Self | — |
 | Xem payroll nhân viên khác | — | — | — | S | S | S |

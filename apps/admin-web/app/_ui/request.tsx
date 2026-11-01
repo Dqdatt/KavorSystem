@@ -1,9 +1,9 @@
 "use client";
 /* Đơn từ trên web HR: nhãn, tóm tắt nội dung, các bước duyệt và modal "Chi tiết đơn" (bám modal approve của prototype HR) */
 import { useState } from "react";
-import { EXPLANATION_KINDS, OVERTIME_DAY_KINDS, PROFILE_FIELDS, REQUEST_TYPES, STEP_RESOLVERS, type ProfileField, type ProfileValues, type RequestItem, type RequestStatus, type StepStatus } from "@kavor/contracts";
+import { EXPLANATION_KINDS, OVERTIME_DAY_KINDS, PROFILE_FIELDS, REQUEST_TYPES, STEP_RESOLVERS, type AdminMe, type ProfileField, type ProfileValues, type RequestItem, type RequestStatus, type StepStatus } from "@kavor/contracts";
 import { call } from "../_lib/client";
-import { ErrorLine, Field, Icon, Modal, Person, Status, fmtDate, fmtDateTime, useAction, useMe } from "./kit";
+import { ErrorLine, Field, Icon, Modal, Person, Status, can, fmtDate, fmtDateTime, useAction, useMe } from "./kit";
 
 export const REQUEST_TYPE = REQUEST_TYPES;
 export const REQUEST_STATUS: Record<RequestStatus, [string, string]> = { pending: ["Chờ duyệt", "warn"], approved: ["Đã duyệt", ""], rejected: ["Từ chối", "bad"], cancelled: ["Đã hủy", "muted"] };
@@ -74,7 +74,7 @@ export function RequestModal({ r, onClose, onDone }: { r: RequestItem; onClose: 
     await run(approve ? "ok" : "no", async () => { onDone(await call<RequestItem>("POST", `approvals/${r.myTaskId}/${approve ? "approve" : "reject"}`, { comment: note.trim() || null })); onClose(); }, approve ? "Đã duyệt đơn" : "Đã từ chối đơn");
   };
   return (
-    <Modal wide title={`Chi tiết đơn ${r.no}`} sub={r.myTaskId ? undefined : "Bạn không phải người duyệt bước đang chờ của đơn này."} onClose={onClose}
+    <Modal wide title={`Chi tiết đơn ${r.no}`} sub={r.myTaskId ? undefined : notMineReason(r, me)} onClose={onClose}
       foot={r.myTaskId ? <><button className="btn danger" disabled={!!busy} onClick={() => void act(false)}>Từ chối</button><button className="btn primary" disabled={!!busy} onClick={() => void act(true)}>{busy === "ok" ? "Đang duyệt…" : "Duyệt đơn"}</button></>
         : <button className="btn" onClick={onClose}>Đóng</button>}>
       <div className="profile-hero" style={{ paddingBottom: 12 }}><Person name={r.requester.fullName} seed={r.requester.code} sub={`${r.requester.department ?? "—"} · ${r.requester.code} · gửi từ Mobile App`} /></div>
@@ -117,3 +117,15 @@ export function RequestModal({ r, onClose, onDone }: { r: RequestItem; onClose: 
 }
 
 const kb = (n: number) => n >= 1024 * 1024 ? `${(n / 1024 / 1024).toLocaleString("vi-VN", { maximumFractionDigits: 1 })} MB` : `${Math.max(1, Math.round(n / 1024))} KB`;
+
+/* Vì sao người xem không duyệt được: chỉ ra ai/vai trò nào duyệt bước đang chờ để HR biết cần gán gì (một người giữ được nhiều vai trò) */
+function notMineReason(r: RequestItem, me: AdminMe): string | undefined {
+  if (r.status !== "pending") return undefined;
+  const cur = r.steps.find((s) => s.status === "pending");
+  if (!cur) return undefined;
+  if (r.requester.id === me.employeeId) return "Đây là đơn của bạn: không ai tự duyệt đơn của chính mình.";
+  if (cur.resolver === "direct_manager") return `Đang chờ quản lý trực tiếp${cur.assignee ? ` ${cur.assignee}` : ""} duyệt. Người duyệt bước này lấy theo Quản lý trực tiếp trong hồ sơ nhân viên.`;
+  const [perm, roles] = cur.resolver === "hr" ? ["request.hr_review", "Nhân sự vận hành hoặc Quản trị viên công ty"] : ["salary_advance.process", "Kế toán"];
+  if (can(me, perm)) return `Bước ${STEP_RESOLVERS[cur.resolver]} đang chờ, nhưng nhân viên này nằm ngoài phạm vi vai trò của bạn.`;
+  return `Bước ${STEP_RESOLVERS[cur.resolver]} cần vai trò ${roles}. Gán thêm vai trò ở Vai trò & phân quyền (một người giữ được nhiều vai trò).`;
+}

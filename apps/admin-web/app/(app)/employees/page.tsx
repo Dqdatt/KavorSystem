@@ -114,6 +114,7 @@ function EmployeeDrawer({ id, onClose, onEdit, onChanged }: { id: string; onClos
             <div className="detail-row"><span>Chức danh</span><b>{e.position?.name ?? "—"}</b></div>
             <div className="detail-row"><span>Chi nhánh · pháp nhân</span><b>{e.branch?.name ?? "—"} · {e.legalEntity?.name ?? "—"}</b></div>
             <div className="detail-row"><span>Quản lý trực tiếp</span><b>{e.manager?.name ?? "—"}</b></div>
+            <div className="detail-row"><span>Vai trò</span><b style={{ whiteSpace: "normal", maxWidth: 360 }}>{e.roles.length ? e.roles.map((r) => `${r.name} (${r.scope})`).join(", ") : "Nhân viên"}</b></div>
             <div className="detail-row"><span>Email công ty</span><b>{e.email ?? "—"}</b></div>
             <div className="detail-row"><span>Điện thoại</span><b>{e.phone ?? "—"}</b></div>
             <div className="detail-row"><span>Ngày vào làm · loại HĐ</span><b>{fmtDate(e.hireDate)} · {EMPLOYMENT[e.employmentType]}</b></div>
@@ -227,6 +228,8 @@ function EmployeeForm({ org, employee, onClose, onSaved }: { org: OrgOptions; em
   const [err, setErr] = useState<string | null>(null);
   const { busy, run } = useAction();
   const set = (k: keyof typeof f) => (e: { target: { value: string } }) => { setF({ ...f, [k]: e.target.value }); setErr(null); };
+  /* Quản lý trực tiếp chưa có vai trò xem dữ liệu nhân viên trên web (Quản lý / Nhân sự vận hành / Quản trị viên): gợi ý gán */
+  const mgrNoRole = ((m) => (m && !m.roles.some((r) => r === "manager" || r === "hr_ops" || r === "tenant_admin") ? m : null))(org.employees.find((x) => x.id === f.managerEmployeeId));
   const placementChanged = !!employee && (f.departmentId !== (employee.department?.id ?? "") || f.positionId !== (employee.position?.id ?? "") || f.managerEmployeeId !== (employee.manager?.id ?? ""));
 
   async function save() {
@@ -254,7 +257,9 @@ function EmployeeForm({ org, employee, onClose, onSaved }: { org: OrgOptions; em
         <Field label="Điện thoại"><input value={f.phone} onChange={set("phone")} /></Field>
         <Field label="Phòng ban"><Select value={f.departmentId} onChange={set("departmentId")}><option value="">Chọn phòng ban</option>{org.departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}</Select></Field>
         <Field label="Chức danh"><Select value={f.positionId} onChange={set("positionId")}><option value="">Chọn chức danh</option>{org.positions.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</Select></Field>
-        <Field label="Quản lý trực tiếp"><Select value={f.managerEmployeeId} onChange={set("managerEmployeeId")}><option value="">Không có</option>{org.employees.filter((x) => x.id !== employee?.id).map((x) => <option key={x.id} value={x.id}>{x.name} · {x.code}</option>)}</Select></Field>
+        <Field label="Quản lý trực tiếp"><Select value={f.managerEmployeeId} onChange={set("managerEmployeeId")}><option value="">Không có</option>{org.employees.filter((x) => x.id !== employee?.id).map((x) => <option key={x.id} value={x.id}>{x.name} · {x.code}</option>)}</Select>
+          {mgrNoRole ? <small className="muted" style={{ display: "block", marginTop: 6 }}>{mgrNoRole.name} sẽ duyệt đơn của nhân viên này trên app, nhưng chưa có vai trò Quản lý nên chưa xem được đơn và bảng công trên web. <a href="/roles">Gán vai trò Quản lý</a> (phạm vi Nhân viên trực tiếp).</small> : null}
+        </Field>
         <Field label="Ngày vào làm"><input type="date" value={f.hireDate} onChange={set("hireDate")} /></Field>
         <Field label="Loại hợp đồng"><Select value={f.employmentType} onChange={set("employmentType")}>{Object.entries(EMPLOYMENT).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</Select></Field>
         {employee ? <Field label="Trạng thái làm việc"><Select value={f.status} onChange={set("status")}>{Object.entries(EMP_STATUS).map(([k, v]) => <option key={k} value={k}>{v[0]}</option>)}</Select></Field> : null}

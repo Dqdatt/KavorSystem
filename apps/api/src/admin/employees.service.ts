@@ -13,6 +13,8 @@ import { addDays, EMAIL, date, nullableText, oneOf, req, text, uuid, type Body }
 import { loadPersonal } from "../profile/profile.service.js";
 import { assertEmployeeCapacity } from "../tenancy/plan.js";
 
+const SCOPE_LABEL: Record<string, string> = { tenant: "Toàn công ty", legal_entity: "Pháp nhân", branch: "Chi nhánh", department: "Phòng ban", direct_reports: "Nhân viên trực tiếp", self: "Bản thân" };
+
 export type EmployeeRowFull = {
   id: string; tenant_id: string; employee_code: string; full_name: string; work_email: string | null; phone: string | null;
   hire_date: string; termination_date: string | null; employment_type: EmploymentType; status: EmployeeStatus; user_id: string | null;
@@ -51,7 +53,8 @@ export class EmployeesAdmin {
     ctx.require("employee.read");
     const db = ctx.db;
     /* Chỉ đơn vị còn hoạt động (đơn vị đã ngừng không chọn được nữa) */
-    const live = `effective_to.is.null,effective_to.gte.${localParts(new Date(), (await tenantSettings(this.sb, ctx.tenantId)).timezone).date}`;
+    const today = localParts(new Date(), (await tenantSettings(this.sb, ctx.tenantId)).timezone).date;
+    const live = `effective_to.is.null,effective_to.gte.${today}`;
     const [le, br, de, po, em] = await Promise.all([
       db.from("legal_entities").select("id, name").eq("tenant_id", ctx.tenantId).or(live).order("name"),
       db.from("branches").select("id, name").eq("tenant_id", ctx.tenantId).or(live).order("name"),
@@ -59,11 +62,29 @@ export class EmployeesAdmin {
       db.from("positions").select("id, name").eq("tenant_id", ctx.tenantId).or(live).order("name"),
       ctx.scopedEmployees("employee.read", "id, full_name, employee_code, status").order("full_name"),
     ]);
+    const emps = ((em.data ?? []) as unknown as Array<{ id: string; full_name: string; employee_code: string; status: string }>).filter((e) => e.status !== "terminated");
+    const roles = await this.activeRoles(ctx, emps.map((e) => e.id), today);
     return {
       legalEntities: (le.data ?? []) as Ref[], branches: (br.data ?? []) as Ref[], positions: (po.data ?? []) as Ref[],
       departments: ((de.data ?? []) as Array<{ id: string; name: string; branch_id: string | null }>).map((d) => ({ id: d.id, name: d.name, branchId: d.branch_id })),
-      employees: ((em.data ?? []) as unknown as Array<{ id: string; full_name: string; employee_code: string; status: string }>).filter((e) => e.status !== "terminated").map((e) => ({ id: e.id, name: e.full_name, code: e.employee_code })),
+      employees: emps.map((e) => ({ id: e.id, name: e.full_name, code: e.employee_code, roles: (roles.get(e.id) ?? []).map((r) => r.code) })),
     };
+  }
+
+  /* Vai trò đang giữ hôm nay (theo tenant) của các nhân viên, trừ vai trò Nhân viên */
+  private async activeRoles(ctx: AdminContext, ids: string[], today: string) {
+    const out = new Map<string, Array<{ code: string; name: string; scope: string }>>();
+    if (!ids.length) return out;
+    const { data, error } = await ctx.db.from("role_assignments").select("scope_type, effective_from, effective_to, roles!inner(code, name), memberships!inner(employee_id, status)")
+      .eq("tenant_id", ctx.tenantId).in("memberships.employee_id", ids).neq("roles.code", "employee").lte("effective_from", today);
+    if (error) throw error;
+    for (const a of (data ?? []) as unknown as Array<{ scope_type: string; effective_to: string | null; roles: { code: string; name: string }; memberships: { employee_id: string; status: string } }>) {
+      if ((a.effective_to && a.effective_to < today) || a.memberships.status !== "active") continue;
+      const list = out.get(a.memberships.employee_id) ?? [];
+      if (!list.some((r) => r.code === a.roles.code && r.scope === (SCOPE_LABEL[a.scope_type] ?? a.scope_type))) list.push({ code: a.roles.code, name: a.roles.name, scope: SCOPE_LABEL[a.scope_type] ?? a.scope_type });
+      out.set(a.memberships.employee_id, list);
+    }
+    return out;
   }
 
   /* ---------- Danh sách / chi tiết ---------- */
@@ -108,8 +129,9 @@ export class EmployeesAdmin {
     /* Thông tin cá nhân đã duyệt; số tài khoản đầy đủ chỉ khi có employee.sensitive.read với nhân viên này */
     const reveal = ctx.can("employee.sensitive.read") && (await this.inScope(ctx, "employee.sensitive.read", id));
     const personal = (await loadPersonal(ctx.db, ctx.tenantId, [id], () => reveal)).get(id)!;
+    const roles = (await this.activeRoles(ctx, [id], today)).get(id) ?? [];
     return {
-      ...item!, personal,
+      ...item!, personal, roles,
       legalEntity: p ? { id: p.legal_entity_id, name: org.names.get(p.legal_entity_id) ?? "—" } : null,
       manager: p?.manager_employee_id ? { id: p.manager_employee_id, name: org.names.get(p.manager_employee_id) ?? "—" } : null,
       assignmentFrom: p?.effective_from ?? null, terminationDate: row.termination_date,

@@ -245,7 +245,7 @@ export class SettingsAdmin {
       currentTerms(db, tid),
       db.rpc("active_tenant_admin_count", { p_tenant: tid }),
       db.from("policy_assignments").select("kind, scope_type, effective_from, effective_to").eq("tenant_id", tid),
-      db.from("role_assignments").select("id, roles!inner(code)", { count: "exact", head: true }).eq("tenant_id", tid).in("roles.code", ["manager", "hr_ops"]),
+      db.from("role_assignments").select("effective_from, effective_to, roles!inner(code)").eq("tenant_id", tid).in("roles.code", ["manager", "hr_ops", "payroll"]),
       head("work_locations"),
     ]);
     const n = (r: { count: number | null }) => r.count ?? 0;
@@ -262,6 +262,10 @@ export class SettingsAdmin {
       return next ? `Đã áp dụng ${what} nhưng hiệu lực từ ${vnDate(next)}: trước ngày đó nhân viên chưa chấm công được.` : none;
     };
     const adminCount = (admins.data as number) ?? 0;
+    /* Số người đang giữ từng vai trò (còn hiệu lực hôm nay theo tenant) */
+    const roleCount = (code: string) => ((invited.data ?? []) as unknown as Array<{ effective_from: string; effective_to: string | null; roles: { code: string } }>)
+      .filter((a) => a.roles.code === code && a.effective_from <= today && (a.effective_to == null || a.effective_to >= today)).length;
+    const hrOps = roleCount("hr_ops"), payroll = roleCount("payroll"), managers = roleCount("manager");
     const support = supportOf(s.support_contact);
     const missing = [t.legal_name ? null : "tên pháp lý", s.branding.logoPath ? null : "logo", support.phone || support.email ? null : "liên hệ HR"].filter((x): x is string => !!x);
     const step = (key: string, title: string, ok: boolean, detail: string, href: string | null, state?: SetupStep["state"]): SetupStep =>
@@ -280,7 +284,13 @@ export class SettingsAdmin {
       step("leave", "Chính sách nghỉ phép", has("leave"), has("leave") ? "Đã áp dụng quy định phép năm (mẫu theo Bộ luật Lao động); xem lại định mức, tích lũy, phép tồn." : "Chưa áp dụng quy định phép năm.", "/settings?tab=rules"),
       step("workflow", "Luồng duyệt đơn", true, "Kavor đã tạo sẵn luồng Quản lý → HR cho giải trình và nghỉ phép; đổi trong Đơn & phê duyệt.", "/requests"),
       step("employees", "Nhập nhân viên", n(emp) > 1, `${n(emp)} hồ sơ nhân viên.`, "/employees"),
-      step("managers", "Mời quản lý và HR", n(invited) > 0, n(invited) ? "Đã gán vai trò quản lý/HR." : "Chưa có quản lý hoặc HR nào được gán vai trò.", "/employees"),
+      step("managers", "Vai trò Quản lý", managers > 0, managers ? `${managers} người có vai trò Quản lý.`
+        : "Chưa ai có vai trò Quản lý: quản lý trực tiếp vẫn duyệt đơn trên app, nhưng chưa xem được đơn và bảng công của nhân viên mình trên web.", "/roles"),
+      step("hr_ops", "Người duyệt bước Phòng Nhân sự", hrOps > 0, hrOps ? `${hrOps} người có vai trò Nhân sự vận hành.`
+        : "Chưa ai có vai trò Nhân sự vận hành: quản trị viên đang duyệt thay bước Phòng Nhân sự. Gán vai trò này (thêm vào vai trò sẵn có cũng được) cho người phụ trách HR.",
+        "/roles", hrOps ? "done" : "warn"),
+      step("payroll", "Kế toán: tạm ứng và lương", payroll > 0, payroll ? `${payroll} người có vai trò Kế toán.`
+        : "Chưa ai có vai trò Kế toán: đơn tạm ứng sẽ dừng ở bước Kế toán, kỳ lương không ai nhập và duyệt được.", "/roles", payroll ? "done" : "warn"),
       step("admins", "Quản trị viên thứ hai", adminCount >= 2, adminCount >= 2 ? `${adminCount} quản trị viên.` : "Chỉ có 1 quản trị viên: nên có ít nhất 2 để không mất quyền quản trị.", null, adminCount >= 2 ? "done" : "warn"),
       step("trial", "Chạy thử chấm công", n(accepted) > 0, n(accepted) ? `${n(accepted)} lần chấm công hợp lệ.` : "Chưa có lần chấm công hợp lệ nào.", "/attendance"),
     ];

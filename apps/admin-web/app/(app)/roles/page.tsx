@@ -37,7 +37,7 @@ export default function RolesPage() {
           </tbody></table></div>
         )}
       </article>
-      <p className="muted" style={{ fontSize: 11.5, marginTop: 10 }}>Vai trò Nhân viên được gán tự động khi kích hoạt tài khoản. Quyền thay đổi có hiệu lực ngay ở thao tác kế tiếp của người đó. {me.permissions.includes("role.assign") ? "" : "Chỉ quản trị viên công ty được gán hoặc thu hồi vai trò."}</p>
+      <p className="muted" style={{ fontSize: 11.5, marginTop: 10 }}>Một người có thể giữ nhiều vai trò cùng lúc, quyền được cộng dồn (ví dụ Quản trị viên công ty kiêm Nhân sự vận hành): gán vai trò mới không thay vai trò đang có. Vai trò Nhân viên được gán tự động khi kích hoạt tài khoản. Quyền thay đổi có hiệu lực ngay ở thao tác kế tiếp của người đó. {me.permissions.includes("role.assign") ? "" : "Chỉ quản trị viên công ty được gán hoặc thu hồi vai trò."}</p>
       {role && b ? <RoleDrawer r={role} canAssign={b.canAssign} onClose={() => setOpen(null)} onAssign={() => setAssign(role.code)} onDone={setData} /> : null}
       {assign && b ? <AssignModal board={b} roleCode={assign === "any" ? null : assign} onClose={() => setAssign(null)} onDone={setData} /> : null}
     </section>
@@ -83,6 +83,8 @@ function AssignModal({ board, roleCode, onClose, onDone }: { board: RolesBoard; 
   const role = board.roles.find((r) => r.code === f.roleCode)!;
   const scopeType = (f.scopeType && role.allowedScopes.includes(f.scopeType) ? f.scopeType : role.allowedScopes[0]) as ScopeType;
   const units = scopeType === "legal_entity" ? org?.legalEntities : scopeType === "branch" ? org?.branches : scopeType === "department" ? org?.departments : null;
+  /* Vai trò người được chọn đang giữ (còn hiệu lực): gán thêm, không thay */
+  const held = f.employeeId ? board.roles.filter((r) => r.assignments.some((a) => a.employee.id === f.employeeId && a.state === "active")).map((r) => r.name) : [];
   const emps = (org?.employees ?? []).filter((e) => !f.q.trim() || `${e.name} ${e.code}`.toLowerCase().includes(f.q.trim().toLowerCase()));
   const set = (k: keyof typeof f) => (e: { target: { value: string } }) => { setF({ ...f, [k]: e.target.value, ...(k === "roleCode" || k === "scopeType" ? { scopeId: "" } : {}) }); setErr(null); };
   async function save() {
@@ -105,6 +107,8 @@ function AssignModal({ board, roleCode, onClose, onDone }: { board: RolesBoard; 
         <Field label="Hiệu lực từ"><input type="date" min={board.today} value={f.effectiveFrom} onChange={set("effectiveFrom")} /></Field>
         <Field label="Đến (không bắt buộc)"><input type="date" min={f.effectiveFrom} value={f.effectiveTo} onChange={set("effectiveTo")} /></Field>
       </div>
+      {held.length ? <p className="muted" style={{ fontSize: 12, margin: "12px 0 0" }}>
+        Đang giữ: <b>{held.join(", ")}</b>. {role.name} sẽ được thêm, các vai trò đang giữ vẫn giữ nguyên.</p> : null}
       {role.sensitive ? <div className="note-amber" style={{ marginTop: 14 }}>
         {role.name} có quyền nhạy cảm ({role.code === "payroll" ? "lương, tạm ứng, tài khoản ngân hàng" : "toàn quyền quản trị công ty, gán vai trò"}). Chỉ gán cho người đã được công ty chấp thuận.</div> : null}
       <ErrorLine text={err} />

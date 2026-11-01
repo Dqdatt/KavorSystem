@@ -18,20 +18,20 @@ values ('60000000-0000-4000-8000-0000000000d1', '10000000-0000-4000-8000-0000000
 update public.employees set user_id = 'a9000000-0000-4000-8000-0000000000d1' where id = '60000000-0000-4000-8000-0000000000d1';
 insert into public.memberships (id, tenant_id, user_id, employee_id, status)
 values ('80000000-0000-4000-8000-0000000000d1', '10000000-0000-4000-8000-0000000000d1', 'a9000000-0000-4000-8000-0000000000d1', '60000000-0000-4000-8000-0000000000d1', 'active');
--- Tenant Admin từ hôm nay (theo tenant) + một vai trò HR chỉ hiệu lực từ ngày mai (theo tenant)
+-- Tenant Admin từ hôm nay (theo tenant) + vai trò Kế toán chỉ hiệu lực từ ngày mai (theo tenant)
 insert into public.role_assignments (tenant_id, membership_id, role_id, scope_type, effective_from)
 select '10000000-0000-4000-8000-0000000000d1', '80000000-0000-4000-8000-0000000000d1', r.id, 'tenant', public.tenant_today('10000000-0000-4000-8000-0000000000d1')
 from public.roles r where r.code = 'tenant_admin' and r.tenant_id is null;
 insert into public.role_assignments (tenant_id, membership_id, role_id, scope_type, effective_from)
 select '10000000-0000-4000-8000-0000000000d1', '80000000-0000-4000-8000-0000000000d1', r.id, 'tenant', public.tenant_today('10000000-0000-4000-8000-0000000000d1') + 1
-from public.roles r where r.code = 'hr_ops' and r.tenant_id is null;
+from public.roles r where r.code = 'payroll' and r.tenant_id is null;
 
 select is(public.active_tenant_admin_count('10000000-0000-4000-8000-0000000000d1'), 1, 'Tenant Admin tạo hôm nay có hiệu lực ngay');
 select is((select count(*)::int from public.permission_grants('a9000000-0000-4000-8000-0000000000d1', '10000000-0000-4000-8000-0000000000d1') where role_code = 'tenant_admin') > 0, true,
   'Quyền của vai trò hiệu lực hôm nay có ngay');
-select is((select count(*)::int from public.permission_grants('a9000000-0000-4000-8000-0000000000d1', '10000000-0000-4000-8000-0000000000d1') where role_code = 'hr_ops'), 0,
+select is((select count(*)::int from public.permission_grants('a9000000-0000-4000-8000-0000000000d1', '10000000-0000-4000-8000-0000000000d1') where role_code = 'payroll'), 0,
   'Vai trò hiệu lực từ ngày mai (theo tenant) chưa có tác dụng');
-select is((select count(*)::int from public.permission_scopes('a9000000-0000-4000-8000-0000000000d1', '10000000-0000-4000-8000-0000000000d1', 'request.hr_review')), 0,
+select is((select count(*)::int from public.permission_scopes('a9000000-0000-4000-8000-0000000000d1', '10000000-0000-4000-8000-0000000000d1', 'salary_advance.process')), 0,
   'Quyền chỉ có ở vai trò ngày mai thì hôm nay chưa có');
 select ok(exists (select 1 from public.scoped_employees('a9000000-0000-4000-8000-0000000000d1', '10000000-0000-4000-8000-0000000000d1', 'employee.read') where id = '60000000-0000-4000-8000-0000000000d1'),
   'Phạm vi nhân viên tính theo hôm nay của tenant');
