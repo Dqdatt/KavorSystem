@@ -4,7 +4,7 @@
    - Duyệt: người được giao (bước quản lý) hoặc người có request.hr_review với người gửi (bước HR); không ai tự duyệt đơn
      của mình. Chuyển bước nguyên tử bằng decide_approval; duyệt hết thì tạo điều chỉnh giờ công. */
 import {
-  EXPLANATION_KINDS, REQUEST_ATTACHMENT_MAX, REQUEST_TYPES, STEP_RESOLVERS,
+  EXPLANATION_KINDS, PROFILE_FIELDS, REQUEST_ATTACHMENT_MAX, REQUEST_TYPES, STEP_RESOLVERS, type RequestQueueFilter, type RequestQueueItem,
   type AdvancePayload, type RequestAttachment, type ExplanationKind, type ExplanationPayload, type LeavePayload, type MyApprovals, type OvertimePayload, type MyTimesheet, type ProfileChangePayload, type RequestItem, type RequestQueue, type RequestStatus, type RequestStep, type StepResolver, type StepStatus,
   type WorkflowDef, type WorkflowStepInput,
 } from "@kavor/contracts";
@@ -15,6 +15,8 @@ import { date, number, oneOf, req, time, type Body } from "../admin/validate.js"
 import { monthOf } from "./compute.js";
 import { EMP_LITE, type EmployeeLite, type TimesheetService } from "./timesheet.service.js";
 import { FILE_MAX_BYTES, PrivateFiles, checkLink, safeName, sha256, signLink, sniffFile } from "../files/private-files.js";
+import { localParts } from "../attendance/attendance.service.js";
+import { loadPlacements } from "../attendance/policy.js";
 
 type Db = SupabaseGateway["admin"];
 /* Người xem/thao tác: nhân viên trên mobile hoặc HR/quản lý trên web — đều là một tài khoản gắn hồ sơ nhân viên */
@@ -27,6 +29,47 @@ const KINDS = Object.keys(EXPLANATION_KINDS) as ExplanationKind[];
 const RESOLVERS = Object.keys(STEP_RESOLVERS) as StepResolver[];
 const TYPES = Object.keys(REQUEST_TYPES) as Array<RequestItem["type"]>;
 /* Quyền xác định người duyệt các bước không chỉ định người (theo phạm vi người gửi) */
+/* Bỏ dấu để tìm theo tên không dấu */
+const fold = (t: string) => t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d").replace(/Đ/g, "D").toLowerCase();
+const DAY = /^\d{4}-\d{2}-\d{2}$/;
+const UUIDV = /^[0-9a-f-]{36}$/i;
+/* Tham số lọc danh sách đơn (query string) → bộ lọc đã kiểm */
+export function parseQueueFilter(q: Record<string, string | undefined>): RequestQueueFilter {
+  const pick = <T extends string>(v: string | undefined, allowed: readonly T[], what: string): T | undefined => {
+    if (v === undefined || v === "") return undefined;
+    if (!(allowed as readonly string[]).includes(v)) throw invalid(`${what} không hợp lệ.`);
+    return v as T;
+  };
+  const day = (v: string | undefined, what: string) => { if (!v) return undefined; if (!DAY.test(v)) throw invalid(`${what} phải có dạng YYYY-MM-DD.`); return v; };
+  const id = (v: string | undefined, what: string) => { if (!v) return undefined; if (!UUIDV.test(v)) throw invalid(`${what} không hợp lệ.`); return v; };
+  const int = (v: string | undefined) => (v && /^\d{1,4}$/.test(v) ? Number(v) : undefined);
+  const f: RequestQueueFilter = {
+    status: pick(q.status === "rejected" || q.status === "cancelled" ? "closed" : q.status, ["pending", "approved", "closed", "all"] as const, "Trạng thái"),
+    type: pick(q.type, Object.keys(REQUEST_TYPES) as RequestItem["type"][], "Loại đơn"),
+    departmentId: id(q.departmentId, "Phòng ban"), employeeId: id(q.employeeId, "Nhân viên"),
+    from: day(q.from, "Từ ngày"), to: day(q.to, "Đến ngày"), dateBy: pick(q.dateBy, ["applied", "submitted"] as const, "Kiểu ngày"),
+    only: pick(q.only, ["mine", "overdue"] as const, "Bộ lọc"), q: q.q?.slice(0, 100), page: int(q.page), pageSize: int(q.pageSize),
+  };
+  if (f.from && f.to && f.from > f.to) throw invalid("Từ ngày phải trước đến ngày.");
+  return f;
+}
+
+const STATUS_TEXT: Record<RequestStatus, string> = { pending: "Đang chờ", approved: "Đã duyệt", rejected: "Từ chối", cancelled: "Đã hủy" };
+const STEP_TEXT: Record<string, string> = { pending: "đang chờ", waiting: "chưa tới", approved: "đã duyệt", rejected: "từ chối", cancelled: "dừng" };
+/* Ngày cuối tháng YYYY-MM */
+const lastDay = (m: string) => { const [y, mo] = m.split("-").map(Number) as [number, number]; return `${m}-${String(new Date(Date.UTC(y, mo, 0)).getUTCDate()).padStart(2, "0")}`; };
+const vnd = (n: number) => `${n.toLocaleString("vi-VN")} đ`;
+/* Nội dung đơn một dòng cho file xuất */
+function summaryOf(i: RequestItem): string {
+  switch (i.type) {
+    case "explanation": return `${EXPLANATION_KINDS[i.payload.kind]}${i.payload.clockIn ? ` · vào ${i.payload.clockIn}` : ""}${i.payload.clockOut ? ` · ra ${i.payload.clockOut}` : ""}`;
+    case "leave": return `${i.payload.leaveTypeName} · ${i.payload.days} ngày${i.payload.half !== "full" ? ` (${i.payload.half === "am" ? "sáng" : "chiều"})` : ""}`;
+    case "overtime": return `${i.payload.start}–${i.payload.end} · ${i.payload.hours} giờ · ${i.payload.ratePercent}%`;
+    case "salary_advance": return `${vnd(i.payload.amount)} · trừ lương tháng ${i.payload.month}`;
+    case "profile_change": return `Sửa ${i.payload.fields.map((k) => PROFILE_FIELDS[k]).join(", ")}`;
+  }
+}
+
 type AttachmentRow = { id: string; request_id: string; storage_path: string; file_name: string; mime_type: RequestAttachment["type"]; size_bytes: number; created_at: string };
 const ATT_COLS = "id, request_id, storage_path, file_name, mime_type, size_bytes, created_at";
 const ATTACHABLE: Array<RequestItem["type"]> = ["explanation", "leave"];
@@ -284,22 +327,122 @@ export class RequestsService {
   }
 
   /* ---------- Web HR ---------- */
-  async queue(ctx: AdminContext, filter: { status?: string }): Promise<RequestQueue> {
+  /* Đơn trong phạm vi request.read theo bộ lọc (trừ trạng thái): trả kèm ngày áp dụng để lọc/đối chiếu. Lọc trong bộ nhớ API như các bảng
+     khác (đủ cho vài nghìn đơn); chỉ nạp chi tiết (bước duyệt, người duyệt) cho trang đang xem hoặc khi xuất file. */
+  private async filtered(ctx: AdminContext, f: RequestQueueFilter) {
     ctx.require("request.read");
     const db = ctx.db;
-    const scope = await ctx.scopedEmployeeIds("request.read");
-    let q = db.from("requests").select("id, requester_employee_id, status").eq("tenant_id", ctx.tenantId).order("submitted_at", { ascending: false }).limit(300);
-    if (filter.status && filter.status !== "all") q = q.eq("status", filter.status);
-    const { data } = await q;
-    const ids = ((data ?? []) as Array<{ id: string; requester_employee_id: string }>).filter((r) => scope.has(r.requester_employee_id)).map((r) => r.id);
-    const v = viewerOf(ctx);
-    const items = await this.items(db, v, ids);
+    const [scope, clock] = await Promise.all([ctx.scopedEmployeeIds("request.read"), this.timesheets.tenantClock(db, ctx.tenantId)]);
+    type Row = { id: string; request_no: string; request_type: RequestItem["type"]; requester_employee_id: string; status: RequestStatus; work_date: string | null; submitted_at: string; current_version: number };
+    const rows: Row[] = [];
+    for (let from = 0; ; from += 1000) {
+      let q = db.from("requests").select("id, request_no, request_type, requester_employee_id, status, work_date, submitted_at, current_version").eq("tenant_id", ctx.tenantId)
+        .order("submitted_at", { ascending: false }).range(from, from + 999);
+      if (f.type) q = q.eq("request_type", f.type);
+      if (f.employeeId) q = q.eq("requester_employee_id", f.employeeId);
+      const { data, error } = await q;
+      if (error) throw error;
+      rows.push(...(data ?? []) as Row[]);
+      if ((data ?? []).length < 1000) break;
+    }
+    let list = rows.filter((r) => scope.has(r.requester_employee_id));
+    /* Ngày áp dụng: nghỉ phép từ–đến, tạm ứng theo tháng khấu trừ (đọc nội dung đơn) */
+    const needPayload = list.filter((r) => r.request_type === "leave" || r.request_type === "salary_advance");
+    const payload = new Map<string, { from?: string; to?: string; month?: string }>();
+    for (let k = 0; k < needPayload.length; k += 200) {
+      const chunk = needPayload.slice(k, k + 200);
+      const { data } = await db.from("request_versions").select("request_id, version_no, payload").in("request_id", chunk.map((r) => r.id));
+      for (const x of (data ?? []) as Array<{ request_id: string; version_no: number; payload: { from?: string; to?: string; month?: string } }>) {
+        if (chunk.find((r) => r.id === x.request_id)?.current_version === x.version_no) payload.set(x.request_id, x.payload);
+      }
+    }
+    const applied = (r: Row): { from: string; to: string } | null => {
+      if (r.request_type === "leave") { const pl = payload.get(r.id); return pl?.from ? { from: pl.from, to: pl.to ?? pl.from } : r.work_date ? { from: r.work_date, to: r.work_date } : null; }
+      if (r.request_type === "salary_advance") { const m = payload.get(r.id)?.month; return m ? { from: `${m}-01`, to: lastDay(m) } : null; }
+      return r.work_date ? { from: r.work_date, to: r.work_date } : null;
+    };
+    const submittedDay = (r: Row) => localParts(r.submitted_at, clock.timezone).date;
+    if (f.from || f.to) {
+      const lo = f.from ?? "0000-01-01", hi = f.to ?? "9999-12-31";
+      list = list.filter((r) => {
+        const a = f.dateBy === "submitted" ? null : applied(r);
+        const [x, y] = a ? [a.from, a.to] : [submittedDay(r), submittedDay(r)];
+        return x <= hi && y >= lo;
+      });
+    }
+    if (f.departmentId) {
+      const places = await loadPlacements(db, ctx.tenantId, clock.today, [...new Set(list.map((r) => r.requester_employee_id))]);
+      list = list.filter((r) => places.get(r.requester_employee_id)?.department_id === f.departmentId);
+    }
+    if (f.q?.trim()) {
+      const ids = [...new Set(list.map((r) => r.requester_employee_id))];
+      const names = new Map<string, string>();
+      for (let k = 0; k < ids.length; k += 200) {
+        const { data } = await db.from("employees").select("id, employee_code, full_name").in("id", ids.slice(k, k + 200));
+        for (const e of (data ?? []) as Array<{ id: string; employee_code: string; full_name: string }>) names.set(e.id, `${e.employee_code} ${e.full_name}`);
+      }
+      const k = fold(f.q.trim());
+      list = list.filter((r) => fold(`${r.request_no} ${names.get(r.requester_employee_id) ?? ""}`).includes(k));
+    }
+    return { list, applied, clock };
+  }
+
+  /* Lấy chi tiết theo lô (tránh câu truy vấn quá dài) và thêm hạn/quá hạn + ngày áp dụng */
+  private async queueItems(db: Db, v: Viewer, rows: Array<{ id: string }>, applied: (r: never) => { from: string; to: string } | null, sc?: Scopes): Promise<RequestQueueItem[]> {
+    const out: RequestQueueItem[] = [];
     const now = new Date().toISOString();
-    const out = items.map((i) => {
-      const cur = i.steps.find((s) => s.status === "pending");
-      return { ...i, dueAt: cur?.dueAt ?? null, overdue: !!cur?.dueAt && cur.dueAt < now };
-    }).sort((a, b) => Number(!!b.myTaskId) - Number(!!a.myTaskId) || Number(b.status === "pending") - Number(a.status === "pending") || (a.dueAt ?? "9").localeCompare(b.dueAt ?? "9") || b.submittedAt.localeCompare(a.submittedAt));
-    return { items: out, counts: { pending: out.filter((i) => i.status === "pending").length, mine: out.filter((i) => i.myTaskId).length, overdue: out.filter((i) => i.overdue).length } };
+    for (let k = 0; k < rows.length; k += 200) {
+      const chunk = rows.slice(k, k + 200);
+      const items = await this.items(db, v, chunk.map((r) => r.id), sc);
+      for (const i of items) {
+        const cur = i.steps.find((s) => s.status === "pending");
+        out.push({ ...i, dueAt: cur?.dueAt ?? null, overdue: !!cur?.dueAt && cur.dueAt < now, applied: applied(chunk.find((r) => r.id === i.id) as never) });
+      }
+    }
+    return out;
+  }
+
+  async queue(ctx: AdminContext, f: RequestQueueFilter): Promise<RequestQueue> {
+    const { list, applied } = await this.filtered(ctx, f);
+    const v = viewerOf(ctx), db = ctx.db;
+    const bucket = (st: RequestStatus) => (st === "rejected" || st === "cancelled" ? "closed" : st);
+    /* Đơn đang chờ luôn nạp đủ để đếm "chờ tôi duyệt"/"quá hạn" và sắp xếp: thường ít */
+    const sc = await this.scopes(db, v);
+    const pending = await this.queueItems(db, v, list.filter((r) => r.status === "pending"), applied, sc);
+    const counts = {
+      pending: pending.length, approved: list.filter((r) => r.status === "approved").length, closed: list.filter((r) => bucket(r.status) === "closed").length,
+      all: list.length, mine: pending.filter((i) => i.myTaskId).length, overdue: pending.filter((i) => i.overdue).length,
+    };
+    const status = f.status ?? "pending", pageSize = Math.min(200, Math.max(1, f.pageSize ?? 50)), page = Math.max(1, f.page ?? 1);
+    let items: RequestQueueItem[];
+    let total: number;
+    if (status === "pending") {
+      const sorted = pending.filter((i) => !f.only || (f.only === "mine" ? !!i.myTaskId : i.overdue))
+        .sort((a, b) => Number(!!b.myTaskId) - Number(!!a.myTaskId) || (a.dueAt ?? "9").localeCompare(b.dueAt ?? "9") || b.submittedAt.localeCompare(a.submittedAt));
+      total = sorted.length; items = sorted.slice((page - 1) * pageSize, page * pageSize);
+    } else {
+      const rows = list.filter((r) => status === "all" || bucket(r.status) === status);
+      total = rows.length;
+      items = await this.queueItems(db, v, rows.slice((page - 1) * pageSize, page * pageSize), applied, sc);
+    }
+    return { items, counts, total, page, pageSize };
+  }
+
+  /* CSV theo bộ lọc (UTF-8 có BOM để Excel đọc đúng tiếng Việt); ghi nhật ký request.exported */
+  async exportCsv(ctx: AdminContext, f: RequestQueueFilter): Promise<{ filename: string; body: string }> {
+    const { list, applied, clock } = await this.filtered(ctx, f);
+    const status = f.status ?? "all";
+    const rows = list.filter((r) => status === "all" || (status === "closed" ? r.status === "rejected" || r.status === "cancelled" : r.status === status));
+    const items = await this.queueItems(ctx.db, viewerOf(ctx), rows, applied);
+    const esc = (x: unknown) => { const t = String(x ?? ""); return /[",\n;]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t; };
+    const at = (iso: string | null) => (iso ? `${localParts(iso, clock.timezone).date} ${String(Math.floor(localParts(iso, clock.timezone).minutes / 60)).padStart(2, "0")}:${String(localParts(iso, clock.timezone).minutes % 60).padStart(2, "0")}` : "");
+    const head = ["Mã đơn", "Mã NV", "Họ tên", "Phòng ban", "Loại đơn", "Áp dụng từ", "Áp dụng đến", "Nội dung", "Lý do", "Trạng thái", "Gửi lúc", "Hoàn tất lúc", "Các bước duyệt", "Minh chứng"];
+    const lines = items.map((i) => [i.no, i.requester.code, i.requester.fullName, i.requester.department ?? "", REQUEST_TYPES[i.type], i.applied?.from ?? "", i.applied?.to ?? "",
+      summaryOf(i), i.payload.reason ?? "", STATUS_TEXT[i.status], at(i.submittedAt), at(i.completedAt),
+      i.steps.filter((s) => s.status !== "skipped").map((s) => `${STEP_RESOLVERS[s.resolver]}: ${STEP_TEXT[s.status] ?? s.status}${s.actedBy ? ` (${s.actedBy} ${at(s.actedAt)})` : ""}${s.comment ? ` – ${s.comment}` : ""}`).join(" | "),
+      i.attachments.length].map(esc).join(","));
+    await ctx.audit("request.exported", "request", null, null, { rows: items.length, filter: f });
+    return { filename: `don-tu-${clock.today}.csv`, body: "\uFEFF" + [head.join(","), ...lines].join("\r\n") + "\r\n" };
   }
 
   async detail(ctx: AdminContext, id: string): Promise<RequestItem> {

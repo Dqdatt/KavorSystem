@@ -13,7 +13,7 @@ import type { RulesAdmin } from "./rules.service.js";
 import { yearParam, type SettingsAdmin } from "./settings.service.js";
 import type { CompanyService } from "../company/company.service.js";
 import type { RequestsService } from "../timesheet/requests.service.js";
-import { viewerOf } from "../timesheet/requests.service.js";
+import { parseQueueFilter, viewerOf } from "../timesheet/requests.service.js";
 import type { NotificationsService } from "../notifications/notifications.service.js";
 import type { LeaveService } from "../leave/leave.service.js";
 import type { OvertimeService } from "../overtime/overtime.service.js";
@@ -348,7 +348,16 @@ export class AdminController {
   }
 
   @Get("requests")
-  requests(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Query("status") status?: string) { return this.run(r, a, (s, c) => s.requests.queue(c, { status })); }
+  requests(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Query() q: Record<string, string | undefined>) { return this.run(r, a, (s, c) => s.requests.queue(c, parseQueueFilter(q))); }
+  /* CSV theo bộ lọc của danh sách đơn (mặc định tất cả trạng thái) */
+  @Get("requests/export")
+  async requestsExport(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Query() q: Record<string, string | undefined>, @Res({ passthrough: true }) res: Response) {
+    const env = await this.run(r, a, (s, c) => s.requests.exportCsv(c, parseQueueFilter(q)));
+    res.setHeader("content-type", "text/csv; charset=utf-8");
+    res.setHeader("content-disposition", `attachment; filename="${env.data!.filename}"`);
+    res.setHeader("cache-control", "private, no-store");
+    return env.data!.body;
+  }
   @Get("requests/:id")
   request(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string) { return this.run(r, a, (s, c) => s.requests.detail(c, id)); }
   /* Minh chứng (nhị phân) — web mở qua route Next cùng origin; mỗi lần tải ghi audit */

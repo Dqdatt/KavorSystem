@@ -10,6 +10,13 @@ simulator hay iPhone** vì phiên cloud không có Mac). Người dùng giao "c�
 ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AGENT_PLAYBOOK.md`; kiểm tra toàn bộ bằng `bash tools/verify-all.sh`.
 
 ## Đã xong
+- Danh sách đơn để đối chiếu (1/11, Claude Desktop; người dùng hỏi duyệt xong đơn đi đâu): API `GET /admin/requests` lọc ở máy chủ (trạng thái pending/
+  approved/closed/all — `rejected`/`cancelled` cũ gộp vào closed, loại, phòng ban hiện tại, nhân viên, khoảng ngày theo **ngày áp dụng** — giải trình/OT =
+  ngày công, nghỉ = từ–đến, tạm ứng = tháng khấu trừ, sửa hồ sơ = ngày gửi — hoặc ngày gửi, tìm mã/tên không dấu), đếm theo trạng thái, phân trang
+  (mặc định 50, tối đa 200; bỏ giới hạn 300 đơn cũ), item có `applied`. `GET /admin/requests/export` CSV theo bộ lọc (BOM, bước duyệt + người duyệt, audit
+  `request.exported`). Web: tab Chờ duyệt/Đã duyệt/Từ chối-Hủy/Tất cả có số, bộ lọc, cột Áp dụng, phân trang, nút Xuất CSV; thông báo sau duyệt chỉ chỗ
+  xem lại; hồ sơ nhân viên có mục "Đơn từ" (10 đơn mới nhất, mở chi tiết). Smoke `tools/requests-smoke.sh` 25 bước. Lọc trong bộ nhớ API (đủ vài nghìn đơn).
+  Chưa xem giao diện trên trình duyệt.
 - Người duyệt ở công ty mới + phân quyền dễ hiểu (1/11, Claude Desktop; người dùng báo đơn GT kẹt ở bước Phòng Nhân sự): công ty tạo từ Console chỉ có
   Quản trị viên, mà bước HR chỉ vai trò Nhân sự vận hành duyệt được → mọi đơn qua HR kẹt (dữ liệu mẫu che lỗi vì HD0007 có cả hai vai trò). Migration
   `202611150001_tenant_admin_hr_review.sql` cấp `request.hr_review` cho Quản trị viên (đơn đang kẹt tự có người duyệt, quản trị viên nhận thông báo);

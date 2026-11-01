@@ -71,7 +71,7 @@ export function RequestModal({ r, onClose, onDone }: { r: RequestItem; onClose: 
   const act = async (approve: boolean) => {
     if (!r.myTaskId) return;
     if (!approve && note.trim().length < 5) { setErr("Ghi lý do từ chối (ít nhất 5 ký tự) để nhân viên biết cần bổ sung gì."); return; }
-    await run(approve ? "ok" : "no", async () => { onDone(await call<RequestItem>("POST", `approvals/${r.myTaskId}/${approve ? "approve" : "reject"}`, { comment: note.trim() || null })); onClose(); }, approve ? "Đã duyệt đơn" : "Đã từ chối đơn");
+    await run(approve ? "ok" : "no", async () => { onDone(await call<RequestItem>("POST", `approvals/${r.myTaskId}/${approve ? "approve" : "reject"}`, { comment: note.trim() || null })); onClose(); }, approve ? `Đã duyệt ${r.no} · đơn chuyển sang mục Đã duyệt` : `Đã từ chối ${r.no} · đơn chuyển sang mục Từ chối/Hủy`);
   };
   return (
     <Modal wide title={`Chi tiết đơn ${r.no}`} sub={r.myTaskId ? undefined : notMineReason(r, me)} onClose={onClose}

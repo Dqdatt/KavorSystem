@@ -1,7 +1,7 @@
 "use client";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import type { AdminDevice, BulkInviteResult, EmployeeDetail, EmployeeListItem, EmployeeStatus, EmploymentType, OrgOptions } from "@kavor/contracts";
+import type { AdminDevice, BulkInviteResult, EmployeeDetail, EmployeeListItem, EmployeeStatus, EmploymentType, OrgOptions, RequestItem, RequestQueue } from "@kavor/contracts";
 import { managerTierOk } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
 import {
@@ -10,6 +10,7 @@ import {
 } from "../../_ui/kit";
 import { ReasonModal } from "../../_ui/reason-modal";
 import { ImportModal } from "../../_ui/employee-import";
+import { REQUEST_STATUS, REQUEST_TYPE, RequestModal, requestSummary } from "../../_ui/request";
 import { Select, Skeleton, SkeletonLines, SkeletonRows } from "@kavor/web-ui";
 
 const AUDIT: Record<string, string> = {
@@ -204,6 +205,8 @@ function EmployeeDrawer({ id, onClose, onEdit, onChanged }: { id: string; onClos
             </>
           ) : null}
 
+          {can(me, "request.read") ? <EmployeeRequests employeeId={e.id} /> : null}
+
           {can(me, "audit.read") && e.audit.length ? (
             <div className="drawer-section">
               <h4>Lịch sử thay đổi</h4>
@@ -294,3 +297,27 @@ function BulkInvite({ rows, onClose, onDone }: { rows: EmployeeListItem[]; onClo
 }
 
 export default function Page() { return <Suspense><EmployeesPage /></Suspense>; }
+
+/* Đơn từ của nhân viên (mới nhất trước, mọi trạng thái): xem lại/đối chiếu ngay trong hồ sơ; danh sách đầy đủ ở Đơn & phê duyệt */
+function EmployeeRequests({ employeeId }: { employeeId: string }) {
+  const me = useMe();
+  const { data, reload } = useApi<RequestQueue>(`requests?status=all&employeeId=${employeeId}&pageSize=10`, { tables: ["requests", "approval_tasks"], tenantId: me.tenant.id });
+  const [open, setOpen] = useState<RequestItem | null>(null);
+  return (
+    <div className="drawer-section">
+      <h4>Đơn từ{data ? ` (${data.total})` : ""}</h4>
+      {!data ? <SkeletonLines lines={3} /> : !data.items.length ? <p className="muted" style={{ fontSize: 12 }}>Chưa có đơn nào.</p> : (
+        <div className="card"><div className="table-wrap"><table className="data-table compact"><tbody>
+          {data.items.map((r) => (
+            <tr key={r.id} className="clickable" onClick={() => setOpen(r)}>
+              <td className="nowrap"><b>{r.no}</b></td><td>{REQUEST_TYPE[r.type]}</td><td>{requestSummary(r)}</td>
+              <td className="nowrap">{fmtDateTime(r.submittedAt, me.tenant.timezone)}</td><td><Status v={REQUEST_STATUS[r.status]} /></td>
+            </tr>
+          ))}
+        </tbody></table></div></div>
+      )}
+      {data && data.total > data.items.length ? <p className="muted" style={{ fontSize: 11.5, marginTop: 8 }}>Đang hiện {data.items.length} đơn mới nhất. Xem đủ ở Đơn & phê duyệt → tab Tất cả, tìm theo mã nhân viên.</p> : null}
+      {open ? <RequestModal r={open} onClose={() => setOpen(null)} onDone={() => void reload()} /> : null}
+    </div>
+  );
+}

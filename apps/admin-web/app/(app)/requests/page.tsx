@@ -1,25 +1,34 @@
 "use client";
 /* Đơn & phê duyệt: bám page-requests của Kavor HR Admin Prototype.html (hàng đợi theo SLA, modal xem & duyệt).
    "Cấu hình workflow" là thiết kế bổ sung: luồng duyệt theo loại đơn (giải trình, nghỉ phép), có phiên bản theo ngày hiệu lực. */
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { STEP_RESOLVERS, type RequestItem, type RequestQueue, type RequestType, type StepResolver, type WorkflowDef, type WorkflowStepInput } from "@kavor/contracts";
+import { STEP_RESOLVERS, type OrgOptions, type RequestItem, type RequestQueue, type RequestQueueStatus, type RequestType, type StepResolver, type WorkflowDef, type WorkflowStepInput } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
-import { Empty, ErrorLine, Field, Icon, LoadError, Modal, Person, Status, can, fmtDate, fmtDateTime, tenantToday, useAction, useMe } from "../../_ui/kit";
+import { Empty, ErrorLine, Field, Icon, LoadError, Modal, Person, Status, can, fmtDate, fmtDateTime, num, tenantToday, useAction, useMe } from "../../_ui/kit";
 import { REQUEST_STATUS, REQUEST_TYPE, RequestModal, requestSummary, slaLabel } from "../../_ui/request";
 import { Select, SkeletonRows } from "@kavor/web-ui";
 
 export default function Page() { return <Suspense><RequestsPage /></Suspense>; }
+
+const STATUS_TABS: Array<[RequestQueueStatus, string]> = [["pending", "Chờ duyệt"], ["approved", "Đã duyệt"], ["closed", "Từ chối/Hủy"], ["all", "Tất cả"]];
+const PAGE_SIZE = 50;
 
 function RequestsPage() {
   const me = useMe();
   const router = useRouter();
   const params = useSearchParams();
   const openId = params.get("open");
-  const [status, setStatus] = useState("pending");
-  const { data, error, reload } = useApi<RequestQueue>(`requests?status=${status}`, { tables: ["requests", "approval_tasks"], tenantId: me.tenant.id });
-  const [filter, setFilter] = useState<"all" | "mine" | "overdue">("all");
-  const [q, setQ] = useState("");
+  const [status, setStatus] = useState<RequestQueueStatus>((params.get("status") as RequestQueueStatus) || "pending");
+  const [only, setOnly] = useState<"" | "mine" | "overdue">("");
+  const [f, setF] = useState({ type: "", departmentId: "", from: "", to: "", dateBy: "applied" });
+  const [q, setQ] = useState(""), [qq, setQq] = useState("");
+  const [page, setPage] = useState(1);
+  /* Tìm theo mã đơn/tên gửi lên máy chủ sau khi ngừng gõ */
+  useEffect(() => { const t = setTimeout(() => { setQq(q.trim()); setPage(1); }, 300); return () => clearTimeout(t); }, [q]);
+  const query = new URLSearchParams(Object.entries({ ...f, q: qq, only: status === "pending" ? only : "", page: String(page), pageSize: String(PAGE_SIZE) }).filter(([, v]) => v)).toString();
+  const { data, error, reload } = useApi<RequestQueue>(`requests?status=${status}&${query}`, { tables: ["requests", "approval_tasks"], tenantId: me.tenant.id });
+  const { data: org } = useApi<OrgOptions>("org");
   const [open, setOpen] = useState<RequestItem | null>(null);
   const [config, setConfig] = useState(false);
   /* Mở từ thông báo: /requests?open=<id> (đơn có thể không thuộc bộ lọc đang xem) */
@@ -27,34 +36,48 @@ function RequestsPage() {
     if (!openId) return;
     void call<RequestItem>("GET", `requests/${openId}`).then(setOpen).catch(() => undefined).finally(() => router.replace("/requests", { scroll: false }));
   }, [openId, router]);
-  const items = useMemo(() => (data?.items ?? []).filter((r) => (filter === "all" || (filter === "mine" ? !!r.myTaskId : r.overdue))
-    && (!q.trim() || `${r.no} ${r.requester.fullName} ${r.requester.code}`.toLowerCase().includes(q.trim().toLowerCase()))), [data, filter, q]);
+  const set = (k: keyof typeof f) => (e: { target: { value: string } }) => { setF({ ...f, [k]: e.target.value }); setPage(1); };
+  const tab = (s: RequestQueueStatus) => { setStatus(s); setPage(1); setOnly(""); };
   const c = data?.counts;
+  const items = data?.items ?? [];
+  const pages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
+  const filtered = !!(f.type || f.departmentId || f.from || f.to || qq);
+  /* Xuất CSV theo bộ lọc đang xem (tab Chờ duyệt cũng xuất được); qua route Next cùng origin */
+  const exportHref = `/api/requests/export?status=${status}&${new URLSearchParams(Object.entries({ ...f, q: qq }).filter(([, v]) => v)).toString()}`;
   return (
     <section className="page active">
-      <div className="page-head"><div><p>Ưu tiên theo hạn xử lý và mức ảnh hưởng tới kỳ công/lương.</p></div>
-        <div className="head-actions">{can(me, "request.read") ? <button className="btn" onClick={() => setConfig(true)}><Icon name="settings" /> Cấu hình luồng duyệt</button> : null}</div></div>
+      <div className="page-head"><div><p>Ưu tiên theo hạn xử lý và mức ảnh hưởng tới kỳ công/lương. Đơn đã xử lý xem ở tab Đã duyệt, Từ chối/Hủy hoặc Tất cả.</p></div>
+        <div className="head-actions">
+          <a className="btn" href={exportHref}><Icon name="download" /> Xuất CSV</a>
+          {can(me, "request.read") ? <button className="btn" onClick={() => setConfig(true)}><Icon name="settings" /> Cấu hình luồng duyệt</button> : null}</div></div>
       <LoadError error={error} retry={reload} />
       <article className="card">
         <div className="toolbar">
-          <label className="search"><Icon name="search" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Mã đơn hoặc người gửi…" /></label>
-          <button className={`filter-chip ${filter === "all" ? "active" : ""}`} onClick={() => setFilter("all")}>Tất cả {data?.items.length ?? 0}</button>
-          <button className={`filter-chip ${filter === "mine" ? "active" : ""}`} onClick={() => setFilter("mine")}>Chờ tôi duyệt {c?.mine ?? 0}</button>
-          <button className={`filter-chip ${filter === "overdue" ? "active" : ""}`} onClick={() => setFilter("overdue")}>Quá hạn xử lý {c?.overdue ?? 0}</button>
-          <span className="toolbar-spacer" />
-          <Select className="select" value={status} onChange={(e) => setStatus(e.target.value)} aria-label="Trạng thái">
-            <option value="pending">Đang chờ</option><option value="approved">Đã duyệt</option><option value="rejected">Từ chối</option><option value="cancelled">Đã hủy</option><option value="all">Tất cả</option>
-          </Select>
+          <div className="segmented" role="tablist">{STATUS_TABS.map(([k, label]) => <button key={k} role="tab" aria-selected={status === k} className={status === k ? "active" : ""} onClick={() => tab(k)}>{label} {c ? c[k] : ""}</button>)}</div>
+          {status === "pending" ? <>
+            <button className={`filter-chip ${only === "mine" ? "active" : ""}`} onClick={() => { setOnly(only === "mine" ? "" : "mine"); setPage(1); }}>Chờ tôi duyệt {c?.mine ?? 0}</button>
+            <button className={`filter-chip ${only === "overdue" ? "active" : ""}`} onClick={() => { setOnly(only === "overdue" ? "" : "overdue"); setPage(1); }}>Quá hạn xử lý {c?.overdue ?? 0}</button>
+          </> : null}
         </div>
-        {data && !items.length ? <Empty title={status === "pending" ? "Không còn đơn nào chờ duyệt" : "Không có đơn phù hợp"} /> : (
-          <div className="table-wrap"><table className="data-table" style={{ minWidth: 960 }}><thead><tr><th>Mã đơn</th><th>Người gửi</th><th>Loại</th><th>Nội dung</th><th>Gửi lúc</th><th>{status === "pending" ? "Hạn xử lý" : "Trạng thái"}</th><th /></tr></thead><tbody>
-            {!data && !error ? <SkeletonRows cols={7} rows={6} /> : null}
+        <div className="toolbar">
+          <label className="search"><Icon name="search" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Mã đơn hoặc người gửi…" /></label>
+          <Select className="select" value={f.type} onChange={set("type")} aria-label="Loại đơn"><option value="">Mọi loại đơn</option>{(Object.keys(REQUEST_TYPE) as RequestType[]).map((t) => <option key={t} value={t}>{REQUEST_TYPE[t]}</option>)}</Select>
+          <Select className="select" value={f.departmentId} onChange={set("departmentId")} aria-label="Phòng ban"><option value="">Mọi phòng ban</option>{(org?.departments ?? []).map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}</Select>
+          <Select className="select" value={f.dateBy} onChange={set("dateBy")} aria-label="Lọc theo ngày"><option value="applied">Ngày áp dụng</option><option value="submitted">Ngày gửi</option></Select>
+          <input type="date" value={f.from} max={f.to || undefined} onChange={set("from")} aria-label="Từ ngày" />
+          <input type="date" value={f.to} min={f.from || undefined} onChange={set("to")} aria-label="Đến ngày" />
+          {filtered ? <button className="btn small" onClick={() => { setF({ type: "", departmentId: "", from: "", to: "", dateBy: "applied" }); setQ(""); setPage(1); }}>Bỏ lọc</button> : null}
+        </div>
+        {data && !items.length ? <Empty title={status === "pending" && !filtered && !only ? "Không còn đơn nào chờ duyệt" : "Không có đơn phù hợp"} /> : (
+          <div className="table-wrap"><table className="data-table" style={{ minWidth: 1040 }}><thead><tr><th>Mã đơn</th><th>Người gửi</th><th>Loại</th><th>Nội dung</th><th>Áp dụng</th><th>Gửi lúc</th><th>{status === "pending" ? "Hạn xử lý" : "Trạng thái"}</th><th /></tr></thead><tbody>
+            {!data && !error ? <SkeletonRows cols={8} rows={6} /> : null}
             {items.map((r) => (
               <tr key={r.id} className="clickable" onClick={() => setOpen(r)}>
                 <td><b>{r.no}</b></td>
                 <td><Person name={r.requester.fullName} seed={r.requester.code} sub={r.requester.department ?? r.requester.code} /></td>
                 <td>{REQUEST_TYPE[r.type]}</td>
                 <td>{requestSummary(r)}</td>
+                <td className="nowrap">{r.applied ? (r.applied.from === r.applied.to ? fmtDate(r.applied.from) : `${fmtDate(r.applied.from).slice(0, 5)}–${fmtDate(r.applied.to)}`) : <span className="muted">—</span>}</td>
                 <td className="nowrap">{fmtDateTime(r.submittedAt, me.tenant.timezone)}</td>
                 <td>{r.status === "pending" ? <Status v={slaLabel(r.dueAt)} /> : <Status v={REQUEST_STATUS[r.status]} />}</td>
                 <td><button className={`btn small ${r.myTaskId ? "primary" : ""}`} onClick={(e) => { e.stopPropagation(); setOpen(r); }}>{r.myTaskId ? "Xem & duyệt" : "Xem"}</button></td>
@@ -62,6 +85,11 @@ function RequestsPage() {
             ))}
           </tbody></table></div>
         )}
+        {data && data.total > data.pageSize ? <div className="toolbar" style={{ justifyContent: "flex-end" }}>
+          <span className="muted" style={{ fontSize: 12 }}>{num((page - 1) * data.pageSize + 1)}–{num(Math.min(page * data.pageSize, data.total))} / {num(data.total)} đơn</span>
+          <button className="btn small" disabled={page <= 1} onClick={() => setPage(page - 1)}>Trước</button>
+          <button className="btn small" disabled={page >= pages} onClick={() => setPage(page + 1)}>Sau</button>
+        </div> : null}
       </article>
       {open ? <RequestModal r={open} onClose={() => setOpen(null)} onDone={() => void reload()} /> : null}
       {config ? <WorkflowModal onClose={() => setConfig(false)} /> : null}
