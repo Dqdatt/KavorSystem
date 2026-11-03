@@ -279,7 +279,11 @@ export type MyProfile = {
   workEmail: string | null; phone: string | null; contract: { title: string; expiresOn: string | null } | null;
   /* Thông tin cá nhân đã duyệt (số tài khoản đầy đủ vì là của chính mình) + đề nghị sửa đang chờ */
   personal: PersonalInfo; pending: { id: string; no: string; fields: ProfileField[] } | null;
+  /* Ảnh đại diện (null = chưa có, hiện chữ viết tắt); đổi mỗi lần thay ảnh, dùng làm khóa cache: GET /me/avatar?v= */
+  avatarVersion: string | null;
 };
+/* Nhân viên tự đổi ảnh đại diện trên app (ảnh đã cắt vuông, PNG/JPEG/WebP ≤ 2 MB) */
+export type AvatarUploadRequest = { dataBase64: string };
 
 export type EmployeeListItem = {
   id: string;

@@ -10,6 +10,10 @@ export type Session = { token: string; employeeId: string; deviceRegistered: boo
 export type BiometricResult = { ok: true } | { ok: false; reason: "unavailable" | "not_enrolled" | "cancelled" | "failed"; message: string };
 
 const SESSION_KEY = "kavor.session";
+/* Bản dữ liệu gần nhất từ máy chủ (trang chủ + các tab chính, không có lương/hồ sơ ngân hàng): mở app hiện ngay rồi tải lại nền */
+const CACHE_KEY = "kavor.lastData";
+export async function saveLastData(json: string) { await SecureStore.setItemAsync(CACHE_KEY, json, opts).catch(() => {}); }
+export async function loadLastData(): Promise<string | null> { return SecureStore.getItemAsync(CACHE_KEY, opts).catch(() => null); }
 /* Thông tin đăng nhập nhanh: giữ lại sau khi đăng xuất để lần sau dùng Face ID thay mật khẩu.
    Có API thì lưu refresh token; chỉ đọc sau khi Face ID thành công. */
 const QUICK_LOGIN_KEY = "kavor.quickLogin";
@@ -50,6 +54,7 @@ export async function loadSupport(): Promise<SupportContact | null> {
 
 export async function clearSession() {
   await SecureStore.deleteItemAsync(SESSION_KEY, opts).catch(() => {});
+  await SecureStore.deleteItemAsync(CACHE_KEY, opts).catch(() => {});
 }
 
 export async function quickRefreshToken(): Promise<string | null> {

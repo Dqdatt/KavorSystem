@@ -1,7 +1,7 @@
 import { Children, Fragment, isValidElement, useEffect, useRef, useState, type ReactNode } from "react";
 import {
-  Animated, Easing, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
-  type StyleProp, type TextInputProps, type TextProps, type TextStyle, type ViewStyle,
+  Animated, Easing, Image, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
+  type ImageSourcePropType, type StyleProp, type TextInputProps, type TextProps, type TextStyle, type ViewStyle,
 } from "react-native";
 import { C, F, GL, EASE, glass, lh, tint } from "./theme";
 import { Gi, Ic, type IconName } from "./icons";
@@ -266,14 +266,18 @@ function StepBtn({ label, a11y, onPress }: { label: string; a11y: string; onPres
 }
 
 /* ---------- Avatar / top bar buttons ---------- */
-export function Avatar({ ini, size = "md", onPress, style }: { ini: string; size?: "sm" | "md" | "lg" | "xl"; onPress?: () => void; style?: StyleProp<ViewStyle> }) {
+export function Avatar({ ini, size = "md", onPress, style, src, label = "Hồ sơ của tôi" }: { ini: string; size?: "sm" | "md" | "lg" | "xl"; onPress?: () => void; style?: StyleProp<ViewStyle>; src?: ImageSourcePropType | null; label?: string }) {
+  /* Ảnh lỗi tải (mất mạng, token hết hạn) thì quay về chữ viết tắt */
+  const [bad, setBad] = useState<unknown>(null);
+  const img = src && bad !== src ? src : null;
   const dims = ({ sm: [32, 11, 2], md: [42, 13, 2], lg: [84, 26, 4], xl: [104, 32, 5] } as Record<string, [number, number, number]>)[size]!;
   const body = (
     <View style={[{ width: dims[0], height: dims[0], borderRadius: dims[0] / 2, borderWidth: dims[2], borderColor: "rgba(255,255,255,0.9)", alignItems: "center", justifyContent: "center", experimental_backgroundImage: GL.tint, boxShadow: size === "sm" ? undefined : size === "xl" ? `${GL.tintSh}, 0px 10px 24px -10px rgba(6,70,50,0.45)` : GL.tintSh }, style]}>
-      <T style={{ color: "#fff", fontSize: dims[1], fontFamily: F.semibold }}>{ini}</T>
+      {img ? <Image source={img} onError={() => setBad(src)} style={{ width: "100%", height: "100%", borderRadius: dims[0] / 2 }} resizeMode="cover" accessibilityIgnoresInvertColors />
+        : <T style={{ color: "#fff", fontSize: dims[1], fontFamily: F.semibold }}>{ini}</T>}
     </View>
   );
-  return onPress ? <Pressable accessibilityLabel="Hồ sơ của tôi" onPress={onPress}>{body}</Pressable> : body;
+  return onPress ? <Pressable accessibilityLabel={label} onPress={onPress}>{body}</Pressable> : body;
 }
 export function TbBtn({ children, onPress, label, dot }: { children: ReactNode; onPress?: () => void; label: string; dot?: boolean }) {
   return (

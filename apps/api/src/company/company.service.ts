@@ -5,7 +5,7 @@ import { AuthError, type EmployeeRow } from "../auth/auth.service.js";
 import type { SupabaseGateway } from "../auth/supabase.js";
 import { localParts } from "../attendance/attendance.service.js";
 import { PolicyIndex, loadPlacements } from "../attendance/policy.js";
-import { brandingVersion, type BrandingStore } from "./branding.js";
+import { BRANDING_MAX_BYTES, brandingVersion, sniffImage, type BrandingStore } from "./branding.js";
 import { currentTerms, recordConsent, toTerms } from "./privacy.js";
 import { loadPersonal } from "../profile/profile.service.js";
 
@@ -66,7 +66,7 @@ export class CompanyService {
     const { data: t } = await db.from("tenants").select("timezone").eq("id", emp.tenant_id).single();
     const today = localParts(new Date(), (t?.timezone as string) ?? "Asia/Ho_Chi_Minh").date;
     const [{ data: e, error }, placements, { data: doc }, personal, { data: pend }] = await Promise.all([
-      db.from("employees").select("employee_code, full_name, hire_date, employment_type, status, termination_date, work_email, phone").eq("id", emp.id).single(),
+      db.from("employees").select("employee_code, full_name, hire_date, employment_type, status, termination_date, work_email, phone, avatar_path").eq("id", emp.id).single(),
       loadPlacements(db, emp.tenant_id, today, [emp.id]),
       db.from("employee_documents").select("title, expires_on").eq("tenant_id", emp.tenant_id).eq("employee_id", emp.id).eq("category", "contract")
         .eq("visibility", "hr_employee").is("archived_at", null).order("issued_on", { ascending: false, nullsFirst: false }).order("created_at", { ascending: false }).limit(1).maybeSingle(),
@@ -89,7 +89,43 @@ export class CompanyService {
       workEmail: (e.work_email as string | null) ?? null, phone: (e.phone as string | null) ?? null,
       contract: doc ? { title: doc.title as string, expiresOn: (doc.expires_on as string | null) ?? null } : null,
       personal, pending: pr ? { id: pr.id, no: pr.request_no, fields: pr.request_versions.find((v) => v.version_no === pr.current_version)?.payload.fields ?? [] } : null,
+      avatarVersion: brandingVersion(e.avatar_path as string | null),
     };
+  }
+
+  /* Ảnh đại diện do chính nhân viên đổi trên app (đã cắt vuông trên máy); nhận dạng định dạng theo nội dung file */
+  async uploadAvatar(emp: EmployeeRow, dataBase64: unknown, correlationId: string): Promise<{ avatarVersion: string | null }> {
+    if (typeof dataBase64 !== "string" || !dataBase64 || dataBase64.length > Math.ceil(BRANDING_MAX_BYTES * 1.4))
+      throw new AuthError("VALIDATION_FAILED", "Ảnh tối đa 2 MB.", 400);
+    const data = Buffer.from(dataBase64.replace(/^data:[^,]*,/, ""), "base64");
+    if (!data.length || data.length > BRANDING_MAX_BYTES) throw new AuthError("VALIDATION_FAILED", "Ảnh tối đa 2 MB.", 400);
+    const type = sniffImage(data);
+    if (!type) throw new AuthError("VALIDATION_FAILED", "Chỉ nhận ảnh PNG, JPEG hoặc WebP.", 400);
+    const path = await this.branding.put(emp.tenant_id, "avatar", data, type);
+    return this.setAvatar(emp, path, correlationId, { bytes: data.length, type });
+  }
+
+  removeAvatar(emp: EmployeeRow, correlationId: string) { return this.setAvatar(emp, null, correlationId, {}); }
+
+  private async setAvatar(emp: EmployeeRow, path: string | null, correlationId: string, meta: Record<string, unknown>) {
+    const db = this.sb.admin;
+    const { data: cur } = await db.from("employees").select("avatar_path").eq("id", emp.id).single();
+    const old = (cur?.avatar_path as string | null) ?? null;
+    const { error } = await db.from("employees").update({ avatar_path: path }).eq("id", emp.id);
+    if (error) { if (path) await this.branding.remove(path); throw error; }
+    if (old && old !== path) await this.branding.remove(old);
+    await db.from("audit_logs").insert({
+      tenant_id: emp.tenant_id, actor_user_id: emp.user_id, actor_type: "user", action: path ? "employee.avatar_updated" : "employee.avatar_removed",
+      resource_type: "employee", resource_id: emp.id, before_data: { path: old }, after_data: { path, ...meta }, correlation_id: correlationId,
+    });
+    return { avatarVersion: brandingVersion(path) };
+  }
+
+  async avatarImage(emp: EmployeeRow) {
+    const { data } = await this.sb.admin.from("employees").select("avatar_path").eq("id", emp.id).single();
+    const img = data?.avatar_path ? await this.branding.get(data.avatar_path as string) : null;
+    if (!img) throw new AuthError("NOT_FOUND", "Chưa có ảnh đại diện.", 404);
+    return img;
   }
 
   /* Quy định nghiệp vụ áp dụng cho nhân viên vào một ngày (mặc định hôm nay theo múi giờ công ty) */

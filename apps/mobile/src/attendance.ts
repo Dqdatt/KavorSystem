@@ -41,27 +41,65 @@ export class LocationError extends Error {
   constructor(readonly kind: "locPerm" | "gpsOff", message: string) { super(message); }
 }
 
-/* Chỉ xin quyền khi người dùng chủ động chấm công (theo ngữ cảnh), không xin lúc mở app */
-export async function currentFix(ask = true): Promise<Fix> {
+const toFix = (p: Location.LocationObject): Fix => ({ latitude: p.coords.latitude, longitude: p.coords.longitude, accuracyM: Math.round((p.coords.accuracy ?? 999) * 10) / 10, at: p.timestamp });
+const FRESH_MS = 60_000;
+
+/* Theo dõi GPS liên tục khi app đang mở (trang chủ): lúc bấm chấm công thường đã có vị trí mới, gửi được ngay */
+let last: Fix | null = null;
+let sub: Location.LocationSubscription | null = null;
+let starting = false;
+const listeners = new Set<(f: Fix) => void>();
+const push = (f: Fix) => { if (!last || f.at >= last.at) last = f; listeners.forEach((l) => l(f)); };
+export function onFix(fn: (f: Fix) => void) { listeners.add(fn); return () => { listeners.delete(fn); }; }
+export async function watchFix(on: boolean) {
+  if (!on) { sub?.remove(); sub = null; return; }
+  if (sub || starting) return;
+  starting = true;
+  try {
+    const perm = await Location.getForegroundPermissionsAsync().catch(() => null);
+    if (!perm?.granted) return;
+    sub = await Location.watchPositionAsync({ accuracy: Location.Accuracy.High, distanceInterval: 0, timeInterval: 1000 }, (p) => push(toFix(p))).catch(() => null);
+  } finally { starting = false; }
+}
+const freshFix = (needM: number) => (last && Date.now() - last.at < FRESH_MS && last.accuracyM <= needM ? last : null);
+
+/* Chỉ xin quyền khi người dùng chủ động chấm công (theo ngữ cảnh), không xin lúc mở app.
+   Có vị trí mới (≤ 60 giây) đủ chính xác thì trả ngay; chưa có thì lấy đến khi đạt ngưỡng `needM` của địa điểm
+   (không chờ mức chính xác cao nhất), quá 10 giây trả vị trí tốt nhất đang có để máy chủ xét. */
+export async function currentFix(ask = true, needM = 50, onProgress?: (f: Fix) => void): Promise<Fix> {
+  const hit = freshFix(needM);
+  if (hit) return hit;
   let perm = await Location.getForegroundPermissionsAsync();
   if (!perm.granted && ask && perm.canAskAgain) perm = await Location.requestForegroundPermissionsAsync();
   if (!perm.granted) throw new LocationError("locPerm", "Kavor cần quyền vị trí để chấm công.");
   if (!(await Location.hasServicesEnabledAsync())) throw new LocationError("gpsOff", "Dịch vụ định vị đang tắt.");
-  try {
-    const p = await Promise.race([
-      Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Highest }),
-      new Promise<never>((_, rej) => setTimeout(() => rej(new Error("timeout")), 15000)),
-    ]);
-    return { latitude: p.coords.latitude, longitude: p.coords.longitude, accuracyM: Math.round((p.coords.accuracy ?? 999) * 10) / 10, at: p.timestamp };
-  } catch {
-    throw new LocationError("gpsOff", "Không lấy được vị trí.");
-  }
+  void watchFix(true);
+  return new Promise<Fix>((resolve, reject) => {
+    let best: Fix | null = null, done = false;
+    const take = (f: Fix) => {
+      if (done) return;
+      if (!best || f.accuracyM <= best.accuracyM) best = f;
+      onProgress?.(f);
+      if (f.accuracyM <= needM) finish();
+    };
+    const finish = () => {
+      if (done) return;
+      done = true; off(); clearTimeout(timer);
+      if (best) resolve(best); else reject(new LocationError("gpsOff", "Không lấy được vị trí."));
+    };
+    const off = onFix(take);
+    const timer = setTimeout(finish, 10_000);
+    /* Vị trí hệ điều hành vừa có (app khác/lần trước) — trả về tức thì nếu đủ mới và chính xác */
+    Location.getLastKnownPositionAsync({ maxAge: FRESH_MS, requiredAccuracy: needM }).then((p) => { if (p) take(toFix(p)); }).catch(() => {});
+    Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High }).then((p) => take(toFix(p))).catch(() => {});
+  });
 }
 
 /* Đã có quyền thì đọc vị trí để hiển thị khoảng cách; chưa có quyền thì không hỏi */
 export async function quietFix(): Promise<Fix | null> {
   const perm = await Location.getForegroundPermissionsAsync().catch(() => null);
   if (!perm?.granted) return null;
+  if (last && Date.now() - last.at < FRESH_MS) return last;
   return currentFix(false).catch(() => null);
 }
 

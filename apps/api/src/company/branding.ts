@@ -35,7 +35,7 @@ export class BrandingStore {
     return this.ready;
   }
 
-  async put(tenantId: string, kind: BrandingKind, data: Buffer, type: ImageType): Promise<string> {
+  async put(tenantId: string, kind: BrandingKind | "avatar", data: Buffer, type: ImageType): Promise<string> {
     const path = `${tenantId}/${kind}-${randomUUID()}.${TYPES[type]}`;
     const upload = async () => {
       await this.ensureBucket();

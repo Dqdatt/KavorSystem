@@ -21,6 +21,32 @@ export function chooseSource(): Promise<Source | null> {
   });
 }
 
+/* Ảnh đại diện: hỏi nguồn (có ảnh rồi thì thêm "Gỡ ảnh"), cắt vuông bằng khung cắt của hệ điều hành, JPEG ≤ 2 MB */
+export type AvatarPick = { base64: string } | "remove" | null;
+export async function pickAvatar(hasAvatar: boolean): Promise<AvatarPick> {
+  const src = await new Promise<"camera" | "library" | "remove" | null>((done) => {
+    const opts: Array<{ text: string; style?: "cancel" | "destructive"; onPress: () => void }> = [
+      { text: "Chụp ảnh", onPress: () => done("camera") },
+      { text: "Chọn ảnh", onPress: () => done("library") },
+    ];
+    if (hasAvatar) opts.push({ text: "Gỡ ảnh đại diện", style: "destructive", onPress: () => done("remove") });
+    if (Platform.OS === "ios") opts.push({ text: "Hủy", style: "cancel", onPress: () => done(null) });
+    Alert.alert("Ảnh đại diện", "Kéo và phóng to để cắt ảnh vuông", opts, { cancelable: true, onDismiss: () => done(null) });
+  });
+  if (!src || src === "remove") return src;
+  if (src === "camera") {
+    const p = await ImagePicker.requestCameraPermissionsAsync();
+    if (!p.granted) throw new Error("Kavor chưa có quyền dùng camera. Bật trong Cài đặt của máy, hoặc chọn ảnh có sẵn.");
+  }
+  const opts: ImagePicker.ImagePickerOptions = { mediaTypes: ["images"], allowsEditing: true, aspect: [1, 1], quality: 0.5, base64: true, exif: false,
+    cameraType: ImagePicker.CameraType.front, preferredAssetRepresentationMode: ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible };
+  const r = src === "camera" ? await ImagePicker.launchCameraAsync(opts) : await ImagePicker.launchImageLibraryAsync(opts);
+  const a = r.canceled ? null : r.assets[0];
+  if (!a?.base64) return null;
+  if ((a.base64.length * 3) / 4 > 2 * 1024 * 1024) throw new Error("Ảnh lớn hơn 2 MB. Cắt nhỏ hơn hoặc chọn ảnh khác.");
+  return { base64: a.base64 };
+}
+
 /* null: người dùng hủy. Lỗi (quá dung lượng, không có quyền camera) ném Error có lời nhắn tiếng Việt */
 export async function pickFile(source: Source): Promise<PickedFile | null> {
   if (source === "pdf") {

@@ -14,7 +14,7 @@ import { useClock } from "../clock";
 import { REMOTE } from "../api/http";
 import { DOCUMENT_CATEGORIES, type NotificationKind } from "@kavor/contracts";
 import { dec, gh, hm } from "../data";
-import { ACT, S, go, jump, setBioPref, setPerm, lvAvail, phase, profileFieldsText, shiftMinutes, toast, worked, type ErrKind, type Route } from "../store";
+import { ACT, S, changeAvatar, go, jump, setBioPref, setPerm, lvAvail, phase, profileFieldsText, shiftMinutes, toast, worked, type ErrKind, type Route } from "../store";
 
 /* Ảnh bìa mặc định của Kavor (dùng khi công ty chưa tải ảnh bìa riêng) */
 const COVER = '<svg viewBox="0 0 320 124" preserveAspectRatio="xMidYMid slice"><defs><linearGradient id="pfSky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#CFF5E4"/><stop offset="1" stop-color="#F3FCF8"/></linearGradient></defs><rect width="320" height="124" fill="url(#pfSky)"/><circle cx="252" cy="36" r="15" fill="#FFF4D6"/><path d="M0 22c18 8 30 30 34 58l6 44H0z" fill="#2E9C77" opacity=".55"/><path d="M320 14c-20 10-34 34-38 64l-4 46h42z" fill="#2E9C77" opacity=".55"/><path d="M0 80c40-20 70-16 110-8s80-18 120-10 60 0 90-8v70H0z" fill="#A7F3D0"/><path d="M0 96c50-14 100-4 150-10s90-14 170 0v42H0z" fill="#34C79A"/><path d="M0 108c60-8 120 4 190-4s90-4 130 2v18H0z" fill="#0B7A5A"/></svg>';
@@ -44,7 +44,11 @@ function PfCard() {
     <View style={styles.pf}>
       {/* Ảnh bìa do công ty tải lên trên web; chưa có thì dùng ảnh mặc định của Kavor */}
       <View style={styles.cover}>{S.coverSrc ? <Image source={S.coverSrc} style={{ width: "100%", height: "100%" }} resizeMode="cover" accessibilityIgnoresInvertColors /> : <SvgXml xml={COVER} width="100%" height="100%" />}</View>
-      <View style={{ marginTop: -54 }}><Avatar ini={REMOTE ? initials(p?.fullName ?? S.me?.fullName ?? "…") : "TH"} size="xl" /></View>
+      <View style={{ marginTop: -54 }}>
+        <Avatar ini={REMOTE ? initials(p?.fullName ?? S.me?.fullName ?? "…") : "TH"} size="xl" src={S.avatarSrc} onPress={changeAvatar} label="Đổi ảnh đại diện" />
+        {/* Nút nhỏ báo chạm vào ảnh để đổi; đang gửi thì hiện vòng quay */}
+        <View pointerEvents="none" style={styles.avaEdit}>{S.spin === "avatar" ? <Spinner size={15} color={C.emerald} width={2} /> : <Ic n="edit" s={15} color={C.emerald} />}</View>
+      </View>
       <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 12, marginBottom: 2 }}>
         <T style={{ fontSize: 22, fontFamily: F.bold }}>{REMOTE ? p?.fullName ?? "—" : "Trần Thu Hà"}</T>
         <SvgXml xml={VERIFIED} width={20} height={20} />
@@ -391,6 +395,7 @@ export function errSpec(): ScreenSpec {
 export const RAW: Partial<Record<Route, () => ReactNode>> = { springHome: () => <SpringHome />, springLock: () => <SpringLock /> };
 
 const styles = StyleSheet.create({
+  avaEdit: { position: "absolute", right: 0, bottom: 2, width: 30, height: 30, borderRadius: 15, alignItems: "center", justifyContent: "center", backgroundColor: "#fff", borderWidth: 1, borderColor: "rgba(6,95,70,0.12)", boxShadow: "0px 4px 10px -4px rgba(6,70,50,0.35)" },
   pf: { ...glass, alignItems: "center", paddingTop: 10, paddingHorizontal: 10, paddingBottom: 18, borderRadius: 28 },
   cover: { width: "100%", height: 124, borderRadius: 20, overflow: "hidden" },
   wdg: { borderRadius: 24, borderWidth: 1, borderColor: "rgba(255,255,255,0.45)", boxShadow: "inset 0px 1px 0px rgba(255,255,255,0.6), 0px 14px 30px -16px rgba(0,30,20,0.45)" },

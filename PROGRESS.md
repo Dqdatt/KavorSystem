@@ -10,6 +10,14 @@ simulator hay iPhone** vì phiên cloud không có Mac). Người dùng giao "c�
 ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AGENT_PLAYBOOK.md`; kiểm tra toàn bộ bằng `bash tools/verify-all.sh`.
 
 ## Đã xong
+- App nhanh hơn + ảnh đại diện (3/11, Claude Desktop): GPS theo dõi liên tục khi app mở (`watchFix`), bấm chấm công dùng vị trí ≤ 60 giây
+  đủ chính xác (ngưỡng `maxAccuracyM` của địa điểm) — không chờ `Accuracy.Highest`; nút xám "ĐỊNH VỊ…/ĐANG GỬI…" và khóa trong lúc xử lý.
+  Splash không chờ mạng: token làm mới ở lời gọi đầu (một lần cho mọi lời gọi song song); bản dữ liệu gần nhất lưu Keychain `kavor.lastData`
+  (không có tạm ứng/lương/hồ sơ), mở app hiện ngay + "Đang cập nhật…"; chưa có bản lưu thì splash chờ dữ liệu hôm nay tối đa 2 giây.
+  Ảnh đại diện: cột `employees.avatar_path` (migration 202611170001), file trong bucket `tenant-branding` `<tenant>/avatar-<uuid>`,
+  API `POST /me/avatar`, `/me/avatar/remove`, `GET /me/avatar?v=`, `MyProfile.avatarVersion`; app cắt vuông bằng khung của hệ điều hành
+  (`expo-image-picker` allowsEditing), chạm ảnh ở Hồ sơ để đổi/gỡ. Kiểm: verify-all --quick, `profile-smoke.sh` (phần ảnh đại diện), pgTAP
+  `employee_avatar`. Đã cài iPhone; chưa thử trên máy; bản online cần chạy migration trên cloud **trước** khi push API.
 - Tốc độ API app (1/11, Claude Desktop): `/me/*` xác thực bằng `getClaims` (kiểm chữ ký JWT tại API qua JWKS có cache, không gọi Auth mỗi request; khóa
   đối xứng kiểu cũ thì thư viện tự dùng getUser) — local `/me/requests` 42→15 ms, `/me/timesheet` 72→~30 ms. Web/Console vẫn getUser (cần factors,
   app_metadata). Mỗi request ghi `[req] METHOD path status ms` vào log (bỏ query, bỏ /health) để đo trên Render. Chưa đo trên online; chưa làm app

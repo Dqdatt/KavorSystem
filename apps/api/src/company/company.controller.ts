@@ -45,6 +45,21 @@ export class CompanyController {
   @Get("profile")
   profile(@Req() r: CorrelatedRequest, @Headers("authorization") a?: string) { return this.run(r, a, (s, emp) => s.profile(emp)); }
 
+  /* Ảnh đại diện của chính mình: đổi (base64, đã cắt vuông), gỡ, tải về (?v= là phiên bản, cache 7 ngày) */
+  @Post("avatar") @HttpCode(200)
+  uploadAvatar(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Body() b: Body) {
+    return this.run(r, a, (s, emp, cid) => s.uploadAvatar(emp, b?.dataBase64, cid));
+  }
+  @Post("avatar/remove") @HttpCode(200)
+  removeAvatar(@Req() r: CorrelatedRequest, @Headers("authorization") a?: string) { return this.run(r, a, (s, emp, cid) => s.removeAvatar(emp, cid)); }
+  @Get("avatar")
+  async avatar(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Res({ passthrough: true }) res: Response) {
+    const env = await this.run(r, a, (s, emp) => s.avatarImage(emp));
+    res.setHeader("content-type", env.data!.contentType);
+    res.setHeader("cache-control", "private, max-age=604800");
+    return new StreamableFile(env.data!.data);
+  }
+
   /* Ảnh logo/bìa: app tải kèm header Authorization, phiên bản ảnh nằm ở query (?v=) làm khóa cache */
   @Get("company/branding/:kind")
   async branding(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("kind") kind: string, @Res({ passthrough: true }) res: Response) {

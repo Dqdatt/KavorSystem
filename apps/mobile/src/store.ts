@@ -8,18 +8,18 @@ import {
 } from "./data";
 import type { IllusKind } from "./illus";
 import { api, type Snapshot } from "./api";
-import { authenticate, biometricKind, biometricReady, clearQuickLogin, clearSession, loadBioPrefs, loadSession, loadSupport, quickLoginEmployee, quickRefreshToken, saveBioPrefs, saveSession, saveSupport, type BioPrefs , type BioKind } from "./auth";
+import { authenticate, biometricKind, biometricReady, clearQuickLogin, clearSession, loadBioPrefs, loadLastData, loadSession, saveLastData, loadSupport, quickLoginEmployee, quickRefreshToken, saveBioPrefs, saveSession, saveSupport, type BioPrefs , type BioKind } from "./auth";
 import { ApiError, REMOTE, advanceApi, announcementsApi, attendanceApi, documentsApi, authApi, companyApi, isNetworkError, leaveApi, notificationsApi, overtimeApi, payslipApi, setTokenSource, timesheetApi } from "./api/http";
 import { clearExplainReminders, onReminderTap, scheduleExplainReminders } from "./notify";
 import { askFirstRun, askLoc, askNotif, openSystemSettings, readPerms, type Perms } from "./perms";
-import { chooseSource, pickFile, type PickedFile } from "./attach";
+import { chooseSource, pickAvatar, pickFile, type PickedFile } from "./attach";
 import { PIN_LENGTH, PIN_MAX_ATTEMPTS, checkPin, clearPin, hasPin, resetPinFailures, setPin, weakPin } from "./pin";
 import { MY_REQ_INIT, SUPPORT_SAMPLE } from "./api/mock-data";
 import {
   EXPLANATION_KINDS, PROFILE_FIELDS, REQUEST_ATTACHMENT_MAX, distanceMeters, overtimeAttendanceText, passwordProblems,
   type AttendanceEvent, type AttendanceToday, type AuthResult, type ExplanationKind, type AppNotification, type MyAdvance, type MyAnnouncement, type MyAnnouncements, type MyDocuments, type MeProfile, type MyProfile, type ProfileChangeInput, type ProfileField, type MyCompany, type MyLeave, type MyOvertime, type MyPayslip, type MyPayslips, type MyTimesheet, type NotificationFeed, type RequestItem, type SupportContact, type TimesheetDay, type WorkLocation,
 } from "@kavor/contracts";
-import { currentFix, deviceRegistration, deviceSummary, enqueue, flushQueue, installationId, LocationError, newEventId, quietFix, readQueue, type Fix } from "./attendance";
+import { currentFix, deviceRegistration, deviceSummary, enqueue, flushQueue, installationId, LocationError, newEventId, onFix, quietFix, readQueue, watchFix, type Fix } from "./attendance";
 
 export type Anim = "push" | "pop" | "fade";
 export type Route =
@@ -200,6 +200,13 @@ const makeState = () => ({
   sheetShow: false, sheetTok: 0,
   toast: null as null | { msg: string; id: number },
   spin: null as string | null,
+  /* Chấm công đang chạy: gps = đang định vị, send = đang gửi máy chủ */
+  punchStage: null as null | "gps" | "send",
+  /* Đang hiện bản dữ liệu lưu trên máy, chưa tải xong bản mới từ máy chủ */
+  stale: false,
+  /* Ảnh đại diện: phiên bản (lưu cùng bản dữ liệu trên máy) và nguồn ảnh kèm token để <Image> tải */
+  avatarVer: null as string | null,
+  avatarSrc: null as { uri: string; headers: Record<string, string> } | null,
   shake: { key: "", n: 0 },
   leavingCard: null as string | null,
   notifShow: false,
@@ -424,8 +431,29 @@ export async function loadAnnouncement(id: string) {
 }
 export async function loadProfile() {
   if (!REMOTE || !isLoggedIn() || S.stack[0] === "consent") return;
-  try { S.profile = await companyApi.profile(); emit(); }
+  try { S.profile = await companyApi.profile(); await setAvatar(S.profile.avatarVersion); emit(); }
   catch (e) { if (e instanceof ApiError && e.status === 401) showErr("session"); }
+}
+async function setAvatar(ver: string | null | undefined) {
+  ver ??= null;
+  if (ver === S.avatarVer && (S.avatarSrc || !ver)) return;
+  S.avatarVer = ver;
+  S.avatarSrc = ver ? await companyApi.avatarSource(ver).catch(() => null) : null;
+  emit();
+}
+/* Đổi ảnh đại diện: chọn/chụp → cắt vuông (khung cắt của hệ điều hành) → gửi máy chủ */
+export async function changeAvatar() {
+  if (!REMOTE) { toast("Bản dữ liệu mẫu không đổi được ảnh đại diện"); return; }
+  if (S.spin === "avatar") return;
+  let pick;
+  try { pick = await pickAvatar(!!S.avatarVer); } catch (e) { toast(e instanceof Error ? e.message : "Không chọn được ảnh."); return; }
+  if (!pick) return;
+  remote("avatar", async () => {
+    const r = pick === "remove" ? await companyApi.avatarRemove() : await companyApi.avatarUpload(pick.base64);
+    await setAvatar(r.avatarVersion);
+    if (S.profile) S.profile = { ...S.profile, avatarVersion: r.avatarVersion };
+    toast(pick === "remove" ? "Đã gỡ ảnh đại diện" : "Đã cập nhật ảnh đại diện");
+  });
 }
 let docRequest = 0;
 function clearDocuments() { docRequest++; S.docData = null; S.docError = ""; }
@@ -649,13 +677,16 @@ function askConsent(next: Route) {
 
 /* ---------- chấm công thật (chỉ chạy khi REMOTE) ---------- */
 /* Access token cho API chấm công: hết hạn thì làm mới bằng refresh token rồi lưu lại */
+/* Mở app nhiều lời gọi chạy song song: chỉ làm mới một lần (refresh token dùng lại có thể bị Supabase từ chối) */
+let refreshing: Promise<string> | null = null;
 setTokenSource(async () => {
   const sess = await loadSession();
   if (!sess?.auth) return null;
   if (sess.auth.expiresAt - 60 > Date.now() / 1000) return sess.auth.accessToken;
-  const r = await authApi.refresh({ refreshToken: sess.auth.refreshToken });
-  await saveSession({ employeeId: r.me.employeeCode, auth: r.session, me: r.me });
-  return r.session.accessToken;
+  refreshing ??= authApi.refresh({ refreshToken: sess.auth.refreshToken })
+    .then(async (r) => { await saveSession({ employeeId: r.me.employeeCode, auth: r.session, me: r.me }); S.me = r.me; return r.session.accessToken; })
+    .finally(() => { refreshing = null; });
+  return refreshing;
 });
 
 let locations: WorkLocation[] = [];
@@ -664,10 +695,18 @@ const accepted = (e: AttendanceEvent | null) => (e && e.status === "accepted" ? 
 function applyFix(f: Fix) {
   const near = locations.map((l) => ({ l, d: distanceMeters(f.latitude, f.longitude, l.latitude, l.longitude) })).sort((a, b) => a.d - b.d)[0];
   if (!near) return;
-  S.att.loc = near.l; S.att.distM = Math.round(near.d * 10) / 10; S.att.accM = f.accuracyM;
-  S.inRange = near.d <= near.l.radiusM; emit();
+  const distM = Math.round(near.d * 10) / 10, inRange = near.d <= near.l.radiusM;
+  /* Vị trí theo dõi liên tục (~1 giây/lần): chỉ vẽ lại khi thay đổi đáng kể */
+  const same = S.att.loc.id === near.l.id && S.inRange === inRange && S.att.distM != null && Math.abs(S.att.distM - distM) < 1 && Math.abs((S.att.accM ?? 0) - f.accuracyM) < 2;
+  S.att.loc = near.l; S.att.distM = distM; S.att.accM = f.accuracyM; S.inRange = inRange;
+  if (!same) emit();
 }
+if (REMOTE) onFix((f) => { if (!S.att.noLoc) applyFix(f); });
+/* Chạm vào nút chấm công: bật GPS ngay, không đợi giữ đủ 1 giây */
+export function warmGps() { if (REMOTE) void watchFix(true); }
+let lastToday: AttendanceToday | null = null;
 function applyToday(t: AttendanceToday) {
+  lastToday = t;
   locations = t.locations;
   const sh = t.shift;
   if (sh) {
@@ -684,6 +723,39 @@ function applyToday(t: AttendanceToday) {
 /* Bản dùng API: công ty chưa áp dụng địa điểm chấm công nào cho nhân viên (khác "ngoài vùng": không có vùng nào để so) */
 export const noLocation = () => REMOTE && S.att.noLoc;
 const isLoggedIn = () => !["login", "forgot", "forgotOtp", "resetPassword", "activate", "otp"].includes(S.stack[0] ?? "login");
+
+/* ---------- bản dữ liệu gần nhất lưu trên máy ---------- */
+/* Chỉ các trường an toàn để hiện lại: không lưu tạm ứng/lương (advData) và hồ sơ (số tài khoản đầy đủ) */
+const CACHED = ["avatarVer", "ts", "explainLimit", "explainUsed", "myReq", "reqItems", "notifs", "lvData", "otData", "annData", "company"] as const;
+const dayKey = () => { const d = new Date(); return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; };
+let cacheWritten = "", cacheTimer: ReturnType<typeof setTimeout> | null = null;
+function persistSoon() {
+  if (cacheTimer || S.stale || !isLoggedIn() || !lastToday) return;
+  cacheTimer = setTimeout(() => {
+    cacheTimer = null;
+    if (S.stale || !isLoggedIn() || !lastToday) return;
+    const data: Record<string, unknown> = {};
+    for (const k of CACHED) data[k] = S[k];
+    const json = JSON.stringify({ v: 1, emp: S.me?.employeeCode ?? "", day: dayKey(), today: lastToday, data });
+    if (json !== cacheWritten) { cacheWritten = json; void saveLastData(json); }
+  }, 3000);
+}
+if (REMOTE) subscribe(persistSoon);
+/* Trả true nếu đã hiện được dữ liệu trên máy (đúng nhân viên); giờ vào/ra chỉ dùng lại khi cùng ngày */
+async function restoreLastData(emp: string): Promise<boolean> {
+  try {
+    const raw = await loadLastData();
+    if (!raw) return false;
+    const c = JSON.parse(raw) as { v: number; emp: string; day: string; today: AttendanceToday; data: Record<string, unknown> };
+    if (c.v !== 1 || !emp || c.emp !== emp) return false;
+    cacheWritten = raw;
+    Object.assign(S, c.data);
+    applyToday(c.day === dayKey() ? c.today : { ...c.today, clockIn: null, clockOut: null });
+    S.stale = true;
+    void setAvatar(S.avatarVer);
+    return true;
+  } catch { return false; }
+}
 
 /* Lỗi chấm công → màn lỗi tương ứng của prototype (E19 chờ duyệt, E20 quyền vị trí, E21 GPS, phiên hết hạn) */
 function attError(e: unknown) {
@@ -714,12 +786,16 @@ export async function loadToday() {
   try {
     await flushPunches().catch(() => {});
     const t = await attendanceApi.today(await installationId());
+    S.stale = false;
     applyToday(t);
     if (t.device?.status === "pending") { showErr("devicePending"); return; }
     if (!t.device || t.device.status === "revoked" || t.device.status === "rejected") { await deviceLost(t.device); return; }
+    void watchFix(true);
     const f = await quietFix();
     if (f) applyFix(f);
   } catch (e) {
+    /* Không tải được (mất mạng…): thôi báo "đang cập nhật", vẫn giữ dữ liệu trên máy */
+    if (S.stale) { S.stale = false; emit(); }
     if (e instanceof ApiError && e.status === 401) showErr("session");
     else if (e instanceof ApiError && e.code === "AUTH_ACCOUNT_DISABLED") lockedErr((await loadSession())?.me?.employeeCode ?? "");
     else if (e instanceof ApiError && e.code === "AUTH_TENANT_SUSPENDED") tenantErr(e.message);
@@ -776,7 +852,7 @@ if (REMOTE) setInterval(() => {
 
 /* Mở lại app từ nền: đồng bộ hàng đợi và trạng thái hôm nay */
 if (REMOTE) AppState.addEventListener("change", (st) => {
-  if (st !== "active") return;
+  if (st !== "active") { void watchFix(false); return; }
   void loadToday();
   /* Người dùng có thể vừa bật/tắt quyền trong Cài đặt của máy */
   if (isLoggedIn()) void refreshPerms();
@@ -787,13 +863,15 @@ if (REMOTE) AppState.addEventListener("change", (st) => {
 
 async function punchRemote(kind: "in" | "out") {
   const e0 = epoch;
-  S.spin = "punch"; emit();
-  /* Chờ lâu (GPS hoặc mạng chậm) thì hiện bảng "Đang gửi…" để người dùng không bấm lại */
+  /* Nút đổi trạng thái ngay (Đang định vị → Đang gửi) và khóa lại để người dùng không bấm lặp */
+  S.spin = "punch"; S.punchStage = "gps"; emit();
   let slow: ReturnType<typeof setTimeout> | undefined;
   try {
-    const fix = await currentFix(true);
+    const fix = await currentFix(true, S.att.loc.maxAccuracyM || 50, (f) => { S.att.accM = f.accuracyM; emit(); });
     applyFix(fix);
-    slow = setTimeout(() => { if (e0 === epoch) openSheet("slowCheck"); }, 1500);
+    S.punchStage = "send"; emit();
+    /* Mạng chậm thì hiện thêm bảng "Đang gửi…" giải thích không cần bấm lại */
+    slow = setTimeout(() => { if (e0 === epoch) openSheet("slowCheck"); }, 4000);
     const req = { clientEventId: newEventId(), kind, installationId: await installationId(), latitude: fix.latitude, longitude: fix.longitude, accuracyM: fix.accuracyM };
     let ev: AttendanceEvent;
     try {
@@ -823,6 +901,7 @@ async function punchRemote(kind: "in" | "out") {
     attError(e);
   } finally {
     clearTimeout(slow);
+    S.punchStage = null;
     if (S.spin === "punch") S.spin = null;
     emit();
   }
@@ -908,27 +987,27 @@ export async function restoreSession() {
   if (!session) { if (REMOTE) S.f.lgId = (await quickLoginEmployee()) ?? ""; return; }
   if (REMOTE) {
     /* Access token hết hạn thì làm mới bằng refresh token; không làm mới được thì quay về đăng nhập */
+    /* Không làm mới token ở đây: splash không chờ mạng. Token hết hạn được làm mới ở lời gọi API đầu tiên (setTokenSource),
+       hết hạn hẳn thì loadToday hiện màn "phiên hết hạn". */
     if (!session.auth) { await clearSession(); return; }
-    if (session.auth.expiresAt - 60 < Date.now() / 1000) {
-      try {
-        const r = await authApi.refresh({ refreshToken: session.auth.refreshToken });
-        await saveSession({ employeeId: r.me.employeeCode, auth: r.session, me: r.me });
-      } catch (e) {
-        if (e instanceof ApiError && e.status === 401) { await clearSession(); toast("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại."); return; }
-        /* Mất mạng: vẫn vào app bằng phiên cũ, các thao tác cần mạng sẽ báo lỗi riêng */
-      }
-    }
   }
   Object.assign(S, fromSnapshot(await api.refresh().catch(() => api.cached())));
+  let hadCache = false;
   if (REMOTE) {
     S.me = (await loadSession())?.me ?? session.me ?? null;
+    if (session.deviceRegistered) hadCache = await restoreLastData(S.me?.employeeCode ?? "");
     if (!session.deviceRegistered && await deviceActiveOnServer()) session = (await saveSession({ employeeId: session.employeeId, deviceRegistered: true }));
   }
   const target: Route = session.deviceRegistered ? "home" : "device";
-  if ((await loadCompany())?.privacy.required) { askConsent(target); return; }
+  /* Vào thẳng màn chính bằng dữ liệu trên máy; điều khoản mới/công ty tải nền, cần đồng ý thì chuyển sang màn đồng ý */
   S.stack = [target]; render();
-  if (session.deviceRegistered) { void loadToday(); refreshWork(); replayReminder(); }
-  if (REMOTE && target === "home") setTimeout(() => { void askFirstRun().then((p) => { if (p) { S.perm = p; emit(); } else void refreshPerms(); }); }, 900);
+  if (REMOTE) void loadCompany().then((c) => { if (c?.privacy.required) askConsent(target); });
+  if (session.deviceRegistered) {
+    const today = loadToday(); refreshWork(); replayReminder();
+    /* Chưa có dữ liệu trên máy (lần đầu sau đăng nhập): giữ splash tới khi có dữ liệu hôm nay, tối đa 2 giây */
+    if (REMOTE && !hadCache) await Promise.race([today, new Promise((r) => setTimeout(r, 2000))]);
+  }
+  if (REMOTE && target === "home") setTimeout(() => { if (cur() !== "home") return; void askFirstRun().then((p) => { if (p) { S.perm = p; emit(); } else void refreshPerms(); }); }, 900);
 }
 
 function pinSuccess() { S.pinUntil = Date.now() + 5 * 60 * 1000; const f = S.pinOk; S.pinOk = null; closeSheet(); f && f(); }

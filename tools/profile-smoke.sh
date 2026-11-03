@@ -59,4 +59,14 @@ check "Hủy/từ chối không đổi hồ sơ" "$(call GET me/profile "$EMP" |
 
 echo "— Audit"
 check "Audit gửi đơn chỉ ghi tên trường, không chép giá trị" "$(sql "select count(*) from public.audit_logs where action='request.submitted' and after_data->>'type'='profile_change' and (after_data::text ~ '($ACC|0911222333|Trần Quang Khải|gmail)')")" 0
+echo "— Ảnh đại diện"
+PNG="iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+check "Chưa có ảnh: avatarVersion null, tải ảnh → 404" "$(call GET me/profile "$EMP" | py "d['avatarVersion']") $(status GET me/avatar "$EMP")" "None 404"
+check "File không phải ảnh → 400" "$(status POST me/avatar "$EMP" '{"dataBase64":"aGVsbG8="}')" 400
+_a1=$(call POST me/avatar "$EMP" "{\"dataBase64\":\"$PNG\"}") || :
+V1=$(echo "$_a1" | py "d['avatarVersion']")
+check "Đổi ảnh: hồ sơ trả đúng phiên bản, tải được ảnh" "$(call GET me/profile "$EMP" | py "d['avatarVersion']") $(status GET me/avatar "$EMP")" "$V1 200"
+_a2=$(call POST me/avatar "$EMP" "{\"dataBase64\":\"$PNG\"}") || :
+check "Đổi lần nữa: phiên bản mới, file cũ bị xóa khỏi Storage" "$( [ "$(echo "$_a2" | py "d['avatarVersion']")" != "$V1" ] && echo moi) $(sql "select count(*) from storage.objects where bucket_id='tenant-branding' and name like '%/avatar-%'")" "moi 1"
+check "Gỡ ảnh: về null, file bị xóa, có audit" "$(call POST me/avatar/remove "$EMP" '{}' | py "d['avatarVersion']") $(sql "select count(*) from storage.objects where bucket_id='tenant-branding' and name like '%/avatar-%'") $(sql "select count(*) from public.audit_logs where action like 'employee.avatar_%'")" "None 0 3"
 echo "Tất cả bước đề nghị sửa hồ sơ đều đạt."

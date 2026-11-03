@@ -76,6 +76,10 @@ export const companyApi = {
   consent: async (b: PrivacyConsentRequest) => call<{ acceptedVersionNo: number }>("POST", "/me/privacy-consents", b, await token()),
   /* Ảnh tải bằng <Image> kèm header Authorization; ?v= đổi khi công ty thay ảnh nên cache được */
   brandingSource: async (kind: BrandingKind, version: string) => ({ uri: `${BASE}/me/company/branding/${kind}?v=${version}`, headers: { authorization: `Bearer ${await token()}` } }),
+  /* Ảnh đại diện của chính mình (ảnh đã cắt vuông trên máy) */
+  avatarUpload: async (dataBase64: string) => call<{ avatarVersion: string | null }>("POST", "/me/avatar", { dataBase64 }, await token()),
+  avatarRemove: async () => call<{ avatarVersion: string | null }>("POST", "/me/avatar/remove", {}, await token()),
+  avatarSource: async (version: string) => ({ uri: `${BASE}/me/avatar?v=${version}`, headers: { authorization: `Bearer ${await token()}` } }),
 };
 
 /* Bảng công tháng, giải trình, đơn của tôi, duyệt (quản lý/HR) */

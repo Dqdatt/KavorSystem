@@ -10,7 +10,7 @@ import { useClock } from "../clock";
 import { CAT, dec, gh, hm, vnd, advLimit } from "../data";
 import { recentNewsViews } from "./news";
 import { REMOTE } from "../api/http";
-import { ACT, S, advEligible, ddmm, explainDue, fmtM, loadToday, explainLeft, go, holdDone, jump, lvAvail, noLocation, pendingCount, phase, shiftLabel, shiftTime, tab, toast, worked } from "../store";
+import { ACT, S, advEligible, ddmm, explainDue, fmtM, loadToday, explainLeft, go, holdDone, jump, warmGps, lvAvail, noLocation, pendingCount, phase, shiftLabel, shiftTime, tab, toast, worked } from "../store";
 
 /* ================= Punch hero ================= */
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
@@ -80,10 +80,16 @@ export function PunchHalos({ size, compact, small }: { size: number; compact?: b
 export function Punch({ size, compact, small, bare }: { size: number; compact?: boolean; small?: boolean; bare?: boolean }) {
   const ph = phase();
   const st: PunchSt = ph === "done" ? "done" : !S.inRange ? "blocked" : ph;
-  const label = { in: "VÀO CA", out: "RA CA", done: small ? "XONG CA" : "ĐÃ XONG CA", blocked: noLocation() ? "CHƯA CÓ VÙNG" : "NGOÀI VÙNG" }[st];
-  const sub = st === "in" || st === "out" ? (small ? "Giữ 1 giây" : "Nhấn giữ 1 giây") : st === "blocked" ? (small ? "" : "Chạm để xem cách xử lý") : "";
-  const color = st === "out" ? C.emerald : st === "done" ? C.ok : "#fff";
-  const holdable = st === "in" || st === "out";
+  const baseLabel = { in: "VÀO CA", out: "RA CA", done: small ? "XONG CA" : "ĐÃ XONG CA", blocked: noLocation() ? "CHƯA CÓ VÙNG" : "NGOÀI VÙNG" }[st];
+  /* Đang chấm công: báo ngay trên nút và khóa nút đến khi máy chủ trả lời */
+  const busy = S.spin === "punch";
+  const label = busy ? (S.punchStage === "send" ? "ĐANG GỬI…" : "ĐỊNH VỊ…") : baseLabel;
+  const sub = busy ? (S.punchStage === "send" ? (small ? "" : "Không cần bấm lại") : S.att.accM != null ? `GPS ±${Math.round(S.att.accM)} m` : "")
+    : st === "in" || st === "out" ? (small ? "Giữ 1 giây" : "Nhấn giữ 1 giây") : st === "blocked" ? (small ? "" : "Chạm để xem cách xử lý") : "";
+  /* Đang xử lý: nút xám (dùng nền của trạng thái khóa) để thấy rõ là chưa bấm được */
+  const vis: PunchSt = busy ? "blocked" : st;
+  const color = vis === "out" ? C.emerald : vis === "done" ? C.ok : "#fff";
+  const holdable = !busy && (st === "in" || st === "out");
   const ring = useRef(new Animated.Value(704)).current;
   const scale = useRef(new Animated.Value(1)).current;
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -95,6 +101,7 @@ export function Punch({ size, compact, small, bare }: { size: number; compact?: 
   const start = () => {
     held.current = false;
     if (!holdable) return;
+    warmGps();
     Animated.timing(scale, { toValue: 0.97, duration: 200, easing: EASE, useNativeDriver: true }).start();
     Animated.timing(ring, { toValue: 0, duration: 900, easing: Easing.linear, useNativeDriver: false }).start();
     timer.current = setTimeout(() => { timer.current = null; held.current = true; reset(); holdDone(); }, 900);
@@ -109,6 +116,7 @@ export function Punch({ size, compact, small, bare }: { size: number; compact?: 
   };
   const press = () => {
     if (held.current) { held.current = false; return; }
+    if (busy) return;
     if (st === "done") { toast("Bạn đã hoàn thành ca hôm nay"); return; }
     if (st === "blocked") ACT.blockedTap();
   };
@@ -119,7 +127,7 @@ export function Punch({ size, compact, small, bare }: { size: number; compact?: 
       {bare ? null : <View style={{ position: "absolute" }}><PunchHalos size={size} compact={compact} small={small} /></View>}
       <Animated.View style={{ transform: [{ scale }] }}>
         <Pressable accessibilityLabel={label} accessibilityRole="button" onPressIn={start} onPressOut={end} onPress={holdable ? undefined : press}
-          style={[{ width: size, height: size, borderRadius: size / 2, alignItems: "center", justifyContent: "center", gap: compact ? 6 : small ? 3 : 10 }, ORB[st]]}>
+          style={[{ width: size, height: size, borderRadius: size / 2, alignItems: "center", justifyContent: "center", gap: compact ? 6 : small ? 3 : 10 }, ORB[vis]]}>
           <Ic n={st === "done" ? "tDone" : st === "blocked" ? "pin" : "tap"} s={iconSize} w={small ? 1.7 : 1.6} color={color} />
           <T numberOfLines={1} style={{ color, fontSize: compact ? 15 : small ? 13 : 17, fontFamily: F.semibold, letterSpacing: (compact ? 15 : 17) * 0.04, lineHeight: compact ? 20 : 24 }}>{label}</T>
           {sub ? <T style={{ color, opacity: 0.85, fontSize: small ? 10 : 11.5, fontFamily: F.medium, marginTop: small ? -1 : -6 }}>{sub}</T> : null}
@@ -144,7 +152,7 @@ export function Hero({ compact }: { compact?: boolean }) {
   return (
     <View style={{ alignItems: "center", paddingTop: compact ? 0 : 10 }}>
       <Num style={{ fontSize: compact ? 52 : 68, fontFamily: F.light, letterSpacing: (compact ? 52 : 68) * -0.02, lineHeight: compact ? 56 : 72, color: C.hero }}>{hm(now)}</Num>
-      <T style={{ fontSize: compact ? 17 : 21, color: "#7A8781", marginTop: compact ? 4 : 8 }}>{REMOTE ? todayLabel() : "Thứ Sáu, 16 tháng 10"}</T>
+      <T style={{ fontSize: compact ? 17 : 21, color: "#7A8781", marginTop: compact ? 4 : 8 }}>{REMOTE ? `${todayLabel()}${S.stale ? " · Đang cập nhật…" : ""}` : "Thứ Sáu, 16 tháng 10"}</T>
       <View style={[glass, { marginTop: compact ? 8 : 10, flexDirection: "row", alignItems: "center", gap: 6, paddingVertical: 6, paddingHorizontal: 12, borderRadius: 14 }]}>
         <Ic n="clock" s={14} color={C.ink2} />
         <T style={{ fontSize: 12.5, fontFamily: F.medium, color: C.ink2 }}>{shiftLabel()} · {shiftTime()}</T>
