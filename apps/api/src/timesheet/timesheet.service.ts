@@ -7,7 +7,7 @@ import { PolicyIndex, loadPlacements, type Placement } from "../attendance/polic
 import { addDays } from "../admin/validate.js";
 import { periodStartDayOf } from "../admin/settings.service.js";
 import { holidaysOf } from "../company/company.service.js";
-import { computeDay, datesBetween, explainDeadline, isoWeekday, monthOf, periodOf, periodView, summarize, type DayEvent, type DayLeave, type DayOvertimeEntry } from "./compute.js";
+import { computeDay, datesBetween, explainDeadline, isoWeekday, monthOf, periodOf, periodView, summarize, type DayAdjustment, type DayEvent, type DayLeave, type DayOvertimeEntry } from "./compute.js";
 
 type Db = SupabaseGateway["admin"];
 export type EmployeeLite = { id: string; employee_code: string; full_name: string; hire_date: string; termination_date: string | null; user_id: string | null };
@@ -56,7 +56,7 @@ export class TimesheetService {
 
     const [events, adjustments, requests, holidayList, leaveDays, otRows] = await Promise.all([
       this.events(db, tenantId, ids, start, end, clock.timezone),
-      db.from("attendance_adjustments").select("employee_id, work_date, clock_in, clock_out, created_at").eq("tenant_id", tenantId).in("employee_id", ids).gte("work_date", start).lte("work_date", end).order("created_at"),
+      this.adjustments(db, tenantId, ids, start, end),
       db.from("requests").select("id, request_no, requester_employee_id, work_date, status, submitted_at").eq("tenant_id", tenantId).eq("request_type", "explanation").in("requester_employee_id", ids).gte("work_date", start).lte("work_date", end).order("submitted_at"),
       Promise.all([...new Set([start.slice(0, 4), end.slice(0, 4)])].map((y) => holidaysOf(db, tenantId, Number(y)))).then((x) => x.flat()),
       db.from("leave_days").select("employee_id, leave_date, half, requests!inner(request_no, status), leave_types(name, paid)").eq("tenant_id", tenantId)
@@ -74,11 +74,7 @@ export class TimesheetService {
       leaves.set(`${l.employee_id}|${l.leave_date}`, { typeName: l.leave_types?.name ?? "Nghỉ phép", half: l.half, paid: !!l.leave_types?.paid, requestNo: l.requests.request_no });
     }
     const holiday = new Map(holidayList.map((h) => [h.date, h.name]));
-    const adj = new Map<string, { clockIn: string | null; clockOut: string | null }>();
-    for (const a of (adjustments.data ?? []) as Array<{ employee_id: string; work_date: string; clock_in: string | null; clock_out: string | null }>) {
-      const k = `${a.employee_id}|${a.work_date}`, prev = adj.get(k);
-      adj.set(k, { clockIn: a.clock_in?.slice(0, 5) ?? prev?.clockIn ?? null, clockOut: a.clock_out?.slice(0, 5) ?? prev?.clockOut ?? null });
-    }
+    const adj = adjustments;
     /* Mỗi ngày lấy đơn mới nhất; đơn đã hủy/từ chối vẫn hiện (để biết) nhưng không chặn giải trình lại */
     const reqs = new Map<string, { id: string; no: string; status: RequestStatus }>();
     const counted = new Map<string, number>();
@@ -116,6 +112,25 @@ export class TimesheetService {
       sheets.set(emp.id, { employee: emp, days, summary: summarize(days), quota, placement });
     }
     return { ...clock, period, sheets, index, lock };
+  }
+
+  /* Chấm công + điều chỉnh đã duyệt theo nhân viên + ngày (khóa "empId|date"), không dựng cả kỳ — dùng cho đối chiếu OT */
+  async presence(db: Db, tenantId: string, tz: string, ids: string[], start: string, end: string) {
+    if (!ids.length) return { events: new Map<string, DayEvent[]>(), adjustments: new Map<string, DayAdjustment>() };
+    const [events, adjustments] = await Promise.all([this.events(db, tenantId, ids, start, end, tz), this.adjustments(db, tenantId, ids, start, end)]);
+    return { events, adjustments };
+  }
+
+  /* Điều chỉnh đã duyệt của ngày: bản sau ghi đè từng giờ vào/ra của bản trước */
+  private async adjustments(db: Db, tenantId: string, ids: string[], start: string, end: string) {
+    const { data, error } = await db.from("attendance_adjustments").select("employee_id, work_date, clock_in, clock_out, created_at").eq("tenant_id", tenantId).in("employee_id", ids).gte("work_date", start).lte("work_date", end).order("created_at");
+    if (error) throw error;
+    const adj = new Map<string, DayAdjustment>();
+    for (const a of (data ?? []) as Array<{ employee_id: string; work_date: string; clock_in: string | null; clock_out: string | null }>) {
+      const k = `${a.employee_id}|${a.work_date}`, prev = adj.get(k);
+      adj.set(k, { clockIn: a.clock_in?.slice(0, 5) ?? prev?.clockIn ?? null, clockOut: a.clock_out?.slice(0, 5) ?? prev?.clockOut ?? null });
+    }
+    return adj;
   }
 
   /* Chấm công hợp lệ, gom theo nhân viên + ngày (giờ công ty) */

@@ -1,7 +1,7 @@
 "use client";
 /* Đơn từ trên web HR: nhãn, tóm tắt nội dung, các bước duyệt và modal "Chi tiết đơn" (bám modal approve của prototype HR) */
 import { useState } from "react";
-import { EXPLANATION_KINDS, OVERTIME_DAY_KINDS, PROFILE_FIELDS, REQUEST_TYPES, STEP_RESOLVERS, type AdminMe, type ProfileField, type ProfileValues, type RequestItem, type RequestStatus, type StepStatus } from "@kavor/contracts";
+import { EXPLANATION_KINDS, OVERTIME_DAY_KINDS, PROFILE_FIELDS, REQUEST_TYPES, overtimeAttendanceShort, overtimeAttendanceText, STEP_RESOLVERS, type AdminMe, type ProfileField, type ProfileValues, type RequestItem, type RequestStatus, type StepStatus } from "@kavor/contracts";
 import { call } from "../_lib/client";
 import { ErrorLine, Field, Icon, Modal, Person, Status, can, fmtDate, fmtDateTime, useAction, useMe } from "./kit";
 
@@ -91,6 +91,8 @@ export function RequestModal({ r, onClose, onDone }: { r: RequestItem; onClose: 
           <div className="detail-row"><span>Ngày</span><b>{wd(r.payload.date)} {fmtDate(r.payload.date)} · {OVERTIME_DAY_KINDS[r.payload.dayKind]}</b></div>
           <div className="detail-row"><span>Giờ làm thêm</span><b>{r.payload.start}–{r.payload.end} · {r.payload.hours.toLocaleString("vi-VN")} giờ</b></div>
           <div className="detail-row"><span>Hệ số</span><b>{r.payload.ratePercent}%</b></div>
+          {r.attendance ? <div className="detail-row"><span>Chấm công thực tế</span><b style={{ whiteSpace: "normal", maxWidth: 460 }}>{overtimeAttendanceShort(r.attendance)
+            ? <Status v={[overtimeAttendanceText(r.attendance), "bad"]} /> : overtimeAttendanceText(r.attendance)}</b></div> : null}
         </> : r.type === "profile_change" ? r.payload.fields.map((f) => (
           <div key={f} className="detail-row"><span>{PROFILE_FIELDS[f]}</span>
             <b style={{ whiteSpace: "normal", maxWidth: 460 }}><span className="muted" style={{ textDecoration: "line-through", fontWeight: 500 }}>{profileValue(f, r.payload.before)}</span> → {profileValue(f, r.payload.after)}</b></div>
@@ -106,6 +108,8 @@ export function RequestModal({ r, onClose, onDone }: { r: RequestItem; onClose: 
           )) : <Status v={["Bắt buộc · nhân viên chưa đính kèm", "bad"]} />}
         </b></div> : null}
       </div>
+      {r.type === "overtime" && overtimeAttendanceShort(r.attendance) ? <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>
+        Chấm công không phủ hết giờ trên đơn. Duyệt vẫn được (công tác, quên chấm…), nhưng bảng công chỉ tính phần khớp với giờ vào/ra — cần thì điều chỉnh chấm công ngày đó.</div> : null}
       {r.myTaskId && r.attachmentRequired && !r.attachments.length ? <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>
         Đơn cần minh chứng: bước duyệt cuối chỉ duyệt được sau khi nhân viên đính kèm trên app. Có thể từ chối nếu không có minh chứng.</div> : null}
       <h4 style={{ margin: "14px 0 8px", fontSize: 12, textTransform: "uppercase", letterSpacing: ".04em", color: "var(--muted)" }}>Luồng duyệt</h4>

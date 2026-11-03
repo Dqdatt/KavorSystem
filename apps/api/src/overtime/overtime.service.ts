@@ -13,7 +13,7 @@ import { conflict, invalid, type AdminContext } from "../admin/context.js";
 import { addDays, date, req, time, type Body } from "../admin/validate.js";
 import { PolicyIndex, loadPlacements, minutesOf, type Placement } from "../attendance/policy.js";
 import { holidaysOf } from "../company/company.service.js";
-import { OT_STEP_MIN, datesBetween, isoWeekday, monthOf, periodOf } from "../timesheet/compute.js";
+import { OT_STEP_MIN, datesBetween, hm, isoWeekday, monthOf, periodOf, presenceOf } from "../timesheet/compute.js";
 import type { RequestsService, Viewer } from "../timesheet/requests.service.js";
 import type { TimesheetService } from "../timesheet/timesheet.service.js";
 
@@ -81,9 +81,10 @@ export class OvertimeService {
     const placement = placements.get(me.id) ?? null;
     const policy = overtimePolicy(index.resolveRules(me.id, placement, clock.today).overtime);
     const from = addDays(clock.today, -(policy?.submitAfterDays ?? 1)), to = addDays(clock.today, AHEAD_DAYS);
-    const [days, booked, { usage }, wf] = await Promise.all([
+    const [days, booked, { usage }, wf, seen] = await Promise.all([
       this.days(db, me.tenant_id, me.id, placement, index, from, to), this.entries(db, me.tenant_id, [me.id], from, to), this.usage(db, me.tenant_id, me.id, clock.today),
       this.requests.workflowFor(db, me.tenant_id, "overtime", clock.today),
+      this.timesheets.presence(db, me.tenant_id, clock.timezone, [me.id], from, clock.today),
     ]);
     let approver: string | null = null;
     if (wf) {
@@ -95,6 +96,10 @@ export class OvertimeService {
     }
     const out: OvertimeDay[] = days.map((d) => ({
       ...d, booked: booked.filter((b) => b.work_date === d.date).map((b) => ({ start: b.start_time.slice(0, 5), end: b.end_time.slice(0, 5), status: b.requests.status, no: b.requests.request_no })),
+      attendance: d.date > clock.today ? null : ((adj) => {
+        const p = presenceOf(seen.events.get(`${me.id}|${d.date}`) ?? [], adj);
+        return { clockIn: p.inMin == null ? null : hm(p.inMin), clockOut: p.outMin == null ? null : hm(p.outMin), adjusted: !!adj };
+      })(seen.adjustments.get(`${me.id}|${d.date}`) ?? null),
     }));
     return { today: clock.today, policy, days: out, usage, approver };
   }

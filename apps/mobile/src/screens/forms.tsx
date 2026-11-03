@@ -384,10 +384,9 @@ function remoteOtSpec(): ScreenSpec {
   const dayLimit = day.dayKind === "workday" ? p.dailyLimitHours : p.offDayLimitHours;
   const sameMonth = day.date.slice(0, 7) === D.usage.month;
   const overDay = dayUsed + h > dayLimit, overMonth = sameMonth && D.usage.monthHours + h > p.monthlyLimitHours;
-  /* Giờ vào/ra thật của ngày đó để đối chiếu (phản hồi người dùng 26/10); lấy từ bảng công kỳ hiện tại */
-  const att = S.ts?.days.find((x) => x.date === day.date);
-  const attText = day.date > D.today ? "Chưa tới ngày" : !S.ts ? "Đang tải…" : !att ? "—"
-    : att.clockIn || att.clockOut ? `Vào ${att.clockIn ?? "--:--"} · Ra ${att.clockOut ?? "--:--"}` : "Chưa chấm công";
+  /* Giờ vào/ra đã ghi nhận của ngày đó để tự đối chiếu (phản hồi người dùng 26/10, 03/11); không có chấm công (công tác…) vẫn gửi được */
+  const att = day.attendance;
+  const attText = !att ? "Chưa tới ngày" : att.clockIn || att.clockOut ? `Vào ${att.clockIn ?? "--:--"} · Ra ${att.clockOut ?? "--:--"}${att.adjusted ? " (đã điều chỉnh)" : ""}` : "Chưa chấm công";
   const err = h <= 0 ? "Giờ kết thúc phải sau giờ bắt đầu." : clash ? `Trùng giờ ca chính. ${day.shift!.name} ${day.shift!.start}–${day.shift!.end}.`
     : overlap ? "Trùng giờ với đơn làm thêm đã đăng ký ngày này." : overDay ? `Tối đa ${dec(dayLimit)} giờ làm thêm ${day.dayKind === "workday" ? "mỗi ngày làm việc" : "mỗi ngày nghỉ"}${dayUsed ? ` (đã đăng ký ${dec(dayUsed)} giờ)` : ""}.`
     : overMonth ? `Vượt giới hạn ${dec(p.monthlyLimitHours)} giờ/tháng (đã đăng ký ${dec(D.usage.monthHours)} giờ).` : null;

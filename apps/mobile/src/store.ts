@@ -16,7 +16,7 @@ import { chooseSource, pickFile, type PickedFile } from "./attach";
 import { PIN_LENGTH, PIN_MAX_ATTEMPTS, checkPin, clearPin, hasPin, resetPinFailures, setPin, weakPin } from "./pin";
 import { MY_REQ_INIT, SUPPORT_SAMPLE } from "./api/mock-data";
 import {
-  EXPLANATION_KINDS, PROFILE_FIELDS, REQUEST_ATTACHMENT_MAX, distanceMeters, passwordProblems,
+  EXPLANATION_KINDS, PROFILE_FIELDS, REQUEST_ATTACHMENT_MAX, distanceMeters, overtimeAttendanceText, passwordProblems,
   type AttendanceEvent, type AttendanceToday, type AuthResult, type ExplanationKind, type AppNotification, type MyAdvance, type MyAnnouncement, type MyAnnouncements, type MyDocuments, type MeProfile, type MyProfile, type ProfileChangeInput, type ProfileField, type MyCompany, type MyLeave, type MyOvertime, type MyPayslip, type MyPayslips, type MyTimesheet, type NotificationFeed, type RequestItem, type SupportContact, type TimesheetDay, type WorkLocation,
 } from "@kavor/contracts";
 import { currentFix, deviceRegistration, deviceSummary, enqueue, flushQueue, installationId, LocationError, newEventId, quietFix, readQueue, type Fix } from "./attendance";
@@ -333,7 +333,8 @@ export async function loadRequests() {
     S.approvals = ap.items.map((r) => ({
       id: r.no, who: r.requester.fullName, ini: initialsOf(r.requester.fullName), role: r.requester.department ?? "", type: reqKind(r), title: reqTitle(r),
       sub: reqSub(r), reason: r.payload.reason ?? "", created: stamp(r.submittedAt),
-      ctx: r.type === "explanation" && r.day ? `Chấm công gốc: vào ${r.day.rawIn ?? "--:--"} · ra ${r.day.rawOut ?? "--:--"}` : "",
+      ctx: r.type === "explanation" && r.day ? `Chấm công gốc: vào ${r.day.rawIn ?? "--:--"} · ra ${r.day.rawOut ?? "--:--"}`
+        : r.type === "overtime" && r.attendance ? `Chấm công: ${overtimeAttendanceText(r.attendance)}` : "",
     }));
     S.role = ap.canApprove ? "manager" : "staff";
     emit();

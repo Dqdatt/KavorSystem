@@ -790,7 +790,20 @@ export type OvertimePayload = { date: string; start: string; end: string; hours:
 /* month: tháng khấu trừ YYYY-MM */
 export type AdvancePayload = { amount: number; month: string; reason: string };
 export type AdvancePayout = { paidAt: string; paidBy: string | null; note: string | null };
-export type RequestItem = RequestItemBase & ({ type: "explanation"; payload: ExplanationPayload } | { type: "leave"; payload: LeavePayload } | { type: "overtime"; payload: OvertimePayload }
+/* Chấm công thực tế của ngày làm thêm (đọc lúc xem, sau điều chỉnh) để nhân viên/người duyệt đối chiếu — không chặn đăng ký/duyệt
+   (công tác xa vẫn làm thêm được; bảng công chỉ tính phần khớp giờ vào → ra). matchedMinutes/minutes: phút của đơn khớp chấm công / phút trên đơn;
+   checked = false với hôm nay (chưa đối chiếu). */
+export type OvertimeAttendance = { clockIn: string | null; clockOut: string | null; adjusted: boolean; checked: boolean; matchedMinutes: number; minutes: number };
+const otHours = (min: number) => String(Math.round(min / 6) / 10).replace(".", ",");
+/* Chữ hiển thị chung web/app: "Vào 07:54 · Ra 20:36 · khớp 3/3 giờ OT" */
+export function overtimeAttendanceText(a: OvertimeAttendance): string {
+  const times = a.clockIn || a.clockOut ? `Vào ${a.clockIn ?? "--:--"} · Ra ${a.clockOut ?? "--:--"}${a.adjusted ? " (đã điều chỉnh)" : ""}` : "Không có chấm công";
+  return `${times} · ${a.checked ? `khớp ${otHours(a.matchedMinutes)}/${otHours(a.minutes)} giờ OT` : "chưa đối chiếu (hôm nay)"}`;
+}
+/* Ngày đã qua mà chấm công không phủ hết giờ trên đơn: bảng công chỉ tính phần khớp */
+export const overtimeAttendanceShort = (a: OvertimeAttendance | null) => !!a?.checked && a.matchedMinutes < a.minutes;
+export type RequestItem = RequestItemBase & ({ type: "explanation"; payload: ExplanationPayload } | { type: "leave"; payload: LeavePayload }
+  | { type: "overtime"; payload: OvertimePayload; attendance: OvertimeAttendance | null }
   | { type: "salary_advance"; payload: AdvancePayload; payout: AdvancePayout | null } | { type: "profile_change"; payload: ProfileChangePayload });
 type RequestItemBase = {
   id: string; no: string; status: RequestStatus; submittedAt: string; completedAt: string | null;
@@ -1052,6 +1065,8 @@ export type OvertimeDay = {
   /* Giờ ca chính (ngày thường) để không đăng ký trùng */
   shift: { name: string; start: string; end: string } | null;
   booked: Array<{ start: string; end: string; status: RequestStatus; no: string }>;
+  /* Giờ vào/ra đã ghi nhận (hôm nay và ngày đã qua; null với ngày tới) — chỉ để đối chiếu, không bắt buộc */
+  attendance: { clockIn: string | null; clockOut: string | null; adjusted: boolean } | null;
 };
 /* used*: giờ đã duyệt + đang chờ (tính vào giới hạn) */
 export type OvertimeUsage = { month: string; monthHours: number; monthApproved: number; year: number; yearHours: number };

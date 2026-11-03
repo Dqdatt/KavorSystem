@@ -2,7 +2,7 @@
 /* Làm thêm giờ (thiết kế bổ sung — prototype HR chưa có trang OT): tổng hợp theo tháng dương lịch trong phạm vi overtime.read,
    giờ đã duyệt theo loại ngày, mức dùng so với giới hạn tháng, danh sách đơn OT của tháng (bấm để xem/duyệt). */
 import { useState } from "react";
-import type { OvertimeBoard, RequestItem } from "@kavor/contracts";
+import { overtimeAttendanceShort, overtimeAttendanceText, type OvertimeBoard, type RequestItem } from "@kavor/contracts";
 import { useApi } from "../../_lib/client";
 import { Empty, Icon, LoadError, Person, Status, fmtDateTime, useMe } from "../../_ui/kit";
 import { REQUEST_STATUS, RequestModal, requestSummary } from "../../_ui/request";
@@ -58,11 +58,14 @@ export function OvertimeTab() {
       <article className="card" style={{ marginTop: 14 }}>
         <div className="card-head"><div><h3>Đơn làm thêm trong tháng</h3><p>Hệ số chụp lại theo quy định lúc gửi; OT đã duyệt là đầu vào bảng lương.</p></div></div>
         {b && !b.requests.length ? <Empty title="Không có đơn nào" /> : (
-          <div className="table-wrap"><table className="data-table"><thead><tr><th>Mã đơn</th><th>Người gửi</th><th>Nội dung</th><th>Gửi lúc</th><th>Trạng thái</th><th /></tr></thead><tbody>
-            {!b && !error ? <SkeletonRows cols={6} rows={4} /> : null}
+          <div className="table-wrap"><table className="data-table"><thead><tr><th>Mã đơn</th><th>Người gửi</th><th>Nội dung</th><th>Chấm công</th><th>Gửi lúc</th><th>Trạng thái</th><th /></tr></thead><tbody>
+            {!b && !error ? <SkeletonRows cols={7} rows={4} /> : null}
             {(b?.requests ?? []).map((r) => (
               <tr key={r.id} className="clickable" onClick={() => setOpen(r)}>
-                <td><b>{r.no}</b></td><td>{r.requester.fullName}</td><td>{requestSummary(r)}</td><td className="nowrap">{fmtDateTime(r.submittedAt, me.tenant.timezone)}</td>
+                <td><b>{r.no}</b></td><td>{r.requester.fullName}</td><td>{requestSummary(r)}</td>
+                <td>{r.type !== "overtime" || !r.attendance ? <span className="muted">Chưa tới ngày</span>
+                  : <Status v={[overtimeAttendanceText(r.attendance).replace(/ giờ OT$/, " giờ"), overtimeAttendanceShort(r.attendance) ? "bad" : r.attendance.checked ? "" : "muted"]} />}</td>
+                <td className="nowrap">{fmtDateTime(r.submittedAt, me.tenant.timezone)}</td>
                 <td><Status v={REQUEST_STATUS[r.status]} /></td>
                 <td><button className={`btn small ${r.myTaskId ? "primary" : ""}`} onClick={(e) => { e.stopPropagation(); setOpen(r); }}>{r.myTaskId ? "Xem & duyệt" : "Xem"}</button></td>
               </tr>

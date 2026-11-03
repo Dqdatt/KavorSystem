@@ -88,6 +88,10 @@ check "Ra 18:47 → chỉ tính 75 phút (bước 5 phút), báo thiếu" "$(ydo
 HRSHEET=$(call GET "admin/timesheets/60000000-0000-4000-8000-000000000142?month=$MY" "$HR" | py "(d['summary']['overtimeMinutes']>=75, d['summary']['overtimeShortDays']>=1)")
 check "HR thấy giờ OT được tính và ngày thiếu" "$HRSHEET" "(True, True)"
 check "CSV bảng công có cột giờ OT" "$(curl -s "$API/admin/timesheets/export?month=$MY" -H "authorization: Bearer $HR" | python3 -c "import sys; print('Giờ OT được tính' in sys.stdin.read().splitlines()[0])")" True
+check "Đơn OT hiện chấm công thực tế cho người duyệt (khớp 75/120 phút)" "$(call GET "admin/requests?status=approved" "$HR" | py "[(i['attendance']['clockIn'], i['attendance']['clockOut'], i['attendance']['matchedMinutes'], i['attendance']['minutes']) for i in d['items'] if i['no']=='$NO3'][0]")" "('07:55', '18:47', 75, 120)"
+check "Lịch đăng ký OT hiện giờ vào/ra hôm qua" "$(call GET me/overtime "$EMP" | py "[(x['attendance']['clockIn'], x['attendance']['clockOut']) for x in d['days'] if x['date']=='$YD'][0]")" "('07:55', '18:47')"
+check "Ngày chưa tới: chưa có chấm công đối chiếu" "$(call GET me/overtime "$EMP" | py "[x['attendance'] for x in d['days'] if x['date']=='$WD'][0]")" None
 punch out 19:40
 check "Chấm ra 19:40 → tính đủ 120 phút, không quá giờ đã duyệt" "$(ydot)" "(120, 120, True, False)"
+check "Đơn OT cập nhật theo chấm công mới (khớp 120/120)" "$(call GET me/requests "$EMP" | py "[i['attendance']['matchedMinutes'] for i in d if i['no']=='$NO3'][0]")" 120
 echo "Tất cả bước làm thêm giờ đều đạt."

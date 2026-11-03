@@ -12,7 +12,7 @@ import type { EmployeeRow } from "../auth/auth.service.js";
 import type { SupabaseGateway } from "../auth/supabase.js";
 import { conflict, forbidden, invalid, notFound, type AdminContext } from "../admin/context.js";
 import { date, number, oneOf, req, time, type Body } from "../admin/validate.js";
-import { monthOf } from "./compute.js";
+import { monthOf, overtimeAttendance } from "./compute.js";
 import { EMP_LITE, type EmployeeLite, type TimesheetService } from "./timesheet.service.js";
 import { FILE_MAX_BYTES, PrivateFiles, checkLink, safeName, sha256, signLink, sniffFile } from "../files/private-files.js";
 import { localParts } from "../attendance/attendance.service.js";
@@ -549,6 +549,14 @@ export class RequestsService {
         if (ok) fullBank.set(x.request_id, x.account_no);
       }
     }
+    /* Đơn OT: chấm công thực tế của ngày làm thêm (đọc lúc xem, gồm cả đơn đang chờ) để đối chiếu */
+    const otReq = rows.filter((r) => r.request_type === "overtime" && r.work_date);
+    const clock = otReq.length ? await this.timesheets.tenantClock(db, v.tenantId) : null;
+    const otPast = clock ? otReq.filter((r) => r.work_date! <= clock.today) : [];
+    const seen = clock && otPast.length
+      ? await this.timesheets.presence(db, v.tenantId, clock.timezone, [...new Set(otPast.map((r) => r.requester_employee_id))],
+        otPast.reduce((m, r) => (r.work_date! < m ? r.work_date! : m), clock.today), otPast.reduce((m, r) => (r.work_date! > m ? r.work_date! : m), otPast[0]!.work_date!))
+      : null;
     const order = new Map(ids.map((id, i) => [id, i]));
     return rows.sort((a, b) => order.get(a.id)! - order.get(b.id)!).map((r) => {
       const e = emp.get(r.requester_employee_id);
@@ -570,7 +578,10 @@ export class RequestsService {
         ? { type: "profile_change" as const, payload: ((pl) => (fullBank.has(r.id) && pl.after.bank ? { ...pl, after: { ...pl.after, bank: { ...pl.after.bank, accountNo: fullBank.get(r.id)! } } } : pl))(
             (x?.payload ?? { fields: [], before: {}, after: {}, reason: null }) as unknown as ProfileChangePayload) }
         : r.request_type === "overtime"
-        ? { type: "overtime" as const, payload: (x?.payload ?? { date: r.work_date ?? "", start: "", end: "", hours: 0, dayKind: "workday", ratePercent: 150, reason: "" }) as OvertimePayload }
+        ? ((payload) => ({ type: "overtime" as const, payload,
+            attendance: clock && payload.start && payload.end ? overtimeAttendance(payload.date, clock.today, payload.start, payload.end,
+              seen?.events.get(`${r.requester_employee_id}|${payload.date}`) ?? [], seen?.adjustments.get(`${r.requester_employee_id}|${payload.date}`) ?? null) : null,
+          }))((x?.payload ?? { date: r.work_date ?? "", start: "", end: "", hours: 0, dayKind: "workday", ratePercent: 150, reason: "" }) as OvertimePayload)
         : { type: "explanation" as const, payload: (x?.payload ?? { kind: "other", clockIn: null, clockOut: null, reason: "" }) as ExplanationPayload };
       return {
         id: r.id, no: r.request_no, ...typed, status: r.status, submittedAt: r.submitted_at, completedAt: r.completed_at, workDate: r.work_date,

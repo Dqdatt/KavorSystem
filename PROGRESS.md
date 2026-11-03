@@ -1,5 +1,5 @@
 # PROGRESS
-_Cập nhật: 2026-10-31 — bởi Claude (Desktop)_
+_Cập nhật: 2026-11-03 — bởi Claude (Desktop)_
 
 ## Mục tiêu đang làm
 **Phiên cloud → Desktop: đọc `docs/CLOUD_HANDOFF.md` trước** (commit nào đã push, chưa test gì trên máy thật, quyết định chờ review).
@@ -56,6 +56,13 @@ ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AG
 - Nghỉ nửa ngày xét đi muộn/về sớm theo nửa ca còn làm (31/10, Claude Desktop): nửa ca chia ở nghỉ trưa của ca (sáng = bắt đầu → nghỉ trưa,
   chiều = hết nghỉ trưa → kết thúc; ca không nghỉ trưa chia giữa ca), dùng ân hạn của ca; muộn/sớm thành lỗi giải trình được như ngày thường,
   công không đổi (0,5 phép có lương + 0,5 khi chấm đủ vào/ra). Chỉ sửa `computeDay`; unit test thêm 5 ca. Quyết định chia ca chờ người dùng review.
+- Chấm công thực tế trên đơn OT (03/11, Claude Desktop, phản hồi người dùng: "thấy ngày chấm công để NV verify"): API đọc trực tiếp (không chụp lúc gửi —
+  OT thường đăng ký trước) giờ vào/ra sau điều chỉnh của ngày làm thêm: `OvertimeDay.attendance` ở `/me/overtime` (hôm nay + ngày đã qua, sửa lỗi cũ app lấy
+  từ bảng công kỳ hiện tại nên hôm qua thuộc kỳ trước hiện "—") và `RequestItem.attendance` cho đơn OT (`overtimeAttendance` trong `compute.ts`, cùng cách
+  tính `overtimeOf`; phút khớp/phút trên đơn; hôm nay "chưa đối chiếu"). **Không chặn** đăng ký/duyệt khi không có chấm công (công tác xa…). Chữ chung
+  `overtimeAttendanceText`/`overtimeAttendanceShort` ở contracts. Web HR: dòng "Chấm công thực tế" trong chi tiết đơn + cột "Chấm công" ở tab Làm thêm giờ
+  (đỏ khi thiếu). App: màn đăng ký dùng dữ liệu API, chi tiết đơn + danh sách cần duyệt hiện chấm công, ghi chú khi thiếu. Unit test API 47, smoke OT thêm
+  4 bước, web đã xem trên trình duyệt (local). **App chưa xem trên simulator/iPhone.** Còn: OT ngày nghỉ khi công tác (không chấm công) chỉ HR điều chỉnh được.
 - Đối chiếu OT với chấm công (31/10, Claude Desktop): bảng công chỉ tính giờ OT đã duyệt trùng với giờ vào → ra đã ghi nhận (sau điều
   chỉnh) của ngày đã qua, làm tròn xuống bước 5 phút, không quá giờ đã duyệt; hôm nay/ngày tới chưa tính (`overtimeOf` trong
   `apps/api/src/timesheet/compute.ts`). Contracts: `overtime.approvedMinutes/checked`, tổng `overtimeApprovedMinutes`/`overtimeShortDays`; ảnh chụp

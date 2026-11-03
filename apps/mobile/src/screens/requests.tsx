@@ -7,11 +7,18 @@ import { Illus } from "../illus";
 import { Avatar, Balanced, Btn, BtnRow, Card, Chip, Chips, Empty, InfoRow, LinkBtn, Note, RowBtn, Seg, SectionHead, St, T, Tag, Timeline } from "../ui";
 import { Foot, TabHead, TopBar, type ScreenSpec } from "../screen";
 import { TYPE_ICON, type Approval, type MyReq } from "../data";
-import { EXPLANATION_KINDS, OVERTIME_DAY_KINDS, PROFILE_FIELDS, STEP_RESOLVERS, type ProfileField, type ProfileValues, type RequestItem } from "@kavor/contracts";
+import { EXPLANATION_KINDS, OVERTIME_DAY_KINDS, PROFILE_FIELDS, overtimeAttendanceShort, overtimeAttendanceText, STEP_RESOLVERS, type ProfileField, type ProfileValues, type RequestItem } from "@kavor/contracts";
 import { ACT, S, dayCount, go, leaveRange, reqKind, reqSub, reqTitle, stamp } from "../store";
 import { sizeText } from "../attach";
 
 /* Minh chứng của đơn (bản dùng API): bấm để mở bằng trình duyệt hệ thống; người gửi thêm được khi đơn còn chờ */
+/* OT ngày đã qua mà chấm công không phủ hết giờ trên đơn */
+function otShort(r: RequestItem, approver?: boolean) {
+  return r.type === "overtime" && overtimeAttendanceShort(r.attendance) ? <Note key="ots" icon="clock" warn>{approver
+    ? "Chấm công không phủ hết giờ làm thêm trên đơn. Duyệt vẫn được, nhưng bảng công chỉ tính phần khớp với giờ vào/ra."
+    : "Chấm công không phủ hết giờ làm thêm — bảng công chỉ tính phần khớp. Công tác hoặc quên chấm thì liên hệ quản lý/phòng Nhân sự để điều chỉnh."}</Note> : null;
+}
+
 function proofs(r: RequestItem, approver?: boolean) {
   if (!r.attachments.length && !r.attachmentRequired && !r.canAttach) return [];
   const missing = r.attachmentRequired && !r.attachments.length;
@@ -65,6 +72,7 @@ function ReqRows({ r, approver }: { r: RequestItem; approver?: boolean }) {
     <InfoRow k="Ngày" v={`${reqSub(r).split(" · ")[0]} · ${OVERTIME_DAY_KINDS[r.payload.dayKind]}`} strong />
     <InfoRow k="Giờ làm thêm" v={`${r.payload.start}–${r.payload.end} · ${r.payload.hours.toLocaleString("vi-VN")} giờ`} strong />
     <InfoRow k="Hệ số" v={`${r.payload.ratePercent}%`} strong />
+    {r.attendance ? <InfoRow k="Chấm công thực tế" v={overtimeAttendanceText(r.attendance)} strong /> : null}
   </>;
   return <>
     {approver ? <InfoRow k="Loại đơn" v={`Giải trình · ${EXPLANATION_KINDS[r.payload.kind].toLowerCase()}`} strong /> : null}
@@ -234,6 +242,7 @@ function remoteReqDetail(r: RequestItem): ScreenSpec {
         <ReqRows r={r} />
         <InfoRow k="Lý do" v={r.payload.reason || "—"} strong /><InfoRow k="Gửi lúc" v={stamp(r.submittedAt)} strong />
       </Card>,
+      otShort(r),
       ...proofs(r),
       <Card key="tl" pad><Timeline steps={f.steps} cur={f.cur} allDone={r.status === "approved"} fail={stopped} /></Card>,
       r.canCancel ? <Btn key="x" kind="danger" block onPress={() => ACT.cancelAsk(r.no)}>Hủy đơn</Btn> : null,
@@ -258,6 +267,7 @@ export function approvalDetailSpec(): ScreenSpec {
           <ReqRows r={it} approver />
           <InfoRow k="Lý do" v={it.payload.reason} strong /><InfoRow k="Gửi lúc" v={stamp(it.submittedAt)} strong />
         </Card>,
+        otShort(it, true),
         ...proofs(it, true),
         <Card key="tl" pad><Timeline steps={f.steps} cur={f.cur} /></Card>,
         <Spacer key="sp" />,

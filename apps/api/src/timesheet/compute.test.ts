@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { ShiftInfo } from "@kavor/contracts";
-import { computeDay, explainDeadline, isoWeekday, monthOf, periodOf, summarize } from "./compute.js";
+import { overtimeAttendanceText } from "@kavor/contracts";
+import { computeDay, explainDeadline, isoWeekday, monthOf, overtimeAttendance, periodOf, summarize } from "./compute.js";
 
 const HC: ShiftInfo & { workDays: number[] } = {
   id: "s", code: "HC", name: "Ca hành chính", versionNo: 1, start: "08:00", end: "17:00", breakStart: "12:00", breakEnd: "13:00",
@@ -116,4 +117,20 @@ test("làm thêm giờ: chỉ tính phần trùng với giờ vào → ra của 
   assert.equal(day("2026-10-20", []).overtime, null);
   const s = summarize([full, off, today].map((d) => ({ ...d, canExplain: false, explainDeadline: null })));
   assert.deepEqual([s.overtimeMinutes, s.overtimeApprovedMinutes, s.overtimeShortDays], [240, 480, 1]);
+});
+
+test("đơn OT: chấm công thực tế để đối chiếu — ngày tới null, hôm nay chưa đối chiếu, không chấm công vẫn trả về (công tác)", () => {
+  const ev = (xs: Array<["in" | "out", string]>) => xs.map(([kind, t]) => ({ kind, minute: Number(t.slice(0, 2)) * 60 + Number(t.slice(3)) }));
+  assert.equal(overtimeAttendance("2026-10-25", "2026-10-24", "17:30", "19:30", [], null), null);
+  const ok = overtimeAttendance("2026-10-20", "2026-10-24", "17:30", "20:30", ev([["in", "07:54"], ["out", "20:36"]]), null)!;
+  assert.deepEqual(ok, { clockIn: "07:54", clockOut: "20:36", adjusted: false, checked: true, matchedMinutes: 180, minutes: 180 });
+  assert.equal(overtimeAttendanceText(ok), "Vào 07:54 · Ra 20:36 · khớp 3/3 giờ OT");
+  const short = overtimeAttendance("2026-10-20", "2026-10-24", "17:30", "19:30", ev([["in", "08:00"], ["out", "18:47"]]), null)!;
+  assert.equal(overtimeAttendanceText(short), "Vào 08:00 · Ra 18:47 · khớp 1,3/2 giờ OT");
+  const trip = overtimeAttendance("2026-10-20", "2026-10-24", "17:30", "19:30", [], null)!;
+  assert.equal(overtimeAttendanceText(trip), "Không có chấm công · khớp 0/2 giờ OT");
+  const adj = overtimeAttendance("2026-10-20", "2026-10-24", "17:30", "19:30", ev([["in", "08:00"]]), { clockIn: null, clockOut: "19:30" })!;
+  assert.deepEqual([adj.clockOut, adj.adjusted, adj.matchedMinutes], ["19:30", true, 120]);
+  const today = overtimeAttendance("2026-10-24", "2026-10-24", "17:30", "19:30", ev([["in", "07:58"]]), null)!;
+  assert.equal(overtimeAttendanceText(today), "Vào 07:58 · Ra --:-- · chưa đối chiếu (hôm nay)");
 });

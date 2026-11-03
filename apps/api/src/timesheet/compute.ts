@@ -2,7 +2,7 @@
    đi muộn/về sớm theo ân hạn của ca, thiếu giờ, ngày công, hạn giải trình. Event gốc không bị sửa: điều chỉnh đã duyệt
    ghi đè giờ vào/ra khi hiển thị và tính công. OT đã duyệt chỉ được tính phần trùng với giờ có mặt (vào → ra) của ngày đã qua.
    Ca qua đêm chưa hỗ trợ (giống module ca). */
-import type { DayIssue, LeaveHalf, RequestStatus, ShiftInfo, TimesheetDay, TimesheetPeriod, TimesheetSummary } from "@kavor/contracts";
+import type { DayIssue, LeaveHalf, OvertimeAttendance, RequestStatus, ShiftInfo, TimesheetDay, TimesheetPeriod, TimesheetSummary } from "@kavor/contracts";
 import { addDays } from "../admin/validate.js";
 import { minutesOf } from "../attendance/policy.js";
 
@@ -28,7 +28,7 @@ export function datesBetween(start: string, end: string): string[] {
   for (let d = start; d <= end; d = addDays(d, 1)) out.push(d);
   return out;
 }
-const hm = (min: number) => `${pad(Math.floor(min / 60))}:${pad(min % 60)}`;
+export const hm = (min: number) => `${pad(Math.floor(min / 60))}:${pad(min % 60)}`;
 
 /* ---------- Ngày ---------- */
 export type DayEvent = { kind: "in" | "out"; minute: number };
@@ -68,14 +68,30 @@ export function overtimeOf(entries: DayOvertimeEntry[] | undefined, inMin: numbe
   return { minutes, approvedMinutes, checked: past, ratePercent: Math.max(...entries.map((e) => e.ratePercent)), requestNos: entries.map((e) => e.requestNo) };
 }
 
-export function computeDay(i: DayInput): Omit<TimesheetDay, "canExplain" | "explainDeadline"> {
-  const weekday = isoWeekday(i.date);
-  const ins = i.events.filter((e) => e.kind === "in").map((e) => e.minute);
-  const outs = i.events.filter((e) => e.kind === "out").map((e) => e.minute);
+/* Giờ có mặt của ngày: vào sớm nhất, ra muộn nhất; điều chỉnh đã duyệt ghi đè */
+export function presenceOf(events: DayEvent[], adjustment: DayAdjustment | null) {
+  const ins = events.filter((e) => e.kind === "in").map((e) => e.minute);
+  const outs = events.filter((e) => e.kind === "out").map((e) => e.minute);
   const rawIn = ins.length ? Math.min(...ins) : null;
   const rawOut = outs.length ? Math.max(...outs) : null;
-  const inMin = i.adjustment?.clockIn ? minutesOf(i.adjustment.clockIn) : rawIn;
-  const outMin = i.adjustment?.clockOut ? minutesOf(i.adjustment.clockOut) : rawOut;
+  const inMin = adjustment?.clockIn ? minutesOf(adjustment.clockIn) : rawIn;
+  const outMin = adjustment?.clockOut ? minutesOf(adjustment.clockOut) : rawOut;
+  return { rawIn, rawOut, inMin, outMin };
+}
+
+/* Chấm công của ngày làm thêm cho một đơn OT (đơn đang chờ cũng xem được): giờ có mặt + số phút của đơn khớp chấm công,
+   cùng cách tính với bảng công (overtimeOf). Ngày tới: null; hôm nay: chưa đối chiếu. */
+export function overtimeAttendance(date: string, today: string, start: string, end: string, events: DayEvent[], adjustment: DayAdjustment | null): OvertimeAttendance | null {
+  if (date > today) return null;
+  const { inMin, outMin } = presenceOf(events, adjustment);
+  const minutes = minutesOf(end) - minutesOf(start);
+  const ot = overtimeOf([{ start, end, minutes, ratePercent: 0, requestNo: "" }], inMin, outMin, date < today)!;
+  return { clockIn: inMin == null ? null : hm(inMin), clockOut: outMin == null ? null : hm(outMin), adjusted: !!adjustment, checked: ot.checked, matchedMinutes: ot.minutes, minutes };
+}
+
+export function computeDay(i: DayInput): Omit<TimesheetDay, "canExplain" | "explainDeadline"> {
+  const weekday = isoWeekday(i.date);
+  const { rawIn, rawOut, inMin, outMin } = presenceOf(i.events, i.adjustment);
   const shift = i.shift;
   const base = {
     date: i.date, weekday, holidayName: i.holiday, shift: shift ? { name: shift.name, start: shift.start, end: shift.end } : null,
