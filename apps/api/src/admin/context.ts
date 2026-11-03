@@ -86,7 +86,30 @@ export class AdminContext {
   }
 }
 
+/* Nhớ tạm kết quả xác thực web theo access token (60 giây, không quá hạn token): một trang gọi 3–5 API, mỗi lần đều phải
+   hỏi Auth + 4 truy vấn trước khi làm việc — chậm trên Render Free. Mọi request ghi (POST/PATCH/DELETE, kể cả Console khóa
+   doanh nghiệp, đăng xuất, đổi vai trò) xóa sạch bộ nhớ này (correlation.middleware), nên chỉ thay đổi ngoài API (sửa DB tay)
+   mới trễ tối đa 60 giây. Phiên chưa qua MFA (aal1) không nhớ để luồng đăng ký TOTP luôn thấy factor mới. */
+type CachedAdmin = { at: number; exp: number; args: ConstructorParameters<typeof AdminContext> };
+const ADMIN_TTL_MS = Number(process.env.ADMIN_CONTEXT_TTL_MS ?? 60_000);
+const adminCache = new Map<string, CachedAdmin>();
+export function clearAdminCache() { adminCache.clear(); }
+
 export async function resolveAdmin(sb: SupabaseGateway, accessToken: string, correlationId: string): Promise<AdminContext> {
+  const hit = adminCache.get(accessToken);
+  if (hit && Date.now() - hit.at < ADMIN_TTL_MS && Date.now() < hit.exp) {
+    const a = hit.args; return new AdminContext(a[0], a[1], a[2], a[3], a[4], a[5], a[6], correlationId, a[8], a[9], a[10]);
+  }
+  const ctx = await resolveAdminFresh(sb, accessToken, correlationId);
+  const exp = Number(claim(accessToken, "exp") ?? 0) * 1000;
+  if (ADMIN_TTL_MS > 0 && ctx.aal === "aal2" && exp > Date.now()) {
+    if (adminCache.size >= 500) adminCache.delete(adminCache.keys().next().value!);
+    adminCache.set(accessToken, { at: Date.now(), exp, args: [sb, ctx.userId, ctx.email, ctx.tenantId, ctx.membershipId, ctx.actor, ctx.grants, correlationId, accessToken, ctx.aal, ctx.factors] });
+  }
+  return ctx;
+}
+
+async function resolveAdminFresh(sb: SupabaseGateway, accessToken: string, correlationId: string): Promise<AdminContext> {
   const expired = new AuthError(AUTH_ERRORS.sessionExpired, "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.", 401);
   const { data, error } = await sb.admin.auth.getUser(accessToken);
   /* Chỉ token sai/hết hạn mới là "hết phiên"; Auth chậm hoặc lỗi mạng thì báo thử lại, không đăng xuất người dùng */

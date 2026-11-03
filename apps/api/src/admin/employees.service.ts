@@ -138,33 +138,37 @@ export class EmployeesAdmin {
 
   async detail(ctx: AdminContext, id: string): Promise<EmployeeDetail> {
     await ctx.requireEmployee("employee.read", id);
-    const row = await this.row(ctx, id);
-    const [item] = await this.enrich(ctx, [row]);
-    const s = await tenantSettings(this.sb, ctx.tenantId);
+    /* Truy vấn chạy song song theo 3 lượt (trước đây ~12 lượt nối tiếp, 1,7–1,9 giây trên Render Free) */
+    const canAudit = ctx.can("audit.read");
+    const [row, s, seeAttendance, reveal, reqs] = await Promise.all([
+      this.row(ctx, id),
+      tenantSettings(this.sb, ctx.tenantId),
+      ctx.can("attendance.read") ? this.inScope(ctx, "attendance.read", id) : Promise.resolve(false),
+      /* Số tài khoản đầy đủ chỉ khi có employee.sensitive.read với nhân viên này */
+      ctx.can("employee.sensitive.read") ? this.inScope(ctx, "employee.sensitive.read", id) : Promise.resolve(false),
+      canAudit ? ctx.db.from("requests").select("id").eq("tenant_id", ctx.tenantId).eq("requester_employee_id", id).order("submitted_at", { ascending: false }).limit(50).then((r) => (r.data ?? []) as Array<{ id: string }>) : Promise.resolve([]),
+    ]);
     const today = localParts(new Date(), s.timezone).date;
-    const [org, placements, index] = await Promise.all([this.org(ctx), loadPlacements(ctx.db, ctx.tenantId, today, [id]), PolicyIndex.load(ctx.db, ctx.tenantId)]);
+    const [[item], org, placements, index, personalMap, rolesMap, devices] = await Promise.all([
+      this.enrich(ctx, [row]), this.org(ctx), loadPlacements(ctx.db, ctx.tenantId, today, [id]), PolicyIndex.load(ctx.db, ctx.tenantId),
+      loadPersonal(ctx.db, ctx.tenantId, [id], () => reveal), this.activeRoles(ctx, [id], today),
+      seeAttendance ? this.attendance.devicesOf(ctx, [id]) : Promise.resolve([] as AdminDevice[]),
+    ]);
     const p = placements.get(id) ?? null;
-    const seeAttendance = ctx.can("attendance.read") && (await this.inScope(ctx, "attendance.read", id));
-    let devices: AdminDevice[] = [], recentEvents: EmployeeDetail["recentEvents"] = [];
-    if (seeAttendance) {
-      devices = await this.attendance.devicesOf(ctx, [id]);
-      recentEvents = await this.attendance.eventsFor(ctx, [id], addDays(today, -13), today, index, s.timezone);
-    }
-    let audit: AuditEntry[] = [];
-    if (ctx.can("audit.read")) {
+    const [recentEvents, audit] = await Promise.all([
+      seeAttendance ? this.attendance.eventsFor(ctx, [id], addDays(today, -13), today, index, s.timezone) : Promise.resolve([] as EmployeeDetail["recentEvents"]),
       /* Nhật ký của hồ sơ, thiết bị và đơn từ của nhân viên */
-      const { data: reqs } = await ctx.db.from("requests").select("id").eq("tenant_id", ctx.tenantId).eq("requester_employee_id", id).order("submitted_at", { ascending: false }).limit(50);
-      const ids = [id, ...devices.map((d) => d.id), ...((reqs ?? []) as Array<{ id: string }>).map((r) => r.id)];
-      const { data: logs } = await ctx.db.from("audit_logs").select("id, action, actor_user_id, created_at, reason, before_data, after_data")
-        .eq("tenant_id", ctx.tenantId).in("resource_id", ids).order("created_at", { ascending: false }).limit(40);
-      const actors = await this.userNames(ctx, ((logs ?? []) as Array<{ actor_user_id: string | null }>).map((l) => l.actor_user_id));
-      audit = ((logs ?? []) as Array<{ id: string; action: string; actor_user_id: string | null; created_at: string; reason: string | null; before_data: unknown; after_data: unknown }>)
-        .map((l) => ({ id: l.id, action: l.action, actor: l.actor_user_id ? actors.get(l.actor_user_id) ?? "Người dùng" : "Hệ thống", createdAt: l.created_at, reason: l.reason, before: l.before_data, after: l.after_data }));
-    }
-    /* Thông tin cá nhân đã duyệt; số tài khoản đầy đủ chỉ khi có employee.sensitive.read với nhân viên này */
-    const reveal = ctx.can("employee.sensitive.read") && (await this.inScope(ctx, "employee.sensitive.read", id));
-    const personal = (await loadPersonal(ctx.db, ctx.tenantId, [id], () => reveal)).get(id)!;
-    const roles = (await this.activeRoles(ctx, [id], today)).get(id) ?? [];
+      canAudit ? (async (): Promise<AuditEntry[]> => {
+        const ids = [id, ...devices.map((d) => d.id), ...reqs.map((r) => r.id)];
+        const { data: logs } = await ctx.db.from("audit_logs").select("id, action, actor_user_id, created_at, reason, before_data, after_data")
+          .eq("tenant_id", ctx.tenantId).in("resource_id", ids).order("created_at", { ascending: false }).limit(40);
+        const actors = await this.userNames(ctx, ((logs ?? []) as Array<{ actor_user_id: string | null }>).map((l) => l.actor_user_id));
+        return ((logs ?? []) as Array<{ id: string; action: string; actor_user_id: string | null; created_at: string; reason: string | null; before_data: unknown; after_data: unknown }>)
+          .map((l) => ({ id: l.id, action: l.action, actor: l.actor_user_id ? actors.get(l.actor_user_id) ?? "Người dùng" : "Hệ thống", createdAt: l.created_at, reason: l.reason, before: l.before_data, after: l.after_data }));
+      })() : Promise.resolve([]),
+    ]);
+    const personal = personalMap.get(id)!;
+    const roles = rolesMap.get(id) ?? [];
     return {
       ...item!, personal, roles,
       legalEntity: p ? { id: p.legal_entity_id, name: org.names.get(p.legal_entity_id) ?? "—" } : null,

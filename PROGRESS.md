@@ -10,6 +10,9 @@ simulator hay iPhone** vì phiên cloud không có Mac). Người dùng giao "c�
 ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AGENT_PLAYBOOK.md`; kiểm tra toàn bộ bằng `bash tools/verify-all.sh`.
 
 ## Đã xong
+- Web nhanh hơn (3/11, Claude Desktop): Vercel 2 web chạy hàm ở `sin1` (vercel.json); API nhớ tạm ngữ cảnh admin theo access token 60 giây
+  (`resolveAdmin`, chỉ phiên aal2; mọi request ghi xóa sạch bộ nhớ trong `correlation.middleware`; sửa DB tay thì trễ ≤ 60 giây,
+  `ADMIN_CONTEXT_TTL_MS=0` để tắt); chi tiết nhân viên chạy truy vấn song song 3 lượt (đo online trước đó 1,7–1,9 giây). verify-all đầy đủ đạt; chưa đo lại online.
 - App nhanh hơn + ảnh đại diện (3/11, Claude Desktop): GPS theo dõi liên tục khi app mở (`watchFix`), bấm chấm công dùng vị trí ≤ 60 giây
   đủ chính xác (ngưỡng `maxAccuracyM` của địa điểm) — không chờ `Accuracy.Highest`; nút xám "ĐỊNH VỊ…/ĐANG GỬI…" và khóa trong lúc xử lý.
   Splash không chờ mạng: token làm mới ở lời gọi đầu (một lần cho mọi lời gọi song song); bản dữ liệu gần nhất lưu Keychain `kavor.lastData`
