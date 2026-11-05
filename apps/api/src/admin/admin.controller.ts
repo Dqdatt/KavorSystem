@@ -284,6 +284,17 @@ export class AdminController {
   dependentUpdate(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string, @Param("depId") dep: string, @Body() b: Json) { return this.run(r, a, (s, c) => s.inputs.updateDependent(c, id, dep, b)); }
   @Post("employees/:id/pay/dependents/:depId/remove") @HttpCode(200)
   dependentRemove(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string, @Param("depId") dep: string, @Body() b: Json) { return this.run(r, a, (s, c) => s.inputs.removeDependent(c, id, dep, b)); }
+  /* Danh mục khoản thu nhập (phụ cấp/thưởng) của doanh nghiệp */
+  @Get("payroll/pay-items")
+  payItems(@Req() r: CorrelatedRequest, @Headers("authorization") a?: string) { return this.run(r, a, (s, c) => s.inputs.payItems(c)); }
+  @Post("payroll/pay-items") @HttpCode(200)
+  payItemCreate(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Body() b: Json) { return this.run(r, a, (s, c) => s.inputs.createPayItem(c, b)); }
+  @Post("payroll/pay-items/templates") @HttpCode(200)
+  payItemTemplates(@Req() r: CorrelatedRequest, @Headers("authorization") a?: string) { return this.run(r, a, (s, c) => s.inputs.addPayItemTemplates(c)); }
+  @Post("payroll/pay-items/:id") @HttpCode(200)
+  payItemUpdate(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string, @Body() b: Json) { return this.run(r, a, (s, c) => s.inputs.updatePayItem(c, id, b)); }
+  @Post("payroll/pay-items/:id/archive") @HttpCode(200)
+  payItemArchive(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string, @Body() b: Json) { return this.run(r, a, (s, c) => s.inputs.archivePayItem(c, id, b)); }
   @Get("payroll/inputs")
   payrollInputs(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Query("month") m?: string, @Query("source") src?: string) { return this.run(r, a, (s, c) => s.inputs.sheet(c, m, src)); }
   @Get("payroll/inputs/export")

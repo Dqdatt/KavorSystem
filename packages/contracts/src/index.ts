@@ -837,7 +837,8 @@ export type AdvancePolicy = { name: string; versionNo: number; enabled: boolean;
 export type MyAdvance = {
   today: string; month: string; policy: AdvancePolicy | null;
   /* Lương cơ bản của chính nhân viên (để hiện cách tính hạn mức) */
-  baseSalary: number | null; limit: number;
+  /* fixedSalary = lương cứng (lương cơ bản + phụ cấp), hạn mức tính trên con số này */
+  baseSalary: number | null; fixedSalary: number | null; limit: number;
   /* Không đủ điều kiện: [tiêu đề, giải thích] */
   ineligible: [string, string] | null;
   deadline: string | null; deadlinePassed: boolean;
@@ -855,7 +856,8 @@ export type AdvanceBoard = {
 };
 export type CompensationRow = {
   employee: { id: string; code: string; fullName: string; department: string | null };
-  baseSalary: number | null; effectiveFrom: string | null;
+  baseSalary: number | null; fixedSalary: number | null; effectiveFrom: string | null;
+  /* Danh sách tổng quan: items trong history để trống — chi tiết khoản đọc ở employees/:id/pay */
   history: CompensationVersion[];
   /* Tài khoản ngân hàng HR đã duyệt (null nếu chưa có hoặc người xem không có employee.sensitive.read) */
   bank: BankAccountView | null;
@@ -864,14 +866,34 @@ export type CompensationBoard = { rows: CompensationRow[]; canManage: boolean };
 export type CompensationInput = {
   baseSalary: number; effectiveFrom: string; note?: string | null;
   /* null/bỏ trống = bằng lương cơ bản */
-  insuranceSalary?: number | null; allowance?: number | null;
+  insuranceSalary?: number | null;
+  /* Số tiền từng khoản trong danh mục của doanh nghiệp; tổng phụ cấp = tổng các khoản */
+  items?: Array<{ itemId: string; amount: number }>;
   /* null/bỏ trống = theo hồ sơ */
   employmentType?: EmploymentType | null;
 };
 
 /* ---------- Lương đầu vào (HCNS): mục "Lương" trong hồ sơ nhân viên ---------- */
+/* Danh mục khoản thu nhập (phụ cấp/thưởng) do doanh nghiệp tự khai; số tiền do doanh nghiệp tự nhập */
+export type PayItemMode = "by_workdays" | "fixed" | "conditional";
+export type PayItemTax = "taxable" | "exempt" | "partial";
+export type PayItem = {
+  id: string; name: string; kind: "allowance" | "bonus";
+  /* by_workdays: chia theo công · fixed: đủ tháng trả đủ · conditional: có điều kiện (ví dụ chuyên cần) */
+  payMode: PayItemMode; insurable: boolean;
+  /* partial: miễn thuế đến taxFreeCap ₫/tháng */
+  taxMode: PayItemTax; taxFreeCap: number | null;
+  /* Mức gợi ý khi nhập lương (null = không có) */
+  defaultAmount: number | null;
+  sortOrder: number; note: string | null; archived: boolean;
+};
+export type PayItemInput = Omit<PayItem, "id" | "archived" | "sortOrder"> & { sortOrder?: number };
+export type PayItemList = { items: PayItem[]; canManage: boolean };
+export type CompensationItem = { itemId: string; name: string; amount: number };
 export type CompensationVersion = {
-  baseSalary: number; insuranceSalary: number | null; allowance: number; employmentType: EmploymentType | null;
+  baseSalary: number; insuranceSalary: number | null;
+  /* Tổng các khoản; lương cứng = baseSalary + allowance */
+  allowance: number; items: CompensationItem[]; employmentType: EmploymentType | null;
   effectiveFrom: string; note: string | null; createdAt: string;
 };
 export type EmployeeDependent = {
@@ -896,13 +918,15 @@ export type EmployeePay = {
 /* ---------- Bảng lương đầu vào theo kỳ (HCNS lập → Kế toán tính lương) ---------- */
 export type PayrollInputSegment = {
   from: string; to: string; baseSalary: number | null; insuranceSalary: number | null; allowance: number;
-  employmentType: EmploymentType; credited: number;
+  items?: CompensationItem[]; employmentType: EmploymentType; credited: number;
 };
 export type PayrollInputRow = {
   employee: { id: string; code: string; fullName: string; department: string | null; position: string | null; email: string | null; hireDate: string; terminationDate: string | null };
   employmentType: EmploymentType;
   /* Mức lương hiệu lực ngày cuối kỳ (hoặc ngày nghỉ việc) */
   baseSalary: number | null; insuranceSalary: number | null; allowance: number;
+  /* Từng khoản (bản chốt trước khi có danh mục không có trường này); lương cứng = baseSalary + allowance */
+  items?: CompensationItem[];
   /* Nhiều hơn một đoạn khi đổi lương/tình trạng lao động trong kỳ */
   segments: PayrollInputSegment[];
   standard: number; credited: number; paidLeaveDays: number; unpaidLeaveDays: number; holidays: number;

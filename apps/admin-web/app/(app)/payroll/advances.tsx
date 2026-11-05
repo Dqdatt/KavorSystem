@@ -5,7 +5,7 @@
 import { useState } from "react";
 import type { AdvanceBoard, CompensationBoard, CompensationRow, RequestItem } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
-import { CompensationModal } from "../employees/pay";
+import { CompensationEditor } from "../employees/pay";
 import { Empty, Field, Icon, LoadError, Modal, Person, Status, fmtDate, fmtDateTime, useAction, useMe } from "../../_ui/kit";
 import { REQUEST_STATUS, RequestModal, money } from "../../_ui/request";
 import { Select, SkeletonRows } from "@kavor/web-ui";
@@ -98,15 +98,16 @@ export function Salary() {
       <article className="card">
         <div className="toolbar"><label className="search"><Icon name="search" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Tìm nhân viên…" /></label></div>
         {b && !rows.length ? <Empty title="Không có nhân viên phù hợp" /> : (
-          <div className="table-wrap"><table className="data-table"><thead><tr><th>Nhân viên</th><th>Phòng ban</th><th>Lương cơ bản</th><th>Hiệu lực từ</th><th>Lịch sử</th><th>Tài khoản ngân hàng</th><th /></tr></thead><tbody>
-            {!b && !error ? <SkeletonRows cols={7} rows={6} person /> : null}
+          <div className="table-wrap"><table className="data-table"><thead><tr><th>Nhân viên</th><th>Phòng ban</th><th>Lương cứng</th><th>Lương cơ bản</th><th>Hiệu lực từ</th><th>Lịch sử</th><th>Tài khoản ngân hàng</th><th /></tr></thead><tbody>
+            {!b && !error ? <SkeletonRows cols={8} rows={6} person /> : null}
             {rows.map((r) => (
               <tr key={r.employee.id}>
                 <td><Person name={r.employee.fullName} seed={r.employee.code} sub={r.employee.code} /></td>
                 <td>{r.employee.department ?? "—"}</td>
-                <td className="num">{r.baseSalary ? <b>{money(r.baseSalary)}</b> : <span className="muted">Chưa nhập</span>}</td>
+                <td className="num">{r.fixedSalary ? <b>{money(r.fixedSalary)}</b> : <span className="muted">Chưa nhập</span>}</td>
+                <td className="num">{r.baseSalary ? money(r.baseSalary) : "—"}</td>
                 <td>{fmtDate(r.effectiveFrom)}</td>
-                <td className="muted" style={{ whiteSpace: "normal", fontSize: 11 }}>{r.history.slice(1, 3).map((h) => `${money(h.baseSalary)} từ ${fmtDate(h.effectiveFrom)}`).join(" · ") || "—"}</td>
+                <td className="muted" style={{ whiteSpace: "normal", fontSize: 11 }}>{r.history.slice(1, 3).map((h) => `${money(h.baseSalary + h.allowance)} từ ${fmtDate(h.effectiveFrom)}`).join(" · ") || "—"}</td>
                 {/* Tài khoản HR đã duyệt từ đề nghị sửa hồ sơ (Kế toán chỉ đọc) */}
                 <td style={{ whiteSpace: "normal", fontSize: 11 }}>{r.bank ? <><b>{r.bank.accountNo ?? `•••• ${r.bank.last4}`}</b><div className="muted">{r.bank.bankName} · {r.bank.holder}</div></> : <span className="muted">Chưa có</span>}</td>
                 <td>{b?.canManage ? <button className="btn small" onClick={() => setEdit(r)}>{r.baseSalary ? "Đổi lương" : "Nhập lương"}</button> : null}</td>
@@ -115,8 +116,8 @@ export function Salary() {
           </tbody></table></div>
         )}
       </article>
-      {edit ? <CompensationModal title={`${edit.baseSalary ? "Đổi" : "Nhập"} lương · ${edit.employee.fullName}`}
-        current={edit.history.find((h) => h.effectiveFrom === edit.effectiveFrom) ?? null} onClose={() => setEdit(null)}
+      {/* Khoản phụ cấp của bản hiện hành đọc từ hồ sơ (danh sách tổng quan không kèm khoản) */}
+      {edit ? <CompensationEditor employeeId={edit.employee.id} title={`${edit.baseSalary ? "Đổi" : "Nhập"} lương · ${edit.employee.fullName}`} onClose={() => setEdit(null)}
         save={async (body) => setData(await call<CompensationBoard>("POST", `compensations/${edit.employee.id}`, body))} /> : null}
     </>
   );

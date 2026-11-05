@@ -10,6 +10,11 @@ simulator hay iPhone** vì phiên cloud không có Mac). Người dùng giao "c�
 ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AGENT_PLAYBOOK.md`; kiểm tra toàn bộ bằng `bash tools/verify-all.sh`.
 
 ## Đã xong
+- Khoản phụ cấp theo doanh nghiệp + lương cứng (5/11, Claude Desktop — `docs/plans/payroll-inputs.md` mục "Bổ sung"): tab "Khoản phụ cấp" ở
+  Lương & tạm ứng (công ty tự khai khoản, cách trả, đóng BH, thuế, mức mặc định; thêm mẫu phổ biến; ngừng dùng), form lương nhập lương cơ
+  bản + từng khoản → tự cộng lương cứng; bảng lương đầu vào/Excel có cột lương cứng + từng khoản; tạm ứng = % lương cứng (API + chữ trên
+  app). Migration `202611190001_pay_items.sql` (**bản online cần `tools/cloud-supabase.sh` trước khi push**), pgTAP `pay_items` 13, smoke
+  `payroll-inputs-smoke.sh` thêm 15 bước. Đã xem web local bằng trình duyệt; app chưa build lại.
 - Lương đầu vào HCNS + bảng lương đầu vào theo kỳ (5/11, Claude Desktop; giai đoạn A+B — `docs/plans/payroll-inputs.md`): HR/Quản trị viên công ty
   xem/sửa lương (quản lý trực tiếp không); phiên bản lương thêm lương đóng BH, phụ cấp, tình trạng lao động; MST + công đoàn; người phụ thuộc theo
   tháng. Web: mục Lương trong hồ sơ nhân viên, tab "Bảng lương đầu vào" (tách đoạn khi đổi lương trong kỳ, cảnh báo, chốt khi kỳ công đã khóa,

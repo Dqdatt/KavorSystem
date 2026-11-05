@@ -216,7 +216,7 @@ export function SheetContent({ kind, arg }: { kind: SheetKind; arg?: string }) {
       const d = S.advData, p = d.policy!;
       return <>
         <H3>Cách tính hạn mức</H3>
-        <Box><Ln k="Lương cơ bản" v={d.baseSalary ? `${d.baseSalary.toLocaleString("vi-VN")} ₫` : "Chưa có"} /><Ln k="Tỷ lệ cho phép" v={`${p.maxPercent}%`} /><Ln k="Hạn mức tháng" v={`${d.limit.toLocaleString("vi-VN")} ₫`} kind="tot" /></Box>
+        <Box><Ln k="Lương cứng" v={(d.fixedSalary ?? d.baseSalary) ? `${(d.fixedSalary ?? d.baseSalary)!.toLocaleString("vi-VN")} ₫` : "Chưa có"} /><Ln k="Tỷ lệ cho phép" v={`${p.maxPercent}%`} /><Ln k="Hạn mức tháng" v={`${d.limit.toLocaleString("vi-VN")} ₫`} kind="tot" /></Box>
         <View style={{ paddingLeft: 18, gap: 4 }}>
           {[`Mỗi tháng ứng 1 lần, gửi đến hết ngày ${Number(d.deadline?.slice(8) ?? p.deadlineDay)}.`, `Tối thiểu ${p.minAmount.toLocaleString("vi-VN")} ₫ mỗi lần.`, "Khoản ứng được trừ vào lương của chính tháng đó.", "Tỷ lệ và hạn nhận đơn do công ty cấu hình."].map((x) => (
             <View key={x} style={{ flexDirection: "row" }}><T style={{ position: "absolute", left: -13, fontSize: 13.5, color: C.ink2 }}>•</T><T style={{ fontSize: 13.5, color: C.ink2 }}>{x}</T></View>

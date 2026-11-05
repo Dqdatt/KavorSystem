@@ -7,7 +7,7 @@
      Chốt (toàn công ty, kỳ công đã khóa) = ảnh chụp bất biến; chốt lại = bản mới. Ảnh chụp không lưu số tài khoản (đọc bản hiện hành khi xem).
    - Nhật ký không ghi số tiền lương. */
 import type {
-  BankAccountView, CompensationVersion, EmployeeDependent, EmployeePay, EmploymentType, PayrollInputRow, PayrollInputSegment, PayrollInputSheet, TimesheetDay,
+  BankAccountView, CompensationItem, CompensationVersion, PayItem, PayItemList, EmployeeDependent, EmployeePay, EmploymentType, PayrollInputRow, PayrollInputSegment, PayrollInputSheet, TimesheetDay,
 } from "@kavor/contracts";
 import { conflict, invalid, notFound, type AdminContext } from "../admin/context.js";
 import { date, nullableText, number, oneOf, type Body } from "../admin/validate.js";
@@ -17,16 +17,35 @@ import { MONTH, type EmployeeLite, type TimesheetService } from "../timesheet/ti
 
 const EMPLOYMENT: readonly EmploymentType[] = ["probation", "official", "contractor", "intern"];
 const TAX = /^[0-9]{10}([0-9]{2}|-[0-9]{3})?$/;
-type CompRow = { employee_id: string; base_salary: number; insurance_salary: number | null; allowance: number; employment_type: EmploymentType | null; effective_from: string; note: string | null; created_at: string };
+type CompRow = { id: string; employee_id: string; base_salary: number; insurance_salary: number | null; allowance: number; employment_type: EmploymentType | null; effective_from: string; note: string | null; created_at: string };
 type DepRow = { id: string; employee_id: string; full_name: string; relation: string; birth_date: string | null; tax_code: string | null; from_month: string; to_month: string | null };
 type EmpRow = EmployeeLite & { work_email: string | null; employment_type: EmploymentType };
 type BankRow = { employee_id: string; bank_name: string; account_no: string; holder: string };
-const COMP_COLS = "employee_id, base_salary, insurance_salary, allowance, employment_type, effective_from, note, created_at";
+const COMP_COLS = "id, employee_id, base_salary, insurance_salary, allowance, employment_type, effective_from, note, created_at";
 const DEP_COLS = "id, employee_id, full_name, relation, birth_date, tax_code, from_month, to_month";
 
-const version = (c: CompRow): CompensationVersion => ({
+type ItemRow = { id: string; name: string; kind: PayItem["kind"]; pay_mode: PayItem["payMode"]; insurable: boolean; tax_mode: PayItem["taxMode"]; tax_free_cap: number | null; default_amount: number | null; sort_order: number; note: string | null; archived_at: string | null };
+const ITEM_COLS = "id, name, kind, pay_mode, insurable, tax_mode, tax_free_cap, default_amount, sort_order, note, archived_at";
+const MODES: readonly PayItem["payMode"][] = ["by_workdays", "fixed", "conditional"];
+const TAXES: readonly PayItem["taxMode"][] = ["taxable", "exempt", "partial"];
+const payItem = (r: ItemRow): PayItem => ({
+  id: r.id, name: r.name, kind: r.kind, payMode: r.pay_mode, insurable: r.insurable, taxMode: r.tax_mode, taxFreeCap: r.tax_free_cap === null ? null : Number(r.tax_free_cap),
+  defaultAmount: r.default_amount === null ? null : Number(r.default_amount), sortOrder: r.sort_order, note: r.note, archived: !!r.archived_at,
+});
+/* Mẫu phổ biến (chỉ tên + cách tính gợi ý, không có số tiền) — doanh nghiệp sửa/xóa theo thực tế */
+const TEMPLATES: Array<Partial<ItemRow> & { name: string }> = [
+  { name: "Phụ cấp ăn trưa", pay_mode: "by_workdays", tax_mode: "partial" },
+  { name: "Phụ cấp xăng xe", pay_mode: "by_workdays" },
+  { name: "Phụ cấp điện thoại", pay_mode: "fixed", tax_mode: "partial" },
+  { name: "Phụ cấp trách nhiệm", pay_mode: "by_workdays", insurable: true },
+  { name: "Phụ cấp chức vụ", pay_mode: "by_workdays", insurable: true },
+  { name: "Phụ cấp nhà ở", pay_mode: "by_workdays" },
+  { name: "Thưởng chuyên cần", kind: "bonus", pay_mode: "conditional" },
+];
+type CompItemRow = { compensation_id: string; item_id: string; amount: number; pay_items: { name: string; sort_order: number } | null };
+const version = (c: CompRow, items: Map<string, CompensationItem[]>): CompensationVersion => ({
   baseSalary: Number(c.base_salary), insuranceSalary: c.insurance_salary === null ? null : Number(c.insurance_salary), allowance: Number(c.allowance ?? 0),
-  employmentType: c.employment_type, effectiveFrom: c.effective_from, note: c.note, createdAt: c.created_at,
+  items: items.get(c.id) ?? [], employmentType: c.employment_type, effectiveFrom: c.effective_from, note: c.note, createdAt: c.created_at,
 });
 const dependent = (d: DepRow): EmployeeDependent => ({ id: d.id, fullName: d.full_name, relation: d.relation, birthDate: d.birth_date, taxCode: d.tax_code, fromMonth: d.from_month, toMonth: d.to_month });
 const activeIn = (d: { from_month: string; to_month: string | null }, month: string) => d.from_month <= month && (!d.to_month || d.to_month >= month);
@@ -46,6 +65,108 @@ const taxField = (b: Body, k: string) => {
 export class PayrollInputs {
   constructor(private readonly timesheets: TimesheetService) {}
 
+  /* Khoản của các phiên bản lương, theo thứ tự danh mục */
+  private async compItems(ctx: AdminContext, compIds: string[]) {
+    const map = new Map<string, CompensationItem[]>();
+    if (!compIds.length) return map;
+    const { data, error } = await ctx.db.from("employee_compensation_items").select("compensation_id, item_id, amount, pay_items(name, sort_order)").eq("tenant_id", ctx.tenantId).in("compensation_id", compIds);
+    if (error) throw error;
+    const rows = ((data ?? []) as unknown as CompItemRow[]).sort((a, b) => (a.pay_items?.sort_order ?? 0) - (b.pay_items?.sort_order ?? 0) || (a.pay_items?.name ?? "").localeCompare(b.pay_items?.name ?? "", "vi"));
+    for (const r of rows) {
+      const list = map.get(r.compensation_id) ?? [];
+      list.push({ itemId: r.item_id, name: r.pay_items?.name ?? "—", amount: Number(r.amount) });
+      map.set(r.compensation_id, list);
+    }
+    return map;
+  }
+
+  /* ---------- Danh mục khoản thu nhập của doanh nghiệp ---------- */
+  async payItems(ctx: AdminContext): Promise<PayItemList> {
+    ctx.require("compensation.read");
+    const { data, error } = await ctx.db.from("pay_items").select(ITEM_COLS).eq("tenant_id", ctx.tenantId).order("sort_order").order("name");
+    if (error) throw error;
+    const items = ((data ?? []) as ItemRow[]).map(payItem).sort((a, b) => Number(a.archived) - Number(b.archived));
+    return { items, canManage: ctx.tenantWide("compensation.manage") };
+  }
+
+  private itemFields(b: Body) {
+    const name = nullableText(b, "name", 80);
+    if (!name) throw invalid("Nhập tên khoản (ví dụ: Phụ cấp ăn trưa).");
+    const taxMode = oneOf(b, "taxMode", TAXES)!;
+    const cap = taxMode === "partial" ? number(b, "taxFreeCap", 1, 10_000_000_000, { integer: true, optional: true }) ?? null : null;
+    return {
+      name, kind: oneOf(b, "kind", ["allowance", "bonus"] as const)!, pay_mode: oneOf(b, "payMode", MODES)!,
+      insurable: b?.insurable === true, tax_mode: taxMode, tax_free_cap: cap,
+      default_amount: number(b, "defaultAmount", 1, 10_000_000_000, { integer: true, optional: true }) ?? null,
+      sort_order: number(b, "sortOrder", 0, 1000, { integer: true, optional: true }) ?? 0, note: nullableText(b, "note", 200) ?? null,
+    };
+  }
+
+  private nameTaken(e: { code?: string } | null, name: string) {
+    if (e?.code === "23505") return conflict(`Đã có khoản "${name}". Đặt tên khác.`);
+    return e;
+  }
+
+  async createPayItem(ctx: AdminContext, b: Body): Promise<PayItemList> {
+    ctx.requireTenantWide("compensation.manage");
+    const f = this.itemFields(b);
+    if (b?.sortOrder === undefined) {
+      const { data } = await ctx.db.from("pay_items").select("sort_order").eq("tenant_id", ctx.tenantId).order("sort_order", { ascending: false }).limit(1).maybeSingle();
+      f.sort_order = Math.min(1000, ((data as { sort_order: number } | null)?.sort_order ?? 0) + 10);
+    }
+    const { data, error } = await ctx.db.from("pay_items").insert({ tenant_id: ctx.tenantId, ...f, created_by: ctx.userId }).select("id").single();
+    if (error) throw this.nameTaken(error, f.name);
+    await ctx.audit("pay_item.created", "pay_item", (data as { id: string }).id, null, { name: f.name, pay_mode: f.pay_mode, insurable: f.insurable, tax_mode: f.tax_mode });
+    return this.payItems(ctx);
+  }
+
+  private async ownItem(ctx: AdminContext, id: string) {
+    ctx.requireTenantWide("compensation.manage");
+    if (!/^[0-9a-f-]{36}$/i.test(id)) throw notFound("khoản");
+    const { data } = await ctx.db.from("pay_items").select(ITEM_COLS).eq("tenant_id", ctx.tenantId).eq("id", id).maybeSingle();
+    if (!data) throw notFound("khoản");
+    return data as ItemRow;
+  }
+
+  async updatePayItem(ctx: AdminContext, id: string, b: Body): Promise<PayItemList> {
+    const before = await this.ownItem(ctx, id);
+    const f = this.itemFields(b);
+    const { error } = await ctx.db.from("pay_items").update({ ...f, updated_at: new Date().toISOString() }).eq("id", id);
+    if (error) throw this.nameTaken(error, f.name);
+    await ctx.audit("pay_item.changed", "pay_item", id, { name: before.name, pay_mode: before.pay_mode, insurable: before.insurable, tax_mode: before.tax_mode },
+      { name: f.name, pay_mode: f.pay_mode, insurable: f.insurable, tax_mode: f.tax_mode });
+    return this.payItems(ctx);
+  }
+
+  /* Ngừng dùng (không xóa: phiên bản lương cũ vẫn trỏ tới) / dùng lại */
+  async archivePayItem(ctx: AdminContext, id: string, b: Body): Promise<PayItemList> {
+    const before = await this.ownItem(ctx, id);
+    const archive = b?.archived !== false;
+    const { error } = await ctx.db.from("pay_items").update({ archived_at: archive ? new Date().toISOString() : null, updated_at: new Date().toISOString() }).eq("id", id);
+    if (error) throw this.nameTaken(error, before.name);
+    await ctx.audit(archive ? "pay_item.archived" : "pay_item.restored", "pay_item", id, null, { name: before.name });
+    return this.payItems(ctx);
+  }
+
+  /* Thêm các khoản mẫu chưa có (theo tên) */
+  async addPayItemTemplates(ctx: AdminContext): Promise<PayItemList> {
+    ctx.requireTenantWide("compensation.manage");
+    const { data } = await ctx.db.from("pay_items").select("name, sort_order").eq("tenant_id", ctx.tenantId).is("archived_at", null);
+    const have = new Set(((data ?? []) as Array<{ name: string }>).map((x) => x.name.trim().toLowerCase()));
+    let order = Math.max(0, ...((data ?? []) as Array<{ sort_order: number }>).map((x) => x.sort_order));
+    const add = TEMPLATES.filter((t) => !have.has(t.name.toLowerCase())).map((t) => ({
+      /* Đủ mọi cột: chèn nhiều dòng qua PostgREST thì cột thiếu ở một dòng thành null */
+      tenant_id: ctx.tenantId, created_by: ctx.userId, sort_order: Math.min(1000, (order += 10)), name: t.name, kind: t.kind ?? "allowance",
+      pay_mode: t.pay_mode ?? "by_workdays", insurable: t.insurable ?? false, tax_mode: t.tax_mode ?? "taxable",
+    }));
+    if (add.length) {
+      const { error } = await ctx.db.from("pay_items").insert(add);
+      if (error) throw error;
+      await ctx.audit("pay_item.templates_added", "tenant", ctx.tenantId, null, { names: add.map((x) => x.name) });
+    }
+    return this.payItems(ctx);
+  }
+
   /* ---------- A. Mục Lương trong hồ sơ nhân viên ---------- */
   async pay(ctx: AdminContext, employeeId: string, audit = true): Promise<EmployeePay> {
     await ctx.requireEmployee("compensation.read", employeeId);
@@ -59,7 +180,8 @@ export class PayrollInputs {
     ]);
     if (error ?? cErr ?? dErr ?? tErr) throw error ?? cErr ?? dErr ?? tErr;
     if (!emp) throw notFound("nhân viên");
-    const history = ((comps ?? []) as CompRow[]).map(version);
+    const items = await this.compItems(ctx, ((comps ?? []) as CompRow[]).map((c) => c.id));
+    const history = ((comps ?? []) as CompRow[]).map((c) => version(c, items));
     const t = tax as { tax_code: string | null; union_member: boolean } | null;
     const month = clock.today.slice(0, 7);
     /* Ghi vào loại tài nguyên riêng để lượt xem không lấn "Lịch sử thay đổi" của hồ sơ */
@@ -79,14 +201,22 @@ export class PayrollInputs {
     await ctx.requireEmployee("compensation.manage", employeeId);
     const base = number(b, "baseSalary", 1_000_000, 10_000_000_000, { integer: true })!;
     const insurance = number(b, "insuranceSalary", 1_000_000, 10_000_000_000, { integer: true, optional: true }) ?? null;
-    const allowance = number(b, "allowance", 0, 10_000_000_000, { integer: true, optional: true }) ?? 0;
+    const raw = b?.items ?? [];
+    if (!Array.isArray(raw) || raw.length > 30) throw invalid("items phải là danh sách khoản (tối đa 30).");
+    const items = raw.map((x: unknown, i) => {
+      const o = (x ?? {}) as Body;
+      if (typeof o.itemId !== "string" || !/^[0-9a-f-]{36}$/i.test(o.itemId)) throw invalid(`items[${i}].itemId không hợp lệ.`);
+      return { itemId: o.itemId, amount: number(o, "amount", 1, 10_000_000_000, { integer: true })! };
+    }).filter((x) => x.amount > 0);
+    if (new Set(items.map((x) => x.itemId)).size !== items.length) throw invalid("Mỗi khoản chỉ nhập một lần.");
     const type = b?.employmentType === null || b?.employmentType === "" ? null : oneOf(b, "employmentType", EMPLOYMENT, true) ?? null;
     const from = date(b, "effectiveFrom")!;
     const note = nullableText(b, "note", 200) ?? null;
-    const { error } = await ctx.db.from("employee_compensations").insert({
-      tenant_id: ctx.tenantId, employee_id: employeeId, base_salary: base, insurance_salary: insurance, allowance, employment_type: type, effective_from: from, note, created_by: ctx.userId,
+    const { error } = await ctx.db.rpc("add_employee_compensation", {
+      p_tenant: ctx.tenantId, p_employee: employeeId, p_base: base, p_insurance: insurance, p_type: type, p_from: from, p_note: note, p_by: ctx.userId, p_items: items,
     });
     if (error?.code === "23505") throw conflict(`Đã có mức lương hiệu lực từ ${from}. Chọn ngày khác.`);
+    if (error?.message?.includes("PAY_ITEM_NOT_FOUND")) throw invalid("Có khoản không còn trong danh mục (đã ngừng dùng). Tải lại trang rồi nhập lại.");
     if (error) throw error;
     /* Không ghi số tiền vào nhật ký: người xem nhật ký hồ sơ có thể không có quyền xem lương */
     await ctx.audit("compensation.changed", "employee", employeeId, null, { effective_from: from, ...(type ? { employment_type: type } : {}) }, note);
@@ -206,6 +336,7 @@ export class PayrollInputs {
       if (!place.has(a.employee_id) && (!a.effective_to || a.effective_to >= p.start)) place.set(a.employee_id, { department: a.departments?.name ?? null, position: a.positions?.name ?? null });
     }
     const banks = await this.banks(ctx, eids);
+    const citems = await this.compItems(ctx, ((comps ?? []) as CompRow[]).map((c) => c.id));
     return emps.map((e) => {
       const sheet = sheets.sheets.get(e.id)!;
       const days = sheet.days as TimesheetDay[];
@@ -218,7 +349,7 @@ export class PayrollInputs {
         const v = [...versions].reverse().find((x) => x.effective_from <= s) ?? null;
         return {
           from: s, to: end, baseSalary: v ? Number(v.base_salary) : null, insuranceSalary: v?.insurance_salary == null ? null : Number(v.insurance_salary),
-          allowance: Number(v?.allowance ?? 0), employmentType: v?.employment_type ?? e.employment_type,
+          allowance: Number(v?.allowance ?? 0), items: v ? citems.get(v.id) ?? [] : [], employmentType: v?.employment_type ?? e.employment_type,
           credited: days.filter((d) => d.date >= s && d.date <= end).reduce((n, d) => n + d.credit, 0),
         };
       });
@@ -236,7 +367,7 @@ export class PayrollInputs {
       if (!banks.has(e.id)) warnings.push("Chưa có tài khoản ngân hàng");
       return {
         employee: { id: e.id, code: e.employee_code, fullName: e.full_name, department: place.get(e.id)?.department ?? null, position: place.get(e.id)?.position ?? null, email: e.work_email, hireDate: e.hire_date, terminationDate: e.termination_date },
-        employmentType: last.employmentType, baseSalary: last.baseSalary, insuranceSalary: last.insuranceSalary, allowance: last.allowance, segments,
+        employmentType: last.employmentType, baseSalary: last.baseSalary, insuranceSalary: last.insuranceSalary, allowance: last.allowance, items: last.items ?? [], segments,
         standard: s.standard, credited: s.credited, paidLeaveDays: leave(true), unpaidLeaveDays: leave(false), holidays: days.filter((d) => d.kind === "holiday").length,
         lateMinutes: s.lateMinutes, missingDays: s.missingDays, overtime,
         dependents: ((deps ?? []) as DepRow[]).filter((d) => d.employee_id === e.id && activeIn(d, month)).length,
@@ -300,15 +431,24 @@ export class PayrollInputs {
     const s = await this.sheet(ctx, m, source);
     const esc = (v: unknown) => { const x = String(v ?? ""); return /[",\n;]/.test(x) ? `"${x.replace(/"/g, '""')}"` : x; };
     const rates = [...new Set(s.rows.flatMap((r) => Object.keys(r.overtime)))].sort((a, b) => Number(a) - Number(b));
+    const cols = itemColumns(s.rows);
     const typeName: Record<EmploymentType, string> = { probation: "Thử việc", official: "Chính thức", contractor: "Cộng tác viên", intern: "Thực tập" };
-    const head = ["Mã NV", "Họ tên", "Phòng ban", "Chức danh", "Email", "Ngày vào làm", "Ngày nghỉ việc", "Tình trạng", "Lương cơ bản", "Lương đóng BH", "Phụ cấp",
+    const head = ["Mã NV", "Họ tên", "Phòng ban", "Chức danh", "Email", "Ngày vào làm", "Ngày nghỉ việc", "Tình trạng", "Lương cứng", "Lương cơ bản", "Lương đóng BH", ...cols.map((c) => c.name), "Tổng phụ cấp",
       "Công chuẩn", "Công thực tế", "Nghỉ phép có lương", "Nghỉ không lương", "Ngày lễ", ...rates.map((r) => `Giờ OT ${r}%`), "Số người phụ thuộc", "Mã số thuế",
       "Đoàn viên công đoàn", "Tạm ứng đã chi", "Ngân hàng", "Số tài khoản", "Chủ tài khoản", "Đổi trong kỳ", "Cảnh báo"];
     const lines = s.rows.map((r) => [r.employee.code, r.employee.fullName, r.employee.department, r.employee.position, r.employee.email, r.employee.hireDate, r.employee.terminationDate,
-      typeName[r.employmentType], r.baseSalary, r.insuranceSalary ?? r.baseSalary, r.allowance, r.standard, r.credited, r.paidLeaveDays, r.unpaidLeaveDays, r.holidays,
+      typeName[r.employmentType], r.baseSalary === null ? "" : r.baseSalary + r.allowance, r.baseSalary, r.insuranceSalary ?? r.baseSalary,
+      ...cols.map((c) => r.items?.find((x) => x.itemId === c.id)?.amount ?? ""), r.allowance, r.standard, r.credited, r.paidLeaveDays, r.unpaidLeaveDays, r.holidays,
       ...rates.map((x) => (r.overtime[x] ?? 0) / 60), r.dependents, r.taxCode, r.unionMember ? "Có" : "Không", r.advance, r.bank?.bankName, r.bank ? r.bank.accountNo ?? `•••• ${r.bank.last4}` : "", r.bank?.holder,
       r.segments.length > 1 ? r.segments.map((g) => `${g.from}→${g.to}: ${g.baseSalary ?? "—"} · ${typeName[g.employmentType]} · ${g.credited} công`).join(" | ") : "", r.warnings.join("; ")].map(esc).join(","));
     await ctx.audit("payroll_input.exported", "tenant", ctx.tenantId, null, { month: s.month, source: s.source, rows: s.rows.length });
     return { filename: `bang-luong-dau-vao-${s.month}${s.source === "live" ? "-tam" : ""}.csv`, body: "﻿" + [head.join(","), ...lines].join("\r\n") + "\r\n" };
   }
+}
+
+/* Cột khoản theo thứ tự xuất hiện (danh mục đã sắp), dùng cho bảng và file xuất; bản chốt cũ không có items thì không có cột */
+export function itemColumns(rows: Array<{ items?: CompensationItem[] }>) {
+  const seen = new Map<string, string>();
+  for (const r of rows) for (const x of r.items ?? []) if (!seen.has(x.itemId)) seen.set(x.itemId, x.name);
+  return [...seen].map(([id, name]) => ({ id, name }));
 }

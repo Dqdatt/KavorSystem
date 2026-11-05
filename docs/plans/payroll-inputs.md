@@ -24,6 +24,22 @@
 - **Xuất Excel** = CSV UTF-8 có BOM (giống bảng công), cột OT theo từng hệ số có trong kỳ. Audit `payroll_input.viewed/finalized/exported`,
   `compensation.viewed` (loại tài nguyên `employee_pay` để không lấn lịch sử hồ sơ) — không ghi số tiền.
 
+## Bổ sung 05/11: danh mục khoản phụ cấp theo doanh nghiệp + lương cứng
+
+Người dùng (theo HR thực tế): "lương cứng" (thỏa thuận lúc phỏng vấn, ví dụ 15tr) = lương cơ bản (đóng BH) + các khoản phụ cấp/thưởng;
+mỗi công ty tách khoản khác nhau → tự khai trong doanh nghiệp, **số tiền do công ty tự điền**. Tạm ứng tính trên lương cứng.
+
+- `pay_items` (migration `202611190001_pay_items.sql`): tên, loại (phụ cấp/thưởng), cách trả (chia theo công / cố định / có điều kiện),
+  tính đóng BH, thuế (chịu / không chịu / miễn đến mức công ty nhập), mức mặc định (công ty nhập, chỉ để điền sẵn). Sửa được (nhật ký
+  `pay_item.*`), ngừng dùng thay cho xóa. Quản lý bằng `compensation.manage` toàn công ty. Mẫu phổ biến (7 khoản) chỉ có tên + cách tính gợi ý.
+- `employee_compensation_items`: số tiền từng khoản của phiên bản lương (bất biến); `allowance` = tổng (ghi bằng `add_employee_compensation`
+  nguyên khối). Dữ liệu phụ cấp một con số cũ được chuyển thành khoản "Phụ cấp khác".
+- Lương cứng = `base_salary + allowance`: hiện ở hồ sơ, tab Mức lương, bảng lương đầu vào, file Excel (cột từng khoản). Hạn mức tạm ứng
+  = % lương cứng (`MyAdvance.fixedSalary`; app hiện "Lương cứng").
+- **Lệch với ADR 0001 (chờ review):** mức miễn thuế là luật nhà nước nhưng hiện công ty tự nhập (Kavor chưa có bảng tham số luật);
+  giai đoạn C nên thay bằng tham số Kavor duy trì theo ngày hiệu lực. Danh mục khoản chưa có phiên bản theo ngày hiệu lực (sửa áp dụng
+  cho cả kỳ chưa chốt); điều kiện của khoản "có điều kiện" chưa mô tả được.
+
 ## Đã làm
 
 API `apps/api/src/payroll/inputs.service.ts`; web: mục **Lương** trong hồ sơ nhân viên (`employees/pay.tsx`), tab **Bảng lương đầu vào**
@@ -34,6 +50,5 @@ smoke `tools/payroll-inputs-smoke.sh` 31 bước.
 
 - Giai đoạn C: Kavor tự tính lương chi tiết (BHXH/BHYT/BHTN có trần, thuế TNCN lũy tiến/khấu trừ 10%, đoàn phí, thực nhận) — cần mẫu bảng
   tính của Kế toán, quy tắc công chuẩn, lương đóng BH, phụ cấp không chịu thuế; tham số luật Kavor duy trì theo ngày hiệu lực.
-- Nhiều khoản phụ cấp riêng (ăn trưa, điện thoại…) — hiện một con số tổng.
 - Kế toán nhận thông báo khi HCNS chốt; nhân viên xem MST/người phụ thuộc của mình trên app; nhập lương/người phụ thuộc hàng loạt từ file.
 - Chưa build/thử trên bản online (cần chạy migration trên cloud trước khi push API).

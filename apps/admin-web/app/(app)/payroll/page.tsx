@@ -7,9 +7,10 @@ import { can, useMe } from "../../_ui/kit";
 import { Advances, Salary } from "./advances";
 import { Cycles } from "./cycles";
 import { Inputs } from "./inputs";
+import { PayItems } from "./pay-items";
 
-type Tab = "cycles" | "inputs" | "advances" | "salary";
-const TABS: Array<[Tab, string, string]> = [["inputs", "Bảng lương đầu vào", "compensation.read"], ["cycles", "Kỳ lương", "payroll.read"], ["advances", "Tạm ứng", "salary_advance.process"], ["salary", "Lương cơ bản", "compensation.read"]];
+type Tab = "cycles" | "inputs" | "advances" | "salary" | "items";
+const TABS: Array<[Tab, string, string]> = [["inputs", "Bảng lương đầu vào", "compensation.read"], ["cycles", "Kỳ lương", "payroll.read"], ["advances", "Tạm ứng", "salary_advance.process"], ["salary", "Mức lương", "compensation.read"], ["items", "Khoản phụ cấp", "compensation.read"]];
 
 function PayrollPage() {
   const me = useMe();
@@ -22,10 +23,11 @@ function PayrollPage() {
   ) : null;
   if (tab === "cycles") return <section className="page active"><Cycles tabs={switcher} /></section>;
   if (tab === "inputs") return <section className="page active"><Inputs tabs={switcher} /></section>;
+  if (tab === "items") return <section className="page active"><PayItems tabs={switcher} /></section>;
   return (
     <section className="page active">
       <div className="page-head">
-        <div><p>{tab === "salary" ? "Mức lương từng người (HCNS và Kế toán xem). Đổi lương là phiên bản mới từ ngày hiệu lực; sửa đủ thông tin lương ở hồ sơ nhân viên." : "Duyệt bước Kế toán và xác nhận đã chi; khoản ứng trừ vào lương của tháng ứng."}</p></div>
+        <div><p>{tab === "salary" ? "Mức lương từng người (HCNS và Kế toán xem): lương cứng = lương cơ bản + các khoản phụ cấp. Đổi lương là phiên bản mới từ ngày hiệu lực; người phụ thuộc, MST sửa ở hồ sơ nhân viên." : "Duyệt bước Kế toán và xác nhận đã chi; khoản ứng trừ vào lương của tháng ứng."}</p></div>
         <div className="head-actions">{switcher}</div>
       </div>
       {tab === "salary" ? <Salary /> : tab === "advances" ? <Advances /> : null}

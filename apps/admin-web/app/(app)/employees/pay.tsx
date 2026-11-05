@@ -1,9 +1,10 @@
 "use client";
 /* Mục "Lương" trong hồ sơ nhân viên (thiết kế bổ sung, prototype HR chưa có): dữ liệu lương đầu vào HCNS quản lý cho bảng lương.
    Chỉ người có compensation.read thấy (Nhân sự vận hành, Quản trị viên công ty, Kế toán); quản lý trực tiếp không thấy.
-   Mức lương là phiên bản theo ngày hiệu lực (không sửa bản cũ); người phụ thuộc tính giảm trừ theo tháng bắt đầu/kết thúc. */
+   Mức lương là phiên bản theo ngày hiệu lực (không sửa bản cũ); người phụ thuộc tính giảm trừ theo tháng bắt đầu/kết thúc.
+   Lương cứng (thỏa thuận lúc phỏng vấn) = lương cơ bản (đóng BH) + các khoản phụ cấp/thưởng trong danh mục của công ty. */
 import { useState } from "react";
-import type { CompensationInput, CompensationVersion, DependentInput, EmployeeDependent, EmployeePay, EmploymentType } from "@kavor/contracts";
+import type { CompensationInput, CompensationVersion, DependentInput, EmployeeDependent, EmployeePay, EmploymentType, PayItemList } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
 import { EMPLOYMENT, ErrorLine, Field, Modal, fmtDate, fmtDateTime, tenantToday, useAction, useMe } from "../../_ui/kit";
 import { ReasonModal } from "../../_ui/reason-modal";
@@ -29,9 +30,11 @@ export function EmployeePaySection({ employeeId, name }: { employeeId: string; n
       {error ? <p className="text-red" style={{ fontSize: 12.5 }}>{error.message}</p> : !p ? <SkeletonLines lines={4} /> : (
         <>
           <div className="card detail-list">
-            <div className="detail-row"><span>Lương cơ bản</span><b>{c ? <>{money(c.baseSalary)} <span className="muted">· từ {fmtDate(c.effectiveFrom)}</span></> : <span className="text-red">Chưa nhập</span>}</b></div>
+            <div className="detail-row"><span>Lương cứng</span><b>{c ? <>{money(c.baseSalary + c.allowance)} <span className="muted">· từ {fmtDate(c.effectiveFrom)}</span></> : <span className="text-red">Chưa nhập</span>}</b></div>
+            <div className="detail-row"><span>Lương cơ bản</span><b>{c ? money(c.baseSalary) : "—"}</b></div>
+            {c?.items.map((x) => <div key={x.itemId} className="detail-row"><span>{x.name}</span><b>{money(x.amount)}</b></div>)}
+            {c && !c.items.length && c.allowance ? <div className="detail-row"><span>Phụ cấp</span><b>{money(c.allowance)}</b></div> : null}
             <div className="detail-row"><span>Lương đóng bảo hiểm</span><b>{c ? (c.insuranceSalary ? money(c.insuranceSalary) : "Bằng lương cơ bản") : "—"}</b></div>
-            <div className="detail-row"><span>Phụ cấp cố định</span><b>{c ? (c.allowance ? money(c.allowance) : "Không") : "—"}</b></div>
             <div className="detail-row"><span>Tình trạng lao động</span><b>{type(c)}</b></div>
             <div className="detail-row"><span>Mã số thuế cá nhân</span><b>{p.taxCode ?? <span className="muted">Chưa có</span>}</b></div>
             <div className="detail-row"><span>Đoàn viên công đoàn</span><b>{p.unionMember ? "Có" : "Không"}</b></div>
@@ -62,7 +65,7 @@ export function EmployeePaySection({ employeeId, name }: { employeeId: string; n
           {p.history.length > 1 && all ? (
             <div style={{ marginTop: 10 }}>
               <ul className="version-list">{p.history.map((h) => (
-                <li key={h.effectiveFrom}>Từ {fmtDate(h.effectiveFrom)} · {money(h.baseSalary)}{h.insuranceSalary ? ` · đóng BH ${money(h.insuranceSalary)}` : ""}{h.allowance ? ` · phụ cấp ${money(h.allowance)}` : ""}
+                <li key={h.effectiveFrom}>Từ {fmtDate(h.effectiveFrom)} · lương cứng {money(h.baseSalary + h.allowance)} (cơ bản {money(h.baseSalary)}{h.items.length ? h.items.map((x) => ` + ${x.name.toLowerCase()} ${money(x.amount)}`).join("") : h.allowance ? ` + phụ cấp ${money(h.allowance)}` : ""}){h.insuranceSalary ? ` · đóng BH ${money(h.insuranceSalary)}` : ""}
                   {h.employmentType ? ` · ${EMPLOYMENT[h.employmentType]}` : ""}{h.note ? ` — ${h.note}` : ""} <span className="muted">(nhập {fmtDateTime(h.createdAt, me.tenant.timezone)})</span></li>
               ))}</ul>
             </div>
@@ -80,42 +83,74 @@ export function EmployeePaySection({ employeeId, name }: { employeeId: string; n
   );
 }
 
-/* Dùng chung cho hồ sơ nhân viên và tab Lương cơ bản: mỗi lần lưu là một phiên bản mới từ ngày hiệu lực */
+/* Tab Mức lương: danh sách tổng quan không kèm khoản phụ cấp → đọc bản hiện hành từ hồ sơ rồi mở form */
+export function CompensationEditor({ employeeId, title, onClose, save }: { employeeId: string; title: string; onClose: () => void; save: (b: CompensationInput) => Promise<unknown> }) {
+  const { data: p, error } = useApi<EmployeePay>(`employees/${employeeId}/pay`);
+  if (error) return <Modal title={title} onClose={onClose}><p className="text-red">{error.message}</p></Modal>;
+  if (!p) return <Modal title={title} onClose={onClose}><SkeletonLines lines={5} /></Modal>;
+  return <CompensationModal title={title} current={p.current} fallbackType={p.employmentType} onClose={onClose} save={save} />;
+}
+
+/* Dùng chung cho hồ sơ nhân viên và tab Mức lương: mỗi lần lưu là một phiên bản mới từ ngày hiệu lực.
+   HR nhập lương cơ bản + số tiền từng khoản (danh mục của công ty) → Kavor cộng ra lương cứng để đối chiếu con số đã thỏa thuận. */
 export function CompensationModal({ title, current, fallbackType, onClose, save }: {
   title: string; current: CompensationVersion | null; fallbackType?: EmploymentType; onClose: () => void; save: (b: CompensationInput) => Promise<unknown>;
 }) {
   const me = useMe();
+  const { data: cat, error: catErr } = useApi<PayItemList>("payroll/pay-items");
   const [base, setBase] = useState(current ? String(current.baseSalary) : "");
   const [ins, setIns] = useState(current?.insuranceSalary ? String(current.insuranceSalary) : "");
-  const [allow, setAllow] = useState(current?.allowance ? String(current.allowance) : "");
+  /* Số tiền theo id khoản; chưa có bản lương thì điền sẵn mức mặc định của khoản */
+  const [amounts, setAmounts] = useState<Record<string, string> | null>(null);
   const [type, setType] = useState<string>(current?.employmentType ?? fallbackType ?? "");
   const [from, setFrom] = useState(tenantToday(me.tenant.timezone));
   const [note, setNote] = useState("");
   const [err, setErr] = useState<string | null>(null);
   const { busy, run } = useAction();
+  const active = (cat?.items ?? []).filter((x) => !x.archived);
+  const vals = amounts ?? Object.fromEntries(active.map((x) => {
+    const had = current?.items.find((i) => i.itemId === x.id)?.amount;
+    return [x.id, had ? String(had) : !current && x.defaultAmount ? String(x.defaultAmount) : ""];
+  }));
+  const dropped = (current?.items ?? []).filter((i) => !active.some((x) => x.id === i.itemId));
+  const legacy = current && !current.items.length && current.allowance > 0;
+  const total = Number(digits(base) || 0) + active.reduce((n, x) => n + Number(digits(vals[x.id] ?? "") || 0), 0);
   async function go() {
-    const n = Number(digits(base)), i = ins ? Number(digits(ins)) : null, a = allow ? Number(digits(allow)) : 0;
+    const n = Number(digits(base)), i = ins ? Number(digits(ins)) : null;
     if (!n || n < 1_000_000) { setErr("Nhập lương cơ bản (₫/tháng), tối thiểu 1.000.000."); return; }
     if (i !== null && i < 1_000_000) { setErr("Lương đóng bảo hiểm tối thiểu 1.000.000 (để trống nếu bằng lương cơ bản)."); return; }
     setErr(null);
-    await run("save", async () => { await save({ baseSalary: n, insuranceSalary: i, allowance: a, employmentType: (type || null) as EmploymentType | null, effectiveFrom: from, note: note.trim() || null }); onClose(); }, "Đã lưu mức lương");
+    const items = active.map((x) => ({ itemId: x.id, amount: Number(digits(vals[x.id] ?? "") || 0) })).filter((x) => x.amount > 0);
+    await run("save", async () => { await save({ baseSalary: n, insuranceSalary: i, items, employmentType: (type || null) as EmploymentType | null, effectiveFrom: from, note: note.trim() || null }); onClose(); }, "Đã lưu mức lương");
   }
   return (
     <Modal title={title} sub="Bản cũ giữ nguyên trong lịch sử. Đổi giữa kỳ (ví dụ thử việc → chính thức) thì bảng lương đầu vào tự tách hai đoạn." onClose={onClose}
-      foot={<><button className="btn" onClick={onClose}>Hủy</button><button className="btn primary" disabled={!!busy} onClick={() => void go()}>{busy ? "Đang lưu…" : "Lưu"}</button></>}>
+      foot={<><button className="btn" onClick={onClose}>Hủy</button><button className="btn primary" disabled={!!busy || !cat} onClick={() => void go()}>{busy ? "Đang lưu…" : "Lưu"}</button></>}>
       <div className="form-grid">
-        <Field label="Lương cơ bản (₫/tháng)"><input inputMode="numeric" value={moneyInput(base)} onChange={(e) => setBase(digits(e.target.value))} placeholder="15.000.000" /></Field>
+        <Field label="Lương cơ bản (₫/tháng)" hint="Mức ghi trong hợp đồng, dùng đóng BHXH"><input inputMode="numeric" value={moneyInput(base)} onChange={(e) => setBase(digits(e.target.value))} placeholder="5.000.000" /></Field>
         <Field label="Hiệu lực từ"><input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></Field>
+        {active.map((x) => (
+          <Field key={x.id} label={`${x.name} (₫/tháng)`}>
+            <input inputMode="numeric" value={moneyInput(vals[x.id] ?? "")} onChange={(e) => setAmounts({ ...vals, [x.id]: digits(e.target.value) })} placeholder={x.defaultAmount ? `Mặc định ${x.defaultAmount.toLocaleString("vi-VN")}` : "0"} />
+          </Field>
+        ))}
         <Field label="Lương đóng bảo hiểm (₫)" hint="Để trống nếu bằng lương cơ bản"><input inputMode="numeric" value={moneyInput(ins)} onChange={(e) => setIns(digits(e.target.value))} placeholder="Bằng lương cơ bản" /></Field>
-        <Field label="Phụ cấp cố định (₫/tháng)"><input inputMode="numeric" value={moneyInput(allow)} onChange={(e) => setAllow(digits(e.target.value))} placeholder="0" /></Field>
         <Field label="Tình trạng lao động">
           <Select value={type} onChange={(e) => setType(e.target.value)}>
             <option value="">Theo hồ sơ</option>
             {(Object.keys(EMPLOYMENT) as EmploymentType[]).map((k) => <option key={k} value={k}>{EMPLOYMENT[k]}</option>)}
           </Select>
         </Field>
-        <Field label="Ghi chú"><input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Ví dụ: Ký HĐ chính thức, phụ lục số …" /></Field>
+        <Field label="Ghi chú" full><input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Ví dụ: Ký HĐ chính thức, phụ lục số …" /></Field>
       </div>
+      {catErr ? <p className="text-red" style={{ fontSize: 12.5 }}>{catErr.message}</p> : cat && !active.length ? (
+        <div className="note-soft" style={{ marginTop: 10 }}>Công ty chưa khai khoản phụ cấp nào — nhập ở <b>Lương &amp; tạm ứng → Khoản phụ cấp</b>. Hiện chỉ lưu lương cơ bản.</div>
+      ) : null}
+      {dropped.length || legacy ? <div className="note-amber" style={{ marginTop: 10 }}>
+        {legacy ? `Bản hiện hành có phụ cấp ${money(current!.allowance)} nhập trước khi có danh mục — nhập lại vào khoản phù hợp. ` : ""}
+        {dropped.length ? `Khoản đã ngừng dùng không chuyển sang bản mới: ${dropped.map((x) => `${x.name} ${money(x.amount)}`).join(", ")}.` : ""}
+      </div> : null}
+      <div className="detail-row" style={{ marginTop: 12, fontSize: 14 }}><span>Lương cứng (cơ bản + phụ cấp)</span><b>{total ? money(total) : "—"}</b></div>
       <ErrorLine text={err} />
     </Modal>
   );

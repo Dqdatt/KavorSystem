@@ -121,7 +121,7 @@ function remoteAdvanceSpec(): ScreenSpec {
     <View key="top" style={{ paddingTop: 8 }}>
       <Cap>{d ? `Hạn mức tạm ứng tháng ${Number(d.month.slice(5))}` : "Hạn mức tạm ứng"}</Cap>
       <Amt muted={!!el}>{el || !d ? "0 ₫" : money(d.limit)}</Amt>
-      {p ? <View style={{ alignItems: "center", marginTop: 4 }}><LinkBtn onPress={ACT.advExplain}>{`${p.maxPercent}% × lương cơ bản · cách tính`}</LinkBtn></View> : null}
+      {p ? <View style={{ alignItems: "center", marginTop: 4 }}><LinkBtn onPress={ACT.advExplain}>{`${p.maxPercent}% × lương cứng · cách tính`}</LinkBtn></View> : null}
     </View>,
   ];
   if (el) top.push(<Note key="el" icon="lock"><T style={{ fontSize: 13, color: C.ink2 }}><T style={{ fontSize: 13, fontFamily: F.bold, color: C.ink }}>{el[0]}</T>{"\n"}{el[1]}</T></Note>);

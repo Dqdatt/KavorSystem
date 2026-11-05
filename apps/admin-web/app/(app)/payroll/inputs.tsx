@@ -27,6 +27,13 @@ export function Inputs({ tabs }: { tabs: ReactNode }) {
   const rows = useMemo(() => (s?.rows ?? []).filter((r) => (!warnOnly || r.warnings.length)
     && (!q.trim() || `${r.employee.fullName} ${r.employee.code} ${r.employee.department ?? ""}`.toLowerCase().includes(q.trim().toLowerCase()))), [s, q, warnOnly]);
   const rates = useMemo(() => [...new Set((s?.rows ?? []).flatMap((r) => Object.keys(r.overtime)))].sort((a, b) => Number(a) - Number(b)), [s]);
+  /* Cột từng khoản phụ cấp (theo danh mục công ty); bản chốt cũ chỉ có tổng phụ cấp */
+  const cols = useMemo(() => {
+    const seen = new Map<string, string>();
+    for (const r of s?.rows ?? []) for (const x of r.items ?? []) if (!seen.has(x.itemId)) seen.set(x.itemId, x.name);
+    return [...seen].map(([id, name]) => ({ id, name }));
+  }, [s]);
+  const lumpSum = (s?.rows ?? []).some((r) => !r.items && r.allowance > 0);
   const exportHref = s ? `/api/payroll/inputs/export?month=${s.month}${s.source === "live" ? "&source=live" : ""}` : "#";
   return (
     <>
@@ -63,11 +70,11 @@ export function Inputs({ tabs }: { tabs: ReactNode }) {
         </div>
         {s && !rows.length ? <Empty title="Không có nhân viên phù hợp" /> : (
           <div className="table-wrap"><table className="data-table" style={{ minWidth: 1180 }}><thead><tr>
-            <th>Nhân viên</th><th>Tình trạng</th><th>Lương cơ bản</th><th>Đóng BH</th><th>Phụ cấp</th><th>Công</th><th>Phép có lương</th><th>Không lương</th>
+            <th>Nhân viên</th><th>Tình trạng</th><th>Lương cứng</th><th>Lương cơ bản</th><th>Đóng BH</th>{cols.map((c) => <th key={c.id}>{c.name}</th>)}{lumpSum ? <th>Phụ cấp</th> : null}<th>Công</th><th>Phép có lương</th><th>Không lương</th>
             {rates.map((r) => <th key={r}>OT {r}%</th>)}<th>NPT</th><th>Tạm ứng</th><th>Cần rà soát</th>
           </tr></thead><tbody>
-            {!s && !error ? <SkeletonRows cols={11} rows={8} person /> : null}
-            {rows.map((r) => <Row key={r.employee.id} r={r} rates={rates} />)}
+            {!s && !error ? <SkeletonRows cols={12} rows={8} person /> : null}
+            {rows.map((r) => <Row key={r.employee.id} r={r} rates={rates} cols={cols} lumpSum={lumpSum} />)}
           </tbody></table></div>
         )}
       </article>
@@ -76,16 +83,18 @@ export function Inputs({ tabs }: { tabs: ReactNode }) {
   );
 }
 
-function Row({ r, rates }: { r: PayrollInputRow; rates: string[] }) {
+function Row({ r, rates, cols, lumpSum }: { r: PayrollInputRow; rates: string[]; cols: Array<{ id: string }>; lumpSum: boolean }) {
   return (
     <tr>
       <td><Person name={r.employee.fullName} seed={r.employee.code} sub={[r.employee.code, r.employee.department].filter(Boolean).join(" · ")} /></td>
       <td>{EMPLOYMENT[r.employmentType]}</td>
-      <td className="num">{r.baseSalary !== null ? <b>{money(r.baseSalary)}</b> : <span className="text-red">Chưa nhập</span>}
+      <td className="num">{r.baseSalary !== null ? <b>{money(r.baseSalary + r.allowance)}</b> : <span className="text-red">Chưa nhập</span>}
         {r.segments.length > 1 ? r.segments.map((g) => <div key={g.from} className="muted nowrap" style={{ fontSize: 10.5 }}>
-          {fmtDate(g.from).slice(0, 5)}–{fmtDate(g.to).slice(0, 5)}: {g.baseSalary !== null ? money(g.baseSalary) : "—"} · {EMPLOYMENT[g.employmentType]} · {num(g.credited)} công</div>) : null}</td>
+          {fmtDate(g.from).slice(0, 5)}–{fmtDate(g.to).slice(0, 5)}: {g.baseSalary !== null ? money(g.baseSalary + g.allowance) : "—"} · {EMPLOYMENT[g.employmentType]} · {num(g.credited)} công</div>) : null}</td>
+      <td className="num">{r.baseSalary !== null ? money(r.baseSalary) : "—"}</td>
       <td className="num">{r.insuranceSalary !== null ? money(r.insuranceSalary) : <span className="muted">= lương CB</span>}</td>
-      <td className="num">{r.allowance ? money(r.allowance) : "—"}</td>
+      {cols.map((c) => { const v = r.items?.find((x) => x.itemId === c.id)?.amount; return <td key={c.id} className="num">{v ? money(v) : "—"}</td>; })}
+      {lumpSum ? <td className="num">{!r.items && r.allowance ? money(r.allowance) : "—"}</td> : null}
       <td className="num">{num(r.credited)}/{num(r.standard)}</td>
       <td className="num">{num(r.paidLeaveDays)}</td>
       <td className="num">{num(r.unpaidLeaveDays)}</td>

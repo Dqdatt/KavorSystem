@@ -1,5 +1,5 @@
 /* Tạm ứng lương (PILOT_RULEBOOK §9; PERMISSION_MATRIX "Payroll"):
-   - Hạn mức = lương cơ bản hiện hành × % theo quy định tạm ứng (tra theo tầng), làm tròn xuống 10.000 ₫. Mỗi tháng một đơn,
+   - Hạn mức = lương cứng hiện hành (lương cơ bản + các khoản phụ cấp/thưởng cố định) × % theo quy định tạm ứng (tra theo tầng), làm tròn xuống 10.000 ₫. Mỗi tháng một đơn,
      nhận đơn đến hết ngày quy định; không áp dụng cho thử việc / đang báo trước nghỉ việc nếu quy định nói vậy.
    - Đơn tạm ứng qua luồng duyệt (mẫu Quản lý → HR khi trên 5 triệu → Kế toán); duyệt xong Kế toán xác nhận đã chi (ghi chú chuyển khoản),
      nhân viên nhận thông báo. Khấu trừ vào lương tháng ứng — module payroll đọc salary_advances đã chi.
@@ -34,10 +34,11 @@ export function advancePolicy(rule: ResolvedRule | undefined): AdvancePolicy | n
 export class AdvanceService {
   constructor(private readonly sb: SupabaseGateway, private readonly timesheets: TimesheetService, private readonly requests: RequestsService) {}
 
-  /* Lương cơ bản hiện hành (bản mới nhất đã hiệu lực) */
-  private async baseSalary(db: Db, empId: string, on: string): Promise<number | null> {
-    const { data } = await db.from("employee_compensations").select("base_salary").eq("employee_id", empId).lte("effective_from", on).order("effective_from", { ascending: false }).limit(1).maybeSingle();
-    return data ? Number((data as { base_salary: number }).base_salary) : null;
+  /* Lương cứng hiện hành = lương cơ bản + tổng phụ cấp của bản mới nhất đã hiệu lực */
+  private async baseSalary(db: Db, empId: string, on: string): Promise<{ base: number; fixed: number } | null> {
+    const { data } = await db.from("employee_compensations").select("base_salary, allowance").eq("employee_id", empId).lte("effective_from", on).order("effective_from", { ascending: false }).limit(1).maybeSingle();
+    const d = data as { base_salary: number; allowance: number } | null;
+    return d ? { base: Number(d.base_salary), fixed: Number(d.base_salary) + Number(d.allowance ?? 0) } : null;
   }
 
   /* Điều kiện + hạn mức của nhân viên hôm nay */
@@ -57,9 +58,9 @@ export class AdvanceService {
       : !policy.enabled ? ["Công ty chưa mở tạm ứng lương", "Liên hệ phòng Nhân sự nếu cần ứng lương."]
       : c.excludeProbation && e.employment_type === "probation" ? ["Chưa áp dụng cho nhân viên thử việc", "Bạn có thể tạm ứng sau khi ký hợp đồng chính thức."]
       : c.excludeNoticePeriod && e.status === "leaving" ? ["Không áp dụng trong thời gian báo trước nghỉ việc", "Lương cuối được thanh toán đủ theo quy trình nghỉ việc."]
-      : base == null ? ["Chưa có lương cơ bản trên Kavor", "Kế toán chưa nhập lương cơ bản của bạn nên chưa tính được hạn mức. Liên hệ phòng Kế toán."]
+      : base == null ? ["Chưa có mức lương trên Kavor", "Phòng Nhân sự chưa nhập mức lương của bạn nên chưa tính được hạn mức. Liên hệ phòng Nhân sự."]
       : null;
-    const limit = policy && base ? Math.floor((base * policy.maxPercent) / 100 / STEP) * STEP : 0;
+    const limit = policy && base ? Math.floor((base.fixed * policy.maxPercent) / 100 / STEP) * STEP : 0;
     /* Hạn nhận đơn: ngày quy định, tháng ngắn hơn thì ngày cuối tháng (31 = cuối tháng) */
     const lastDay = new Date(Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0)).getUTCDate();
     const deadline = policy ? `${month}-${String(Math.min(policy.deadlineDay, lastDay)).padStart(2, "0")}` : null;
@@ -89,7 +90,7 @@ export class AdvanceService {
       }
     }
     return {
-      today: st.clock.today, month: st.month, policy: st.policy, baseSalary: st.base, limit: st.limit, ineligible: st.ineligible, deadline: st.deadline, deadlinePassed: st.deadlinePassed,
+      today: st.clock.today, month: st.month, policy: st.policy, baseSalary: st.base?.base ?? null, fixedSalary: st.base?.fixed ?? null, limit: st.limit, ineligible: st.ineligible, deadline: st.deadline, deadlinePassed: st.deadlinePassed,
       current, history, approvers, hrOverAmount: wf?.steps.find((s) => s.resolver === "hr")?.amountOver ?? null,
     };
   }
@@ -103,7 +104,7 @@ export class AdvanceService {
     const amount = number(b, "amount", 1, 10_000_000_000, { integer: true })!;
     if (amount % STEP) throw invalid("Số tiền theo bước 10.000 ₫.");
     if (amount < policy.minAmount) throw invalid(`Tối thiểu ${vnd(policy.minAmount)}.`);
-    if (amount > st.limit) throw invalid(`Vượt hạn mức. Tối đa ${vnd(st.limit)} (${policy.maxPercent}% lương cơ bản).`);
+    if (amount > st.limit) throw invalid(`Vượt hạn mức. Tối đa ${vnd(st.limit)} (${policy.maxPercent}% lương cứng).`);
     const reason = nullableText(b, "reason", 500) ?? "";
 
     const wf = await this.requests.workflowFor(db, me.tenant_id, "salary_advance", st.clock.today);
@@ -199,8 +200,8 @@ export class AdvanceService {
       const cur = h.find((c) => c.effective_from <= today);
       return {
         employee: { id: e.id, code: e.employee_code, fullName: e.full_name, department: deps.get(e.id) || null },
-        baseSalary: cur ? Number(cur.base_salary) : null, effectiveFrom: cur?.effective_from ?? null,
-        history: h.map((c) => ({ baseSalary: Number(c.base_salary), insuranceSalary: c.insurance_salary === null ? null : Number(c.insurance_salary), allowance: Number(c.allowance ?? 0), employmentType: c.employment_type, effectiveFrom: c.effective_from, note: c.note, createdAt: c.created_at })),
+        baseSalary: cur ? Number(cur.base_salary) : null, fixedSalary: cur ? Number(cur.base_salary) + Number(cur.allowance ?? 0) : null, effectiveFrom: cur?.effective_from ?? null,
+        history: h.map((c) => ({ baseSalary: Number(c.base_salary), insuranceSalary: c.insurance_salary === null ? null : Number(c.insurance_salary), allowance: Number(c.allowance ?? 0), items: [], employmentType: c.employment_type, effectiveFrom: c.effective_from, note: c.note, createdAt: c.created_at })),
         bank: bank.has(e.id) ? bankView(bank.get(e.id)!, true) : null,
       };
     });
