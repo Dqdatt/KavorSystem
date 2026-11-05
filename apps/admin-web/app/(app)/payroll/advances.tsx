@@ -5,7 +5,8 @@
 import { useState } from "react";
 import type { AdvanceBoard, CompensationBoard, CompensationRow, RequestItem } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
-import { Empty, ErrorLine, Field, Icon, LoadError, Modal, Person, Status, fmtDate, fmtDateTime, tenantToday, useAction, useMe } from "../../_ui/kit";
+import { CompensationModal } from "../employees/pay";
+import { Empty, Field, Icon, LoadError, Modal, Person, Status, fmtDate, fmtDateTime, useAction, useMe } from "../../_ui/kit";
 import { REQUEST_STATUS, RequestModal, money } from "../../_ui/request";
 import { Select, SkeletonRows } from "@kavor/web-ui";
 
@@ -87,7 +88,6 @@ function PayModal({ r, onClose, onDone }: { r: RequestItem; onClose: () => void;
 }
 
 export function Salary() {
-  const me = useMe();
   const { data: b, error, reload, setData } = useApi<CompensationBoard>("compensations");
   const [edit, setEdit] = useState<CompensationRow | null>(null);
   const [q, setQ] = useState("");
@@ -115,32 +115,9 @@ export function Salary() {
           </tbody></table></div>
         )}
       </article>
-      {edit ? <SalaryModal r={edit} tz={me.tenant.timezone} onClose={() => setEdit(null)} onDone={setData} /> : null}
+      {edit ? <CompensationModal title={`${edit.baseSalary ? "Đổi" : "Nhập"} lương · ${edit.employee.fullName}`}
+        current={edit.history.find((h) => h.effectiveFrom === edit.effectiveFrom) ?? null} onClose={() => setEdit(null)}
+        save={async (body) => setData(await call<CompensationBoard>("POST", `compensations/${edit.employee.id}`, body))} /> : null}
     </>
-  );
-}
-
-function SalaryModal({ r, tz, onClose, onDone }: { r: CompensationRow; tz: string; onClose: () => void; onDone: (b: CompensationBoard) => void }) {
-  const [amount, setAmount] = useState(r.baseSalary ? String(r.baseSalary) : "");
-  const [from, setFrom] = useState(tenantToday(tz));
-  const [note, setNote] = useState("");
-  const [err, setErr] = useState<string | null>(null);
-  const { busy, run } = useAction();
-  async function save() {
-    const n = Number(amount.replace(/\D/g, ""));
-    if (!n || n < 1_000_000) { setErr("Nhập lương cơ bản (₫/tháng), tối thiểu 1.000.000."); return; }
-    setErr(null);
-    await run("save", async () => { onDone(await call<CompensationBoard>("POST", `compensations/${r.employee.id}`, { baseSalary: n, effectiveFrom: from, note: note.trim() || null })); onClose(); }, "Đã lưu lương cơ bản");
-  }
-  return (
-    <Modal title={`${r.baseSalary ? "Đổi" : "Nhập"} lương cơ bản · ${r.employee.fullName}`} sub="Bản cũ giữ nguyên trong lịch sử; tạm ứng tính theo bản đang hiệu lực." onClose={onClose}
-      foot={<><button className="btn" onClick={onClose}>Hủy</button><button className="btn primary" disabled={!!busy} onClick={() => void save()}>{busy ? "Đang lưu…" : "Lưu"}</button></>}>
-      <div className="form-grid">
-        <Field label="Lương cơ bản (₫/tháng)"><input inputMode="numeric" value={amount ? Number(amount.replace(/\D/g, "")).toLocaleString("vi-VN") : ""} onChange={(e) => setAmount(e.target.value.replace(/\D/g, ""))} placeholder="15.000.000" /></Field>
-        <Field label="Hiệu lực từ"><input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></Field>
-        <Field label="Ghi chú" full><input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Ví dụ: Tăng lương định kỳ, phụ lục HĐ số …" /></Field>
-      </div>
-      <ErrorLine text={err} />
-    </Modal>
   );
 }

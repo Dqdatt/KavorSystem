@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import type { AdminDevice, BulkInviteResult, EmployeeDetail, EmployeeListItem, EmployeeStatus, EmploymentType, OrgOptions, RequestItem, RequestQueue } from "@kavor/contracts";
 import { managerTierOk } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
+import { EmployeePaySection } from "./pay";
 import {
   ACCOUNT, Avatar, DEVICE, EMP_STATUS, EMPLOYMENT, Drawer, Empty, ErrorLine, Field, Icon, LoadError, Modal, Person, REJECT_REASON, Status, scopeText,
   ago, can, fmtDate, fmtDateTime, tenantToday, useAction, useMe,
@@ -19,7 +20,7 @@ const AUDIT: Record<string, string> = {
   "auth.mfa_enrolled": "Bật xác thực hai lớp", "auth.mfa_verified": "Xác thực hai lớp khi đăng nhập web", "auth.mfa_reset": "Đặt lại xác thực hai lớp",
   "privacy.consented": "Đồng ý điều khoản dữ liệu cá nhân",
   "request.submitted": "Gửi đơn", "request.cancelled": "Hủy đơn", "approval.approved": "Duyệt đơn", "approval.rejected": "Từ chối đơn",
-  "leave.adjusted": "Điều chỉnh sổ phép", "leave.carry_imported": "Nhập phép tồn", "compensation.changed": "Đổi lương cơ bản", "salary_advance.paid": "Chi tạm ứng",
+  "leave.adjusted": "Điều chỉnh sổ phép", "leave.carry_imported": "Nhập phép tồn", "compensation.changed": "Đổi mức lương", "compensation.viewed": "Xem lương", "tax_profile.changed": "Sửa MST/công đoàn", "dependent.added": "Thêm người phụ thuộc", "dependent.changed": "Sửa người phụ thuộc", "dependent.removed": "Xóa người phụ thuộc", "salary_advance.paid": "Chi tạm ứng",
   "device.registered": "Đăng ký thiết bị", "device.change_requested": "Yêu cầu dùng máy mới", "device.approved": "Duyệt thiết bị", "device.rejected": "Từ chối thiết bị", "device.revoked": "Thu hồi thiết bị",
 };
 
@@ -204,6 +205,8 @@ function EmployeeDrawer({ id, onClose, onEdit, onChanged }: { id: string; onClos
               </div>
             </>
           ) : null}
+
+          {can(me, "compensation.read") ? <EmployeePaySection employeeId={e.id} name={e.fullName} /> : null}
 
           {can(me, "request.read") ? <EmployeeRequests employeeId={e.id} /> : null}
 

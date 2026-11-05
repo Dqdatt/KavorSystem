@@ -19,8 +19,8 @@ const addDays = (d: string, n: number) => { const t = new Date(`${d}T00:00:00Z`)
 
 /* Mô tả vai trò mẫu (PERMISSION_MATRIX §1, prototype page-roles) và phạm vi được phép gán */
 const ROLE_META: Record<string, { description: string; defaultScope: string; payrollData: string; sensitive: boolean; scopes: ScopeType[] }> = {
-  tenant_admin: { description: "Quản trị công ty, người dùng, vai trò và cấu hình", defaultScope: "Toàn doanh nghiệp", payrollData: "Không mặc định", sensitive: true, scopes: ["tenant"] },
-  hr_ops: { description: "Vận hành hồ sơ, công, phép, đơn từ", defaultScope: "Pháp nhân được gán", payrollData: "Không", sensitive: false, scopes: ["tenant", "legal_entity", "branch", "department"] },
+  tenant_admin: { description: "Quản trị công ty, người dùng, vai trò và cấu hình", defaultScope: "Toàn doanh nghiệp", payrollData: "Lương đầu vào", sensitive: true, scopes: ["tenant"] },
+  hr_ops: { description: "Vận hành hồ sơ, công, phép, đơn từ", defaultScope: "Pháp nhân được gán", payrollData: "Lương đầu vào", sensitive: true, scopes: ["tenant", "legal_entity", "branch", "department"] },
   payroll: { description: "Vận hành lương, tạm ứng và dữ liệu tài chính", defaultScope: "Toàn doanh nghiệp", payrollData: "Có", sensitive: true, scopes: ["tenant", "legal_entity"] },
   manager: { description: "Quản lý và phê duyệt trong phạm vi đội ngũ", defaultScope: "Đội ngũ trực tiếp", payrollData: "Không", sensitive: false, scopes: ["direct_reports", "department", "branch", "legal_entity"] },
   auditor: { description: "Đọc dữ liệu và nhật ký được cấp, không chỉnh sửa", defaultScope: "Chỉ đọc", payrollData: "Theo cấp quyền", sensitive: false, scopes: ["tenant", "legal_entity", "branch", "department"] },

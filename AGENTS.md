@@ -97,6 +97,9 @@ pnpm build
   `policy_snapshot.attachmentRequired` không duyệt được bước cuối khi chưa có file (trigger trên `approval_tasks`). App chọn file qua `src/attach.ts`
   (`expo-image-picker`/`expo-document-picker`, module native — thêm/đổi phải `pod install` + build lại); test Node phải mock `./attach`.
   Kiểm thử: `bash tools/db-reset.sh && bash tools/attachments-smoke.sh`.
+- Lương đầu vào (`apps/api/src/payroll/inputs.service.ts`): HCNS (Nhân sự vận hành, Quản trị viên) + Kế toán có `compensation.*`, quản lý
+  không. Phiên bản lương bất biến (lương đóng BH null = bằng lương cơ bản, tình trạng lao động null = theo hồ sơ); bảng đầu vào tách đoạn khi đổi
+  trong kỳ; chốt cần kỳ công đã khóa, `payroll_input_sheets` bất biến, client không đọc trực tiếp. Kiểm thử: `bash tools/db-reset.sh && bash tools/payroll-inputs-smoke.sh`.
 - Tài liệu nhân sự: phiên bản bất biến (thay file = phiên bản mới), gỡ thay cho xóa; mọi lần tải ghi audit `document.downloaded`. File riêng tư + liên kết ký dùng chung `apps/api/src/files/private-files.ts` (chữ ký gắn loại tài nguyên). Smoke dùng vai trò riêng chỉ có quyền tài liệu — đừng gán `hr_ops` cho nhân viên mẫu trong smoke (test RLS khác chạy sau sẽ lỗi). Kiểm thử: `bash tools/db-reset.sh && bash tools/documents-smoke.sh`.
 - Xóa vĩnh viễn doanh nghiệp (Console, chỉ Quản trị Console, doanh nghiệp phải tạm khóa/đã đóng, gõ lại mã): `purge_tenant` xóa mọi bảng có
   `tenant_id` (lặp tới khi hết, bỏ qua trigger bảo vệ nhờ cờ cục bộ `kavor.purge_tenant`), API xóa tiếp tài khoản Auth chỉ thuộc doanh nghiệp đó và file

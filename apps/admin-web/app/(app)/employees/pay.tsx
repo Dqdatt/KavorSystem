@@ -1,0 +1,179 @@
+"use client";
+/* Mục "Lương" trong hồ sơ nhân viên (thiết kế bổ sung, prototype HR chưa có): dữ liệu lương đầu vào HCNS quản lý cho bảng lương.
+   Chỉ người có compensation.read thấy (Nhân sự vận hành, Quản trị viên công ty, Kế toán); quản lý trực tiếp không thấy.
+   Mức lương là phiên bản theo ngày hiệu lực (không sửa bản cũ); người phụ thuộc tính giảm trừ theo tháng bắt đầu/kết thúc. */
+import { useState } from "react";
+import type { CompensationInput, CompensationVersion, DependentInput, EmployeeDependent, EmployeePay, EmploymentType } from "@kavor/contracts";
+import { call, useApi } from "../../_lib/client";
+import { EMPLOYMENT, ErrorLine, Field, Modal, fmtDate, fmtDateTime, tenantToday, useAction, useMe } from "../../_ui/kit";
+import { ReasonModal } from "../../_ui/reason-modal";
+import { money } from "../../_ui/request";
+import { Select, SkeletonLines } from "@kavor/web-ui";
+
+const digits = (s: string) => s.replace(/\D/g, "");
+const moneyInput = (s: string) => (s ? Number(digits(s)).toLocaleString("vi-VN") : "");
+const monthText = (m: string | null) => (m ? `${m.slice(5)}/${m.slice(0, 4)}` : "nay");
+
+export function EmployeePaySection({ employeeId, name }: { employeeId: string; name: string }) {
+  const me = useMe();
+  const { data: p, error, reload, setData } = useApi<EmployeePay>(`employees/${employeeId}/pay`);
+  const [edit, setEdit] = useState<null | "salary" | "tax" | "dep">(null);
+  const [dep, setDep] = useState<EmployeeDependent | null>(null);
+  const [remove, setRemove] = useState<EmployeeDependent | null>(null);
+  const [all, setAll] = useState(false);
+  const c = p?.current;
+  const type = (v: CompensationVersion | null | undefined) => EMPLOYMENT[v?.employmentType ?? p?.employmentType ?? "official"];
+  return (
+    <div className="drawer-section">
+      <h4>Lương</h4>
+      {error ? <p className="text-red" style={{ fontSize: 12.5 }}>{error.message}</p> : !p ? <SkeletonLines lines={4} /> : (
+        <>
+          <div className="card detail-list">
+            <div className="detail-row"><span>Lương cơ bản</span><b>{c ? <>{money(c.baseSalary)} <span className="muted">· từ {fmtDate(c.effectiveFrom)}</span></> : <span className="text-red">Chưa nhập</span>}</b></div>
+            <div className="detail-row"><span>Lương đóng bảo hiểm</span><b>{c ? (c.insuranceSalary ? money(c.insuranceSalary) : "Bằng lương cơ bản") : "—"}</b></div>
+            <div className="detail-row"><span>Phụ cấp cố định</span><b>{c ? (c.allowance ? money(c.allowance) : "Không") : "—"}</b></div>
+            <div className="detail-row"><span>Tình trạng lao động</span><b>{type(c)}</b></div>
+            <div className="detail-row"><span>Mã số thuế cá nhân</span><b>{p.taxCode ?? <span className="muted">Chưa có</span>}</b></div>
+            <div className="detail-row"><span>Đoàn viên công đoàn</span><b>{p.unionMember ? "Có" : "Không"}</b></div>
+            <div className="detail-row"><span>Người phụ thuộc</span><b>{p.activeDependents ? `${p.activeDependents} người đang giảm trừ` : "Không"}</b></div>
+          </div>
+          {p.dependents.length ? (
+            <div className="card" style={{ marginTop: 10 }}><div className="table-wrap"><table className="data-table compact"><tbody>
+              {p.dependents.map((d) => (
+                <tr key={d.id}>
+                  <td><b>{d.fullName}</b><div className="muted" style={{ fontSize: 11 }}>{d.relation}{d.birthDate ? ` · sinh ${fmtDate(d.birthDate)}` : ""}{d.taxCode ? ` · MST ${d.taxCode}` : ""}</div></td>
+                  <td className="nowrap">{monthText(d.fromMonth)} → {monthText(d.toMonth)}</td>
+                  <td className="nowrap" style={{ textAlign: "right" }}>{p.canManage ? <>
+                    <button className="btn small" onClick={() => { setDep(d); setEdit("dep"); }}>Sửa</button>{" "}
+                    <button className="btn small" onClick={() => setRemove(d)}>Xóa</button>
+                  </> : null}</td>
+                </tr>
+              ))}
+            </tbody></table></div></div>
+          ) : null}
+          <div className="row-actions" style={{ justifyContent: "flex-start", flexWrap: "wrap", marginTop: 10 }}>
+            {p.canManage ? <>
+              <button className="btn small" onClick={() => setEdit("salary")}>{c ? "Đổi lương" : "Nhập lương"}</button>
+              <button className="btn small" onClick={() => setEdit("tax")}>Thuế & công đoàn</button>
+              <button className="btn small" onClick={() => { setDep(null); setEdit("dep"); }}>Thêm người phụ thuộc</button>
+            </> : null}
+            {p.history.length > 1 ? <button className="btn small" onClick={() => setAll(!all)}>{all ? "Ẩn lịch sử lương" : `Lịch sử lương (${p.history.length} bản)`}</button> : null}
+          </div>
+          {p.history.length > 1 && all ? (
+            <div style={{ marginTop: 10 }}>
+              <ul className="version-list">{p.history.map((h) => (
+                <li key={h.effectiveFrom}>Từ {fmtDate(h.effectiveFrom)} · {money(h.baseSalary)}{h.insuranceSalary ? ` · đóng BH ${money(h.insuranceSalary)}` : ""}{h.allowance ? ` · phụ cấp ${money(h.allowance)}` : ""}
+                  {h.employmentType ? ` · ${EMPLOYMENT[h.employmentType]}` : ""}{h.note ? ` — ${h.note}` : ""} <span className="muted">(nhập {fmtDateTime(h.createdAt, me.tenant.timezone)})</span></li>
+              ))}</ul>
+            </div>
+          ) : null}
+        </>
+      )}
+      {edit === "salary" && p ? <CompensationModal title={`${c ? "Đổi" : "Nhập"} lương · ${name}`} current={c ?? null} fallbackType={p.employmentType} onClose={() => setEdit(null)}
+        save={async (b) => setData(await call<EmployeePay>("POST", `employees/${employeeId}/pay/compensation`, b))} /> : null}
+      {edit === "tax" && p ? <TaxModal pay={p} name={name} onClose={() => setEdit(null)} save={async (b) => setData(await call<EmployeePay>("POST", `employees/${employeeId}/pay/tax`, b))} /> : null}
+      {edit === "dep" ? <DependentModal dep={dep} name={name} onClose={() => setEdit(null)}
+        save={async (b) => setData(await call<EmployeePay>("POST", `employees/${employeeId}/pay/dependents${dep ? `/${dep.id}` : ""}`, b))} /> : null}
+      {remove ? <ReasonModal title={`Xóa người phụ thuộc ${remove.fullName}?`} label="Lý do (chỉ xóa khi nhập nhầm; hết giảm trừ thì sửa tháng kết thúc)" danger ok="Đã xóa người phụ thuộc"
+        go={async (reason) => setData(await call<EmployeePay>("POST", `employees/${employeeId}/pay/dependents/${remove.id}/remove`, { reason }))} onClose={() => setRemove(null)} onDone={() => undefined} /> : null}
+    </div>
+  );
+}
+
+/* Dùng chung cho hồ sơ nhân viên và tab Lương cơ bản: mỗi lần lưu là một phiên bản mới từ ngày hiệu lực */
+export function CompensationModal({ title, current, fallbackType, onClose, save }: {
+  title: string; current: CompensationVersion | null; fallbackType?: EmploymentType; onClose: () => void; save: (b: CompensationInput) => Promise<unknown>;
+}) {
+  const me = useMe();
+  const [base, setBase] = useState(current ? String(current.baseSalary) : "");
+  const [ins, setIns] = useState(current?.insuranceSalary ? String(current.insuranceSalary) : "");
+  const [allow, setAllow] = useState(current?.allowance ? String(current.allowance) : "");
+  const [type, setType] = useState<string>(current?.employmentType ?? fallbackType ?? "");
+  const [from, setFrom] = useState(tenantToday(me.tenant.timezone));
+  const [note, setNote] = useState("");
+  const [err, setErr] = useState<string | null>(null);
+  const { busy, run } = useAction();
+  async function go() {
+    const n = Number(digits(base)), i = ins ? Number(digits(ins)) : null, a = allow ? Number(digits(allow)) : 0;
+    if (!n || n < 1_000_000) { setErr("Nhập lương cơ bản (₫/tháng), tối thiểu 1.000.000."); return; }
+    if (i !== null && i < 1_000_000) { setErr("Lương đóng bảo hiểm tối thiểu 1.000.000 (để trống nếu bằng lương cơ bản)."); return; }
+    setErr(null);
+    await run("save", async () => { await save({ baseSalary: n, insuranceSalary: i, allowance: a, employmentType: (type || null) as EmploymentType | null, effectiveFrom: from, note: note.trim() || null }); onClose(); }, "Đã lưu mức lương");
+  }
+  return (
+    <Modal title={title} sub="Bản cũ giữ nguyên trong lịch sử. Đổi giữa kỳ (ví dụ thử việc → chính thức) thì bảng lương đầu vào tự tách hai đoạn." onClose={onClose}
+      foot={<><button className="btn" onClick={onClose}>Hủy</button><button className="btn primary" disabled={!!busy} onClick={() => void go()}>{busy ? "Đang lưu…" : "Lưu"}</button></>}>
+      <div className="form-grid">
+        <Field label="Lương cơ bản (₫/tháng)"><input inputMode="numeric" value={moneyInput(base)} onChange={(e) => setBase(digits(e.target.value))} placeholder="15.000.000" /></Field>
+        <Field label="Hiệu lực từ"><input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></Field>
+        <Field label="Lương đóng bảo hiểm (₫)" hint="Để trống nếu bằng lương cơ bản"><input inputMode="numeric" value={moneyInput(ins)} onChange={(e) => setIns(digits(e.target.value))} placeholder="Bằng lương cơ bản" /></Field>
+        <Field label="Phụ cấp cố định (₫/tháng)"><input inputMode="numeric" value={moneyInput(allow)} onChange={(e) => setAllow(digits(e.target.value))} placeholder="0" /></Field>
+        <Field label="Tình trạng lao động">
+          <Select value={type} onChange={(e) => setType(e.target.value)}>
+            <option value="">Theo hồ sơ</option>
+            {(Object.keys(EMPLOYMENT) as EmploymentType[]).map((k) => <option key={k} value={k}>{EMPLOYMENT[k]}</option>)}
+          </Select>
+        </Field>
+        <Field label="Ghi chú"><input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Ví dụ: Ký HĐ chính thức, phụ lục số …" /></Field>
+      </div>
+      <ErrorLine text={err} />
+    </Modal>
+  );
+}
+
+function TaxModal({ pay, name, onClose, save }: { pay: EmployeePay; name: string; onClose: () => void; save: (b: { taxCode: string | null; unionMember: boolean }) => Promise<unknown> }) {
+  const [tax, setTax] = useState(pay.taxCode ?? "");
+  const [union, setUnion] = useState(pay.unionMember);
+  const [err, setErr] = useState<string | null>(null);
+  const { busy, run } = useAction();
+  async function go() {
+    const t = tax.trim();
+    if (t && !/^[0-9]{10}([0-9]{2}|-[0-9]{3})?$/.test(t)) { setErr("Mã số thuế gồm 10 hoặc 13 chữ số (0123456789 hoặc 0123456789-001)."); return; }
+    setErr(null);
+    await run("save", async () => { await save({ taxCode: t || null, unionMember: union }); onClose(); }, "Đã lưu thông tin thuế");
+  }
+  return (
+    <Modal title={`Thuế & công đoàn · ${name}`} sub="Kế toán dùng để tính thuế TNCN và đoàn phí công đoàn." onClose={onClose}
+      foot={<><button className="btn" onClick={onClose}>Hủy</button><button className="btn primary" disabled={!!busy} onClick={() => void go()}>{busy ? "Đang lưu…" : "Lưu"}</button></>}>
+      <div className="form-grid">
+        <Field label="Mã số thuế cá nhân"><input value={tax} onChange={(e) => setTax(e.target.value)} placeholder="8012345678" /></Field>
+        <Field label="Đoàn viên công đoàn">
+          <Select value={union ? "1" : "0"} onChange={(e) => setUnion(e.target.value === "1")}><option value="0">Không</option><option value="1">Có</option></Select>
+        </Field>
+      </div>
+      <ErrorLine text={err} />
+    </Modal>
+  );
+}
+
+function DependentModal({ dep, name, onClose, save }: { dep: EmployeeDependent | null; name: string; onClose: () => void; save: (b: DependentInput) => Promise<unknown> }) {
+  const me = useMe();
+  const [f, setF] = useState({ fullName: dep?.fullName ?? "", relation: dep?.relation ?? "", birthDate: dep?.birthDate ?? "", taxCode: dep?.taxCode ?? "",
+    fromMonth: dep?.fromMonth ?? tenantToday(me.tenant.timezone).slice(0, 7), toMonth: dep?.toMonth ?? "" });
+  const set = (k: keyof typeof f) => (e: { target: { value: string } }) => setF({ ...f, [k]: e.target.value });
+  const [err, setErr] = useState<string | null>(null);
+  const { busy, run } = useAction();
+  async function go() {
+    if (!f.fullName.trim() || !f.relation.trim()) { setErr("Nhập họ tên và quan hệ."); return; }
+    if (f.toMonth && f.toMonth < f.fromMonth) { setErr("Tháng kết thúc phải từ tháng bắt đầu trở đi."); return; }
+    setErr(null);
+    await run("save", async () => {
+      await save({ fullName: f.fullName.trim(), relation: f.relation.trim(), birthDate: f.birthDate || null, taxCode: f.taxCode.trim() || null, fromMonth: f.fromMonth, toMonth: f.toMonth || null });
+      onClose();
+    }, dep ? "Đã lưu người phụ thuộc" : "Đã thêm người phụ thuộc");
+  }
+  return (
+    <Modal title={`${dep ? "Sửa" : "Thêm"} người phụ thuộc · ${name}`} sub="Tính giảm trừ gia cảnh từ tháng bắt đầu đến tháng kết thúc (để trống = đang tính)." onClose={onClose}
+      foot={<><button className="btn" onClick={onClose}>Hủy</button><button className="btn primary" disabled={!!busy} onClick={() => void go()}>{busy ? "Đang lưu…" : "Lưu"}</button></>}>
+      <div className="form-grid">
+        <Field label="Họ tên"><input value={f.fullName} onChange={set("fullName")} placeholder="Nguyễn Minh Khang" /></Field>
+        <Field label="Quan hệ"><input value={f.relation} onChange={set("relation")} placeholder="Con, Cha, Mẹ, Vợ/Chồng…" /></Field>
+        <Field label="Ngày sinh"><input type="date" value={f.birthDate} onChange={set("birthDate")} /></Field>
+        <Field label="Mã số thuế người phụ thuộc"><input value={f.taxCode} onChange={set("taxCode")} placeholder="Không bắt buộc" /></Field>
+        <Field label="Giảm trừ từ tháng"><input type="month" value={f.fromMonth} onChange={set("fromMonth")} /></Field>
+        <Field label="Đến tháng"><input type="month" value={f.toMonth} onChange={set("toMonth")} /></Field>
+      </div>
+      <ErrorLine text={err} />
+    </Modal>
+  );
+}

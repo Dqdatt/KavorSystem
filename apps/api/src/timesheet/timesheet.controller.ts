@@ -12,13 +12,14 @@ import type { NotificationsService } from "../notifications/notifications.servic
 import type { LeaveService } from "../leave/leave.service.js";
 import type { OvertimeService } from "../overtime/overtime.service.js";
 import type { AdvanceService } from "../advance/advance.service.js";
+import type { PayrollInputs } from "../payroll/inputs.service.js";
 import type { PayrollService } from "../payroll/payroll.service.js";
 import type { AnnouncementsService } from "../announcements/announcements.service.js";
 import type { DocumentsService } from "../documents/documents.service.js";
 import type { ProfileService } from "../profile/profile.service.js";
 
 export const TIMESHEET_SERVICES = Symbol("TIMESHEET_SERVICES");
-export type TimesheetServices = { timesheets: TimesheetService; requests: RequestsService; notifications: NotificationsService; leave: LeaveService; overtime: OvertimeService; advance: AdvanceService; payroll: PayrollService; announcements: AnnouncementsService; documents: DocumentsService; profile: ProfileService };
+export type TimesheetServices = { timesheets: TimesheetService; requests: RequestsService; notifications: NotificationsService; leave: LeaveService; overtime: OvertimeService; advance: AdvanceService; payroll: PayrollService; inputs: PayrollInputs; announcements: AnnouncementsService; documents: DocumentsService; profile: ProfileService };
 
 function bearer(header?: string): string {
   const m = /^Bearer\s+(.+)$/i.exec(header ?? "");

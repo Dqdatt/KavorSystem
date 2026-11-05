@@ -19,6 +19,7 @@ import type { LeaveService } from "../leave/leave.service.js";
 import type { OvertimeService } from "../overtime/overtime.service.js";
 import type { AdvanceService } from "../advance/advance.service.js";
 import type { PayrollService } from "../payroll/payroll.service.js";
+import type { PayrollInputs } from "../payroll/inputs.service.js";
 import type { AnnouncementsService } from "../announcements/announcements.service.js";
 import type { DocumentsService } from "../documents/documents.service.js";
 import type { TimesheetAdmin } from "../timesheet/timesheet-admin.service.js";
@@ -32,7 +33,7 @@ export type AdminServices = {
   employees: EmployeesAdmin; attendance: AttendanceAdmin; schedule: ScheduleAdmin;
   settings: SettingsAdmin; rules: RulesAdmin; mfa: MfaAdmin; company: CompanyService;
   timesheets: TimesheetAdmin; requests: RequestsService; notifications: NotificationsService; leave: LeaveService; overtime: OvertimeService; advance: AdvanceService;
-  payroll: PayrollService; announcements: AnnouncementsService; documents: DocumentsService; support: SupportService; org: OrgAdmin; importer: EmployeeImport;
+  payroll: PayrollService; inputs: PayrollInputs; announcements: AnnouncementsService; documents: DocumentsService; support: SupportService; org: OrgAdmin; importer: EmployeeImport;
 };
 
 function bearer(header?: string): string {
@@ -267,9 +268,34 @@ export class AdminController {
   @Get("compensations")
   compensations(@Req() r: CorrelatedRequest, @Headers("authorization") a?: string) { return this.run(r, a, (s, c) => s.advance.compensations(c)); }
   @Post("compensations/:employeeId") @HttpCode(200)
-  compensationSet(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("employeeId") id: string, @Body() b: Json) { return this.run(r, a, (s, c) => s.advance.setCompensation(c, id, b)); }
+  compensationSet(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("employeeId") id: string, @Body() b: Json) { return this.run(r, a, async (s, c) => { await s.inputs.addCompensation(c, id, b); return s.advance.compensations(c); }); }
 
   /* Payroll: nhập kết quả CSV và chuyển trạng thái qua SQL nguyên tử */
+  /* Lương đầu vào (HCNS): mục Lương trong hồ sơ + bảng lương đầu vào theo kỳ */
+  @Get("employees/:id/pay")
+  employeePay(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string) { return this.run(r, a, (s, c) => s.inputs.pay(c, id)); }
+  @Post("employees/:id/pay/compensation") @HttpCode(200)
+  employeePaySet(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string, @Body() b: Json) { return this.run(r, a, (s, c) => s.inputs.setCompensation(c, id, b)); }
+  @Post("employees/:id/pay/tax") @HttpCode(200)
+  employeePayTax(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string, @Body() b: Json) { return this.run(r, a, (s, c) => s.inputs.setTax(c, id, b)); }
+  @Post("employees/:id/pay/dependents") @HttpCode(200)
+  dependentAdd(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string, @Body() b: Json) { return this.run(r, a, (s, c) => s.inputs.addDependent(c, id, b)); }
+  @Post("employees/:id/pay/dependents/:depId") @HttpCode(200)
+  dependentUpdate(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string, @Param("depId") dep: string, @Body() b: Json) { return this.run(r, a, (s, c) => s.inputs.updateDependent(c, id, dep, b)); }
+  @Post("employees/:id/pay/dependents/:depId/remove") @HttpCode(200)
+  dependentRemove(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string, @Param("depId") dep: string, @Body() b: Json) { return this.run(r, a, (s, c) => s.inputs.removeDependent(c, id, dep, b)); }
+  @Get("payroll/inputs")
+  payrollInputs(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Query("month") m?: string, @Query("source") src?: string) { return this.run(r, a, (s, c) => s.inputs.sheet(c, m, src)); }
+  @Get("payroll/inputs/export")
+  async payrollInputsExport(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Query("month") m: string | undefined, @Query("source") src: string | undefined, @Res({ passthrough: true }) res: Response) {
+    const env = await this.run(r, a, (s, c) => s.inputs.exportCsv(c, m, src));
+    res.setHeader("content-type", "text/csv; charset=utf-8");
+    res.setHeader("content-disposition", `attachment; filename="${env.data!.filename}"`);
+    res.setHeader("cache-control", "private, no-store");
+    return env.data!.body;
+  }
+  @Post("payroll/inputs/:month/finalize") @HttpCode(200)
+  payrollInputsFinalize(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("month") m: string, @Body() b: Json) { return this.run(r, a, (s, c) => s.inputs.finalize(c, m, b)); }
   @Get("payroll/cycles")
   payrollCycles(@Req() r: CorrelatedRequest, @Headers("authorization") a?: string) { return this.run(r, a, (s, c) => s.payroll.board(c)); }
   @Post("payroll/cycles") @HttpCode(201)

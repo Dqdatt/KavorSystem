@@ -856,12 +856,75 @@ export type AdvanceBoard = {
 export type CompensationRow = {
   employee: { id: string; code: string; fullName: string; department: string | null };
   baseSalary: number | null; effectiveFrom: string | null;
-  history: Array<{ baseSalary: number; effectiveFrom: string; note: string | null; createdAt: string }>;
+  history: CompensationVersion[];
   /* Tài khoản ngân hàng HR đã duyệt (null nếu chưa có hoặc người xem không có employee.sensitive.read) */
   bank: BankAccountView | null;
 };
 export type CompensationBoard = { rows: CompensationRow[]; canManage: boolean };
-export type CompensationInput = { baseSalary: number; effectiveFrom: string; note?: string | null };
+export type CompensationInput = {
+  baseSalary: number; effectiveFrom: string; note?: string | null;
+  /* null/bỏ trống = bằng lương cơ bản */
+  insuranceSalary?: number | null; allowance?: number | null;
+  /* null/bỏ trống = theo hồ sơ */
+  employmentType?: EmploymentType | null;
+};
+
+/* ---------- Lương đầu vào (HCNS): mục "Lương" trong hồ sơ nhân viên ---------- */
+export type CompensationVersion = {
+  baseSalary: number; insuranceSalary: number | null; allowance: number; employmentType: EmploymentType | null;
+  effectiveFrom: string; note: string | null; createdAt: string;
+};
+export type EmployeeDependent = {
+  id: string; fullName: string; relation: string; birthDate: string | null; taxCode: string | null;
+  /* YYYY-MM; toMonth null = đang tính giảm trừ */
+  fromMonth: string; toMonth: string | null;
+};
+export type DependentInput = { fullName: string; relation: string; birthDate?: string | null; taxCode?: string | null; fromMonth: string; toMonth?: string | null };
+export type TaxProfileInput = { taxCode: string | null; unionMember: boolean };
+export type EmployeePay = {
+  employmentType: EmploymentType;
+  /* Bản đang hiệu lực hôm nay (null = chưa nhập); history mới nhất trước, gồm cả bản tương lai */
+  current: CompensationVersion | null;
+  history: CompensationVersion[];
+  taxCode: string | null; unionMember: boolean;
+  dependents: EmployeeDependent[];
+  /* Số người phụ thuộc đang tính giảm trừ tháng này */
+  activeDependents: number;
+  canManage: boolean;
+};
+
+/* ---------- Bảng lương đầu vào theo kỳ (HCNS lập → Kế toán tính lương) ---------- */
+export type PayrollInputSegment = {
+  from: string; to: string; baseSalary: number | null; insuranceSalary: number | null; allowance: number;
+  employmentType: EmploymentType; credited: number;
+};
+export type PayrollInputRow = {
+  employee: { id: string; code: string; fullName: string; department: string | null; position: string | null; email: string | null; hireDate: string; terminationDate: string | null };
+  employmentType: EmploymentType;
+  /* Mức lương hiệu lực ngày cuối kỳ (hoặc ngày nghỉ việc) */
+  baseSalary: number | null; insuranceSalary: number | null; allowance: number;
+  /* Nhiều hơn một đoạn khi đổi lương/tình trạng lao động trong kỳ */
+  segments: PayrollInputSegment[];
+  standard: number; credited: number; paidLeaveDays: number; unpaidLeaveDays: number; holidays: number;
+  lateMinutes: number; missingDays: number;
+  /* Phút OT được tính theo hệ số (%), ví dụ { "150": 120, "200": 60 } */
+  overtime: Record<string, number>;
+  dependents: number; taxCode: string | null; unionMember: boolean;
+  /* Tạm ứng đã chi, khấu trừ tháng này */
+  advance: number;
+  bank: BankAccountView | null;
+  /* Cảnh báo cho HCNS rà trước khi chốt */
+  warnings: string[];
+};
+export type PayrollInputSheet = {
+  month: string; period: TimesheetPeriod; rows: PayrollInputRow[];
+  /* Lần chốt gần nhất (null = chưa chốt); rows là ảnh chụp khi xem bản đã chốt */
+  finalized: { at: string; by: string | null; note: string | null; versions: number } | null;
+  /* "live": tính từ dữ liệu hiện tại · "final": bản đã chốt */
+  source: "live" | "final";
+  canFinalize: boolean;
+  totals: { employees: number; warnings: number; noSalary: number };
+};
 
 /* ---------- Payroll: nhập kết quả từ CSV, không tính lương ---------- */
 export type PayComponent = { id: string; code: string; name: string; kind: "earning" | "deduction" | "net"; displayOrder: number };

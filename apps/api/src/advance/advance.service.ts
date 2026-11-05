@@ -3,16 +3,16 @@
      nhận đơn đến hết ngày quy định; không áp dụng cho thử việc / đang báo trước nghỉ việc nếu quy định nói vậy.
    - Đơn tạm ứng qua luồng duyệt (mẫu Quản lý → HR khi trên 5 triệu → Kế toán); duyệt xong Kế toán xác nhận đã chi (ghi chú chuyển khoản),
      nhân viên nhận thông báo. Khấu trừ vào lương tháng ứng — module payroll đọc salary_advances đã chi.
-   - Lương cơ bản: chỉ người có compensation.read xem, compensation.manage nhập (phiên bản theo ngày hiệu lực, không sửa bản cũ).
+   - Lương cơ bản: chỉ người có compensation.read xem; nhập phiên bản mới ở payroll/inputs.service.ts (compensation.manage).
      Nhật ký không ghi số tiền lương (HR/kiểm soát đọc được nhật ký hồ sơ). */
 import type {
-  AdvanceBoard, AdvancePolicy, AdvanceRow, CompensationBoard, CompensationRow, MyAdvance, RequestItem, ResolvedRule, StepResolver,
+  AdvanceBoard, AdvancePolicy, AdvanceRow, CompensationBoard, CompensationRow, EmploymentType, MyAdvance, RequestItem, ResolvedRule, StepResolver,
 } from "@kavor/contracts";
 import { STEP_RESOLVERS } from "@kavor/contracts";
 import type { EmployeeRow } from "../auth/auth.service.js";
 import type { SupabaseGateway } from "../auth/supabase.js";
 import { conflict, forbidden, invalid, notFound, type AdminContext } from "../admin/context.js";
-import { date, nullableText, number, type Body } from "../admin/validate.js";
+import { nullableText, number, type Body } from "../admin/validate.js";
 import { PolicyIndex, loadPlacements } from "../attendance/policy.js";
 import { monthOf, periodOf } from "../timesheet/compute.js";
 import type { RequestsService, Viewer } from "../timesheet/requests.service.js";
@@ -183,11 +183,11 @@ export class AdvanceService {
     if (!ids.length) return { rows: [], canManage: ctx.can("compensation.manage") };
     const [{ data: emps }, { data: comps }, deps] = await Promise.all([
       db.from("employees").select("id, employee_code, full_name").eq("tenant_id", ctx.tenantId).in("id", ids).neq("status", "terminated").order("employee_code"),
-      db.from("employee_compensations").select("employee_id, base_salary, effective_from, note, created_at").eq("tenant_id", ctx.tenantId).in("employee_id", ids).order("effective_from", { ascending: false }),
+      db.from("employee_compensations").select("employee_id, base_salary, insurance_salary, allowance, employment_type, effective_from, note, created_at").eq("tenant_id", ctx.tenantId).in("employee_id", ids).order("effective_from", { ascending: false }),
       this.departments(db, ctx.tenantId, ids),
     ]);
     const today = (await this.timesheets.tenantClock(db, ctx.tenantId)).today;
-    const all = (comps ?? []) as Array<{ employee_id: string; base_salary: number; effective_from: string; note: string | null; created_at: string }>;
+    const all = (comps ?? []) as Array<{ employee_id: string; base_salary: number; insurance_salary: number | null; allowance: number; employment_type: EmploymentType | null; effective_from: string; note: string | null; created_at: string }>;
     /* Kế toán đọc lại tài khoản ngân hàng HR đã duyệt (đề nghị sửa hồ sơ), chỉ khi có employee.sensitive.read trong phạm vi */
     const sens = ctx.can("employee.sensitive.read") ? await ctx.scopedEmployeeIds("employee.sensitive.read") : new Set<string>();
     const bankIds = ids.filter((id) => sens.has(id));
@@ -200,7 +200,7 @@ export class AdvanceService {
       return {
         employee: { id: e.id, code: e.employee_code, fullName: e.full_name, department: deps.get(e.id) || null },
         baseSalary: cur ? Number(cur.base_salary) : null, effectiveFrom: cur?.effective_from ?? null,
-        history: h.map((c) => ({ baseSalary: Number(c.base_salary), effectiveFrom: c.effective_from, note: c.note, createdAt: c.created_at })),
+        history: h.map((c) => ({ baseSalary: Number(c.base_salary), insuranceSalary: c.insurance_salary === null ? null : Number(c.insurance_salary), allowance: Number(c.allowance ?? 0), employmentType: c.employment_type, effectiveFrom: c.effective_from, note: c.note, createdAt: c.created_at })),
         bank: bank.has(e.id) ? bankView(bank.get(e.id)!, true) : null,
       };
     });
@@ -208,19 +208,6 @@ export class AdvanceService {
     return { rows, canManage: ctx.can("compensation.manage") };
   }
 
-  async setCompensation(ctx: AdminContext, employeeId: string, b: Body): Promise<CompensationBoard> {
-    ctx.require("compensation.manage");
-    await ctx.requireEmployee("compensation.manage", employeeId);
-    const base = number(b, "baseSalary", 1_000_000, 10_000_000_000, { integer: true })!;
-    const from = date(b, "effectiveFrom")!;
-    const note = nullableText(b, "note", 200) ?? null;
-    const { error } = await ctx.db.from("employee_compensations").insert({ tenant_id: ctx.tenantId, employee_id: employeeId, base_salary: base, effective_from: from, note, created_by: ctx.userId });
-    if (error?.code === "23505") throw conflict(`Đã có lương cơ bản hiệu lực từ ${from}. Chọn ngày khác.`);
-    if (error) throw error;
-    /* Không ghi số tiền vào nhật ký: HR/kiểm soát đọc được nhật ký hồ sơ nhân viên */
-    await ctx.audit("compensation.changed", "employee", employeeId, null, { effective_from: from }, note);
-    return this.compensations(ctx);
-  }
 }
 
 /* Thứ tự hiển thị: chờ chi → đang duyệt → đã chi → còn lại */

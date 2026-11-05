@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Kiểm thử tạm ứng lương: hạn mức = lương cơ bản × %, tối thiểu, bước 10.000 ₫, mỗi tháng một đơn, Quản lý → HR (trên 5 triệu) → Kế toán,
-# Kế toán xác nhận đã chi → thông báo, HR không xem lương / không chi, lương cơ bản có phiên bản, nhật ký không ghi số tiền lương.
+# Kế toán xác nhận đã chi → thông báo, HR không chi (HCNS xem/sửa lương đầu vào từ 202611180001), lương cơ bản có phiên bản, nhật ký không ghi số tiền lương.
 # Quy định riêng cho nhân viên thử (hạn đến cuối tháng, 50%) để không phụ thuộc ngày chạy.
 # Cần DB vừa reset (bash tools/db-reset.sh) và API đang chạy (bash tools/dev-backend.sh).
 set -euo pipefail
@@ -53,12 +53,12 @@ check "Nhân viên nhận thông báo đã chi" "$(call GET me/notifications "$E
 check "Màn tạm ứng: đơn tháng này đã chi" "$(call GET me/advance "$EMP" | py "(d['current']['no'], d['current']['payout'] is not None, len(d['history']))")" "('$NO', True, 2)"
 
 echo "— Lương cơ bản"
-check "HR không xem lương" "$(status GET admin/compensations "$HR")" 403
+check "HR (HCNS) xem lương đầu vào" "$(status GET admin/compensations "$HR")" 200
 r=$(call GET admin/compensations "$PAY")
 check "Kế toán xem lương" "$(echo "$r" | py "([x['baseSalary'] for x in d['rows'] if x['employee']['code']=='HD0142'][0], d['canManage'])")" "(15000000, True)"
 B="{\"baseSalary\":20000000,\"effectiveFrom\":\"$TODAY\",\"note\":\"Tăng lương định kỳ\"}"
 check "Kế toán đổi lương Võ Thảo Linh từ hôm nay" "$(call POST admin/compensations/$LINH "$PAY" "$B" | py "[(x['baseSalary'], len(x['history'])) for x in d['rows'] if x['employee']['id']=='$LINH'][0]")" "(20000000, 2)"
 check "Trùng ngày hiệu lực → 409" "$(status POST admin/compensations/$LINH "$PAY" "$B")" 409
-check "HR không đổi lương được" "$(status POST admin/compensations/$LINH "$HR" "$B")" 403
+check "HR có quyền đổi lương (trùng ngày vẫn bị chặn 409)" "$(status POST admin/compensations/$LINH "$HR" "$B")" 409
 check "Nhật ký hồ sơ có đổi lương nhưng không ghi số tiền" "$(call GET admin/employees/$LINH "$HR" | py "[str(x['after']) for x in d['audit'] if x['action']=='compensation.changed'][0]")" "{'effective_from': '$TODAY'}"
 echo "Tất cả bước tạm ứng lương đều đạt."

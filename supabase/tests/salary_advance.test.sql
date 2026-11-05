@@ -7,7 +7,7 @@ select plan(13);
 select is((select string_agg(p.code, ',' order by p.code) from public.role_permissions rp join public.roles r on r.id = rp.role_id join public.permissions p on p.id = rp.permission_id
   where r.code = 'payroll' and r.tenant_id is null and p.code like any (array['salary_advance%','compensation%'])), 'compensation.manage,compensation.read,salary_advance.process', 'Vai trò Kế toán có quyền tạm ứng + lương');
 select is((select count(*)::int from public.role_permissions rp join public.roles r on r.id = rp.role_id join public.permissions p on p.id = rp.permission_id
-  where r.code in ('hr_ops','tenant_admin','manager') and r.tenant_id is null and p.code like 'compensation%'), 0, 'HR/Tenant Admin/Quản lý mặc định không xem lương');
+  where r.code = 'manager' and r.tenant_id is null and p.code like 'compensation%'), 0, 'Quản lý mặc định không xem lương (HCNS xem từ 202611180001)');
 
 insert into public.employee_compensations (id, tenant_id, employee_id, base_salary, effective_from)
 values ('a9100000-0000-4000-8000-000000000005', '10000000-0000-4000-8000-000000000001', '60000000-0000-4000-8000-000000000005', 18000000, '2025-01-01');

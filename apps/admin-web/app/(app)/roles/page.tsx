@@ -110,7 +110,7 @@ function AssignModal({ board, roleCode, onClose, onDone }: { board: RolesBoard; 
       {held.length ? <p className="muted" style={{ fontSize: 12, margin: "12px 0 0" }}>
         Đang giữ: <b>{held.join(", ")}</b>. {role.name} sẽ được thêm, các vai trò đang giữ vẫn giữ nguyên.</p> : null}
       {role.sensitive ? <div className="note-amber" style={{ marginTop: 14 }}>
-        {role.name} có quyền nhạy cảm ({role.code === "payroll" ? "lương, tạm ứng, tài khoản ngân hàng" : "toàn quyền quản trị công ty, gán vai trò"}). Chỉ gán cho người đã được công ty chấp thuận.</div> : null}
+        {role.name} có quyền nhạy cảm ({role.code === "payroll" ? "lương, tạm ứng, tài khoản ngân hàng" : role.code === "hr_ops" ? "mức lương, người phụ thuộc, tài khoản ngân hàng của nhân viên" : "toàn quyền quản trị công ty, gán vai trò, mức lương"}). Chỉ gán cho người đã được công ty chấp thuận.</div> : null}
       <ErrorLine text={err} />
     </Modal>
   );

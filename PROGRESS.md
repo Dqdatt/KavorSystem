@@ -10,6 +10,11 @@ simulator hay iPhone** vì phiên cloud không có Mac). Người dùng giao "c�
 ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AGENT_PLAYBOOK.md`; kiểm tra toàn bộ bằng `bash tools/verify-all.sh`.
 
 ## Đã xong
+- Lương đầu vào HCNS + bảng lương đầu vào theo kỳ (5/11, Claude Desktop; giai đoạn A+B — `docs/plans/payroll-inputs.md`): HR/Quản trị viên công ty
+  xem/sửa lương (quản lý trực tiếp không); phiên bản lương thêm lương đóng BH, phụ cấp, tình trạng lao động; MST + công đoàn; người phụ thuộc theo
+  tháng. Web: mục Lương trong hồ sơ nhân viên, tab "Bảng lương đầu vào" (tách đoạn khi đổi lương trong kỳ, cảnh báo, chốt khi kỳ công đã khóa,
+  bản chốt bất biến, xuất Excel). Migration `202611180001_payroll_inputs.sql` (**bản online cần `tools/cloud-supabase.sh` trước khi push**),
+  pgTAP `payroll_inputs` 14, smoke `payroll-inputs-smoke.sh` 31 bước. Đã xem web local bằng trình duyệt; chưa xem trên bản online.
 - Web nhanh hơn (3/11, Claude Desktop): Vercel 2 web chạy hàm ở `sin1` (vercel.json); API nhớ tạm ngữ cảnh admin theo access token 60 giây
   (`resolveAdmin`, chỉ phiên aal2; mọi request ghi xóa sạch bộ nhớ trong `correlation.middleware`; sửa DB tay thì trễ ≤ 60 giây,
   `ADMIN_CONTEXT_TTL_MS=0` để tắt); chi tiết nhân viên chạy truy vấn song song 3 lượt (đo online trước đó 1,7–1,9 giây). verify-all đầy đủ đạt; chưa đo lại online.
@@ -520,6 +525,7 @@ ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AG
 - Trên bản dev, gõ phím "r" khi không focus ô nhập sẽ làm Metro reload (chỉ ảnh hưởng dev).
 
 ## Bước tiếp theo
+- Người dùng review quyết định trong `docs/plans/payroll-inputs.md`; gửi mẫu bảng lương HCNS + bảng tính Kế toán để lên plan giai đoạn C.
 0. Người dùng thử trọn quy trình theo `docs/TEST_WORKFLOW.md` (Console → HR → nhân viên, doanh nghiệp tạo mới). DB local reset sạch 29/10.
 1. Review quyết định mặc định trong `docs/plans/console-ops.md` (gói, khóa/đóng tenant, support access: phạm vi, 30/60 phút, Tenant Admin duyệt).
    Người dùng thử trên Mac (nhánh `claude/ecstatic-pascal-dblg7v`): web `/payroll` (file mẫu `sample-data/payroll_import_2026-10.csv`) và
@@ -541,6 +547,8 @@ ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AG
   PIN/Face ID, tối đa 5 MB, "Thiếu hồ sơ" = chưa có hợp đồng còn hiệu lực.
 
 ## Nhật ký
+- 2026-11-05 — Claude (Desktop): lương đầu vào HCNS (A) + bảng lương đầu vào theo kỳ (B) theo quy trình HR → Kế toán người dùng chia sẻ.
+  Đổi quyền: HCNS xem/sửa lương (sửa pgTAP `salary_advance` + `advance-smoke` theo quyền mới). Giai đoạn C (Kavor tự tính lương) chờ mẫu bảng tính.
 - 2026-11-05 — Claude (Desktop): sửa 4 lỗi test iPhone. (1) Chấm công lưu vào hàng đợi trên máy TRƯỚC khi gửi, hiện biên nhận ngay
   ("Đang gửi…"/"Lưu trên máy · chờ gửi"), gửi nền + tự thử lại 20 s/lần và khi mở lại app; gửi trong 2 phút = trực tuyến, muộn hơn = offline giờ máy;
   máy chủ từ chối thì bỏ giờ tạm + Alert. Ngoài vùng/GPS kém vẫn gửi thẳng để máy chủ báo lý do. (Nguyên nhân mất ra ca 04/11 nhiều khả năng: tắt app
