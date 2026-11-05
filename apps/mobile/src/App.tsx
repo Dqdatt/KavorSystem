@@ -9,11 +9,11 @@ import {
 import { C, EASE, F, GL, SPRING, glass } from "./theme";
 import { Gi, Ic, type IconName } from "./icons";
 import { useShake } from "./motion";
-import { T } from "./ui";
+import { T, setInputFocusHook } from "./ui";
 import { ScreenView, dockTuck, setTuck, type ScreenSpec } from "./screen";
 import { SheetContent } from "./sheets";
 import { hm } from "./data";
-import { ACT, S, SKEL, TABS, closeSheet, cur, getVersion, jump, quickClose, quickItems, loadBioKind, restoreSession, simNow, subscribe, tab, toast, type Anim, type Route } from "./store";
+import { ACT, S, SKEL, TABS, closeSheet, cur, getVersion, jump, quickClose, quickItems, loadBioKind, endResplash, restoreSession, simNow, subscribe, tab, toast, type Anim, type Route } from "./store";
 import { QA_ENABLED, runQA } from "./qa";
 import { NativeSplashGone, SplashOverlay } from "./splash";
 import { CrashBoundary, installCrashHandler, takeLastCrash } from "./crash";
@@ -221,10 +221,27 @@ function SheetHost() {
       Animated.timing(v, { toValue: 1, duration: 460, easing: SPRING, useNativeDriver: true }).start();
     } else Animated.timing(v, { toValue: 0, duration: 300, easing: EASE, useNativeDriver: true }).start();
   }, [show, S.sheet?.id]);
+  /* Bàn phím mở: đẩy bảng lên trên bàn phím nhưng thu chiều cao lại để đầu bảng không bị đẩy ra khỏi màn hình,
+     rồi cuộn ô đang nhập vào giữa vùng nhìn thấy (trước đây cả bảng cao bị đẩy lên, ô nhập phía trên bị khuất) */
+  const insets = useSafeAreaInsets();
+  const [kbH, setKbH] = useState(0);
+  const scroll = useRef<ScrollView>(null);
+  const focused = useRef<View | null>(null);
+  const content = useRef<View>(null);
+  const reveal = () => {
+    const node = focused.current, sv = scroll.current, inner = content.current;
+    if (node && sv && inner) node.measureLayout(inner, (_x, y) => sv.scrollTo({ y: Math.max(0, y - 72), animated: true }), () => {});
+  };
   useEffect(() => {
-    const a = Keyboard.addListener(Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow", (e) => Animated.timing(kb, { toValue: e.endCoordinates.height, duration: e.duration || 250, useNativeDriver: true }).start());
-    const b = Keyboard.addListener(Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide", (e) => Animated.timing(kb, { toValue: 0, duration: e.duration || 250, useNativeDriver: true }).start());
-    return () => { a.remove(); b.remove(); };
+    setInputFocusHook((node) => { focused.current = node; if (kbH) setTimeout(reveal, 30); });
+    return () => setInputFocusHook(null);
+  }, [kbH]);
+  useEffect(() => {
+    const a = Keyboard.addListener(Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow", (e) => { setKbH(e.endCoordinates.height); Animated.timing(kb, { toValue: e.endCoordinates.height, duration: e.duration || 250, useNativeDriver: true }).start(); });
+    const b = Keyboard.addListener(Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide", (e) => { setKbH(0); focused.current = null; Animated.timing(kb, { toValue: 0, duration: e.duration || 250, useNativeDriver: true }).start(); });
+    /* Sau khi bảng đổi chiều cao theo bàn phím mới cuộn được đúng chỗ */
+    const c = Keyboard.addListener("keyboardDidShow", () => setTimeout(reveal, 30));
+    return () => { a.remove(); b.remove(); c.remove(); };
   }, []);
   const slide = useMemo(() => v.interpolate({ inputRange: [0, 1], outputRange: [sheetH * 1.08 + 8, 0] }), [v, sheetH]);
   const kbUp = useMemo(() => Animated.multiply(kb, -1), [kb]);
@@ -239,14 +256,16 @@ function SheetHost() {
         </Pressable>
       </Animated.View>
       <Animated.View style={[StyleSheet.absoluteFill, { transform: [{ translateY: kbUp }] }]} pointerEvents="box-none">
-      <Animated.View onLayout={(e) => setSheetH(e.nativeEvent.layout.height)} style={[styles.sheet, { maxHeight: height * 0.86, transform: [{ translateY: slide }, ...sh.transform] }]}>
+      <Animated.View onLayout={(e) => setSheetH(e.nativeEvent.layout.height)} style={[styles.sheet, { maxHeight: kbH ? Math.min(height * 0.86, height - kbH - insets.top - 24) : height * 0.86, transform: [{ translateY: slide }, ...sh.transform] }]}>
         <View style={[StyleSheet.absoluteFill, { borderRadius: 34, overflow: "hidden" }]}>
           <Blur overlay intensity={50} />
           <View style={[StyleSheet.absoluteFill, { experimental_backgroundImage: "linear-gradient(160deg, rgba(255,255,255,0.88), rgba(255,255,255,0.7))" }]} />
         </View>
-        <ScrollView bounces={false} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingTop: 10, paddingHorizontal: 20, paddingBottom: 26, gap: 16 }}>
+        <ScrollView ref={scroll} bounces={false} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode="none" contentContainerStyle={{ paddingTop: 10, paddingHorizontal: 20, paddingBottom: 26, gap: 16 }}>
+          <View ref={content} collapsable={false} style={{ gap: 16 }}>
           <View style={{ width: 40, height: 5, borderRadius: 3, backgroundColor: C.line2, alignSelf: "center" }} />
           {sheet ? <SheetContent key={sheet.id} kind={sheet.kind} arg={sheet.arg} /> : null}
+          </View>
         </ScrollView>
       </Animated.View>
       </Animated.View>
@@ -338,7 +357,7 @@ function KavorApp() {
   const r = cur();
   return (
     <View style={styles.root}>
-      <StatusBar style={splash || LIGHT.includes(r) ? "light" : "dark"} animated />
+      <StatusBar style={splash || S.resplash || LIGHT.includes(r) ? "light" : "dark"} animated />
       <BlurSource><Router /></BlurSource>
       <QuickMenu />
       <Dock visible={isNav(r)} />
@@ -346,6 +365,7 @@ function KavorApp() {
       <SheetHost />
       <Toast />
       {splash ? <SplashOverlay ready onDone={() => setSplash(false)} /> : <NativeSplashGone />}
+      {!splash && S.resplash ? <SplashOverlay quick ready={S.resplash === "ready"} onDone={endResplash} /> : null}
     </View>
   );
 }

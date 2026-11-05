@@ -19,7 +19,9 @@ import {
   EXPLANATION_KINDS, PROFILE_FIELDS, REQUEST_ATTACHMENT_MAX, distanceMeters, overtimeAttendanceText, passwordProblems,
   type AttendanceEvent, type AttendanceToday, type AuthResult, type ExplanationKind, type AppNotification, type MyAdvance, type MyAnnouncement, type MyAnnouncements, type MyDocuments, type MeProfile, type MyProfile, type ProfileChangeInput, type ProfileField, type MyCompany, type MyLeave, type MyOvertime, type MyPayslip, type MyPayslips, type MyTimesheet, type NotificationFeed, type RequestItem, type SupportContact, type TimesheetDay, type WorkLocation,
 } from "@kavor/contracts";
-import { currentFix, deviceRegistration, deviceSummary, enqueue, flushQueue, installationId, LocationError, newEventId, onFix, quietFix, readQueue, watchFix, type Fix } from "./attendance";
+import { cachedImage, clearImages, storeImage } from "./imgcache";
+type ImgSrc = { uri: string; headers?: Record<string, string> };
+import { currentFix, deviceRegistration, deviceSummary, enqueue, flushQueue, installationId, LocationError, newEventId, onFix, queuedNow, quietFix, readQueue, watchFix, type Fix, type QueuedPunch } from "./attendance";
 
 export type Anim = "push" | "pop" | "fade";
 export type Route =
@@ -165,7 +167,7 @@ const makeState = () => ({
   /* Thông tin công ty (bản dùng API): thương hiệu, liên hệ HR, điều khoản dữ liệu cá nhân. coverSrc: ảnh bìa kèm header đăng nhập */
   company: null as MyCompany | null,
   supportCache: null as SupportContact | null,
-  coverSrc: null as null | { uri: string; headers: Record<string, string> },
+  coverSrc: null as null | ImgSrc,
   afterConsent: null as Route | null,
   /* Bảng công + đơn giải trình (bản dùng API). reqItems: đơn thật theo số đơn (GT-0001) để màn chi tiết/duyệt dùng */
   ts: null as MyTimesheet | null,
@@ -204,9 +206,11 @@ const makeState = () => ({
   punchStage: null as null | "gps" | "send",
   /* Đang hiện bản dữ liệu lưu trên máy, chưa tải xong bản mới từ máy chủ */
   stale: false,
+  /* Mở lại sau khi vắng lâu/sang ngày mới: hiện lại splash (loading) đến khi có dữ liệu hôm nay hoặc quá 2 giây (ready) */
+  resplash: null as null | "loading" | "ready",
   /* Ảnh đại diện: phiên bản (lưu cùng bản dữ liệu trên máy) và nguồn ảnh kèm token để <Image> tải */
   avatarVer: null as string | null,
-  avatarSrc: null as { uri: string; headers: Record<string, string> } | null,
+  avatarSrc: null as ImgSrc | null,
   shake: { key: "", n: 0 },
   leavingCard: null as string | null,
   notifShow: false,
@@ -224,6 +228,8 @@ const makeState = () => ({
     noLoc: false,
     distM: null as number | null, accM: null as number | null,
     device: "iPhone 15", last: null as AttendanceEvent | null, queued: 0,
+    /* Lần chấm công vừa bấm (đã lưu trên máy): sending = đang gửi, saved = chưa gửi được, sẽ tự gửi lại */
+    pending: null as null | { id: string; state: "sending" | "saved" },
     /* Bản dùng API: thiết bị chấm công máy chủ đang ghi nhận cho máy này */
     info: null as AttendanceToday["device"],
   },
@@ -438,7 +444,13 @@ async function setAvatar(ver: string | null | undefined) {
   ver ??= null;
   if (ver === S.avatarVer && (S.avatarSrc || !ver)) return;
   S.avatarVer = ver;
-  S.avatarSrc = ver ? await companyApi.avatarSource(ver).catch(() => null) : null;
+  /* Có sẵn trên máy (cùng phiên bản) thì hiện ngay; chưa có thì tải một lần rồi lưu */
+  const local = cachedImage("avatar", ver);
+  if (local || !ver) { S.avatarSrc = local ? { uri: local } : null; emit(); return; }
+  const src = await companyApi.avatarSource(ver).catch(() => null);
+  const file = src ? await storeImage("avatar", ver, src) : null;
+  if (S.avatarVer !== ver) return;
+  S.avatarSrc = file ? { uri: file } : src;
   emit();
 }
 /* Đổi ảnh đại diện: chọn/chụp → cắt vuông (khung cắt của hệ điều hành) → gửi máy chủ */
@@ -665,10 +677,19 @@ export async function loadCompany(): Promise<MyCompany | null> {
     const c = await companyApi.get();
     S.company = c; S.supportCache = c.support;
     void saveSupport(c.support);
-    S.coverSrc = c.branding.coverVersion ? await companyApi.brandingSource("cover", c.branding.coverVersion) : null;
+    S.coverSrc = await coverSource(c.branding.coverVersion);
     emit();
     return c;
   } catch { return S.company; }
+}
+/* Ảnh bìa: file trên máy theo phiên bản, chưa có thì tải về lưu lại (lỗi tải thì dùng thẳng URL) */
+async function coverSource(ver: string | null | undefined): Promise<ImgSrc | null> {
+  if (!ver) return null;
+  const local = cachedImage("cover", ver);
+  if (local) return { uri: local };
+  const src = await companyApi.brandingSource("cover", ver).catch(() => null);
+  const file = src ? await storeImage("cover", ver, src) : null;
+  return file ? { uri: file } : src;
 }
 function askConsent(next: Route) {
   if (cur() === "consent") return;
@@ -717,6 +738,14 @@ function applyToday(t: AttendanceToday) {
   if (S.att.noLoc) { S.att.loc = NO_LOC; S.inRange = false; }
   else if (!t.locations.some((l) => l.id === S.att.loc.id)) S.att.loc = t.locations[0]!;
   S.clockIn = accepted(t.clockIn); S.clockOut = accepted(t.clockOut);
+  /* Lần chấm công hôm nay còn lưu trên máy (chưa gửi được) vẫn hiện, để người dùng không bấm lại */
+  const today = new Date().toDateString();
+  for (const p of queuedNow()) {
+    const at = new Date(p.occurredAt ?? p.queuedAt);
+    if (at.toDateString() !== today) continue;
+    if (p.kind === "in" && S.clockIn == null) S.clockIn = secOfDay(at);
+    if (p.kind === "out" && S.clockOut == null) S.clockOut = secOfDay(at);
+  }
   S.att.device = t.device?.deviceModel ?? deviceSummary().model; S.att.info = t.device;
   emit();
 }
@@ -753,6 +782,8 @@ async function restoreLastData(emp: string): Promise<boolean> {
     applyToday(c.day === dayKey() ? c.today : { ...c.today, clockIn: null, clockOut: null });
     S.stale = true;
     void setAvatar(S.avatarVer);
+    const cv = cachedImage("cover", S.company?.branding.coverVersion);
+    if (cv) S.coverSrc = { uri: cv };
     return true;
   } catch { return false; }
 }
@@ -772,21 +803,64 @@ function attError(e: unknown) {
   toast("Đã có lỗi xảy ra. Vui lòng thử lại.");
 }
 
-/* Gửi các lần chấm công lưu trên máy lúc mất mạng; lỗi mạng hoặc phiên hết hạn thì giữ lại lần sau */
-async function flushPunches() {
+/* Gửi các lần chấm công lưu trên máy; lỗi mạng hoặc phiên hết hạn thì giữ lại, tự thử lại mỗi 20 giây khi app đang mở.
+   Chỉ một lượt gửi chạy tại một thời điểm; có lần chấm công mới trong lúc gửi thì gửi thêm một lượt. */
+let flushRun: Promise<void> | null = null, flushAgain = false;
+function flushPunches(): Promise<void> {
+  if (flushRun) { flushAgain = true; return flushRun; }
+  flushRun = (async () => { do { flushAgain = false; await flushOnce(); } while (flushAgain); })().finally(() => { flushRun = null; });
+  return flushRun;
+}
+const punchLabel = (p: QueuedPunch) => `${p.kind === "in" ? "vào" : "ra"} ca lúc ${hm(secOfDay(new Date(p.occurredAt ?? p.queuedAt)))}${new Date(p.occurredAt ?? p.queuedAt).toDateString() === new Date().toDateString() ? "" : ` ngày ${new Date(p.occurredAt ?? p.queuedAt).toLocaleDateString("vi-VN")}`}`;
+/* Máy chủ không nhận lần đã lưu: bỏ giờ hiển thị tạm (nếu là hôm nay) */
+function undoLocal(p: QueuedPunch) {
+  const at = new Date(p.occurredAt ?? p.queuedAt);
+  if (at.toDateString() !== new Date().toDateString()) return;
+  if (p.kind === "in" && S.clockIn === secOfDay(at)) S.clockIn = null;
+  if (p.kind === "out" && S.clockOut === secOfDay(at)) S.clockOut = null;
+}
+async function flushOnce() {
+  if (!queuedNow().length && !(await readQueue()).length) { S.att.queued = 0; return; }
   const r = await flushQueue((p) => attendanceApi.record(p), (e) => isNetworkError(e) || (e instanceof ApiError && e.status === 401));
   S.att.queued = r.remaining;
-  const ok = r.sent.length, bad = r.failed.length;
-  if (ok || bad) toast(bad ? `Có ${bad} lần chấm công lưu trên máy bị từ chối: ${(r.failed[0]!.error as Error).message}` : `Đã gửi ${ok} lần chấm công lưu trên máy`);
+  const cur0 = S.att.pending;
+  for (const { p, result: ev } of r.sent) {
+    const mine = cur0?.id === p.clientEventId;
+    if (mine) S.att.pending = null;
+    if (ev.status === "accepted") {
+      S.att.last = ev;
+      const at = new Date(ev.occurredAt);
+      if (at.toDateString() === new Date().toDateString()) { if (ev.kind === "in") S.clockIn = secOfDay(at); else S.clockOut = secOfDay(at); }
+      continue;
+    }
+    undoLocal(p);
+    if (mine && S.sheet?.kind === "receipt") {
+      closeSheet(true);
+      if (ev.rejectReason === "out_of_range") { S.inRange = false; if (ev.distanceM != null) S.att.distM = ev.distanceM; openSheet("blocked"); }
+      else toast(`GPS chưa đủ chính xác (±${Math.round(ev.accuracyM ?? p.accuracyM)} m, cần ≤ ${S.att.loc.maxAccuracyM} m). Ra chỗ thoáng rồi thử lại.`);
+    } else Alert.alert("Chấm công không được ghi nhận", `Lần ${punchLabel(p)} lưu trên máy bị máy chủ từ chối (${ev.rejectReason === "out_of_range" ? "ngoài vùng chấm công" : "GPS chưa đủ chính xác"}). Hãy chấm công lại hoặc gửi giải trình.`);
+  }
+  for (const { p, error } of r.failed) {
+    undoLocal(p);
+    if (cur0?.id === p.clientEventId) { S.att.pending = null; if (S.sheet?.kind === "receipt") { attError(error); continue; } }
+    Alert.alert("Chấm công không được ghi nhận", `Lần ${punchLabel(p)} lưu trên máy bị máy chủ từ chối: ${error instanceof Error ? error.message : "lỗi không xác định"}. Hãy gửi giải trình nếu cần.`);
+  }
+  if (S.att.pending && r.remaining) S.att.pending = { ...S.att.pending, state: "saved" };
+  emit();
+}
+if (REMOTE) {
+  void readQueue().then((q) => { S.att.queued = q.length; if (q.length && lastToday) applyToday(lastToday); }).catch(() => {});
+  setInterval(() => { if (S.att.queued && AppState.currentState === "active" && isLoggedIn()) void flushPunches().catch(() => {}); }, 20_000);
 }
 
+let todayOkAt = 0, loadTodayRun: Promise<void> = Promise.resolve();
 /* Tải trạng thái hôm nay từ máy chủ: giờ vào/ra, địa điểm, thiết bị */
 export async function loadToday() {
   if (!REMOTE || !isLoggedIn() || S.stack[0] === "consent") return;
   try {
     await flushPunches().catch(() => {});
     const t = await attendanceApi.today(await installationId());
-    S.stale = false;
+    S.stale = false; todayOkAt = Date.now();
     applyToday(t);
     if (t.device?.status === "pending") { showErr("devicePending"); return; }
     if (!t.device || t.device.status === "revoked" || t.device.status === "rejected") { await deviceLost(t.device); return; }
@@ -850,13 +924,45 @@ if (REMOTE) setInterval(() => {
   if (AppState.currentState === "active" && isLoggedIn() && !["login", "consent", "device", "notifications"].includes(cur())) void loadNotifications();
 }, 30_000);
 
-/* Mở lại app từ nền: đồng bộ hàng đợi và trạng thái hôm nay */
+/* Mở lại app từ nền: đồng bộ hàng đợi và trạng thái hôm nay.
+   Ở nền ≥ 1 phút: tải lại toàn bộ (kỳ công hiện tại, không giữ tháng đang xem) và thử lại khi mạng chưa kịp lên.
+   Ở nền ≥ 30 phút: như mở app mới — đóng bảng, về trang chủ (trừ khi đang điền đơn dở). */
+const FORM_ROUTES: Route[] = ["explain", "leaveNew", "advanceNew", "ot"];
+let bgAt = 0, bgDay = "", wakeRetry: ReturnType<typeof setTimeout> | null = null;
+function refreshAll(attempt = 0) {
+  if (wakeRetry) { clearTimeout(wakeRetry); wakeRetry = null; }
+  if (!isLoggedIn()) return;
+  S.stale = true; emit();
+  const t0 = Date.now();
+  loadTodayRun = loadToday();
+  void loadTodayRun.then(() => {
+    /* Vừa mở lại máy mạng thường chưa kịp lên: tải hôm nay chưa được thì thử lại toàn bộ sau 3 s, rồi 10 s */
+    if (todayOkAt < t0 && attempt < 2 && AppState.currentState === "active") wakeRetry = setTimeout(() => refreshAll(attempt + 1), attempt ? 10_000 : 3000);
+  });
+  void loadTimesheet(); void loadRequests(); void loadNotifications(); void loadLeave(); void loadOvertime(); void loadAdvance(); void loadAnnouncements(); void loadProfile();
+  if (cur() === "docs") void loadDocuments();
+}
 if (REMOTE) AppState.addEventListener("change", (st) => {
-  if (st !== "active") { void watchFix(false); return; }
-  void loadToday();
+  if (st !== "active") { if (st === "background" && !bgAt) { bgAt = Date.now(); bgDay = new Date().toDateString(); } void watchFix(false); return; }
+  const away = bgAt ? Date.now() - bgAt : 0, newDay = !!bgAt && bgDay !== new Date().toDateString(); bgAt = 0;
   /* Người dùng có thể vừa bật/tắt quyền trong Cài đặt của máy */
   if (isLoggedIn()) void refreshPerms();
-  if (isLoggedIn()) refreshWork();
+  if (away < 60_000 && !newDay) { void loadToday(); if (isLoggedIn()) refreshWork(); }
+  else {
+    const editing = FORM_ROUTES.includes(cur()) || S.sheet?.kind === "editProfile";
+    /* Vắng ≥ 30 phút hoặc sang ngày mới: như mở app mới — splash, về trang chủ, tải lại (trừ khi đang điền đơn dở) */
+    if ((away >= 30 * 60_000 || newDay) && isLoggedIn() && !editing && S.stack[0] === "home") {
+      closeSheet(true); S.pinUntil = 0;
+      if (S.stack.length > 1) { S.stack = ["home"]; render("fade"); }
+      S.resplash = "loading"; emit();
+      const done = () => { if (S.resplash === "loading") { S.resplash = "ready"; emit(); } };
+      setTimeout(done, 2000);
+      refreshAll();
+      void loadTodayRun.finally(done);
+      return;
+    }
+    refreshAll();
+  }
   /* HR công bố điều khoản mới trong lúc app chạy nền → hỏi đồng ý ở lần mở kế tiếp */
   if (isLoggedIn()) void loadCompany().then((c) => { if (c?.privacy.required) askConsent(cur() === "device" ? "device" : "home"); });
 });
@@ -867,20 +973,37 @@ async function punchRemote(kind: "in" | "out") {
   S.spin = "punch"; S.punchStage = "gps"; emit();
   let slow: ReturnType<typeof setTimeout> | undefined;
   try {
-    const fix = await currentFix(true, S.att.loc.maxAccuracyM || 50, (f) => { S.att.accM = f.accuracyM; emit(); });
+    const needM = S.att.loc.maxAccuracyM || 50;
+    const fix = await currentFix(true, needM, (f) => { S.att.accM = f.accuracyM; emit(); });
     applyFix(fix);
+    const req = { clientEventId: newEventId(), kind, installationId: await installationId(), latitude: fix.latitude, longitude: fix.longitude, accuracyM: fix.accuracyM, occurredAt: new Date().toISOString() };
+    /* Trong vùng và GPS đủ chính xác (tính giống máy chủ): lưu trên máy trước, báo thành công ngay, gửi máy chủ ở nền.
+       Tắt app/mất mạng giữa chừng thì lần sau mở app tự gửi lại (cùng clientEventId nên không ghi trùng). */
+    if (!S.att.noLoc && S.inRange && fix.accuracyM <= (S.att.loc.maxAccuracyM || needM)) {
+      await enqueue(req);
+      S.att.queued = queuedNow().length;
+      const t = secOfDay(new Date(req.occurredAt));
+      if (kind === "in") S.clockIn = t; else S.clockOut = t;
+      S.att.last = null; S.att.pending = { id: req.clientEventId, state: "sending" };
+      Vibration.vibrate(30);
+      closeSheet(true);
+      S.justPunched = true; emit(); openSheet("receipt", `${kind}:${t}`);
+      setTimeout(() => { S.justPunched = false; }, 900);
+      void flushPunches().catch(() => {});
+      return;
+    }
+    /* Ngoài vùng/GPS kém theo máy: gửi thẳng để máy chủ xét và báo lý do */
     S.punchStage = "send"; emit();
-    /* Mạng chậm thì hiện thêm bảng "Đang gửi…" giải thích không cần bấm lại */
     slow = setTimeout(() => { if (e0 === epoch) openSheet("slowCheck"); }, 4000);
-    const req = { clientEventId: newEventId(), kind, installationId: await installationId(), latitude: fix.latitude, longitude: fix.longitude, accuracyM: fix.accuracyM };
     let ev: AttendanceEvent;
     try {
-      ev = await attendanceApi.record(req);
+      const { occurredAt: _t, ...online } = req;
+      ev = await attendanceApi.record(online);
     } catch (e) {
       if (!isNetworkError(e)) throw e;
       /* Mất mạng: lưu kèm giờ trên máy, máy chủ kiểm tra lại khi gửi (quá 24 giờ sẽ bị từ chối) */
-      await enqueue({ ...req, offline: true, occurredAt: new Date().toISOString() });
-      S.att.queued = (await readQueue()).length;
+      await enqueue(req);
+      S.att.queued = queuedNow().length;
       const t = simNow();
       if (kind === "in") S.clockIn = t; else S.clockOut = t;
       closeSheet(true); openSheet("queued", `${kind}:${t}`); return;
@@ -1552,7 +1675,7 @@ export const ACT = {
       if (!S.bio.login && sess?.auth) { await authApi.logout(sess.auth.accessToken).catch(() => undefined); await clearQuickLogin(); }
     });
     /* Đăng xuất: bỏ nhắc nhở và thông báo của người vừa dùng máy */
-    if (REMOTE) { void clearExplainReminders().catch(() => undefined); S.notifs = null; S.ts = null; S.profile = null; clearPayroll(); clearAnnouncements(); clearDocuments(); }
+    if (REMOTE) { void clearExplainReminders().catch(() => undefined); S.notifs = null; S.ts = null; S.profile = null; clearPayroll(); clearAnnouncements(); clearDocuments(); clearImages("avatar"); S.avatarVer = null; S.avatarSrc = null; }
     const lastCode = S.me?.employeeCode ?? S.profile?.employeeCode ?? "";
     void clearSession(); S.pinUntil = 0; S.f = freshForms(); if (REMOTE) { S.f.lgId = lastCode; S.me = null; S.att.info = null; } closeSheet(); S.stack = ["login"]; render("fade");
   },
@@ -1647,3 +1770,6 @@ export function quickItems(): Array<[string, "tap" | "plane" | "clock" | "moon" 
 
 export const ADV_STEPS = ["Đã gửi", "Quản lý duyệt", "HR duyệt", "Kế toán duyệt", "Đã chi", "Đã khấu trừ"];
 export { ADV_DAY };
+
+/* Splash mở lại đã mờ xong */
+export function endResplash() { if (S.resplash) { S.resplash = null; emit(); } }

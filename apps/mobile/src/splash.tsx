@@ -21,11 +21,12 @@ const LOGO = '<svg viewBox="16 16 439 393"><path d="M35 189 L35 389 L141 190 L24
 
 /* Lớp phủ trùng khớp splash gốc: gradient emerald hiện dần, chữ Kavor trồi lên,
    sau đó logo phóng nhẹ và cả lớp mờ đi để lộ màn đăng nhập. */
-export function SplashOverlay({ ready, onDone }: { ready: boolean; onDone: () => void }) {
+/* quick: mở lại app sau khi vắng lâu — logo hiện tức thì, có dữ liệu thì mờ đi nhanh (không lặp lại hiệu ứng chữ) */
+export function SplashOverlay({ ready, onDone, quick }: { ready: boolean; onDone: () => void; quick?: boolean }) {
   const reduced = useReducedMotion();
   /* Splash gốc iOS đã là ảnh gradient (ios/Kavor/Images.xcassets/SplashScreenGradient = assets/splash-gradient.png) nên lớp phủ bắt đầu ngay ở
      khung gradient — không còn khung xanh đặc (phản hồi người dùng 29/10). Android chỉ có màu đặc + icon nên gradient vẫn hiện dần. */
-  const glow = useRef(new Animated.Value(Platform.OS === "ios" ? 1 : 0)).current;
+  const glow = useRef(new Animated.Value(Platform.OS === "ios" || quick ? 1 : 0)).current;
   const word = useRef(new Animated.Value(0)).current;
   const out = useRef(new Animated.Value(0)).current;
   const [laid, setLaid] = useState(false);
@@ -33,8 +34,8 @@ export function SplashOverlay({ ready, onDone }: { ready: boolean; onDone: () =>
   useEffect(() => {
     if (!ready || !laid) return;
     SplashScreen.hideAsync().catch(() => {});
-    if (reduced) {
-      Animated.timing(out, { toValue: 1, duration: 200, useNativeDriver: true }).start(onDone);
+    if (reduced || quick) {
+      Animated.timing(out, { toValue: 1, duration: quick && !reduced ? 380 : 200, easing: EASE, useNativeDriver: true }).start(onDone);
       return;
     }
     Animated.sequence([
@@ -54,7 +55,7 @@ export function SplashOverlay({ ready, onDone }: { ready: boolean; onDone: () =>
       <Animated.View style={{ alignItems: "center", transform: [{ scale: out.interpolate({ inputRange: [0, 1], outputRange: [1, 1.18] }) }] }}>
         <View style={{ width: LOGO_W, height: LOGO_H }}><SvgXml xml={LOGO} width={LOGO_W} height={LOGO_H} /></View>
       </Animated.View>
-      {ready ? <Animated.View style={[styles.word, { opacity: word, transform: [{ translateY: word.interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) }] }]}>
+      {ready && !quick ? <Animated.View style={[styles.word, { opacity: word, transform: [{ translateY: word.interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) }] }]}>
         <T style={styles.wordText}>KAVOR</T>
         <T style={styles.tag}>Nhân sự trong tầm tay</T>
       </Animated.View> : null}

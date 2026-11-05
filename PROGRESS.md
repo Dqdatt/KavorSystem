@@ -541,6 +541,14 @@ ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AG
   PIN/Face ID, tối đa 5 MB, "Thiếu hồ sơ" = chưa có hợp đồng còn hiệu lực.
 
 ## Nhật ký
+- 2026-11-05 — Claude (Desktop): sửa 4 lỗi test iPhone. (1) Chấm công lưu vào hàng đợi trên máy TRƯỚC khi gửi, hiện biên nhận ngay
+  ("Đang gửi…"/"Lưu trên máy · chờ gửi"), gửi nền + tự thử lại 20 s/lần và khi mở lại app; gửi trong 2 phút = trực tuyến, muộn hơn = offline giờ máy;
+  máy chủ từ chối thì bỏ giờ tạm + Alert. Ngoài vùng/GPS kém vẫn gửi thẳng để máy chủ báo lý do. (Nguyên nhân mất ra ca 04/11 nhiều khả năng: tắt app
+  lúc đang "Đang gửi…" — bản cũ chỉ lưu sau khi lỗi mạng.) (2) Ở nền ≥ 1 phút tải lại toàn bộ (thử lại 3 s/10 s), ≥ 30 phút về trang chủ (trừ form dở).
+  (3) Ảnh đại diện/bìa lưu file theo phiên bản (`src/imgcache.ts`, expo-file-system đã link sẵn). (4) Sheet có bàn phím: thu chiều cao + cuộn tới ô
+  đang nhập. Test mới `tools/punch-queue-mobile-test.mjs`; verify-all --quick đạt. Chưa thử trên iPhone/Android.
+- 2026-11-05 — Claude (Desktop): mở lại app — vắng ≥ 30 phút hoặc sang ngày mới: splash nhanh (`S.resplash`, tối đa 2 s chờ dữ liệu hôm nay) rồi
+  về trang chủ; vắng 1–30 phút: giữ số liệu cũ, nhấp nháy kiểu skeleton (`Shimmer` ở ui.tsx) thay dòng "Đang cập nhật…".
 - 2026-10-30 — Claude (Desktop): thử chấm công Thuỷ Sinh trên iPhone: "ngoài vùng" do (1) chưa áp dụng địa điểm cho nhân viên, (2) điểm đặt từ tìm địa chỉ
   lệch 106 m. Đã áp dụng địa điểm, nới tạm 200 m cho 30/10, đặt điểm theo GPS iPhone (±4 m) bán kính 50 m từ 31/10. NV001 đã vào ca 09:27. Sau đó chạy verify-all đầy đủ
   (người dùng đồng ý) → DB local đã reset, **dữ liệu Thuỷ Sinh không còn**; thử lại phải tạo lại công ty trên Console.

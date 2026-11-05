@@ -105,30 +105,42 @@ export async function quietFix(): Promise<Fix | null> {
 
 export type QueuedPunch = AttendanceEventRequest & { queuedAt: number };
 
+/* Bản sao trong bộ nhớ để màn hình đọc đồng bộ (giữ giờ vào/ra đã lưu trên máy khi máy chủ chưa có) */
+let queueCache: QueuedPunch[] = [];
+export const queuedNow = () => queueCache;
 export async function readQueue(): Promise<QueuedPunch[]> {
   const raw = await SecureStore.getItemAsync(QUEUE_KEY, opts).catch(() => null);
-  try { return raw ? (JSON.parse(raw) as QueuedPunch[]) : []; } catch { return []; }
+  try { queueCache = raw ? (JSON.parse(raw) as QueuedPunch[]) : []; } catch { queueCache = []; }
+  return queueCache;
 }
 async function writeQueue(q: QueuedPunch[]) {
+  queueCache = q;
   if (q.length) await SecureStore.setItemAsync(QUEUE_KEY, JSON.stringify(q), opts);
   else await SecureStore.deleteItemAsync(QUEUE_KEY, opts).catch(() => {});
 }
+/* Ghi vào hàng đợi TRƯỚC khi gửi: app bị tắt/mất mạng giữa chừng thì lần chấm công vẫn còn trên máy */
 export async function enqueue(p: AttendanceEventRequest) {
   const q = await readQueue();
   if (!q.some((x) => x.clientEventId === p.clientEventId)) q.push({ ...p, offline: true, occurredAt: p.occurredAt ?? new Date().toISOString(), queuedAt: Date.now() });
   await writeQueue(q);
 }
-/* Gửi lần lượt; lỗi mạng thì dừng và giữ lại, máy chủ trả lỗi nghiệp vụ thì bỏ khỏi hàng đợi và báo lại */
-export async function flushQueue(send: (p: AttendanceEventRequest) => Promise<unknown>, isNetworkError: (e: unknown) => boolean) {
+/* Gửi lần lượt; lỗi mạng thì dừng và giữ lại, máy chủ trả lỗi nghiệp vụ thì bỏ khỏi hàng đợi và báo lại.
+   Gửi trong 2 phút kể từ lúc bấm thì dùng giờ máy chủ như chấm công trực tuyến; quá 2 phút mới gửi dạng offline (giờ trên máy). */
+const ONLINE_MS = 120_000;
+export async function flushQueue<R>(send: (p: AttendanceEventRequest) => Promise<R>, isNetworkError: (e: unknown) => boolean) {
   const q = await readQueue();
-  const sent: QueuedPunch[] = [], failed: Array<{ p: QueuedPunch; error: unknown }> = [];
+  const sent: Array<{ p: QueuedPunch; result: R }> = [], failed: Array<{ p: QueuedPunch; error: unknown }> = [];
   for (const p of q) {
-    try { await send(p); sent.push(p); } catch (e) {
+    const { queuedAt, occurredAt, offline: _o, ...base } = p;
+    const req: AttendanceEventRequest = Date.now() - queuedAt < ONLINE_MS ? base : { ...base, offline: true, ...(occurredAt ? { occurredAt } : {}) };
+    try { sent.push({ p, result: await send(req) }); } catch (e) {
       if (isNetworkError(e)) break;
       failed.push({ p, error: e });
     }
   }
-  const done = new Set([...sent, ...failed.map((f) => f.p)].map((p) => p.clientEventId));
-  await writeQueue(q.filter((p) => !done.has(p.clientEventId)));
-  return { sent, failed, remaining: q.length - done.size };
+  const done = new Set([...sent.map((x) => x.p), ...failed.map((f) => f.p)].map((p) => p.clientEventId));
+  /* Đọc lại: trong lúc gửi có thể vừa thêm lần chấm công mới */
+  const now = await readQueue();
+  await writeQueue(now.filter((p) => !done.has(p.clientEventId)));
+  return { sent, failed, remaining: now.length - done.size };
 }

@@ -5,7 +5,7 @@ import {
 } from "react-native";
 import { C, F, GL, EASE, glass, lh, tint } from "./theme";
 import { Gi, Ic, type IconName } from "./icons";
-import { Appear, usePick, usePress, useShake } from "./motion";
+import { Appear, usePick, usePress, useReducedMotion, useShake } from "./motion";
 import { S } from "./store";
 import { STATUS, type ReqStatus } from "./data";
 
@@ -210,9 +210,29 @@ export function TextArea(p: TextInputProps & { minHeight?: number }) {
     onFocus={(e) => { setFocus(true); p.onFocus?.(e); }} onBlur={(e) => { setFocus(false); p.onBlur?.(e); }}
     style={[styles.ta, focus && styles.focus, { minHeight: p.minHeight ?? 92 }, p.style]} />;
 }
+/* Đang tải lại dữ liệu mới: giữ số liệu cũ nhưng nhấp nháy nhẹ kiểu skeleton để người dùng biết sắp đổi */
+export function Shimmer({ on, children }: { on: boolean; children: ReactNode }) {
+  const v = useRef(new Animated.Value(1)).current;
+  const reduced = useReducedMotion();
+  useEffect(() => {
+    if (reduced) { v.setValue(on ? 0.6 : 1); return; }
+    if (!on) { v.stopAnimation(); Animated.timing(v, { toValue: 1, duration: 180, useNativeDriver: true }).start(); return; }
+    const loop = Animated.loop(Animated.sequence([
+      Animated.timing(v, { toValue: 0.4, duration: 650, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+      Animated.timing(v, { toValue: 1, duration: 650, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+    ]));
+    loop.start();
+    return () => loop.stop();
+  }, [on, reduced]);
+  return <Animated.View style={{ opacity: v, alignSelf: "stretch", alignItems: "center" }}>{children}</Animated.View>;
+}
+/* Ô nhập vừa được chạm: bảng (sheet) đang mở cuộn ô đó lên trên bàn phím */
+let focusHook: ((node: View) => void) | null = null;
+export const setInputFocusHook = (fn: ((node: View) => void) | null) => { focusHook = fn; };
 export function Inp(p: TextInputProps) {
   const [focus, setFocus] = useState(false);
-  return <View style={[styles.inp, focus && styles.focus]}><TextInput allowFontScaling={false} placeholderTextColor="#757575" {...p} onFocus={(e) => { setFocus(true); p.onFocus?.(e); }} onBlur={(e) => { setFocus(false); p.onBlur?.(e); }} style={styles.inpText} /></View>;
+  const box = useRef<View>(null);
+  return <View ref={box} style={[styles.inp, focus && styles.focus]}><TextInput allowFontScaling={false} placeholderTextColor="#757575" {...p} onFocus={(e) => { setFocus(true); if (box.current) focusHook?.(box.current); p.onFocus?.(e); }} onBlur={(e) => { setFocus(false); p.onBlur?.(e); }} style={styles.inpText} /></View>;
 }
 export function Stepper({ value, onMinus, onPlus, minusLabel, plusLabel }: { value: string; onMinus: () => void; onPlus: () => void; minusLabel: string; plusLabel: string }) {
   return (

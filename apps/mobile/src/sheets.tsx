@@ -89,8 +89,10 @@ export function SheetContent({ kind, arg }: { kind: SheetKind; arg?: string }) {
           <T style={{ fontSize: 21, fontFamily: F.bold, textAlign: "center" }}>Đã {kind2 === "in" ? "vào" : "ra"} ca lúc {hm(t)}</T>
           <T style={{ fontSize: 14, fontFamily: F.semibold, color: v[1] === "ok" ? C.ok : C.warn }}>{v[0]}</T>
         </Center>
-        {REMOTE && S.att.last
-          ? <Box><Ln k="Giờ ghi nhận" v={hms(t)} /><Ln k="Vị trí" v={`${S.att.last.locationName ?? S.att.loc.name}${S.att.last.distanceM != null ? " · " + fmtM(S.att.last.distanceM) : ""}`} /><Ln k="Thiết bị" v={S.att.device} /><Ln k="Mã bản ghi" v={S.att.last.recordCode} /></Box>
+        {REMOTE && (S.att.last || S.att.pending)
+          ? <Box><Ln k="Giờ ghi nhận" v={hms(t)} /><Ln k="Vị trí" v={S.att.last ? `${S.att.last.locationName ?? S.att.loc.name}${S.att.last.distanceM != null ? " · " + fmtM(S.att.last.distanceM) : ""}` : `${S.att.loc.name}${S.att.distM != null ? " · " + fmtM(S.att.distM) : ""}`} /><Ln k="Thiết bị" v={S.att.device} />
+            {/* Đã lưu trên máy: mã bản ghi có khi máy chủ nhận xong (gửi ở nền, mất mạng thì tự gửi lại) */}
+            <Ln k="Mã bản ghi" v={S.att.last && !S.att.pending ? S.att.last.recordCode : S.att.pending?.state === "saved" ? "Lưu trên máy · chờ gửi" : "Đang gửi…"} /></Box>
           : <Box><Ln k="Giờ ghi nhận" v={hms(t)} /><Ln k="Vị trí" v="VP Quận 1 · 1,8 m" /><Ln k="Thiết bị" v="iPhone 15" /><Ln k="Mã bản ghi" v={"CC-161026-" + (kind2 === "in" ? "0142" : "0143")} /></Box>}
         <Close kind="primary">Xong</Close>
       </>;

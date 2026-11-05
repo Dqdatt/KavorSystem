@@ -4,7 +4,7 @@ import Svg, { Circle, Defs, LinearGradient, Stop } from "react-native-svg";
 import { C, EASE, F, GL, glass } from "../theme";
 import { Gi, Ic, type IconName } from "../icons";
 import { Morph, useReducedMotion } from "../motion";
-import { Card, Count, InfoRow, Notice, Num, Row, RowBtn, RowStrong, SectionHead, St, T } from "../ui";
+import { Card, Count, Shimmer, InfoRow, Notice, Num, Row, RowBtn, RowStrong, SectionHead, St, T } from "../ui";
 import { BrandHead, TopBar, type ScreenSpec } from "../screen";
 import { useClock } from "../clock";
 import { CAT, dec, gh, hm, vnd, advLimit } from "../data";
@@ -152,11 +152,11 @@ export function Hero({ compact }: { compact?: boolean }) {
   return (
     <View style={{ alignItems: "center", paddingTop: compact ? 0 : 10 }}>
       <Num style={{ fontSize: compact ? 52 : 68, fontFamily: F.light, letterSpacing: (compact ? 52 : 68) * -0.02, lineHeight: compact ? 56 : 72, color: C.hero }}>{hm(now)}</Num>
-      <T style={{ fontSize: compact ? 17 : 21, color: "#7A8781", marginTop: compact ? 4 : 8 }}>{REMOTE ? `${todayLabel()}${S.stale ? " · Đang cập nhật…" : ""}` : "Thứ Sáu, 16 tháng 10"}</T>
-      <View style={[glass, { marginTop: compact ? 8 : 10, flexDirection: "row", alignItems: "center", gap: 6, paddingVertical: 6, paddingHorizontal: 12, borderRadius: 14 }]}>
+      <T style={{ fontSize: compact ? 17 : 21, color: "#7A8781", marginTop: compact ? 4 : 8 }}>{REMOTE ? todayLabel() : "Thứ Sáu, 16 tháng 10"}</T>
+      <Shimmer on={REMOTE && S.stale}><View style={[glass, { marginTop: compact ? 8 : 10, flexDirection: "row", alignItems: "center", gap: 6, paddingVertical: 6, paddingHorizontal: 12, borderRadius: 14 }]}>
         <Ic n="clock" s={14} color={C.ink2} />
         <T style={{ fontSize: 12.5, fontFamily: F.medium, color: C.ink2 }}>{shiftLabel()} · {shiftTime()}</T>
-      </View>
+      </View></Shimmer>
       <View style={{ width: "100%", height: compact ? 216 : 300, marginVertical: compact ? 0 : 4, alignItems: "center", justifyContent: "center" }}>
         <View pointerEvents="none" style={{ position: "absolute", top: 0, bottom: 0, left: 0, right: 0, alignItems: "center", justifyContent: "center" }}><PunchHalos size={compact ? 160 : 204} compact={compact} /></View>
         <View pointerEvents="none" style={{ position: "absolute", top: 6, bottom: 6, left: -20, right: -20, opacity: 0.9, experimental_backgroundImage: "linear-gradient(32deg, transparent 46%, #ffffff 46%, #ffffff 50%, transparent 50%), linear-gradient(-58deg, transparent 47%, #ffffff 47%, #ffffff 50%, transparent 50%), radial-gradient(ellipse at center, #F2F6F4 0%, #F8FAF9 45%, rgba(255,255,255,0) 70%)" }}>
@@ -164,11 +164,11 @@ export function Hero({ compact }: { compact?: boolean }) {
         </View>
         <Morph trigger={ph}><Punch bare size={compact ? 160 : 204} compact={compact} /></Morph>
       </View>
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 8, justifyContent: "center" }}>
+      <Shimmer on={REMOTE && S.stale}><View style={{ flexDirection: "row", alignItems: "center", gap: 8, justifyContent: "center" }}>
         <Ic n="pin" s={18} w={2} color={S.inRange ? C.hero : C.bad} />
         <T style={{ fontSize: 14, fontFamily: F.medium, color: S.inRange ? C.hero : C.bad }}>{REMOTE && S.att.noLoc ? "Chưa có địa điểm chấm công · liên hệ HR" : S.inRange ? `Vị trí: ${S.att.loc.name}` : "Bạn đang ở ngoài vùng chấm công"}</T>
-      </View>
-      <Morph trigger={ph} style={{ width: "100%", flexDirection: "row", marginTop: compact ? 12 : 26 }}>
+      </View></Shimmer>
+      <Shimmer on={REMOTE && S.stale}><Morph trigger={ph} style={{ width: "100%", flexDirection: "row", marginTop: compact ? 12 : 26 }}>
         {([["tIn", S.clockIn ? hm(S.clockIn) : "--:--", "Vào ca"], ["tOut", S.clockOut ? hm(S.clockOut) : "--:--", "Ra ca"], ["tDone", w === null ? "--:--" : gh(w), "Giờ làm"]] as Array<[IconName, string, string]>).map(([icon, v, l]) => (
           <View key={l} style={{ flex: 1, alignItems: "center", gap: 6 }}>
             <Gi n={icon} s={compact ? 28 : 34} w={1.6} />
@@ -176,7 +176,7 @@ export function Hero({ compact }: { compact?: boolean }) {
             <T style={{ fontSize: compact ? 12 : 13, color: C.ink3, fontFamily: F.medium }}>{l}</T>
           </View>
         ))}
-      </Morph>
+      </Morph></Shimmer>
     </View>
   );
 }
