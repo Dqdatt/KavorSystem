@@ -7,7 +7,7 @@ sql() { docker exec -i supabase_db_kavor-system psql -U postgres -d postgres -X 
 HDG=10000000-0000-4000-8000-000000000001
 curl -s -X DELETE "$MAIL/api/v1/messages" >/dev/null
 body() { python3 -c "import json,sys; print(json.dumps({'fileName': sys.argv[1], 'csv': open(sys.argv[2], encoding='utf-8').read(), 'dryRun': sys.argv[3] == 'dry'}))" "$1" "$2" "$3" > "$TMPF"; }
-TMPF=$(mktemp); trap 'rm -f "$TMPF" "$BAD"' EXIT
+TMPF=$(mktemp); trap 'rm -f "$TMPF" "$TMPF.apply" "$BAD"' EXIT
 imp() { curl -s -X POST "$API/admin/employees/import" -H 'content-type: application/json' -H "authorization: Bearer $1" --data-binary @"$TMPF"; }
 SAMPLE="$(dirname "$0")/../sample-data/employees_import_sample.csv"
 
@@ -18,7 +18,7 @@ BEFORE=$(sql "select count(*) from public.employees where tenant_id='$HDG'")
 echo "— Xem trước"
 body employees_import_sample.csv "$SAMPLE" dry
 R=$(imp "$HR")
-check "File mẫu: 3 dòng tạo mới, không lỗi, chưa ghi" "$(echo "$R" | py "(d['totals'], d['applied'], d['fileErrors'])")" "({'rows': 3, 'create': 3, 'exists': 0, 'error': 0}, False, [])"
+check "File mẫu: 3 dòng tạo mới, không lỗi, chưa ghi" "$(echo "$R" | py "([d['totals'][k] for k in ('rows','create','exists','error')], d['applied'], d['fileErrors'])")" "([3, 3, 0, 0], False, [])"
 check "Xem trước không ghi gì" "$(sql "select count(*) from public.employees where tenant_id='$HDG'")" "$BEFORE"
 check "Quản lý không nhập được (thiếu employee.create) → 403" "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$API/admin/employees/import" -H 'content-type: application/json' -H "authorization: Bearer $MGR" --data-binary @"$TMPF")" 403
 
@@ -26,9 +26,9 @@ BAD=$(mktemp)
 printf 'employee_code,full_name,work_email,hire_date,employment_type,department_code,position_code,manager_code\nHD0601,Võ Văn Một,mot.vo@haidang.vn,2026-11-01,Chính thức,MKT,AE,\nHD0602,Hai,thao.ha@haidang.vn,30/02/2026,Chính thức,KHONGCO,MKTM,\nHD0603,Lê Ba,ba.le@haidang.vn,01/11/2026,Chính thức,MKT,AE,HD0602\nHD0007,Trùng mã có sẵn,khac@haidang.vn,2026-11-01,Chính thức,MKT,AE,\n' > "$BAD"
 body bad.csv "$BAD" dry
 R=$(imp "$HR")
-check "File lỗi: 1 tạo mới, 1 đã có, 2 lỗi" "$(echo "$R" | py "d['totals']")" "{'rows': 4, 'create': 1, 'exists': 1, 'error': 2}"
-check "Lý do lỗi từng dòng: email đã dùng, phòng ban không có, ngày sai, quản lý ở dòng lỗi" "$(echo "$R" | py "[(r['code'], sorted(r['errors'])) for r in d['rows'] if r['action']=='error']")" \
-  "[('HD0602', ['Email đã dùng cho hồ sơ khác', 'Ngày vào làm dạng YYYY-MM-DD hoặc DD/MM/YYYY', 'Phòng ban KHONGCO không có hoặc đã ngừng']), ('HD0603', ['Quản lý HD0602 ở dòng có lỗi'])]"
+check "File lỗi: 2 tạo mới, 1 đã có, 1 lỗi" "$(echo "$R" | py "[d['totals'][k] for k in ('rows','create','exists','error')]")" "[4, 2, 1, 1]"
+check "Chỉ chặn ngày không có thật; phòng ban/chức danh lạ = tạo mới; email đã dùng + quản lý ở dòng lỗi = cảnh báo" "$(echo "$R" | py "([(r['code'], r['errors']) for r in d['rows'] if r['action']=='error'], sorted(u['value'] for u in d['analysis']['departments'] if not u['existing']), [w for r in d['rows'] if r['code']=='HD0603' for w in r['warnings'] if 'Quản lý' in w])")" \
+  "([('HD0602', ['Ngày vào làm \"30/02/2026\" không phải ngày có thật'])], ['KHONGCO'], ['Quản lý HD0602 ở dòng không nhập được — gán sau'])"
 body bad.csv "$BAD" apply
 check "Còn lỗi thì không nhập (422), không ghi dòng nào" "$(imp "$HR" | field error.code):$(sql "select count(*) from public.employees where employee_code='HD0601'")" "IMPORT_HAS_ERRORS:0"
 
@@ -41,6 +41,41 @@ check "Nhân viên mới hiện trong danh sách web HR" "$(call GET admin/emplo
 R=$(imp "$HR")
 check "Nhập lại cùng file: 3 dòng đã có, không tạo trùng" "$(echo "$R" | py "(d['totals']['create'], d['totals']['exists'])"):$(sql "select count(*) from public.employees where employee_code like 'HD050%'")" "(0, 3):3"
 check "Audit: 1 dòng nhập + 3 hồ sơ tạo, không chép email" "$(sql "select count(*) filter (where action='employee.imported') || '|' || count(*) filter (where action='employee.created' and after_data->>'source'='import') || '|' || count(*) filter (where after_data::text like '%lan.nguyen%') from public.audit_logs where tenant_id='$HDG'")" "1|3|0"
+
+echo "— File tự do (.xlsx, tiêu đề tiếng Việt, không mã, phòng ban mới)"
+BR=$(sql "select branch_id from public.departments where tenant_id='$HDG' and code='MKT'")
+python3 - "$TMPF" "$BR" <<'PY'
+import base64, io, json, sys, zipfile
+rows = [["DANH SÁCH NHÂN SỰ"], [], ["STT", "HỌ VÀ TÊN", "PHÒNG/ BAN", "CHỨC VỤ", "NGÀY BẮT ĐẦU LÀM VIỆC", "SĐT", "E MAIL", "TRẠNG THÁI"],
+        ["1", "Phan Văn Kho", "Kho vận", "Nhân viên kho", "15/03/2024", 912345678, "kho.phan@gmail.com", "Đang làm việc"],
+        ["2", "Đào Thị Vận", "Kho vận", "Nhân viên kho", 45474, "", "", "Đang làm việc"],
+        ["3", "Người Đã Nghỉ", "Kho vận", "Nhân viên kho", "01/01/2020", "", "", "Đã nghỉ việc"]]
+esc = lambda v: str(v).replace("&", "&amp;").replace("<", "&lt;")
+col = lambda i: chr(65 + i)
+def cell(r, i, v):
+    return f'<c r="{col(i)}{r}"><v>{v}</v></c>' if isinstance(v, int) else f'<c r="{col(i)}{r}" t="inlineStr"><is><t>{esc(v)}</t></is></c>'
+sheet = "".join(f'<row r="{r+1}">' + "".join(cell(r + 1, i, v) for i, v in enumerate(row) if v != "") + "</row>" for r, row in enumerate(rows))
+buf = io.BytesIO()
+with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+    z.writestr("xl/workbook.xml", '<workbook xmlns:r="r"><sheets><sheet name="KHO" sheetId="1" r:id="rId1"/></sheets></workbook>')
+    z.writestr("xl/_rels/workbook.xml.rels", '<Relationships><Relationship Id="rId1" Target="worksheets/sheet1.xml"/></Relationships>')
+    z.writestr("xl/worksheets/sheet1.xml", f"<worksheet><sheetData>{sheet}</sheetData></worksheet>")
+data = base64.b64encode(buf.getvalue()).decode()
+open(sys.argv[1], "w").write(json.dumps({"fileName": "nhan-su.xlsx", "file": data, "dryRun": True, "options": {"branchId": sys.argv[2]}}))
+open(sys.argv[1] + ".apply", "w").write(json.dumps({"fileName": "nhan-su.xlsx", "file": data, "dryRun": False, "options": {"branchId": sys.argv[2]}}))
+PY
+R=$(imp "$HR")
+check "xlsx: nhận cột, 2 tạo mới, 1 bỏ qua (đã nghỉ), không lỗi" "$(echo "$R" | py "([d['totals'][k] for k in ('create','skip','error')], d['fileErrors'], sorted(c['field'] for c in d['analysis']['columns'] if c['field']))")" \
+  "([2, 1, 0], [], ['department', 'full_name', 'hire_date', 'phone', 'position', 'status', 'work_email'])"
+check "Tự đặt mã, đề xuất tạo phòng ban/chức danh mới, sửa số 0 đầu SĐT" "$(echo "$R" | py "([r['code'] for r in d['rows'] if r['action']=='create'], [(u['value'], u['choice']) for u in d['analysis']['departments']], [u['value'] for u in d['analysis']['positions']])")" \
+  "(['NV0001', 'NV0002'], [('Kho vận', 'new:kho van')], ['Nhân viên kho'])"
+mv "$TMPF.apply" "$TMPF"
+R=$(imp "$HR")
+check "Nhập xlsx: tạo 2 hồ sơ + phòng ban KV hiệu lực từ ngày vào làm sớm nhất" "$(echo "$R" | py "(d['applied'], d['totals']['create'])"):$(sql "select d.code || '|' || d.effective_from || '|' || count(*) from public.employees e join public.employee_assignments a on a.employee_id = e.id join public.departments d on d.id = a.department_id where e.tenant_id='$HDG' and e.employee_code in ('NV0001','NV0002') group by d.code, d.effective_from")" "(True, 2):KV|2024-03-15|2"
+check "Điện thoại, ngày vào làm (số ngày Excel), không email vẫn nhập" "$(sql "select string_agg(employee_code || '|' || coalesce(phone,'-') || '|' || hire_date || '|' || coalesce(work_email::text,'-'), ',' order by employee_code) from public.employees where tenant_id='$HDG' and employee_code in ('NV0001','NV0002')")" "NV0001|0912345678|2024-03-15|kho.phan@gmail.com,NV0002|-|2024-07-01|-"
+check "Nhớ cách khớp cho lần sau" "$(sql "select (columns->>'ho va ten') || '|' || (department_values->>'kho van') from public.employee_import_mappings where tenant_id='$HDG'")" "full_name|code:KV"
+R=$(imp "$HR")
+check "Nhập lại cùng file (không có mã): nhận ra theo họ tên, không tạo trùng" "$(echo "$R" | py "[d['totals'][k] for k in ('create','exists','skip')]"):$(sql "select count(*) from public.employees where tenant_id='$HDG' and full_name in ('Phan Văn Kho','Đào Thị Vận')")" "[0, 2, 1]:2"
 
 echo "— Gửi lời mời hàng loạt"
 IDS=$(sql "select json_agg(id order by employee_code) from public.employees where employee_code in ('HD0501','HD0502','HD0503','HD0007') and tenant_id='$HDG'")

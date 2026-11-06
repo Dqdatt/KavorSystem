@@ -143,6 +143,11 @@ ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AG
 - Gửi lời mời kích hoạt hàng loạt (26/10, Claude, phiên cloud): `POST /admin/employees/invite` (tối đa 300 người, gửi lần lượt, người đã kích hoạt/đã nghỉ/
   thiếu email/ngoài phạm vi/vừa mời trong 1 phút bị bỏ qua kèm lý do; audit từng người + 1 dòng tổng). Web Nhân viên: nút "Gửi lời mời (N)" cho người
   chưa mời lần nào trong danh sách đang lọc. Smoke import thêm 4 bước; đã thử trên trình duyệt tự động.
+- Nhập nhân viên từ file bất kỳ — giai đoạn 1 (06/11, Claude): .xlsx/.csv tiêu đề tự do, nhiều sheet; tự khớp cột (từ điển + nội dung), chuẩn hóa
+  ngày/SĐT/loại HĐ, bỏ qua người đã nghỉ, tự đặt mã, tạo phòng ban/chức danh mới cùng giao dịch, nhớ cách khớp theo công ty
+  (migration `202611210001_employee_import_mapping.sql`). Web: màn xem trước có chọn sheet, đổi cột, gộp/tạo đơn vị, lọc lỗi/cần xem.
+  Kiểm: unit test 13 ca (nhiều kiểu file + xlsx dựng tay), pgTAP `employee_import_units` 7, `import-smoke.sh` đạt (thêm 6 bước xlsx tự do),
+  verify-all --quick đạt. File thật của người dùng (10 sheet): 29/29 người đang làm, 0 lỗi, 207 dòng đã nghỉ bỏ qua. Đã thử trên trình duyệt (file xlsx tổng hợp 3 sheet): xem trước, đổi gộp phòng ban, nhập 3 người — DB đúng (quản lý theo tên, ngày số Excel, SĐT, phòng ban mới, nhớ cách khớp); sửa thêm "Mã CC", tự suy chi nhánh, bảng tràn ngang. File thật chưa thử qua giao diện (chỉ qua bộ nhận dạng).
 - Nhập nhân viên hàng loạt từ CSV (26/10, Claude, phiên cloud; quyết định mặc định chờ review — `docs/plans/employee-import.md`):
   - DB `202611070001_employee_import.sql`: `import_employees()` ghi nguyên khối (hồ sơ + phân công từ ngày vào làm, quản lý trong cùng file), mã đã
     có bỏ qua; chỉ service role. pgTAP 8 (tổng 459).

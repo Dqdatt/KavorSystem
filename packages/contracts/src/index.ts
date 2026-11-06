@@ -227,19 +227,45 @@ export type RolesBoard = { roles: RoleInfo[]; canAssign: boolean; today: string 
 export type RoleAssignInput = { employeeId: string; roleCode: string; scopeType: ScopeType; scopeId?: string | null; effectiveFrom: string; effectiveTo?: string | null };
 
 /* ---------- Nhập nhân viên hàng loạt (docs/plans/employee-import.md) ---------- */
-export const EMPLOYEE_IMPORT_COLUMNS = ["employee_code", "full_name", "work_email", "phone", "hire_date", "employment_type", "department_code", "position_code", "manager_code"] as const;
-export const EMPLOYEE_IMPORT_REQUIRED = ["employee_code", "full_name", "work_email", "hire_date", "employment_type", "department_code", "position_code"] as const;
+/* Nhận file bất kỳ (xlsx/csv, tiêu đề tự do): API tự khớp cột vào các trường dưới đây; HR đổi được, cách khớp lưu theo công ty */
+export const IMPORT_FIELDS = {
+  employee_code: "Mã nhân viên", full_name: "Họ và tên", last_name: "Họ", middle_name: "Tên đệm", first_name: "Tên",
+  work_email: "Email đăng nhập", phone: "Điện thoại", hire_date: "Ngày vào làm", official_date: "Ngày chính thức",
+  employment_type: "Loại hợp đồng", department: "Phòng ban", position: "Chức danh", manager: "Quản lý trực tiếp",
+  status: "Trạng thái làm việc", termination_date: "Ngày nghỉ việc",
+} as const;
+export type ImportField = keyof typeof IMPORT_FIELDS;
+export type ImportColumn = {
+  key: string; header: string; field: ImportField | null;
+  /* manual: HR chọn · saved: đã lưu từ lần nhập trước · header: theo tên cột · content: theo nội dung cột */
+  source: "manual" | "saved" | "header" | "content" | null;
+  later: string | null; samples: string[]; sheets: number;
+};
+export type ImportSheet = { name: string; included: boolean; selectable: boolean; headerRow: number | null; rows: number; note: string | null };
+/* choice: "code:<mã có sẵn>" hoặc "new:<key nhóm>" (tạo mới; key khác chính nó = gộp vào nhóm mới đó) */
+export type ImportUnit = { key: string; value: string; rows: number; existing: { code: string; name: string } | null; choice: string; suggested: boolean; newCode: string };
+export type ImportOptions = {
+  sheets?: Record<string, boolean>; columns?: Record<string, ImportField | "">;
+  units?: { department?: Record<string, string>; position?: Record<string, string> };
+  dateOrder?: "dmy" | "mdy"; branchId?: string;
+};
+export type ImportAnalysis = {
+  sheets: ImportSheet[]; columns: ImportColumn[]; dateOrder: { value: "dmy" | "mdy"; ambiguous: boolean };
+  departments: ImportUnit[]; positions: ImportUnit[];
+  branches: Array<{ id: string; name: string }>; branchId: string | null;
+  catalog: { departments: Array<{ code: string; name: string }>; positions: Array<{ code: string; name: string }> };
+};
 export type EmployeeImportRow = {
-  line: number; code: string; fullName: string; department: string | null; position: string | null; manager: string | null;
-  action: "create" | "exists" | "error"; errors: string[];
+  sheet: string; line: number; code: string; fullName: string; department: string | null; position: string | null; manager: string | null;
+  action: "create" | "exists" | "skip" | "error"; errors: string[]; warnings: string[];
 };
 /* Gửi lời mời kích hoạt cho nhiều người (sau khi nhập file); người không đủ điều kiện bị bỏ qua kèm lý do */
 export type BulkInviteResult = { sent: number; skipped: Array<{ code: string; reason: string }> };
 export type EmployeeImportResult = {
   fileName: string; dryRun: boolean; applied: boolean; fileErrors: string[];
-  totals: { rows: number; create: number; exists: number; error: number };
+  totals: { rows: number; create: number; exists: number; skip: number; error: number; warning: number };
   capacity: { employees: number; limit: number; planName: string };
-  rows: EmployeeImportRow[];
+  rows: EmployeeImportRow[]; analysis: ImportAnalysis;
 };
 export type AdminMe = {
   userId: string;
