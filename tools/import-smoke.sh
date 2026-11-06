@@ -65,17 +65,19 @@ open(sys.argv[1], "w").write(json.dumps({"fileName": "nhan-su.xlsx", "file": dat
 open(sys.argv[1] + ".apply", "w").write(json.dumps({"fileName": "nhan-su.xlsx", "file": data, "dryRun": False, "options": {"branchId": sys.argv[2]}}))
 PY
 R=$(imp "$HR")
-check "xlsx: nhận cột, 2 tạo mới, 1 bỏ qua (đã nghỉ), không lỗi" "$(echo "$R" | py "([d['totals'][k] for k in ('create','skip','error')], d['fileErrors'], sorted(c['field'] for c in d['analysis']['columns'] if c['field']))")" \
-  "([2, 1, 0], [], ['department', 'full_name', 'hire_date', 'phone', 'position', 'status', 'work_email'])"
+check "xlsx: nhận cột, 2 đang làm + 1 đã nghỉ (lưu tra cứu), không lỗi" "$(echo "$R" | py "([d['totals'][k] for k in ('create','createLeft','skip','error')], d['fileErrors'], sorted(c['field'] for c in d['analysis']['columns'] if c['field']))")" \
+  "([3, 1, 0, 0], [], ['department', 'full_name', 'hire_date', 'phone', 'position', 'status', 'work_email'])"
 check "Tự đặt mã, đề xuất tạo phòng ban/chức danh mới, sửa số 0 đầu SĐT" "$(echo "$R" | py "([r['code'] for r in d['rows'] if r['action']=='create'], [(u['value'], u['choice']) for u in d['analysis']['departments']], [u['value'] for u in d['analysis']['positions']])")" \
-  "(['NV0001', 'NV0002'], [('Kho vận', 'new:kho van')], ['Nhân viên kho'])"
+  "(['NV0001', 'NV0002', 'NV0003'], [('Kho vận', 'new:kho van')], ['Nhân viên kho'])"
 mv "$TMPF.apply" "$TMPF"
 R=$(imp "$HR")
-check "Nhập xlsx: tạo 2 hồ sơ + phòng ban KV hiệu lực từ ngày vào làm sớm nhất" "$(echo "$R" | py "(d['applied'], d['totals']['create'])"):$(sql "select d.code || '|' || d.effective_from || '|' || count(*) from public.employees e join public.employee_assignments a on a.employee_id = e.id join public.departments d on d.id = a.department_id where e.tenant_id='$HDG' and e.employee_code in ('NV0001','NV0002') group by d.code, d.effective_from")" "(True, 2):KV|2024-03-15|2"
+check "Nhập xlsx: tạo 2 hồ sơ + phòng ban KV hiệu lực từ ngày vào làm sớm nhất" "$(echo "$R" | py "(d['applied'], d['totals']['create'])"):$(sql "select d.code || '|' || d.effective_from || '|' || count(*) from public.employees e join public.employee_assignments a on a.employee_id = e.id join public.departments d on d.id = a.department_id where e.tenant_id='$HDG' and e.employee_code in ('NV0001','NV0002') group by d.code, d.effective_from")" "(True, 3):KV|2020-01-01|2"
 check "Điện thoại, ngày vào làm (số ngày Excel), không email vẫn nhập" "$(sql "select string_agg(employee_code || '|' || coalesce(phone,'-') || '|' || hire_date || '|' || coalesce(work_email::text,'-'), ',' order by employee_code) from public.employees where tenant_id='$HDG' and employee_code in ('NV0001','NV0002')")" "NV0001|0912345678|2024-03-15|kho.phan@gmail.com,NV0002|-|2024-07-01|-"
+check "Người đã nghỉ: hồ sơ terminated, phân công đóng, không tính gói; chức danh mới có cấp suy từ tên" "$(sql "select e.status || '|' || (a.effective_to is not null) || '|' || p.management_tier from public.employees e join public.employee_assignments a on a.employee_id = e.id join public.positions p on p.id = a.position_id where e.tenant_id='$HDG' and e.full_name='Người Đã Nghỉ'")" "terminated|true|1"
+check "Tự gán quản lý: phòng chưa có Trưởng nhóm/Quản lý → Ban Giám đốc duy nhất của công ty" "$(sql "select string_agg(e.employee_code || '>' || coalesce(m.employee_code,'-'), ',' order by e.employee_code) from public.employees e join public.employee_assignments a on a.employee_id = e.id left join public.employees m on m.id = a.manager_employee_id where e.tenant_id='$HDG' and e.employee_code in ('NV0001','NV0002','NV0003')")" "NV0001>HDG0001,NV0002>HDG0001,NV0003>-"
 check "Nhớ cách khớp cho lần sau" "$(sql "select (columns->>'ho va ten') || '|' || (department_values->>'kho van') from public.employee_import_mappings where tenant_id='$HDG'")" "full_name|code:KV"
 R=$(imp "$HR")
-check "Nhập lại cùng file (không có mã): nhận ra theo họ tên, không tạo trùng" "$(echo "$R" | py "[d['totals'][k] for k in ('create','exists','skip')]"):$(sql "select count(*) from public.employees where tenant_id='$HDG' and full_name in ('Phan Văn Kho','Đào Thị Vận')")" "[0, 2, 1]:2"
+check "Nhập lại cùng file (không có mã): nhận ra theo họ tên, không tạo trùng" "$(echo "$R" | py "[d['totals'][k] for k in ('create','exists','skip')]"):$(sql "select count(*) from public.employees where tenant_id='$HDG' and full_name in ('Phan Văn Kho','Đào Thị Vận','Người Đã Nghỉ')")" "[0, 3, 0]:3"
 
 echo "— Gửi lời mời hàng loạt"
 IDS=$(sql "select json_agg(id order by employee_code) from public.employees where employee_code in ('HD0501','HD0502','HD0503','HD0007') and tenant_id='$HDG'")

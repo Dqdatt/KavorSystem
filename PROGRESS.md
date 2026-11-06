@@ -143,6 +143,11 @@ ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AG
 - Gửi lời mời kích hoạt hàng loạt (26/10, Claude, phiên cloud): `POST /admin/employees/invite` (tối đa 300 người, gửi lần lượt, người đã kích hoạt/đã nghỉ/
   thiếu email/ngoài phạm vi/vừa mời trong 1 phút bị bỏ qua kèm lý do; audit từng người + 1 dòng tổng). Web Nhân viên: nút "Gửi lời mời (N)" cho người
   chưa mời lần nào trong danh sách đang lọc. Smoke import thêm 4 bước; đã thử trên trình duyệt tự động.
+- Nhập nhân viên giai đoạn 1b (06/11, Claude): nhập cả người đã nghỉ (hồ sơ tra cứu), hệ cấp bậc chuẩn suy từ tên chức danh, tự gán quản lý theo
+  phòng + cấp, khối tiến trình nổi bật khi đọc/nhập, danh sách nhân viên nhóm theo phòng ban (A–Z theo tên), sửa ô chọn dài tràn sang ô bên cạnh
+  (`.kv-select` min-width 0), tải lại danh mục sau khi nhập (form sửa hồ sơ trống phòng ban/chức danh). Migration `202611220001_employee_import_history.sql`.
+  Kiểm: unit 16, smoke import đạt (+3 bước), verify-all --quick đạt, thử trên trình duyệt (file tổng hợp: tự gán quản lý, lưu người đã nghỉ, danh sách nhóm
+  theo phòng ban, đo ô chọn). File thật qua bộ nhận dạng: 29 đang làm + 197 đã nghỉ, 10 dòng bỏ qua có lý do, 0 lỗi.
 - Nhập nhân viên từ file bất kỳ — giai đoạn 1 (06/11, Claude): .xlsx/.csv tiêu đề tự do, nhiều sheet; tự khớp cột (từ điển + nội dung), chuẩn hóa
   ngày/SĐT/loại HĐ, bỏ qua người đã nghỉ, tự đặt mã, tạo phòng ban/chức danh mới cùng giao dịch, nhớ cách khớp theo công ty
   (migration `202611210001_employee_import_mapping.sql`). Web: màn xem trước có chọn sheet, đổi cột, gộp/tạo đơn vị, lọc lỗi/cần xem.

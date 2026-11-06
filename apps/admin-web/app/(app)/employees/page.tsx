@@ -1,5 +1,5 @@
 "use client";
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Fragment, Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { AdminDevice, BulkInviteResult, EmployeeDetail, EmployeeListItem, EmployeeStatus, EmploymentType, OrgOptions, RequestItem, RequestQueue } from "@kavor/contracts";
 import { managerTierOk } from "@kavor/contracts";
@@ -41,11 +41,16 @@ function EmployeesPage() {
   const query = useMemo(() => new URLSearchParams({ status, account, ...(dept ? { departmentId: dept } : {}) }).toString(), [status, account, dept]);
   const list = useApi<EmployeeListItem[]>(`employees?${query}`, { tables: ["employees", "employee_devices"], tenantId: me.tenant.id });
   const org = useApi<OrgOptions>("org");
+  /* Nhóm theo phòng ban (A–Z), trong phòng theo tên rồi họ — cách đọc danh sách quen thuộc ở VN */
   const rows = useMemo(() => {
     const k = q.trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/g, "d");
-    if (!k) return list.data ?? [];
-    return (list.data ?? []).filter((e) => `${e.fullName} ${e.code} ${e.email ?? ""}`.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/g, "d").includes(k));
+    const all = list.data ?? [];
+    const hit = k ? all.filter((e) => `${e.fullName} ${e.code} ${e.email ?? ""}`.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/g, "d").includes(k)) : all;
+    const given = (n: string) => n.trim().split(/\s+/).at(-1) ?? n;
+    return [...hit].sort((a, b) => (a.department ? 0 : 1) - (b.department ? 0 : 1) || (a.department?.name ?? "").localeCompare(b.department?.name ?? "", "vi")
+      || given(a.fullName).localeCompare(given(b.fullName), "vi") || a.fullName.localeCompare(b.fullName, "vi"));
   }, [list.data, q]);
+  const groupSize = useMemo(() => { const m = new Map<string, number>(); for (const e of rows) m.set(e.department?.name ?? "", (m.get(e.department?.name ?? "") ?? 0) + 1); return m; }, [rows]);
   const uninvited = rows.filter((e) => e.account === "not_invited" && e.email && e.status !== "terminated");
   const open = (id: string | null) => { const p = new URLSearchParams(params.toString()); if (id) p.set("id", id); else p.delete("id"); router.replace(`/employees?${p.toString()}`, { scroll: false }); };
 
@@ -71,22 +76,23 @@ function EmployeesPage() {
         {list.data && !rows.length ? <Empty title="Không có nhân viên phù hợp" text="Thử bỏ bớt bộ lọc." /> : (
           <div className="table-wrap"><table className="data-table" style={{ minWidth: 900 }}><thead><tr><th>Nhân viên</th><th>Phòng ban</th><th>Chức danh</th><th>Ngày vào làm</th><th>Loại HĐ</th><th>Tài khoản</th><th>Trạng thái</th><th /></tr></thead><tbody>
             {!list.data && !list.error ? <SkeletonRows cols={8} rows={8} person /> : null}
-            {rows.map((e) => (
-              <tr key={e.id} className="clickable" onClick={() => open(e.id)}>
+            {rows.map((e, i) => (<Fragment key={e.id}>
+              {i === 0 || rows[i - 1]!.department?.name !== e.department?.name ? <tr className="group-row"><td colSpan={8}>{e.department?.name ?? "Chưa có phòng ban"} <span className="muted">· {groupSize.get(e.department?.name ?? "")} người</span></td></tr> : null}
+              <tr className="clickable" onClick={() => open(e.id)}>
                 <td><Person name={e.fullName} sub={`${e.email ?? "chưa có email"} · ${e.code}`} seed={e.code} /></td>
                 <td className="wrap">{e.department?.name ?? "—"}</td><td className="wrap">{e.position?.name ?? "—"}</td><td>{fmtDate(e.hireDate)}</td><td>{EMPLOYMENT[e.employmentType]}</td>
                 <td><Status v={ACCOUNT[e.account]} />{e.devicePending ? <span className="source-tag" title="Có thiết bị chờ duyệt">Máy chờ duyệt</span> : null}</td>
                 <td><Status v={EMP_STATUS[e.status]} /></td>
                 <td><Icon name="arrow" size={16} className="icon" /></td>
               </tr>
-            ))}
+            </Fragment>))}
           </tbody></table></div>
         )}
       </article>
       {openId ? <EmployeeDrawer id={openId} onClose={() => open(null)} onEdit={setEditing} onChanged={list.reload} /> : null}
       {editing && org.data ? <EmployeeForm org={org.data} employee={editing === "new" ? null : editing} onClose={() => setEditing(null)} onSaved={(id) => { setEditing(null); void list.reload(); open(id); }} /> : null}
       {bulk ? <BulkInvite rows={uninvited} onClose={() => setBulk(false)} onDone={() => void list.reload()} /> : null}
-      {importing ? <ImportModal onClose={() => setImporting(false)} onDone={() => void list.reload()} /> : null}
+      {importing ? <ImportModal onClose={() => setImporting(false)} onDone={() => { void list.reload(); void org.reload(); }} /> : null}
     </section>
   );
 }

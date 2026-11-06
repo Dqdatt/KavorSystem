@@ -8,7 +8,7 @@ import { importOptions } from "./import.service.js";
 /* Bộ file mẫu nhiều kiểu (mỗi công ty quản trị một kiểu) — nhận dạng phải đúng hết, không dựa vào một mẫu cố định */
 const CAT: Catalog = {
   departments: [{ code: "MKT", name: "Marketing" }, { code: "KD", name: "Kinh doanh" }],
-  positions: [{ code: "AE", name: "Account Executive" }, { code: "NV", name: "Nhân viên" }],
+  positions: [{ code: "AE", name: "Account Executive", tier: 1 }, { code: "NV", name: "Nhân viên", tier: 1 }],
   employees: [{ code: "HD0001", name: "Nguyễn Văn Cũ", status: "active" }],
 };
 const NONE: Saved = { columns: {}, department: {}, position: {} };
@@ -76,7 +76,24 @@ test("nghỉ việc: theo trạng thái, ngày nghỉ đã qua, sheet nhân viê
     ...csv("Đang làm", "Họ tên,Phòng ban,Ngày vào làm,Ngày chính thức,Trạng thái,Ngày nghỉ việc\nA Một,Marketing,01/10/2026,01/12/2026,Đang làm việc,\nB Hai,Marketing,01/01/2020,,Đã nghỉ việc,\nC Ba,Marketing,01/01/2020,,,31/10/2026\nD Bốn,Marketing,01/01/2020,,Tạm nghỉ việc,\n"),
     ...csv("Nhân Viên Đã Nghỉ Việc ", "Họ tên,Phòng ban,Ngày vào làm\nE Năm,Marketing,01/01/2020\n"),
   ]);
-  assert.deepEqual(b.rows.map((r) => [r.fullName, r.skip ? "skip" : r.type]), [["A Một", "probation"], ["B Hai", "skip"], ["C Ba", "skip"], ["D Bốn", "official"], ["E Năm", "skip"]]);
+  assert.deepEqual(b.rows.map((r) => [r.fullName, r.left, r.termDate, r.skip, r.type]),
+    [["A Một", false, null, null, "probation"], ["B Hai", true, null, null, "official"], ["C Ba", true, "2026-10-31", null, "official"], ["D Bốn", false, null, null, "official"], ["E Năm", true, null, null, "official"]]);
+  const off = run(csv("x", "Họ tên,Phòng ban,Ngày vào làm,Trạng thái\nB Hai,Marketing,01/01/2020,Đã nghỉ việc\n"), { includeLeft: false });
+  assert.match(off.rows[0]!.skip ?? "", /không nhập/);
+});
+
+test("người đã nghỉ: thiếu dữ liệu thì bỏ qua (không chặn file), tái tuyển giữ dòng đang làm, đơn vị chỉ người đã nghỉ khớp cả đơn vị đã ngừng", () => {
+  const b = buildImport({ sheets: [
+    ...csv("Đang làm", "Mã NV,Họ tên,Phòng ban,Ngày vào làm\nA1,Quay Lại,Marketing,01/01/2026\n"),
+    ...csv("Đã nghỉ việc", "Mã NV,Họ tên,Phòng ban,Ngày vào làm\nA1,Quay Lại,Marketing,01/01/2020\n,Thiếu Ngày,Marketing,\n,Chi Nhánh Cũ,Tiền Giang,01/01/2019\n"),
+  ], saved: NONE, options: {}, today: TODAY, catalog: { ...CAT, endedDepartments: [{ code: "TG", name: "Tiền Giang" }] } });
+  assert.deepEqual(b.rows.map((r) => [r.fullName, r.left, !!r.skip, r.errors.length]), [["Quay Lại", false, false, 0], ["Quay Lại", true, true, 0], ["Thiếu Ngày", true, true, 0], ["Chi Nhánh Cũ", true, false, 0]]);
+  assert.deepEqual(b.departments.map((u) => [u.value, u.choice, u.live]), [["Marketing", "code:MKT", 1], ["Tiền Giang", "code:TG", 0]]);
+});
+
+test("cấp bậc chuẩn: chức danh mới suy cấp từ tên (Việt/Anh), HR đổi được; chức danh có sẵn giữ cấp", () => {
+  const b = run(csv("x", "Họ tên,Phòng ban,Chức vụ,Ngày vào làm\nA,Marketing,Giám đốc Văn phòng,01/01/2024\nB,Marketing,Leader HCNS,01/01/2024\nC,Marketing,Sales Manager,01/01/2024\nD,Marketing,Nhân viên quản lý kho,01/01/2024\nE,Marketing,Account Executive,01/01/2024\n"), { tiers: { "leader hcns": 3 } });
+  assert.deepEqual(b.positions.map((u) => [u.value, u.tier, u.tierInferred]), [["Giám đốc Văn phòng", 4, true], ["Leader HCNS", 3, false], ["Sales Manager", 3, true], ["Nhân viên quản lý kho", 1, true], ["Account Executive", 1, false]]);
 });
 
 test("không có mã: khớp hồ sơ có sẵn theo tên, lấy mã từ bảng tra, còn lại tự đặt; trùng tên nhiều hồ sơ thì báo", () => {
@@ -148,7 +165,7 @@ test("đọc .xlsx: shared/inline string, số dạng E, sheet ẩn; từ chối
 
 test("tùy chọn từ web: bỏ giá trị lạ", () => {
   assert.deepEqual(importOptions({ columns: { a: "phone", b: "hack", c: "" }, units: { department: { x: "code:MKT", y: "drop table" } }, dateOrder: "ymd", branchId: "x", sheets: { S: true, T: "yes" } }),
-    { sheets: { S: true }, columns: { a: "phone", c: "" }, units: { department: { x: "code:MKT" }, position: {} }, dateOrder: undefined, branchId: undefined });
+    { sheets: { S: true }, columns: { a: "phone", c: "" }, units: { department: { x: "code:MKT" }, position: {} }, dateOrder: undefined, branchId: undefined, includeLeft: undefined, tiers: {} });
 });
 
 test("viết tắt hay gặp: Mã CC / MCC là mã nhân viên", () => {

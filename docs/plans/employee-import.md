@@ -35,3 +35,16 @@ Lý do: khách không làm lại bảng theo mẫu; mỗi công ty quản trị 
   viết tắt (MKT/Marketing, GT/Kênh GT, HCNS) được đề xuất gộp, HR đổi được. Nhiều chi nhánh → HR chọn chi nhánh cho phòng ban mới.
 - Nhớ cách khớp theo công ty (`employee_import_mappings`: tên cột chuẩn hóa → trường, tên đơn vị → mã; không lưu dữ liệu người).
 - Giai đoạn 2 (chưa làm): ngày sinh, giới tính, CCCD, địa chỉ, ngân hàng (4 số cuối), lương (chỉ khi có `compensation.*`), lịch sử hợp đồng.
+
+## Giai đoạn 1b (06/11/2026)
+
+- Người đã nghỉ (sheet "đã nghỉ việc", trạng thái nghỉ, ngày nghỉ đã qua) được **nhập làm hồ sơ tra cứu** (mặc định bật, tắt được ở màn xem trước):
+  `status = terminated`, ngày nghỉ, phân công đóng tại ngày nghỉ; không tính vào gói, không gửi lời mời. Thiếu dữ liệu → bỏ qua dòng đó (không chặn
+  file); trùng người đang làm (tái tuyển) → giữ dòng đang làm; mã chấm công dùng lại cho người khác → đặt mã mới. Đơn vị chỉ có người đã nghỉ được
+  tạo ở trạng thái đã ngừng (khớp lại đơn vị đã ngừng khi nhập lần sau).
+- **Hệ cấp bậc chuẩn** (`inferTier` ở contracts): Nhân viên/Staff → Trưởng nhóm/Team Lead → Quản lý/Manager → Ban Giám đốc/Director, suy từ tên chức
+  danh Việt/Anh (từ chức vụ đứng đầu tiếng Việt; tiếng Anh ở bất kỳ vị trí). Chức danh mới nhận cấp suy ra; chức danh có sẵn chưa đặt cấp được đặt
+  (không ghi đè cấp đã có). HR đổi cấp ở màn xem trước.
+- **Tự gán quản lý trực tiếp** khi file không có cột quản lý: người cấp cao hơn gần nhất trong cùng phòng (Nhân viên → Trưởng nhóm → Quản lý); phòng
+  không có ai cao hơn → Ban Giám đốc nếu công ty chỉ có một người; nhiều người cùng cấp → không đoán, cảnh báo để HR chọn.
+- Chưa làm: "Trưởng đơn vị" của phòng ban (người thuộc Ban Giám đốc kiêm phụ trách phòng) — xem trả lời 06/11 trong phiên.

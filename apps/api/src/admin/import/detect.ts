@@ -2,7 +2,7 @@
    đồng nghĩa (bỏ dấu, Việt/Anh) + nội dung cả cột, chuẩn hóa giá trị (ngày, số, điện thoại, loại hợp đồng), ghép phòng ban/chức danh theo
    mã hoặc tên. Không đoán âm thầm: mọi suy luận trả về để web hiện và HR đổi được; cách khớp đã xác nhận được lưu theo công ty.
    Thuần (không DB) để kiểm thử trên nhiều kiểu file. */
-import type { EmploymentType, ImportColumn, ImportField, ImportOptions, ImportSheet, ImportUnit } from "@kavor/contracts";
+import { inferTier, type EmploymentType, type ImportColumn, type ImportField, type ImportOptions, type ImportSheet, type ImportUnit, type ManagementTier } from "@kavor/contracts";
 import type { Sheet } from "./spreadsheet.js";
 
 export const norm = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[đĐ]/g, "d").toLowerCase()
@@ -166,15 +166,19 @@ export function abbrev(a: string, b: string): boolean {
 }
 
 /* ---------- Ghép toàn bộ ---------- */
+type Unit = { code: string; name: string; tier?: ManagementTier | null };
 export type Catalog = {
-  departments: Array<{ code: string; name: string }>; positions: Array<{ code: string; name: string }>;
+  departments: Unit[]; positions: Unit[];
+  /* Đơn vị đã ngừng: chỉ để khớp người đã nghỉ + tránh trùng mã khi tạo mới */
+  endedDepartments?: Unit[]; endedPositions?: Unit[];
   employees: Array<{ code: string; name: string; status: string }>;
 };
 export type Saved = { columns: Record<string, ImportField | "">; department: Record<string, string>; position: Record<string, string> };
 export type BuiltRow = {
   sheet: string; line: number; code: string; fullName: string; email: string | null; phone: string | null; hireDate: string | null;
   type: EmploymentType; dept: string | null; pos: string; managerRaw: string | null; managerCode: string | null;
-  skip: string | null; exists: boolean; errors: string[]; warnings: string[];
+  /* left: người đã nghỉ việc — nhập làm hồ sơ tra cứu (status terminated); termDate có thể trống */
+  left: boolean; termDate: string | null; skip: string | null; exists: boolean; errors: string[]; warnings: string[];
 };
 export type Built = {
   sheets: ImportSheet[]; columns: ImportColumn[]; dateOrder: { value: "dmy" | "mdy"; ambiguous: boolean };
@@ -251,7 +255,7 @@ export function buildImport({ sheets, saved, options, today, catalog }: Input): 
     const auto = !note;
     const included = head && dataRows ? options.sheets?.[sheet.name] ?? auto : false;
     const left = LEFT_SHEET.test(norm(sheet.name));
-    if (included && left) note = "Sheet nhân viên đã nghỉ — các dòng được bỏ qua";
+    if (included && left) note = options.includeLeft === false ? "Sheet nhân viên đã nghỉ — bỏ qua (đã tắt nhập người đã nghỉ)" : "Sheet nhân viên đã nghỉ — lưu hồ sơ để tra cứu";
     outSheets.push({ name: sheet.name, included: !!included, headerRow: head ? head.row + 1 : null, rows: dataRows, note, selectable: !!head && dataRows > 0 });
     if (head && included) used.push({ sheet, head, left });
     else if (head && fields.has("employee_code")) lookups.push({ sheet, head });
@@ -306,11 +310,10 @@ export function buildImport({ sheets, saved, options, today, catalog }: Input): 
       const line = i + 1;
       /* Nghỉ việc: theo sheet, cột trạng thái hoặc ngày nghỉ đã qua */
       const term = parseDate(at(r, "termination_date"), order);
-      let skip: string | null = null;
-      if (left) skip = "Sheet nhân viên đã nghỉ";
-      else if (isLeft(at(r, "status"))) skip = `Trạng thái "${clean(at(r, "status")).slice(0, 30)}"`;
-      else if (term && term <= today) skip = `Đã nghỉ việc từ ${fmtDate(term)}`;
-      else if (term) warnings.push(`Có ngày nghỉ việc ${fmtDate(term)} — cập nhật nghỉ việc trong hồ sơ khi tới ngày`);
+      const gone = left || isLeft(at(r, "status")) || (!!term && term <= today);
+      const skip: string | null = gone && options.includeLeft === false ? "Đã nghỉ việc — không nhập (đã tắt nhập người đã nghỉ)" : null;
+      if (gone && !skip) warnings.push(term ? `Đã nghỉ việc từ ${fmtDate(term)} — lưu hồ sơ để tra cứu` : "Đã nghỉ việc (không có ngày nghỉ) — lưu hồ sơ để tra cứu");
+      else if (term && !gone) warnings.push(`Có ngày nghỉ việc ${fmtDate(term)} — cập nhật nghỉ việc trong hồ sơ khi tới ngày`);
       if (fullName.length > 120) errors.push("Họ tên quá 120 ký tự");
       /* Mã */
       let code = normCode(at(r, "employee_code"));
@@ -351,29 +354,40 @@ export function buildImport({ sheets, saved, options, today, catalog }: Input): 
       let pos = clean(at(r, "position"));
       if (!pos) { pos = DEFAULT_POSITION; warnings.push(`Không có chức danh — dùng "${DEFAULT_POSITION}"`); }
       rows.push({ sheet: sheet.name, line, code, fullName, email: email ?? null, phone: phone ?? null, hireDate, type, dept, pos,
-        managerRaw: clean(at(r, "manager")) || null, managerCode: null, skip, exists, errors, warnings });
+        managerRaw: clean(at(r, "manager")) || null, managerCode: null, left: gone, termDate: gone ? term ?? null : null, skip, exists, errors, warnings });
     });
   }
 
-  /* Trùng trong file (bỏ qua dòng đã nghỉ) + mã tự sinh */
+  /* Người đã nghỉ: thiếu dữ liệu thì bỏ qua (không chặn nhập người đang làm); trùng người đang làm (tái tuyển) thì giữ dòng đang làm */
+  const liveNames = new Set(rows.filter((r) => !r.left && !r.skip).map((r) => norm(r.fullName)));
+  const liveCodes = new Set(rows.filter((r) => !r.left && !r.skip && r.code).map((r) => r.code));
+  for (const r of rows) if (r.left && !r.skip) {
+    if ((r.code && liveCodes.has(r.code)) || (!r.code && liveNames.has(norm(r.fullName)))) r.skip = "Đã có ở danh sách đang làm (tái tuyển) — giữ dòng đang làm";
+    else if (r.errors.length) { r.skip = `Người đã nghỉ thiếu dữ liệu: ${r.errors.join("; ")}`; r.errors = []; }
+  }
+  /* Trùng trong file + mã tự sinh */
   const live = rows.filter((r) => !r.skip);
   const seenCode = new Map<string, BuiltRow>(), seenEmail = new Map<string, BuiltRow>();
   for (const r of live) {
     if (r.code) {
       const o = seenCode.get(r.code);
-      if (o) r.errors.push(`Trùng mã ${r.code} với ${o.sheet} dòng ${o.line}`); else seenCode.set(r.code, r);
+      /* Người đã nghỉ trùng mã (máy chấm công dùng lại mã): cùng người thì bỏ dòng lặp, khác người thì đặt mã mới — không chặn file */
+      if (o && r.left && norm(o.fullName) === norm(r.fullName)) { r.skip = `Trùng dòng ${o.line} (${o.sheet})`; continue; }
+      if (o && r.left) { r.warnings.push(`Mã ${r.code} đã dùng cho ${o.fullName} (${o.sheet} dòng ${o.line}) — đặt mã mới`); r.code = ""; r.exists = false; }
+      else if (o) r.errors.push(`Trùng mã ${r.code} với ${o.sheet} dòng ${o.line}`); else seenCode.set(r.code, r);
     }
     if (r.email) {
       const o = seenEmail.get(r.email);
       if (o) { r.warnings.push(`Email trùng với ${o.sheet} dòng ${o.line} — bỏ trống`); r.email = null; } else seenEmail.set(r.email, r);
     }
   }
+  const kept = live.filter((r) => !r.skip);
   const taken = new Set([...existingCode.keys(), ...seenCode.keys()]);
   let maxNv = 0;
   for (const c of taken) { const m = /^NV(\d+)$/.exec(c); if (m) maxNv = Math.max(maxNv, Number(m[1])); }
   const autoNames = new Map<string, number>();
-  for (const r of live) if (!r.code && !r.errors.length) autoNames.set(norm(r.fullName), (autoNames.get(norm(r.fullName)) ?? 0) + 1);
-  for (const r of live) if (!r.code && !r.errors.some((e) => e.startsWith("Không có mã"))) {
+  for (const r of kept) if (!r.code && !r.errors.length) autoNames.set(norm(r.fullName), (autoNames.get(norm(r.fullName)) ?? 0) + 1);
+  for (const r of kept) if (!r.skip && !r.code && !r.errors.some((e) => e.startsWith("Không có mã"))) {
     r.code = `NV${String(++maxNv).padStart(4, "0")}`;
     r.warnings.push(`Không có mã — Kavor đặt ${r.code}`);
     if ((autoNames.get(norm(r.fullName)) ?? 0) > 1) r.warnings.push("Trùng họ tên với dòng khác trong file — kiểm tra có nhập 2 lần không");
@@ -382,9 +396,9 @@ export function buildImport({ sheets, saved, options, today, catalog }: Input): 
   /* Quản lý: theo mã, không có thì theo họ tên duy nhất (trong Kavor hoặc trong file) */
   const nameToCode = new Map<string, string[]>();
   for (const [n, codes] of existingName) nameToCode.set(n, [...codes]);
-  for (const r of live) if (r.code && !r.exists) { const n = norm(r.fullName); nameToCode.set(n, [...(nameToCode.get(n) ?? []), r.code]); }
-  const fileCodes = new Set(live.map((r) => r.code).filter(Boolean));
-  for (const r of live) {
+  for (const r of kept) if (r.code && !r.exists) { const n = norm(r.fullName); nameToCode.set(n, [...(nameToCode.get(n) ?? []), r.code]); }
+  const fileCodes = new Set(kept.map((r) => r.code).filter(Boolean));
+  for (const r of kept) {
     if (!r.managerRaw) continue;
     const c = normCode(r.managerRaw);
     const byName = nameToCode.get(norm(r.managerRaw)) ?? [];
@@ -394,14 +408,22 @@ export function buildImport({ sheets, saved, options, today, catalog }: Input): 
     else r.managerCode = code;
   }
 
-  const units = (kind: "department" | "position", values: Array<{ v: string; r: BuiltRow }>, cat: Array<{ code: string; name: string }>): ImportUnit[] => {
+  const units = (kind: "department" | "position", values: Array<{ v: string; r: BuiltRow }>, cat: Unit[], ended: Unit[]): ImportUnit[] => {
     const byCode = new Map(cat.map((u) => [u.code.toUpperCase(), u])), byName = new Map(cat.map((u) => [norm(u.name), u]));
-    const groups = new Map<string, { value: string; rows: number }>();
-    for (const { v } of values) { const k = norm(v); const g = groups.get(k); if (g) g.rows++; else groups.set(k, { value: v, rows: 1 }); }
-    const codes = new Set(cat.map((u) => u.code.toUpperCase()));
-    const list: ImportUnit[] = [...groups].sort((a, b) => b[1].rows - a[1].rows).map(([key, g]) => {
-      const ex = byCode.get(normCode(g.value)) ?? byName.get(key) ?? null;
-      return { key, value: g.value, rows: g.rows, existing: ex ? { code: ex.code, name: ex.name } : null, choice: "", suggested: false, newCode: "" };
+    const endedByName = new Map(ended.map((u) => [norm(u.name), u]));
+    const groups = new Map<string, { value: string; rows: number; live: number }>();
+    for (const { v, r } of values) {
+      const k = norm(v); const g = groups.get(k) ?? { value: v, rows: 0, live: 0 };
+      g.rows++; if (!r.left) g.live++; groups.set(k, g);
+    }
+    const codes = new Set([...cat, ...ended].map((u) => u.code.toUpperCase()));
+    const tierOpt = kind === "position" ? options.tiers ?? {} : {};
+    const list: ImportUnit[] = [...groups].sort((a, b) => b[1].live - a[1].live || b[1].rows - a[1].rows).map(([key, g]) => {
+      /* Đơn vị chỉ có người đã nghỉ: được khớp cả đơn vị đã ngừng (nhập lại không tạo trùng) */
+      const ex = byCode.get(normCode(g.value)) ?? byName.get(key) ?? (g.live ? null : endedByName.get(key)) ?? null;
+      const inferred = kind === "position" ? (ex && ex.tier ? ex.tier : tierOpt[key] ?? inferTier(g.value)) : null;
+      return { key, value: g.value, rows: g.rows, live: g.live, existing: ex ? { code: ex.code, name: ex.name, tier: ex.tier ?? null } : null, choice: "", suggested: false, newCode: "",
+        tier: inferred, tierInferred: kind === "position" && !(ex && ex.tier) && tierOpt[key] === undefined };
     });
     for (const u of list) if (!u.existing) u.newCode = unitCode(u.value, codes);
     const manual = options.units?.[kind] ?? {}, remembered = kind === "department" ? saved.department : saved.position;
@@ -421,8 +443,8 @@ export function buildImport({ sheets, saved, options, today, catalog }: Input): 
     }
     return list;
   };
-  const departments = units("department", live.filter((r) => r.dept).map((r) => ({ v: r.dept!, r })), catalog.departments);
-  const positions = units("position", live.map((r) => ({ v: r.pos, r })), catalog.positions);
+  const departments = units("department", kept.filter((r) => r.dept).map((r) => ({ v: r.dept!, r })), catalog.departments, catalog.endedDepartments ?? []);
+  const positions = units("position", kept.map((r) => ({ v: r.pos, r })), catalog.positions, catalog.endedPositions ?? []);
 
   return { sheets: outSheets, columns: [...colMap.values()], dateOrder: { value: order, ambiguous }, departments, positions, rows, fileErrors };
 }

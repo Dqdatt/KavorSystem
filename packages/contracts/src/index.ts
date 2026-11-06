@@ -243,11 +243,17 @@ export type ImportColumn = {
 };
 export type ImportSheet = { name: string; included: boolean; selectable: boolean; headerRow: number | null; rows: number; note: string | null };
 /* choice: "code:<mã có sẵn>" hoặc "new:<key nhóm>" (tạo mới; key khác chính nó = gộp vào nhóm mới đó) */
-export type ImportUnit = { key: string; value: string; rows: number; existing: { code: string; name: string } | null; choice: string; suggested: boolean; newCode: string };
+export type ImportUnit = {
+  key: string; value: string; rows: number; /* live: số người đang làm (còn lại là người đã nghỉ) */ live: number;
+  existing: { code: string; name: string; tier: ManagementTier | null } | null; choice: string; suggested: boolean; newCode: string;
+  /* Chức danh: cấp quản lý (có sẵn, HR chọn, hoặc suy từ tên — tierInferred) */ tier: ManagementTier | null; tierInferred: boolean;
+};
 export type ImportOptions = {
   sheets?: Record<string, boolean>; columns?: Record<string, ImportField | "">;
   units?: { department?: Record<string, string>; position?: Record<string, string> };
   dateOrder?: "dmy" | "mdy"; branchId?: string;
+  /* Mặc định nhập cả người đã nghỉ (hồ sơ tra cứu); false = bỏ qua */ includeLeft?: boolean;
+  tiers?: Record<string, ManagementTier>;
 };
 export type ImportAnalysis = {
   sheets: ImportSheet[]; columns: ImportColumn[]; dateOrder: { value: "dmy" | "mdy"; ambiguous: boolean };
@@ -257,13 +263,13 @@ export type ImportAnalysis = {
 };
 export type EmployeeImportRow = {
   sheet: string; line: number; code: string; fullName: string; department: string | null; position: string | null; manager: string | null;
-  action: "create" | "exists" | "skip" | "error"; errors: string[]; warnings: string[];
+  action: "create" | "exists" | "skip" | "error"; left: boolean; errors: string[]; warnings: string[];
 };
 /* Gửi lời mời kích hoạt cho nhiều người (sau khi nhập file); người không đủ điều kiện bị bỏ qua kèm lý do */
 export type BulkInviteResult = { sent: number; skipped: Array<{ code: string; reason: string }> };
 export type EmployeeImportResult = {
   fileName: string; dryRun: boolean; applied: boolean; fileErrors: string[];
-  totals: { rows: number; create: number; exists: number; skip: number; error: number; warning: number };
+  totals: { rows: number; create: number; createLeft: number; exists: number; skip: number; error: number; warning: number };
   capacity: { employees: number; limit: number; planName: string };
   rows: EmployeeImportRow[]; analysis: ImportAnalysis;
 };
@@ -410,6 +416,20 @@ export type PolicyAssignmentInput = { kind: PolicyKind; targetId: string; scopeT
    một bên chưa phân cấp thì không chặn */
 export type ManagementTier = 1 | 2 | 3 | 4;
 export const MANAGEMENT_TIERS: Record<ManagementTier, string> = { 1: "Nhân viên", 2: "Trưởng nhóm", 3: "Quản lý", 4: "Ban Giám đốc" };
+export const MANAGEMENT_TIERS_EN: Record<ManagementTier, string> = { 1: "Staff", 2: "Team Lead", 3: "Manager", 4: "Director" };
+/* Hệ cấp bậc chuẩn Kavor: suy cấp từ tên chức danh tự do của công ty (Việt/Anh). Tiếng Việt từ chức vụ đứng đầu ("Quản lý sàn", không phải
+   "Nhân viên quản lý kho"); tiếng Anh đứng cuối nên khớp ở bất kỳ vị trí ("Sales Manager"). Không khớp gì = Nhân viên. HR đổi được. */
+const tierNorm = (s: string) => ` ${s.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[đĐ]/g, "d").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim()} `;
+const TIER_RULES: Array<[ManagementTier, string[], string[]]> = [
+  [4, ["tong giam doc", "pho tong giam doc", "giam doc", "pho giam doc", "chu tich", "pho chu tich", "ban giam doc", "gd", "pgd", "tgd"], ["ceo", "cfo", "coo", "cto", "cmo", "chro", "chief", "director", "president", "founder", "co founder", "bod", "general manager", "gm"]],
+  [3, ["truong phong", "pho phong", "quan ly", "truong bo phan", "truong ban", "truong chi nhanh", "truong khoi", "quan doc", "truong van phong", "ke toan truong"], ["manager", "head", "ke toan truong"]],
+  [2, ["truong nhom", "nhom truong", "to truong", "to pho", "giam sat", "truong ca", "nhom pho"], ["leader", "lead", "team lead", "supervisor", "captain"]],
+];
+export function inferTier(title: string): ManagementTier {
+  const n = tierNorm(title);
+  for (const [tier, head, any] of TIER_RULES) if (head.some((k) => n.startsWith(` ${k} `)) || any.some((k) => n.includes(` ${k} `))) return tier;
+  return 1;
+}
 export const managerTierOk = (manager: number | null | undefined, employee: number | null | undefined) =>
   manager == null || employee == null || manager > employee || (manager === 4 && employee === 4);
 
