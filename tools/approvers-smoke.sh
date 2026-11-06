@@ -51,7 +51,7 @@ check "Hồ sơ hiện cả hai vai trò" "$(call GET admin/employees/$ADMIN_ID 
 check "Checklist hết cảnh báo Nhân sự vận hành" "$(call GET admin/settings/checklist "$ADM" | py "[s['state'] for s in d['steps'] if s['key']=='hr_ops'][0]")" done
 echo "— Cấp quản lý của chức danh và quản lý trực tiếp"
 org=$(call GET admin/org "$ADM")
-check "Chức danh mẫu có cấp quản lý" "$(echo "$org" | py "sorted((x['name'], x['tier']) for x in d['positions'] if x['tier'])")" "[('Ban Giám đốc', 4), ('Nhân viên', 1), ('Quản lý', 3)]"
+check "Chức danh mẫu có cấp quản lý" "$(echo "$org" | py "sorted((x['name'], x['tier']) for x in d['positions'] if x['tier'])")" "[('Ban Giám đốc', 4), ('Nhân viên', 1), ('Quản lý', 3), ('Trưởng nhóm', 2)]"
 pid() { echo "$org" | py "[x['id'] for x in d['positions'] if x['name']=='$1'][0]"; }
 P_NV=$(pid "Nhân viên"); P_QL=$(pid "Quản lý"); P_QTV=$(pid "Quản trị viên")
 emp() { echo "{\"employeeCode\":\"$1\",\"fullName\":\"$2\",\"workEmail\":\"$3\",\"hireDate\":\"$TODAY\",\"employmentType\":\"official\",\"departmentId\":\"$DEP\",\"positionId\":\"$4\"${5:+,\"managerEmployeeId\":\"$5\"}}"; }

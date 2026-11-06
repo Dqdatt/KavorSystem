@@ -26,10 +26,7 @@ function PayrollPage() {
   if (tab === "items") return <section className="page active"><PayItems tabs={switcher} /></section>;
   return (
     <section className="page active">
-      <div className="page-head">
-        <div><p>{tab === "salary" ? "Mức lương từng người (HCNS và Kế toán xem): lương cứng = lương cơ bản + các khoản phụ cấp. Đổi lương là phiên bản mới từ ngày hiệu lực; người phụ thuộc, MST sửa ở hồ sơ nhân viên." : "Duyệt bước Kế toán và xác nhận đã chi; khoản ứng trừ vào lương của tháng ứng."}</p></div>
-        <div className="head-actions">{switcher}</div>
-      </div>
+      <div className="page-head"><div>{switcher}</div></div>
       {tab === "salary" ? <Salary /> : tab === "advances" ? <Advances /> : null}
     </section>
   );

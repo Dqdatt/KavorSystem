@@ -52,7 +52,7 @@ function EmployeesPage() {
   return (
     <section className="page active">
       <div className="page-head">
-        <div><p>{list.data ? `${rows.length} hồ sơ trong phạm vi của bạn` : <Skeleton w={150} h={10} style={{ display: "inline-block" }} />} · trạng thái tài khoản và thiết bị chấm công.</p></div>
+        <div><p>{list.data ? `${rows.length} hồ sơ` : <Skeleton w={150} h={10} style={{ display: "inline-block" }} />}</p></div>
         <div className="head-actions">{can(me, "employee.create") ? <><button className="btn" onClick={() => setImporting(true)}><Icon name="upload" /> Nhập từ file</button><button className="btn primary" onClick={() => setEditing("new")}><Icon name="plus" /> Thêm nhân viên</button></> : null}</div>
       </div>
       <LoadError error={list.error} retry={list.reload} />

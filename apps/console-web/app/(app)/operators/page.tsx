@@ -26,8 +26,8 @@ export default function Operators() {
     run(`${action}${id}`, async () => setData(await call<ConsoleOperators>("POST", `operators/invites/${id}/${action}`)), action === "resend" ? "Đã gửi lại thư mời" : "Đã thu hồi lời mời");
   return (
     <section className="page active">
-      <div className="page-head"><div><p>Tài khoản đăng nhập Kavor Console. Người được mời tự đặt mật khẩu bằng mã OTP gửi về email và bắt buộc bật xác thực hai lớp.</p></div>
-        <button className="btn primary" onClick={() => setInviting(true)}><Icon name="plus" /> Mời nhân viên Kavor</button></div>
+      <div className="page-head">
+        <div className="head-actions"><button className="btn primary" onClick={() => setInviting(true)}><Icon name="plus" /> Mời nhân viên Kavor</button></div></div>
       <LoadError error={error} retry={reload} />
       <div className="grid metrics">
         {ROLES.map((r) => (

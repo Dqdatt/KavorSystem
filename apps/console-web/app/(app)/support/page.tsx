@@ -25,8 +25,8 @@ export default function SupportPage() {
   }, s.status === "pending" ? "Đã hủy yêu cầu" : "Đã kết thúc phiên hỗ trợ");
   return (
     <section className="page active">
-      <div className="page-head"><div><p>Nhân viên Kavor không mặc định được xem dữ liệu nhân sự/lương của khách hàng.</p></div>
-        <button className="btn primary" onClick={() => setAsking(true)}><Icon name="key" /> Yêu cầu truy cập</button></div>
+      <div className="page-head">
+        <div className="head-actions"><button className="btn primary" onClick={() => setAsking(true)}><Icon name="key" /> Yêu cầu truy cập</button></div></div>
       <LoadError error={error} retry={reload} />
       <div className="grid metrics">
         <article className="card metric-card"><span className="metric-icon"><Icon name="lock" /></span><span className="metric-copy"><span>Đang hiệu lực</span><strong>{num(active.length)}</strong><small>Tối đa 60 phút</small></span></article>

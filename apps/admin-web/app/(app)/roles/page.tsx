@@ -19,8 +19,8 @@ export default function RolesPage() {
   const role = b?.roles.find((r) => r.code === open) ?? null;
   return (
     <section className="page active">
-      <div className="page-head"><div><p>Quyền được áp dụng theo vai trò và phạm vi pháp nhân/chi nhánh/phòng ban.</p></div>
-        {b?.canAssign ? <button className="btn primary" onClick={() => setAssign("any")}><Icon name="plus" /> Gán vai trò</button> : null}</div>
+      <div className="page-head">
+        <div className="head-actions">{b?.canAssign ? <button className="btn primary" onClick={() => setAssign("any")}><Icon name="plus" /> Gán vai trò</button> : null}</div></div>
       <LoadError error={error} retry={reload} />
       <article className="card">
         {b && !b.roles.length ? <Empty title="Chưa có vai trò" /> : (

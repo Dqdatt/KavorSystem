@@ -14,7 +14,6 @@ export default function AuditPage() {
   const rows = (data ?? []).filter((a) => !k || `${a.actor} ${a.tenant?.name ?? ""} ${a.tenant?.code ?? ""} ${a.action} ${ACTION[a.action] ?? ""} ${a.resourceType}`.toLowerCase().includes(k));
   return (
     <section className="page active">
-      <div className="page-head"><div><p>Hành động của nhân viên Kavor, chỉ ghi thêm (không sửa, không xóa); thao tác trên doanh nghiệp nào thì doanh nghiệp đó cũng thấy.</p></div></div>
       <LoadError error={error} retry={reload} />
       <article className="card">
         <div className="toolbar"><label className="search"><Icon name="search" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Người thực hiện, doanh nghiệp, hành động hoặc đối tượng…" /></label></div>

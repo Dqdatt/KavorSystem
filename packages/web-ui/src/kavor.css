@@ -312,6 +312,8 @@ a.nav-item, a.quick-item { text-decoration: none; }
 .metric-copy span { display: block; color: var(--muted); font-size: 12.5px; font-weight: 500; }
 .metric-copy strong { display: block; margin-top: 2px; font-size: 26px; font-weight: 700; line-height: 1.1; letter-spacing: -.03em; }
 .metric-copy small { display: block; margin-top: 4px; font-size: 12px; color: var(--muted); }
+/* Nhãn/dòng phụ của thẻ số liệu luôn một dòng (thẻ hẹp thì cắt "…" thay vì rớt chữ) */
+.metric-copy > span, .metric-copy > small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .delta { color: var(--green); font-weight: 700; }
 .delta.down { color: var(--red); }
 

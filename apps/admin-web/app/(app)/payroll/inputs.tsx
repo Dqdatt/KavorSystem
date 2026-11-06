@@ -38,18 +38,17 @@ export function Inputs({ tabs }: { tabs: ReactNode }) {
   return (
     <>
       <div className="page-head">
-        <div><p>{s ? `Kỳ công ${fmtDate(s.period.start)}–${fmtDate(s.period.end)} · ${s.period.locked ? "đã khóa" : "chưa khóa"}. HCNS lập bảng, Kế toán dùng để tính lương chi tiết (BHXH, thuế, công đoàn, thực nhận).`
-          : "Công, thông tin người lao động, mức lương và người phụ thuộc của từng kỳ — gửi Kế toán tính lương."}</p></div>
+        <div>{tabs}</div>
         <div className="head-actions">
-          {tabs}
           <Select className="select" value={cur ?? ""} onChange={(e) => { setMonth(e.target.value); setLive(false); }} aria-label="Kỳ">{months.map((x) => <option key={x} value={x}>{monthLabel(x)}</option>)}</Select>
+          {s ? <span className="muted nowrap" style={{ fontSize: 12.5 }}>{fmtDate(s.period.start).slice(0, 5)}–{fmtDate(s.period.end)}</span> : null}
           {s ? <a className="btn" href={exportHref}><Icon name="download" /> Xuất Excel</a> : null}
           {s?.canFinalize ? <button className="btn primary" disabled={!s.period.locked} title={s.period.locked ? undefined : "Khóa kỳ công trước khi chốt"} onClick={() => setFinalizing(true)}>
             <Icon name="lock" /> {s.finalized ? "Chốt lại" : "Chốt bảng"}</button> : null}
         </div>
       </div>
       <LoadError error={error} retry={reload} />
-      {s && !s.period.locked ? <div className="note-amber" style={{ marginBottom: 12 }}>Kỳ công {monthLabel(s.month).toLowerCase()} chưa khóa — số công còn thay đổi. Khóa ở <b>Chấm công → Bảng công tháng</b> rồi mới chốt bảng lương đầu vào.</div> : null}
+      {s && !s.period.locked ? <div className="note-amber" style={{ marginBottom: 12 }}>Kỳ công chưa khóa nên số công còn thay đổi. Khóa ở <b>Chấm công → Bảng công tháng</b> rồi mới chốt.</div> : null}
       {s?.finalized ? (
         <div className="note-soft" style={{ marginBottom: 12, display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
           <span>{s.source === "final" ? "Đang xem bản đã chốt" : "Đang xem dữ liệu hiện tại (chưa chốt)"} · chốt lần {s.finalized.versions} lúc {fmtDateTime(s.finalized.at, me.tenant.timezone)}{s.finalized.by ? ` bởi ${s.finalized.by}` : ""}{s.finalized.note ? ` — ${s.finalized.note}` : ""}</span>

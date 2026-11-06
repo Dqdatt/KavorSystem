@@ -24,8 +24,8 @@ function TenantsPage() {
   const show = (id: string | null) => router.replace(id ? `/tenants?id=${id}` : "/tenants", { scroll: false });
   return (
     <section className="page active">
-      <div className="page-head"><div><p>Mỗi doanh nghiệp là một không gian dữ liệu và cấu hình riêng trên Kavor.</p></div>
-        <button className="btn primary" onClick={() => setCreating(true)}><Icon name="plus" /> Tạo doanh nghiệp</button></div>
+      <div className="page-head">
+        <div className="head-actions"><button className="btn primary" onClick={() => setCreating(true)}><Icon name="plus" /> Tạo doanh nghiệp</button></div></div>
       <LoadError error={error} retry={reload} />
       <div className="grid metrics">
         <article className="card metric-card"><span className="metric-icon"><Icon name="building" /></span><span className="metric-copy"><span>Hoạt động</span><strong>{num(all.filter((t) => t.status === "active").length)}</strong><small>{num(all.length)} doanh nghiệp trên Kavor</small></span></article>

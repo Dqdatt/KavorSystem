@@ -49,7 +49,7 @@ echo "— Tenant Admin kích hoạt và dùng ngay"
 LAN1=$(activate ADMIN01 lan.pham@anphu.test); need "Tenant Admin kích hoạt bằng mã ADMIN01 (mã trùng giữa hai công ty)" "$LAN1"
 LAN=$(mfa "$LAN1"); need "Tenant Admin bật MFA trên web HR" "$LAN"
 org=$(call GET admin/org "$LAN")
-check "Bộ mẫu có pháp nhân, phòng ban, chức danh" "$(echo "$org" | py "(d['legalEntities'][0]['name'], len(d['departments']), len(d['positions']))")" "('Công ty TNHH An Phú', 2, 4)"
+check "Bộ mẫu có pháp nhân, phòng ban, chức danh" "$(echo "$org" | py "(d['legalEntities'][0]['name'], len(d['departments']), len(d['positions']))")" "('Công ty TNHH An Phú', 2, 5)"
 DEP=$(echo "$org" | py "[x['id'] for x in d['departments'] if x['name']=='Hành chính – Nhân sự'][0]")
 POS=$(echo "$org" | py "[x['id'] for x in d['positions'] if x['name']=='Nhân viên'][0]")
 for n in 1 2; do

@@ -19,7 +19,7 @@ export default function Plans() {
   const near = (tenants.data ?? []).filter((t) => t.status !== "closed" && nearLimit(t)).sort((a, b) => b.employees / b.employeeLimit - a.employees / a.employeeLimit);
   return (
     <section className="page active">
-      <div className="page-head"><div><p>Giới hạn theo nhân sự. Đổi gói của từng doanh nghiệp trong phần chi tiết ở trang Doanh nghiệp.</p></div></div>
+      <div className="page-head"><div><p>Đổi gói của từng doanh nghiệp ở trang Doanh nghiệp.</p></div></div>
       <LoadError error={error ?? tenants.error} retry={() => { void reload(); void tenants.reload(); }} />
       <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
         {(plans ?? []).map((p) => (

@@ -18,8 +18,8 @@ export default function RecoveriesPage() {
   const count = (s: OwnerRecovery["status"]) => rows.filter((r) => r.status === s).length;
   return (
     <section className="page active">
-      <div className="page-head"><div><p>Chỉ thực hiện qua Kavor Console: xác minh qua kênh độc lập, một người tạo, một người khác duyệt, mọi bước ghi nhật ký hoạt động.</p></div>
-        <button className="btn primary" onClick={() => setCreating(true)}><Icon name="key" /> Tạo yêu cầu</button></div>
+      <div className="page-head"><div><p>Một người tạo, một người khác duyệt.</p></div>
+        <div className="head-actions"><button className="btn primary" onClick={() => setCreating(true)}><Icon name="key" /> Tạo yêu cầu</button></div></div>
       <LoadError error={error} retry={reload} />
       <div className="grid metrics">
         <article className="card metric-card"><span className="metric-icon amber"><Icon name="clock" /></span><span className="metric-copy"><span>Chờ duyệt</span><strong>{num(count("pending"))}</strong><small>Hết hạn sau 24 giờ</small></span></article>

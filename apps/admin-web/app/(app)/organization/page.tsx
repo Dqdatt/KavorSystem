@@ -27,7 +27,7 @@ export default function OrganizationPage() {
   const wait = !t && !error ? <Skeleton w={56} h={24} /> : "—";
   return (
     <section className="page active">
-      <div className="page-head"><div><p>Cấu trúc có ngày hiệu lực; đơn vị ngừng hoạt động vẫn giữ lịch sử.</p></div>
+      <div className="page-head">
         <div className="head-actions">{t?.canManage ? <button className="btn primary" onClick={() => setEdit({ mode: "create", kind: "department" })}><Icon name="plus" /> Thêm đơn vị</button> : null}</div></div>
       <LoadError error={error} retry={reload} />
       <div className="grid three">

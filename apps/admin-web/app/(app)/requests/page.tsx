@@ -46,7 +46,7 @@ function RequestsPage() {
   const exportHref = `/api/requests/export?status=${status}&${new URLSearchParams(Object.entries({ ...f, q: qq }).filter(([, v]) => v)).toString()}`;
   return (
     <section className="page active">
-      <div className="page-head"><div><p>Ưu tiên theo hạn xử lý và mức ảnh hưởng tới kỳ công/lương. Đơn đã xử lý xem ở tab Đã duyệt, Từ chối/Hủy hoặc Tất cả.</p></div>
+      <div className="page-head">
         <div className="head-actions">
           <a className="btn" href={exportHref}><Icon name="download" /> Xuất CSV</a>
           {can(me, "request.read") ? <button className="btn" onClick={() => setConfig(true)}><Icon name="settings" /> Cấu hình luồng duyệt</button> : null}</div></div>

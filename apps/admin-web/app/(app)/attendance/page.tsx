@@ -22,9 +22,8 @@ function AttendancePage() {
   return (
     <section className="page active">
       <div className="page-head">
-        <div><p>{tab === "month" ? "Tổng hợp bản ghi, bất thường và điều chỉnh trước khi khóa kỳ." : tab === "overtime" ? "Giờ làm thêm theo tháng, hệ số theo loại ngày và mức dùng so với giới hạn luật/công ty." : tab === "today" ? "Giờ vào/ra hợp lệ theo ca áp dụng cho từng người; cập nhật trực tiếp khi nhân viên chấm công." : tab === "rejected" ? "Lần chấm công bị máy chủ từ chối: ngoài vùng, GPS kém chính xác." : "Mỗi nhân viên chấm công trên một máy; máy mới chờ HR duyệt."}</p></div>
-        <div className="head-actions">{tab === "month" ? action : null}
-          <div className="segmented" role="tablist">{TABS.filter(([, , perm]) => !perm || can(me, perm)).map(([k, label]) => <button key={k} role="tab" aria-selected={tab === k} className={tab === k ? "active" : ""} onClick={() => go(k)}>{label}</button>)}</div></div>
+        <div><div className="segmented" role="tablist">{TABS.filter(([, , perm]) => !perm || can(me, perm)).map(([k, label]) => <button key={k} role="tab" aria-selected={tab === k} className={tab === k ? "active" : ""} onClick={() => go(k)}>{label}</button>)}</div></div>
+        <div className="head-actions">{tab === "month" ? action : null}</div>
       </div>
       {tab === "month" ? <MonthTab setAction={setAction} /> : tab === "overtime" ? <OvertimeTab /> : tab === "today" ? <Today tz={me.tenant.timezone} tenantId={me.tenant.id} /> : tab === "rejected" ? <Rejected tz={me.tenant.timezone} tenantId={me.tenant.id} /> : <Devices tz={me.tenant.timezone} tenantId={me.tenant.id} />}
     </section>

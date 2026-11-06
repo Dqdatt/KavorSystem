@@ -27,9 +27,8 @@ export function PayItems({ tabs }: { tabs: ReactNode }) {
   return (
     <>
       <div className="page-head">
-        <div><p>Các khoản phụ cấp/thưởng công ty đang trả. Lương cứng của mỗi người = lương cơ bản + các khoản này; số tiền từng người nhập ở hồ sơ nhân viên → Lương.</p></div>
+        <div>{tabs}</div>
         <div className="head-actions">
-          {tabs}
           {l?.canManage ? <>
             <button className="btn" disabled={!!busy} onClick={() => void run("tpl", async () => setData(await call<PayItemList>("POST", "payroll/pay-items/templates", {})), "Đã thêm các khoản mẫu")}>
               <Icon name="plus" /> Thêm khoản mẫu</button>
@@ -64,7 +63,7 @@ export function PayItems({ tabs }: { tabs: ReactNode }) {
           </tbody></table></div>
         )}
       </article>
-      {l && active.length ? <p className="muted" style={{ fontSize: 12, marginTop: 10 }}>Cách trả, đóng BH và thuế là thông tin để Kế toán tính lương chi tiết (giai đoạn sau Kavor tự tính). Mức miễn thuế do công ty nhập theo quy định hiện hành — Kế toán xác nhận.</p> : null}
+      {l && active.length ? <p className="muted" style={{ fontSize: 12, marginTop: 10 }}>Lương cứng = lương cơ bản + các khoản này. Số tiền từng người nhập ở hồ sơ nhân viên.</p> : null}
       {edit ? <PayItemModal item={edit === "new" ? null : edit} onClose={() => setEdit(null)}
         save={async (b) => setData(await call<PayItemList>("POST", edit === "new" ? "payroll/pay-items" : `payroll/pay-items/${edit.id}`, b))} /> : null}
     </>

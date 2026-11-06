@@ -24,13 +24,13 @@ export default function LeavePage() {
   const granted = (b?.rows ?? []).reduce((n, r) => n + (r.balance ? r.balance.granted + r.balance.carry + r.balance.adjusted : 0), 0);
   return (
     <section className="page active">
-      <div className="page-head"><div><p>Theo dõi số dư và biến động phép năm {year}.</p></div>
+      <div className="page-head">
         <div className="head-actions"><Link className="btn" href="/settings?tab=rules"><Icon name="settings" /> Quy định phép năm</Link></div></div>
       <LoadError error={error} retry={reload} />
       <div className="grid metrics">
         <article className="card metric-card"><span className="metric-icon"><Icon name="plane" /></span><span className="metric-copy"><span>Phép khả dụng</span><strong>{m ? d1(m.available) : "—"}</strong><small>ngày toàn công ty</small></span></article>
         <article className="card metric-card"><span className="metric-icon blue"><Icon name="checks" /></span><span className="metric-copy"><span>Đã sử dụng</span><strong>{m ? d1(m.used) : "—"}</strong><small>{m && granted ? `${((m.used / granted) * 100).toLocaleString("vi-VN", { maximumFractionDigits: 1 })}% đã cấp` : " "}</small></span></article>
-        <article className="card metric-card"><span className="metric-icon amber"><Icon name="clock" /></span><span className="metric-copy"><span>Đang giữ chỗ</span><strong>{m ? d1(m.pending) : "—"}</strong><small>ngày trong đơn chờ duyệt</small></span></article>
+        <article className="card metric-card"><span className="metric-icon amber"><Icon name="clock" /></span><span className="metric-copy"><span>Đang giữ chỗ</span><strong>{m ? d1(m.pending) : "—"}</strong><small>ngày chờ duyệt</small></span></article>
         <article className="card metric-card"><span className="metric-icon red"><Icon name="alert" /></span><span className="metric-copy"><span>Sắp hết hạn</span><strong>{m ? d1(m.expiringCarry) : "—"}</strong><small>{m?.expiringOn ? `phép tồn đến ${fmtDate(m.expiringOn).slice(0, 5)}` : "không có phép tồn"}</small></span></article>
       </div>
       <article className="card">

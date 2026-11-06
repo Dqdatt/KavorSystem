@@ -1,5 +1,5 @@
 "use client";
-import { Suspense, useState } from "react";
+import { Suspense, useState, type ReactNode } from "react";
 import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { LocationDef, OrgOptions, PolicyAssignment, PolicyKind, PolicyScopeType, ShiftDef, ShiftVersion } from "@kavor/contracts";
@@ -18,13 +18,11 @@ function SchedulesPage() {
   const router = useRouter();
   const params = useSearchParams();
   const tab = (params.get("tab") as Tab) ?? "shifts";
+  /* Tab luôn ở bên trái đầu trang, nút của từng tab ở bên phải → đổi tab không làm tab nhảy chỗ */
+  const tabs = <div className="segmented" role="tablist">{([["shifts", "Mẫu ca"], ["locations", "Địa điểm"], ["assignments", "Áp dụng"]] as const).map(([k, l]) => <button key={k} role="tab" aria-selected={tab === k} className={tab === k ? "active" : ""} onClick={() => router.replace(`/schedules?tab=${k}`, { scroll: false })}>{l}</button>)}</div>;
   return (
     <section className="page active">
-      <div className="page-head">
-        <div><p>{tab === "assignments" ? "Ưu tiên: cá nhân > phòng ban > chi nhánh > pháp nhân > công ty. Nhân viên luôn tra theo ngày, không sao chép quy định vào hồ sơ." : "Sửa giờ ca hay vị trí = thêm phiên bản mới từ một ngày; phiên bản cũ giữ nguyên cho công đã chấm."}</p></div>
-        <div className="segmented" role="tablist">{([["shifts", "Mẫu ca"], ["locations", "Địa điểm"], ["assignments", "Áp dụng"]] as const).map(([k, l]) => <button key={k} className={tab === k ? "active" : ""} onClick={() => router.replace(`/schedules?tab=${k}`, { scroll: false })}>{l}</button>)}</div>
-      </div>
-      {tab === "shifts" ? <Shifts /> : tab === "locations" ? <Locations /> : <Assignments />}
+      {tab === "shifts" ? <Shifts tabs={tabs} /> : tab === "locations" ? <Locations tabs={tabs} /> : <Assignments tabs={tabs} />}
     </section>
   );
 }
@@ -34,7 +32,7 @@ const DAYS = ["", "T2", "T3", "T4", "T5", "T6", "T7", "CN"];
 const daysText = (d: number[]) => { const s = [...d].sort(); return s.length > 2 && s.every((x, i) => i === 0 || x === s[i - 1]! + 1) ? `${DAYS[s[0]!]}–${DAYS[s[s.length - 1]!]}` : s.map((x) => DAYS[x]).join(", "); };
 const shiftText = (v: ShiftVersion) => `${daysText(v.workDays ?? [1, 2, 3, 4, 5])} · ${v.start}–${v.end}${v.breakStart ? ` · nghỉ ${v.breakStart}–${v.breakEnd}` : ""}${v.lateGraceMinutes ? ` · ân hạn muộn ${v.lateGraceMinutes}′` : ""}${v.earlyGraceMinutes ? ` · ân hạn sớm ${v.earlyGraceMinutes}′` : ""}`;
 
-function Shifts() {
+function Shifts({ tabs }: { tabs: ReactNode }) {
   const me = useMe();
   const { data, error, reload } = useApi<ShiftDef[]>("shifts");
   const [form, setForm] = useState<ShiftDef | "new" | null>(null);
@@ -43,7 +41,7 @@ function Shifts() {
   return (
     <>
       <LoadError error={error} retry={reload} />
-      {manage ? <div className="head-actions" style={{ marginBottom: 12 }}><button className="btn primary" onClick={() => setForm("new")}><Icon name="plus" /> Tạo ca</button></div> : null}
+      <div className="page-head"><div>{tabs}</div><div className="head-actions">{manage ? <button className="btn primary" onClick={() => setForm("new")}><Icon name="plus" /> Tạo ca</button> : null}</div></div>
       {data && !data.length ? <Empty title="Chưa có mẫu ca" /> : (
         <div className="grid two">
           {(data ?? []).map((s) => (
@@ -106,7 +104,7 @@ function ShiftForm({ shift, onClose, onSaved }: { shift: ShiftDef | null; onClos
   );
 }
 
-function Locations() {
+function Locations({ tabs }: { tabs: ReactNode }) {
   const me = useMe();
   const { data, error, reload } = useApi<LocationDef[]>("locations");
   /* Địa điểm chưa có áp dụng đang/sắp hiệu lực thì không nhân viên nào chấm công được ở đó (app báo "chưa có địa điểm") */
@@ -119,15 +117,15 @@ function Locations() {
   return (
     <>
       <LoadError error={error} retry={reload} />
-      {manage ? <div className="head-actions" style={{ marginBottom: 12 }}><button className="btn primary" onClick={() => setForm("new")}><Icon name="plus" /> Thêm địa điểm</button></div> : null}
+      <div className="page-head"><div>{tabs}</div><div className="head-actions">{manage ? <button className="btn primary" onClick={() => setForm("new")}><Icon name="plus" /> Thêm địa điểm</button> : null}</div></div>
       <article className="card">
         {data && !data.length ? <Empty title="Chưa có địa điểm chấm công" /> : (
           <div className="table-wrap"><table className="data-table" style={{ minWidth: 900 }}><thead><tr><th>Địa điểm</th><th>Chi nhánh</th><th>Tọa độ</th><th title="Bán kính · sai số GPS tối đa">Bán kính · sai số</th><th>Phiên bản</th><th>Trạng thái</th><th /></tr></thead><tbody>
             {!data && !error ? <SkeletonRows cols={7} rows={4} /> : null}
             {(data ?? []).map((l) => (
               <tr key={l.id}>
-                <td className="wrap"><b>{l.code} · {l.name}</b><br /><small className="muted">{l.address ?? "—"}</small></td>
-                <td className="wrap">{l.branch?.name ?? "—"}</td>
+                <td className="wrap"><b className="nowrap">{l.code} · {l.name}</b><br /><small className="muted">{l.address ?? "—"}</small></td>
+                <td className="nowrap">{l.branch?.name ?? "—"}</td>
                 {/* Chưa có phiên bản hiệu lực hôm nay (phiên bản đầu bắt đầu từ ngày sau) thì hiện phiên bản sắp tới, ghi rõ ngày */}
                 {((v) => <>
                   <td>{v ? <a href={`https://www.google.com/maps?q=${v.latitude},${v.longitude}`} target="_blank" rel="noreferrer">{v.latitude.toFixed(6)}, {v.longitude.toFixed(6)}</a> : "—"}</td>
@@ -200,7 +198,7 @@ function LocationForm({ loc, onClose, onSaved }: { loc: LocationDef | null; onCl
 
 const STATE: Record<PolicyAssignment["state"], [string, string]> = { active: ["Đang áp dụng", ""], scheduled: ["Sắp áp dụng", "info"], ended: ["Đã kết thúc", "muted"], cancelled: ["Đã hủy", "muted"] };
 
-function Assignments() {
+function Assignments({ tabs }: { tabs: ReactNode }) {
   const me = useMe();
   const { data, error, reload } = useApi<PolicyAssignment[]>("policy-assignments?kind=schedule");
   const [creating, setCreating] = useState(false);
@@ -210,13 +208,12 @@ function Assignments() {
   const rows = (data ?? []).filter((a) => showOld || a.state === "active" || a.state === "scheduled");
   return (
     <>
+      <div className="page-head"><div>{tabs}</div><div className="head-actions">{manage ? <button className="btn primary" onClick={() => setCreating(true)}><Icon name="plus" /> Áp dụng mới</button> : null}</div></div>
       <LoadError error={error} retry={reload} />
       <article className="card">
         <div className="toolbar">
           <button className={`filter-chip ${!showOld ? "active" : ""}`} onClick={() => setShowOld(false)}>Đang và sắp áp dụng</button>
           <button className={`filter-chip ${showOld ? "active" : ""}`} onClick={() => setShowOld(true)}>Cả lịch sử</button>
-          <span className="toolbar-spacer" />
-          {manage ? <button className="btn primary small" onClick={() => setCreating(true)}><Icon name="plus" /> Áp dụng mới</button> : null}
         </div>
         {data && !rows.length ? <Empty title="Chưa có áp dụng nào" /> : (
           <div className="table-wrap"><table className="data-table" style={{ minWidth: 900 }}><thead><tr><th>Loại</th><th>Áp dụng</th><th>Tầng</th><th>Hiệu lực</th><th>Trạng thái</th><th>Lý do · người tạo</th><th /></tr></thead><tbody>
@@ -225,7 +222,7 @@ function Assignments() {
               <tr key={a.id}>
                 <td>{a.kind === "shift" ? "Ca làm" : "Địa điểm"}</td>
                 <td><b>{a.target.name}</b></td>
-                <td className="wrap">{SCOPE[a.scopeType]}{a.scope ? `: ${a.scope.name}` : ""}</td>
+                <td className="nowrap">{SCOPE[a.scopeType]}{a.scope ? `: ${a.scope.name}` : ""}</td>
                 <td className="nowrap">{fmtDate(a.effectiveFrom)} → {a.effectiveTo ? fmtDate(a.effectiveTo) : "không thời hạn"}</td>
                 <td><Status v={STATE[a.state]} /></td>
                 <td className="wrap"><small>{a.reason ?? "—"}<br /><span className="muted">{a.createdBy ?? "Dữ liệu mẫu"}</span></small></td>

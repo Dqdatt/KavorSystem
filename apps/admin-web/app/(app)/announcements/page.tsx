@@ -54,8 +54,8 @@ function AnnouncementsPage() {
 
   return (
     <section className="page active">
-      <div className="page-head"><div><p>Lên lịch, chọn nhóm người nhận và theo dõi đã đọc.</p></div>
-        <button className="btn primary" onClick={() => setEditing("new")}><Icon name="plus" /> Tạo bài viết</button></div>
+      <div className="page-head">
+        <div className="head-actions"><button className="btn primary" onClick={() => setEditing("new")}><Icon name="plus" /> Tạo bài viết</button></div></div>
       <LoadError error={error} retry={reload} />
       <div className="grid two-one">
         <article className="card"><div className="card-head"><h3>Bài đang xuất bản</h3><button className="btn small" onClick={() => { setFilter("all"); all.current?.scrollIntoView({ behavior: "smooth" }); }}>Tất cả bài</button></div>

@@ -55,7 +55,6 @@ export function Cycles({ tabs }: { tabs: ReactNode }) {
   const cur = board?.cycles.find((c) => c.month === month)?.month ?? board?.cycles[0]?.month ?? null;
   const { data: raw, error: detailError, reload: reloadDetail } = useApi<PayrollDetail>(cur ? `payroll/cycles/${cur}` : null);
   const d = raw && raw.cycle.month === cur ? raw : null;
-  const c = d?.cycle;
   const [modal, setModal] = useState<"create" | "import" | PayrollAction | null>(null);
   const refresh = () => { void reload(); void reloadDetail(); };
   const next = d?.actions.find((a) => a !== "reopen");
@@ -63,9 +62,8 @@ export function Cycles({ tabs }: { tabs: ReactNode }) {
   return (
     <>
       <div className="page-head">
-        <div><p>{c ? `Kỳ công ${fmtDate(c.periodStart).slice(0, 5)}–${fmtDate(c.periodEnd)} · ngày trả lương ${fmtDate(c.payDate)}.` : "Nhập kết quả lương từ file CSV, kiểm tra, duyệt và công bố phiếu lương."}</p></div>
+        <div>{tabs}</div>
         <div className="head-actions">
-          {tabs}
           {board?.cycles.length ? (
             <Select className="select" value={cur ?? ""} onChange={(e) => setMonth(e.target.value)} aria-label="Kỳ lương">
               {board.cycles.map((x) => <option key={x.id} value={x.month}>Kỳ {mm(x.month)} · {STATUS[x.status][0]}</option>)}

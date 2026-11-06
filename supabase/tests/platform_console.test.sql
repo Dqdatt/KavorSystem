@@ -15,7 +15,7 @@ insert into public.platform_operators (user_id, email, full_name) values
 select set_config('test.t', (public.create_tenant_with_admin('test-z', 'Công ty Thử Z', 'Công ty TNHH Thử Z', 'trial', 50, 'Lê Văn Chủ', 'chu@thuz.test', 'b0000000-0000-4000-8000-0000000000a1') ->> 'tenant_id'), true);
 select is((select code || ' · ' || status || ' · ' || plan_code from public.tenants where id = current_setting('test.t')::uuid), 'TEST-Z · active · trial', 'Tạo tenant: mã viết hoa, đang hoạt động');
 select is((select count(*)::int from public.departments where tenant_id = current_setting('test.t')::uuid), 2, 'Bộ mẫu có phòng ban để tạo nhân viên ngay');
-select is((select count(*)::int from public.positions where tenant_id = current_setting('test.t')::uuid), 4, 'Bộ mẫu có chức danh (gồm Ban Giám đốc)');
+select is((select count(*)::int from public.positions where tenant_id = current_setting('test.t')::uuid), 5, 'Bộ mẫu có chức danh (gồm Ban Giám đốc, Trưởng nhóm)');
 select is((select name from public.legal_entities where tenant_id = current_setting('test.t')::uuid), 'Công ty TNHH Thử Z', 'Pháp nhân lấy tên pháp lý');
 select is((select employee_code || ' · ' || full_name from public.employees where tenant_id = current_setting('test.t')::uuid), 'ADMIN01 · Lê Văn Chủ', 'Tenant Admin đầu tiên có hồ sơ ADMIN01');
 select is((select m.status from public.memberships m join public.employees e on e.id = m.employee_id where e.tenant_id = current_setting('test.t')::uuid), 'invited', 'Membership chờ kích hoạt');

@@ -19,14 +19,6 @@ type Tab = "company" | "setup" | "rules" | "holidays" | "privacy" | "support";
 const TABS: Array<[Tab, string, string | null]> = [
   ["company", "Doanh nghiệp", null], ["setup", "Thiết lập ban đầu", null], ["rules", "Quy định", "policy.read"], ["holidays", "Ngày lễ", "policy.read"], ["privacy", "Dữ liệu cá nhân", "privacy.read"], ["support", "Hỗ trợ Kavor", "support_access.approve"],
 ];
-const HEAD: Record<Tab, [string, string]> = {
-  company: ["Thiết lập doanh nghiệp", "Đây là cấu hình công ty trên Kavor, không phải đăng ký kinh doanh."],
-  setup: ["Thiết lập ban đầu", "Trạng thái tính từ dữ liệu thật của công ty; mỗi bước xong khi dữ liệu đã đủ."],
-  rules: ["Quy định nghiệp vụ", "Mỗi quy định có phiên bản theo ngày hiệu lực và áp dụng theo tầng: cá nhân > phòng ban > chi nhánh > pháp nhân > công ty."],
-  holidays: ["Ngày nghỉ lễ", "Lịch quốc gia do Kavor duy trì cho mọi công ty; công ty thêm ngày nghỉ riêng hoặc nghỉ bù."],
-  support: ["Hỗ trợ từ Kavor", "Kỹ sư Kavor chỉ xem được dữ liệu công ty khi quản trị viên công ty duyệt, trong phạm vi và thời hạn đã ghi."],
-  privacy: ["Dữ liệu cá nhân", "Điều khoản có phiên bản theo Nghị định 13/2023/NĐ-CP; đổi điều khoản thì nhân viên phải đồng ý lại trên app."],
-};
 
 function SettingsPage() {
   const me = useMe();
@@ -38,11 +30,8 @@ function SettingsPage() {
   return (
     <section className="page active">
       <div className="page-head">
-        <div><p>{HEAD[tab][1]}</p></div>
-        <div className="head-actions">
-          {action}
-          <div className="segmented" role="tablist">{tabs.map(([k, l]) => <button key={k} className={tab === k ? "active" : ""} onClick={() => { setAction(null); router.replace(`/settings?tab=${k}`, { scroll: false }); }}>{l}</button>)}</div>
-        </div>
+        <div><div className="segmented" role="tablist">{tabs.map(([k, l]) => <button key={k} role="tab" aria-selected={tab === k} className={tab === k ? "active" : ""} onClick={() => { setAction(null); router.replace(`/settings?tab=${k}`, { scroll: false }); }}>{l}</button>)}</div></div>
+        <div className="head-actions">{action}</div>
       </div>
       {tab === "company" ? <Company setAction={setAction} /> : tab === "setup" ? <Setup /> : tab === "rules" ? <Rules setAction={setAction} /> : tab === "holidays" ? <Holidays setAction={setAction} /> : tab === "support" ? <SupportPanel /> : <Privacy setAction={setAction} />}
     </section>
@@ -431,7 +420,7 @@ function Privacy({ setAction }: { setAction: SetAction }) {
         </article>
         <div style={{ display: "grid", gap: 14, alignContent: "start" }}>
           <article className="card">
-            <div className="card-head"><div><h3>Đồng ý phiên bản hiện hành</h3><p>Tài khoản đã kích hoạt trong phạm vi của bạn</p></div><b className="num">{num(data.consentedCurrent)}/{num(data.accounts)}</b></div>
+            <div className="card-head"><div><h3>Đồng ý phiên bản hiện hành</h3><p>Trên tổng tài khoản đã kích hoạt</p></div><b className="num">{num(data.consentedCurrent)}/{num(data.accounts)}</b></div>
             <div className="card-body"><span className="progress" style={{ display: "block", ["--value" as string]: `${pct}%` }}><i /></span>
               {data.pending.length ? <>
                 <p className="muted" style={{ fontSize: 11.5, margin: "12px 0 6px" }}>Chưa đồng ý (app sẽ hỏi ở lần mở kế tiếp):</p>
