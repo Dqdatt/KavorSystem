@@ -97,7 +97,7 @@ function Rejected({ tz, tenantId }: { tz: string; tenantId: string }) {
                 <td><Person name={e.employee.fullName} sub={`${e.employee.code} · ${e.employee.department ?? "—"}`} seed={e.employee.code} /></td>
                 <td>{e.kind === "in" ? "Vào ca" : "Ra ca"}</td>
                 <td><span className="status bad">{REJECT_REASON[e.rejectReason ?? ""] ?? "Bị từ chối"}</span></td>
-                <td>{e.distanceM != null ? meters(e.distanceM) : "—"} · ±{e.accuracyM != null ? Math.round(e.accuracyM) : "—"} m</td>
+                <td>{e.distanceM != null ? meters(e.distanceM) : "—"} · ±{e.accuracyM != null ? Math.round(e.accuracyM) : "—"}{"\u00a0"}m</td>
                 <td>{e.locationName ?? "—"}</td>
                 <td>{e.deviceModel ?? "—"}</td>
               </tr>

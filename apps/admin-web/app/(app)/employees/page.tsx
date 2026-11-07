@@ -6,7 +6,7 @@ import { managerTierOk, type AdminMe } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
 import { EmployeePaySection } from "./pay";
 import {
-  ACCOUNT, Avatar, DEVICE, EMP_STATUS, EMPLOYMENT, Drawer, Empty, ErrorLine, Field, Icon, LoadError, Modal, Person, REJECT_REASON, Status, scopeText,
+  ACCOUNT, Avatar, DEVICE, EMP_STATUS, EMPLOYMENT, Drawer, Empty, ErrorLine, Field, Icon, LoadError, Modal, Person, Phrases, REJECT_REASON, Status, scopeText,
   ago, can, fmtDate, fmtDateTime, tenantToday, useAction, useMe,
 } from "../../_ui/kit";
 import { ReasonModal } from "../../_ui/reason-modal";
@@ -135,9 +135,9 @@ function EmployeeDrawer({ id, onClose, onEdit, onChanged }: { id: string; onClos
           <div className="card detail-list">
             <div className="detail-row"><span>Phòng ban</span><b>{e.department?.name ?? "—"}</b></div>
             <div className="detail-row"><span>Chức danh</span><b>{e.position?.name ?? "—"}</b></div>
-            <div className="detail-row"><span>Chi nhánh · pháp nhân</span><b>{e.branch?.name ?? "—"} · {e.legalEntity?.name ?? "—"}</b></div>
+            <div className="detail-row"><span>Chi nhánh · pháp nhân</span><b><Phrases text={`${e.branch?.name ?? "—"} · ${e.legalEntity?.name ?? "—"}`} /></b></div>
             <div className="detail-row"><span>Quản lý trực tiếp</span><b>{e.manager?.name ?? "—"}</b></div>
-            <div className="detail-row"><span>Vai trò</span><b style={{ whiteSpace: "normal", maxWidth: 360 }}>{e.roles.length ? e.roles.map((r) => `${r.name} (${r.scope})`).join(", ") : "Nhân viên"}</b></div>
+            <div className="detail-row"><span>Vai trò</span><b><Phrases text={e.roles.length ? e.roles.map((r) => `${r.name} (${r.scope})`).join(", ") : "Nhân viên"} /></b></div>
             <div className="detail-row"><span>Email công ty</span><b>{e.email ?? "—"}</b></div>
             <div className="detail-row"><span>Điện thoại</span><b>{e.phone ?? "—"}</b></div>
             <div className="detail-row"><span>Ngày vào làm · loại HĐ</span><b>{fmtDate(e.hireDate)} · {EMPLOYMENT[e.employmentType]}</b></div>
@@ -177,7 +177,7 @@ function EmployeeDrawer({ id, onClose, onEdit, onChanged }: { id: string; onClos
             <h4>Ca và địa điểm đang áp dụng</h4>
             <div className="card detail-list">
               <div className="detail-row"><span>Ca làm</span><b>{e.policies.shift ? <>{e.policies.shift.name} · {e.policies.shift.start}–{e.policies.shift.end}<span className="source-tag" title="Tầng áp dụng">{scopeText(e.policies.shift.source)}</span></> : <span className="text-red">Chưa áp dụng ca nào</span>}</b></div>
-              <div className="detail-row"><span>Địa điểm chấm công</span><b>{e.policies.locations.length ? <>{e.policies.locations.map((l) => `${l.name} (${l.radiusM} m)`).join(", ")}{e.policies.locationSource ? <span className="source-tag">{scopeText(e.policies.locationSource)}</span> : null}</> : <span className="text-red">Chưa có địa điểm</span>}</b></div>
+              <div className="detail-row"><span>Địa điểm chấm công</span><b>{e.policies.locations.length ? <>{<Phrases text={e.policies.locations.map((l) => `${l.name} (${l.radiusM} m)`).join(", ")} />}{e.policies.locationSource ? <span className="source-tag">{scopeText(e.policies.locationSource)}</span> : null}</> : <span className="text-red">Chưa có địa điểm</span>}</b></div>
             </div>
           </div>
             </div>
@@ -188,13 +188,13 @@ function EmployeeDrawer({ id, onClose, onEdit, onChanged }: { id: string; onClos
             <h4>Thông tin cá nhân</h4>
             <div className="card detail-list">
               <div className="detail-row"><span>Ngày sinh · giới tính</span><b>{e.personal.birthDate ? fmtDate(e.personal.birthDate) : "—"} · {e.personal.gender ? { male: "Nam", female: "Nữ", other: "Khác" }[e.personal.gender] : "—"}</b></div>
-              <div className="detail-row"><span>CCCD/CMND</span><b style={{ whiteSpace: "normal" }}>{e.personal.idNumber ? `${e.personal.idNumber}${e.personal.idIssuedOn ? ` · cấp ${fmtDate(e.personal.idIssuedOn)}` : ""}${e.personal.idIssuedBy ? ` · ${e.personal.idIssuedBy}` : ""}` : "—"}</b></div>
+              <div className="detail-row"><span>CCCD/CMND</span><b><Phrases text={e.personal.idNumber ? `${e.personal.idNumber}${e.personal.idIssuedOn ? ` · cấp ${fmtDate(e.personal.idIssuedOn)}` : ""}${e.personal.idIssuedBy ? ` · ${e.personal.idIssuedBy}` : ""}` : null} /></b></div>
               <div className="detail-row"><span>Số sổ BHXH</span><b>{e.personal.socialInsuranceNo ?? "—"}</b></div>
               <div className="detail-row"><span>Email cá nhân</span><b>{e.personal.personalEmail ?? "—"}</b></div>
-              <div className="detail-row"><span>Thường trú</span><b style={{ whiteSpace: "normal" }}>{e.personal.permanentAddress ?? "—"}</b></div>
-              <div className="detail-row"><span>Địa chỉ hiện tại</span><b style={{ whiteSpace: "normal" }}>{e.personal.address ?? "—"}</b></div>
+              <div className="detail-row"><span>Thường trú</span><b><Phrases text={e.personal.permanentAddress} /></b></div>
+              <div className="detail-row"><span>Địa chỉ hiện tại</span><b><Phrases text={e.personal.address} /></b></div>
               <div className="detail-row"><span>Liên hệ khẩn cấp</span><b>{e.personal.emergency ? `${e.personal.emergency.name} · ${e.personal.emergency.relation} · ${e.personal.emergency.phone}` : "—"}</b></div>
-              <div className="detail-row"><span>Tài khoản ngân hàng</span><b>{e.personal.bank ? `${e.personal.bank.bankName} · ${e.personal.bank.accountNo ?? `•••• ${e.personal.bank.last4}`} · ${e.personal.bank.holder}` : "—"}</b></div>
+              <div className="detail-row"><span>Tài khoản ngân hàng</span><b><Phrases text={e.personal.bank ? `${e.personal.bank.bankName} · ${e.personal.bank.accountNo ?? `•••• ${e.personal.bank.last4}`} · ${e.personal.bank.holder}` : null} /></b></div>
             </div>
           </div>
           </div> : null}

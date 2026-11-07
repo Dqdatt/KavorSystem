@@ -13,7 +13,7 @@ const wd = (date: string) => { const w = new Date(`${date}T12:00:00Z`).getUTCDay
 
 const HALF = { full: "", am: " (sáng)", pm: " (chiều)" } as const;
 export const days = (n: number) => `${n.toLocaleString("vi-VN")} ngày`;
-export const money = (n: number) => `${n.toLocaleString("vi-VN")} ₫`;
+export const money = (n: number) => `${n.toLocaleString("vi-VN")}\u00a0₫`;
 /* Khoảng nghỉ: "T2 26/10–T4 28/10" / "T2 26/10 (chiều)" */
 export function leaveRange(p: Extract<RequestItem, { type: "leave" }>["payload"]) {
   return `${wd(p.from)} ${fmtDate(p.from).slice(0, 5)}${p.to !== p.from ? `–${wd(p.to)} ${fmtDate(p.to).slice(0, 5)}` : ""}${HALF[p.half]}`;

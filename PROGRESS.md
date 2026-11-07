@@ -143,6 +143,7 @@ ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AG
 - Gửi lời mời kích hoạt hàng loạt (26/10, Claude, phiên cloud): `POST /admin/employees/invite` (tối đa 300 người, gửi lần lượt, người đã kích hoạt/đã nghỉ/
   thiếu email/ngoài phạm vi/vừa mời trong 1 phút bị bỏ qua kèm lý do; audit từng người + 1 dòng tổng). Web Nhân viên: nút "Gửi lời mời (N)" cho người
   chưa mời lần nào trong danh sách đang lọc. Smoke import thêm 4 bước; đã thử trên trình duyệt tự động.
+- Xuống dòng hợp lý toàn web (07/11, Claude): `Phrases` (kit) ngắt sau dấu phẩy/chấm giữa, giữ nguyên tên riêng ("Quảng Ngãi"); số dính đơn vị (`50 m`, `₫`); `text-wrap: balance/pretty`; nhãn viên/nút không xuống dòng; ô phòng ban/chức danh tối thiểu 120px. Đã xem hồ sơ + danh sách ở 900px.
 - Hồ sơ nhân viên web: modal rộng cao cố định, chia tab (Tổng quan · Cá nhân · Chấm công · Lương · Đơn từ · Lịch sử; tab ẩn theo quyền), Tổng quan 2 cột, tab một mục chia dòng thông tin 2 cột; `.detail-row` không đè nhãn khi giá trị dài (07/11, Claude). Đã xem từng tab trên trình duyệt.
 - Nhập nhân viên giai đoạn 2 — hồ sơ chi tiết (07/11, Claude): ngày sinh, giới tính, CCCD, địa chỉ, sổ BHXH, MST, ngân hàng, lương cơ bản/đóng BHXH;
   chỉ điền chỗ trống, người đã có → "Bổ sung hồ sơ"; lọc theo quyền nhạy cảm/lương; hồ sơ trên web hiện các trường mới (CCCD/BHXH che khi không có quyền).

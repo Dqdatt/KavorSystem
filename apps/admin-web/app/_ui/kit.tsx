@@ -1,6 +1,6 @@
 "use client";
 /* Thành phần giao diện theo đúng class của Kavor HR Admin Prototype.html (app/kavor-desktop.css) */
-import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { Fragment, createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import type { AccountStatus, AdminMe, DeviceStatus, EmployeeStatus, EmploymentType } from "@kavor/contracts";
 import { ICONS } from "./icons";
@@ -47,7 +47,7 @@ export const ago = (iso: string | null) => {
 };
 export const num = (n: number) => n.toLocaleString("vi-VN");
 /* Khoảng cách kiểu Việt như mobile: 1,8 m · 126 m · 11 km */
-export const meters = (m: number) => (m >= 1000 ? `${(Math.round(m / 100) / 10).toLocaleString("vi-VN")} km` : `${Math.round(m)} m`);
+export const meters = (m: number) => (m >= 1000 ? `${(Math.round(m / 100) / 10).toLocaleString("vi-VN")}\u00a0km` : `${Math.round(m)}\u00a0m`);
 export const dur = (m: number) => (m >= 60 ? `${Math.floor(m / 60)} giờ${m % 60 ? ` ${m % 60} phút` : ""}` : `${m} phút`);
 
 /* ---------- Nhãn trạng thái ---------- */
@@ -160,3 +160,13 @@ export function useAction() {
   }, [toast]);
   return { busy, run };
 }
+
+/* Giá trị dài (địa chỉ, "chi nhánh · pháp nhân"): xuống dòng giữa các cụm (sau dấu phẩy / dấu chấm giữa), không tách tên riêng như "Quảng | Ngãi".
+   Cụm quá dài so với dòng vẫn tự xuống dòng bên trong. */
+export function Phrases({ text }: { text: string | null | undefined }) {
+  if (!text) return <>—</>;
+  const parts = text.split(/(?<=,|·|;)\s+/);
+  /* Dấu cách nằm ngoài cụm (trong inline-block nó bị nuốt); số + đơn vị dính nhau ("50 m", "8 giờ") */
+  return <>{parts.map((t, i) => <Fragment key={i}><span className="phrase">{t.replace(/(\d) (?=[a-zA-Zđ%₫])/g, "$1\u00a0")}</span>{i < parts.length - 1 ? " " : null}</Fragment>)}</>;
+}
+

@@ -129,7 +129,7 @@ function Locations({ tabs }: { tabs: ReactNode }) {
                 {/* Chưa có phiên bản hiệu lực hôm nay (phiên bản đầu bắt đầu từ ngày sau) thì hiện phiên bản sắp tới, ghi rõ ngày */}
                 {((v) => <>
                   <td>{v ? <a href={`https://www.google.com/maps?q=${v.latitude},${v.longitude}`} target="_blank" rel="noreferrer">{v.latitude.toFixed(6)}, {v.longitude.toFixed(6)}</a> : "—"}</td>
-                  <td>{v ? `${v.radiusM} m · ±${v.maxAccuracyM} m` : "—"}{l.current && l.next ? <><br /><small className="status info">Từ {fmtDate(l.next.effectiveFrom)}: {l.next.radiusM} m</small></> : null}</td>
+                  <td>{v ? `${v.radiusM}\u00a0m · ±${v.maxAccuracyM}\u00a0m` : "—"}{l.current && l.next ? <><br /><small className="status info">Từ {fmtDate(l.next.effectiveFrom)}: {l.next.radiusM} m</small></> : null}</td>
                   <td>{v ? <>v{v.versionNo} · từ {fmtDate(v.effectiveFrom)}{l.current ? null : <><br /><small className="status warn">Chưa hiệu lực</small></>}</> : "—"}</td>
                 </>)(l.current ?? l.next)}
                 <td>{l.active ? <Status v={["Đang dùng", ""]} /> : <Status v={["Ngừng dùng", "muted"]} />}{l.active && assigned.data && !applied.has(l.id) ? <><br /><small className="status warn">Chưa áp dụng cho ai</small></> : null}</td>
