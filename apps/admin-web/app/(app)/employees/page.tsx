@@ -112,7 +112,7 @@ function EmployeeDrawer({ id, onClose, onEdit, onChanged }: { id: string; onClos
         go: (reason) => call("POST", `devices/${d.id}/${action}`, { reason }) });
 
   return (
-    <Drawer onClose={onClose} head={<><div><b>Hồ sơ nhân viên</b><div className="muted" style={{ fontSize: 10 }}>{e ? `Mã ${e.code}` : "Đang tải…"}</div></div>
+    <Drawer wide onClose={onClose} head={<><div><b>Hồ sơ nhân viên</b><div className="muted" style={{ fontSize: 10 }}>{e ? `Mã ${e.code}` : "Đang tải…"}</div></div>
       {e && can(me, "employee.update") ? <button className="btn small" style={{ marginLeft: "auto" }} onClick={() => onEdit(e)}>Sửa hồ sơ</button> : null}</>}>
       <LoadError error={error} retry={reload} />
       {!e ? (error ? null : <SkeletonLines lines={6} avatar />) : (

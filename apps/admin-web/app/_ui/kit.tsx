@@ -114,8 +114,18 @@ export function Modal({ title, sub, onClose, children, foot, wide }: { title: st
     </div></Layer>
   );
 }
-export function Drawer({ onClose, head, children }: { onClose: () => void; head: ReactNode; children: ReactNode }) {
+export function Drawer({ onClose, head, children, wide }: { onClose: () => void; head: ReactNode; children: ReactNode; wide?: boolean }) {
   useEsc(onClose);
+  /* wide: hồ sơ nhiều mục → modal rộng giữa màn hình, các mục xếp 2 cột (đủ chỗ cho địa chỉ, bảng) */
+  if (wide) return (
+    <Layer><div className="modal-layer show">
+      <div className="scrim" onClick={onClose} />
+      <section className="modal detail-modal" role="dialog" aria-modal="true">
+        <div className="drawer-head"><button className="icon-btn" onClick={onClose} aria-label="Đóng"><Icon name="x" /></button>{head}</div>
+        <div className="drawer-body detail-columns">{children}</div>
+      </section>
+    </div></Layer>
+  );
   return (
     <Layer><div className="drawer-layer show">
       <div className="scrim" onClick={onClose} />
