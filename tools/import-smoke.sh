@@ -79,6 +79,19 @@ check "Nhớ cách khớp cho lần sau" "$(sql "select (columns->>'ho va ten') 
 R=$(imp "$HR")
 check "Nhập lại cùng file (không có mã): nhận ra theo họ tên, không tạo trùng" "$(echo "$R" | py "[d['totals'][k] for k in ('create','exists','skip')]"):$(sql "select count(*) from public.employees where tenant_id='$HDG' and full_name in ('Phan Văn Kho','Đào Thị Vận','Người Đã Nghỉ')")" "[0, 3, 0]:3"
 
+echo "— Bổ sung hồ sơ chi tiết (người đã có)"
+printf 'Mã NV,Họ tên,Phòng ban,Ngày vào làm,Ngày sinh,Giới tính,CCCD,Ngày cấp,Nơi cấp,Thường trú,Số sổ BHXH,Số tài khoản,Ngân hàng,Lương chính thức,Mức đóng BHXH\nHD0501,Nguyễn Thị Lan,MKT,01/11/2026,02/07/1999,Nữ,079199000123,12/01/2022,Bộ Công an,Q1 TP HCM,7912345678,0123456789,VCB,"15,000,000 + KPI",8000000\n' > "$BAD"
+body detail.csv "$BAD" dry
+R=$(imp "$HR")
+check "Người đã có + có hồ sơ chi tiết → Bổ sung hồ sơ (không tạo mới)" "$(echo "$R" | py "([d['totals'][k] for k in ('create','fill','error')], [r['action'] for r in d['rows']], d['analysis']['notices'])")" "([0, 1, 0], ['fill'], [])"
+check "Xem trước không hiện giá trị CCCD/tài khoản/lương" "$(echo "$R" | py "[c['samples'] for c in d['analysis']['columns'] if c['field'] in ('id_number','bank_account','base_salary')]")" "[[], [], []]"
+body detail.csv "$BAD" apply
+R=$(imp "$HR")
+check "Ghi hồ sơ, ngân hàng, phiên bản lương đầu tiên" "$(sql "select p.birth_date || '|' || p.gender || '|' || p.id_number || '|' || p.social_insurance_no || '|' || b.account_no || '|' || c.base_salary || '|' || c.insurance_salary from public.employees e join public.employee_profiles p on p.employee_id = e.id join public.employee_bank_accounts b on b.employee_id = e.id join public.employee_compensations c on c.employee_id = e.id where e.employee_code='HD0501'")" "1999-07-02|female|079199000123|7912345678|0123456789|15000000|8000000"
+R=$(imp "$HR")
+check "Nhập lại: đã đủ → không bổ sung gì thêm, không tạo lương trùng" "$(echo "$R" | py "[d['totals'][k] for k in ('create','fill','exists')]"):$(sql "select count(*) from public.employee_compensations c join public.employees e on e.id = c.employee_id where e.employee_code='HD0501'")" "[0, 0, 1]:1"
+check "Audit không chép số CCCD/tài khoản" "$(sql "select count(*) from public.audit_logs where tenant_id='$HDG' and (after_data::text like '%079199000123%' or after_data::text like '%0123456789%')")" 0
+
 echo "— Gửi lời mời hàng loạt"
 IDS=$(sql "select json_agg(id order by employee_code) from public.employees where employee_code in ('HD0501','HD0502','HD0503','HD0007') and tenant_id='$HDG'")
 R=$(call POST admin/employees/invite "$HR" "{\"employeeIds\":$IDS}")

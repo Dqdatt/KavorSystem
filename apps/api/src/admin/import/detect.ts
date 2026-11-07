@@ -2,7 +2,7 @@
    đồng nghĩa (bỏ dấu, Việt/Anh) + nội dung cả cột, chuẩn hóa giá trị (ngày, số, điện thoại, loại hợp đồng), ghép phòng ban/chức danh theo
    mã hoặc tên. Không đoán âm thầm: mọi suy luận trả về để web hiện và HR đổi được; cách khớp đã xác nhận được lưu theo công ty.
    Thuần (không DB) để kiểm thử trên nhiều kiểu file. */
-import { inferTier, type EmploymentType, type ImportColumn, type ImportField, type ImportOptions, type ImportSheet, type ImportUnit, type ManagementTier } from "@kavor/contracts";
+import { IMPORT_SENSITIVE, inferTier, type EmploymentType, type ImportColumn, type ImportField, type ImportOptions, type ImportSheet, type ImportUnit, type ManagementTier } from "@kavor/contracts";
 import type { Sheet } from "./spreadsheet.js";
 
 export const norm = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[đĐ]/g, "d").toLowerCase()
@@ -26,18 +26,29 @@ const SYN: Record<ImportField, string[]> = {
   manager: ["quan ly truc tiep", "ma quan ly", "nguoi quan ly", "manager", "manager code", "manager_code", "manager_employee_code", "line manager", "cap tren", "nguoi phu trach", "bao cao cho", "reports to"],
   status: ["trang thai", "tinh trang", "=status", "tinh trang lam viec", "employment status"],
   termination_date: ["ngay nghi viec", "ngay thoi viec", "ngay nghi", "termination date", "ngay ket thuc lam viec", "resign date", "last working day", "end date|1"],
+  birth_date: ["ngay sinh", "ngay thang nam sinh", "sinh ngay", "dob", "date of birth", "birthday", "birth date", "=nam sinh|1"],
+  gender: ["gioi tinh", "gender", "=sex", "=phai"],
+  id_number: ["cccd", "so cccd", "cmnd", "so cmnd", "can cuoc", "can cuoc cong dan", "so can cuoc", "cmnd cccd", "id card", "national id", "id number", "so dinh danh"],
+  id_issued_on: ["ngay cap", "ngay cap cccd", "ngay cap cmnd", "issue date", "date of issue"],
+  id_issued_by: ["noi cap", "noi cap cccd", "noi cap cmnd", "place of issue", "issued by"],
+  permanent_address: ["dia chi thuong tru", "thuong tru", "ho khau", "ho khau thuong tru", "permanent address", "que quan|1", "nguyen quan|1"],
+  current_address: ["dia chi tam tru", "tam tru", "cho o hien tai", "dia chi hien tai", "dia chi lien he", "noi o hien tai", "current address", "=dia chi", "=address", "=noi o"],
+  social_insurance_no: ["so bhxh", "so so bhxh", "ma so bhxh", "so so bao hiem xa hoi", "ma bhxh", "=bao hiem xa hoi", "=bhxh", "social insurance number", "si number"],
+  tax_code: ["ma so thue", "mst", "ma so thue ca nhan", "mst ca nhan", "tax code", "tax id", "pit code"],
+  bank_account: ["so tai khoan", "stk", "so tk", "tai khoan ngan hang", "so tai khoan ngan hang", "account number", "bank account", "account no"],
+  bank_name: ["ten ngan hang", "=ngan hang", "ngan hang thu huong", "=bank", "bank name"],
+  bank_holder: ["nguoi thu huong", "chu tai khoan", "ten chu tai khoan", "ten tai khoan", "account holder", "account name", "beneficiary"],
+  base_salary: ["luong chinh thuc", "luong co ban", "muc luong", "=luong", "luong cb", "luong hop dong", "basic salary", "base salary", "=salary", "gross salary|1"],
+  insurance_salary: ["muc dong bhxh", "luong dong bhxh", "luong dong bao hiem", "muc luong dong bhxh", "muc dong bao hiem", "luong bhxh", "insurance salary"],
 };
 /* Cột nhận ra nhưng Kavor chưa lưu ở giai đoạn này — hiện rõ để khách biết không bị mất mà là chưa nhập */
 const LATER: Array<[string, string[]]> = [
-  ["Ngày sinh", ["ngay sinh", "dob", "date of birth", "birthday", "sinh ngay"]],
-  ["Giới tính", ["gioi tinh", "gender", "=sex"]],
-  ["CCCD/CMND", ["cccd", "cmnd", "can cuoc", "so cccd", "id card", "national id", "ho chieu", "passport", "ngay cap", "noi cap"]],
-  ["Địa chỉ", ["dia chi", "address", "thuong tru", "tam tru", "que quan", "noi o"]],
-  ["Ngân hàng", ["so tai khoan", "stk", "tai khoan ngan hang", "ngan hang", "bank", "nguoi thu huong", "chu tai khoan"]],
-  ["Lương", ["luong", "salary", "phu cap", "thu nhap", "muc luong"]],
-  ["Bảo hiểm/thuế", ["bhxh", "bao hiem", "bhyt", "ma so thue", "=mst", "tax code", "benh vien", "kcb"]],
-  ["Hợp đồng", ["so hd", "so hop dong", "thoi gian ky", "thoi gian kt", "lan ky", "ngay ky", "ngay het han hd", "contract no"]],
-];
+  ["Lương thử việc", ["luong thu viec"]],
+  ["Phụ cấp/thu nhập khác", ["phu cap", "thu nhap", "thuong", "kpi", "allowance"]],
+  ["Bảo hiểm khác", ["bao hiem", "bhyt", "benh vien", "kcb", "thoi gian tham gia"]],
+  ["Hợp đồng", ["so hd", "so hop dong", "thoi gian ky", "thoi gian kt", "lan ky", "ngay ky", "ngay het han hd", "contract no", "hop dong ctv"]],
+  ["Ghi chú", ["ghi chu", "note", "notes"]],
+]
 
 type Syn = { s: string; exact: boolean; w: number };
 const compile = (list: string[]): Syn[] => list.map((x) => { const [s, w] = x.split("|"); const exact = s!.startsWith("="); return { s: norm(exact ? s!.slice(1) : s!), exact, w: Number(w ?? 3) }; });
@@ -165,6 +176,54 @@ export function abbrev(a: string, b: string): boolean {
   return false;
 }
 
+/* Giấy tờ/tiền: Excel hay lưu thành số nên mất số 0 đầu → thêm lại theo độ dài chuẩn */
+const sciDigits = (raw: string) => (/^\s*\d+(\.\d+)?e\+?\d+\s*$/i.test(raw) && Number(raw) < 1e16 ? BigInt(Math.round(Number(raw))).toString() : raw);
+export function normIdNumber(raw0: string): string | null | undefined {
+  const raw = sciDigits(raw0);
+  const d = raw.replace(/[\s.-]/g, "");
+  if (!d) return undefined;
+  if (!/^\d+$/.test(d)) return null;
+  if (d.length === 11) return `0${d}`;
+  if (d.length === 8) return `0${d}`;
+  return d.length === 12 || d.length === 9 ? d : null;
+}
+export function normDigits(raw0: string, min: number, max: number, pad?: number): string | null | undefined {
+  const d = sciDigits(raw0).replace(/[\s.-]/g, "");
+  if (!d) return undefined;
+  if (!/^\d+$/.test(d)) return null;
+  const v = pad && d.length === pad - 1 ? `0${d}` : d;
+  return v.length >= min && v.length <= max ? v : null;
+}
+export const normGender = (raw: string): "male" | "female" | "other" | null | undefined => {
+  const n = norm(raw);
+  if (!n) return undefined;
+  if (["nam", "male", "m", "trai", "anh", "ong"].includes(n)) return "male";
+  if (["nu", "female", "f", "gai", "chi", "ba", "nu gioi"].includes(n)) return "female";
+  if (["khac", "other"].includes(n)) return "other";
+  return null;
+};
+/* Tiền VND: "8,000,000" / "8.000.000" / "1.7E7" / "15tr" / "999k" / "Từ 1/11: LCB 12,000,000 + KPI (4tr)". Lấy mức đầu tiên ≥ 100.000 (bỏ ngày
+   tháng); extra = ô có chữ khác; many = có nhiều mức (vd. lương đổi theo ngày) → HR kiểm lại */
+export function parseMoney(raw: string): { value: number | null; extra: boolean; many: boolean } | undefined {
+  const s = raw.trim();
+  if (!s) return undefined;
+  if (/^-?\d+(\.\d+)?(e[+-]?\d+)?$/i.test(s)) return { value: Math.round(Number(s)), extra: false, many: false };
+  const vals: number[] = [];
+  for (const m of s.matchAll(/(\d[\d.,]*\d|\d)\s*(triệu|trieu|tr|nghìn|ngàn|nghin|k)?/gi)) {
+    const before = s[m.index - 1], after = s[m.index + m[1]!.length];
+    if (before === "/" || after === "/" || after === "-" && !m[2]) continue;
+    const unit = (m[2] ?? "").toLowerCase();
+    const v = /^(triệu|trieu|tr)$/.test(unit) ? Number(m[1]!.replace(",", ".")) * 1_000_000
+      : /^(nghìn|ngàn|nghin|k)$/.test(unit) ? Number(m[1]!.replace(/[.,]/g, "")) * 1000 : Number(m[1]!.replace(/[.,]/g, ""));
+    if (Number.isFinite(v) && v >= 100_000) vals.push(Math.round(v));
+  }
+  return { value: vals[0] ?? null, extra: /[a-zA-ZÀ-ỹđĐ+(]/.test(s), many: new Set(vals).size > 1 && /\n|từ|tu ngay|đến|den/i.test(s) };
+}
+export type Details = {
+  birth_date?: string; gender?: string; id_number?: string; id_issued_on?: string; id_issued_by?: string; permanent_address?: string; address?: string;
+  social_insurance_no?: string; tax_code?: string; bank?: { account_no: string; bank_name: string; holder: string }; comp?: { base: number; insurance: number | null };
+};
+
 /* ---------- Ghép toàn bộ ---------- */
 type Unit = { code: string; name: string; tier?: ManagementTier | null };
 export type Catalog = {
@@ -179,6 +238,7 @@ export type BuiltRow = {
   type: EmploymentType; dept: string | null; pos: string; managerRaw: string | null; managerCode: string | null;
   /* left: người đã nghỉ việc — nhập làm hồ sơ tra cứu (status terminated); termDate có thể trống */
   left: boolean; termDate: string | null; skip: string | null; exists: boolean; errors: string[]; warnings: string[];
+  /* Hồ sơ chi tiết (giai đoạn 2); service lọc theo quyền trước khi ghi */ details: Details;
 };
 export type Built = {
   sheets: ImportSheet[]; columns: ImportColumn[]; dateOrder: { value: "dmy" | "mdy"; ambiguous: boolean };
@@ -237,6 +297,49 @@ function headerOf(rows: string[][], saved: Saved, manual: ImportOptions["columns
 
 type Input = { sheets: Sheet[]; saved: Saved; options: ImportOptions; today: string; catalog: Catalog };
 
+/* Chuẩn hóa hồ sơ chi tiết của một dòng; giá trị sai → bỏ trường đó + cảnh báo (không chặn dòng) */
+function detailsOf(at: (f: ImportField) => string, order: "dmy" | "mdy", today: string, fullName: string, warnings: string[]): Details {
+  const d: Details = {};
+  const bad = (label: string) => warnings.push(`${label} không hợp lệ — bỏ trống`);
+  const birth = parseDate(at("birth_date"), order);
+  if (birth === null) bad("Ngày sinh");
+  else if (birth) {
+    const age = Number(today.slice(0, 4)) - Number(birth.slice(0, 4));
+    if (age < 14 || age > 100) warnings.push(`Ngày sinh ${fmtDate(birth)} (tuổi ${age}) bất thường — bỏ trống`); else d.birth_date = birth;
+  }
+  const g = normGender(at("gender")); if (g === null) bad("Giới tính"); else if (g) d.gender = g;
+  const id = normIdNumber(at("id_number")); if (id === null) bad("Số CCCD/CMND"); else if (id) d.id_number = id;
+  const issued = parseDate(at("id_issued_on"), order); if (issued === null) bad("Ngày cấp CCCD"); else if (issued) d.id_issued_on = issued;
+  const by = clean(at("id_issued_by")); if (by) d.id_issued_by = by.slice(0, 200);
+  const pa = clean(at("permanent_address")); if (pa) d.permanent_address = pa.slice(0, 300);
+  const ca = clean(at("current_address")); if (ca) d.address = ca.slice(0, 300);
+  const si = normDigits(at("social_insurance_no"), 10, 10, 10); if (si === null) bad("Số sổ BHXH"); else if (si) d.social_insurance_no = si;
+  const tax = at("tax_code").replace(/\s/g, "");
+  if (tax) { if (/^[0-9]{10}([0-9]{2}|-[0-9]{3})?$/.test(tax)) d.tax_code = tax; else bad("Mã số thuế"); }
+  const acc = normDigits(at("bank_account"), 6, 20);
+  const bankName = clean(at("bank_name"));
+  if (acc === null) bad("Số tài khoản");
+  else if (acc) {
+    if (!bankName) warnings.push("Có số tài khoản nhưng thiếu tên ngân hàng — bỏ trống tài khoản");
+    else {
+      d.bank = { account_no: acc, bank_name: bankName.slice(0, 100), holder: (clean(at("bank_holder")) || fullName).slice(0, 100) };
+      if (acc.length >= 16) warnings.push("Số tài khoản 16+ chữ số: nếu file lưu dạng số, Excel có thể đã làm tròn — kiểm tra lại");
+    }
+  }
+  const money = (f: ImportField, label: string) => {
+    const m = parseMoney(at(f));
+    if (!m) return null;
+    if (m.value == null || m.value < 100_000 || m.value > 10_000_000_000) { bad(label); return null; }
+    if (m.many) warnings.push(`${label} ghi nhiều mức (thay đổi theo ngày) — tạm lấy ${m.value.toLocaleString("vi-VN")} ₫, kiểm tra lại`);
+    else if (m.extra) warnings.push(`${label} có thêm chữ — lấy ${m.value.toLocaleString("vi-VN")} ₫`);
+    return m.value;
+  };
+  const base = money("base_salary", "Lương cơ bản"), ins = money("insurance_salary", "Lương đóng BHXH");
+  if (base) d.comp = { base, insurance: ins };
+  else if (ins) warnings.push("Có lương đóng BHXH nhưng thiếu lương cơ bản — chưa tạo phiên bản lương");
+  return d;
+}
+
 export function buildImport({ sheets, saved, options, today, catalog }: Input): Built {
   const fileErrors: string[] = [];
   const outSheets: ImportSheet[] = [];
@@ -267,7 +370,7 @@ export function buildImport({ sheets, saved, options, today, catalog }: Input): 
   for (const { sheet, head } of used) for (const c of head.cols) {
     const cur = colMap.get(c.key);
     if (cur) { cur.sheets++; continue; }
-    const samples = c.later ? [] : sheet.rows.slice(head.row + 1).map((r) => clean(r[c.idx] ?? "")).filter(Boolean).slice(0, 2).map((s) => s.slice(0, 40));
+    const samples = c.later || (c.field && IMPORT_SENSITIVE[c.field]) ? [] : sheet.rows.slice(head.row + 1).map((r) => clean(r[c.idx] ?? "")).filter(Boolean).slice(0, 2).map((s) => s.slice(0, 40));
     colMap.set(c.key, { key: c.key, header: c.header, field: c.field, source: c.source, later: c.later, samples, sheets: 1 });
   }
 
@@ -354,7 +457,8 @@ export function buildImport({ sheets, saved, options, today, catalog }: Input): 
       let pos = clean(at(r, "position"));
       if (!pos) { pos = DEFAULT_POSITION; warnings.push(`Không có chức danh — dùng "${DEFAULT_POSITION}"`); }
       rows.push({ sheet: sheet.name, line, code, fullName, email: email ?? null, phone: phone ?? null, hireDate, type, dept, pos,
-        managerRaw: clean(at(r, "manager")) || null, managerCode: null, left: gone, termDate: gone ? term ?? null : null, skip, exists, errors, warnings });
+        managerRaw: clean(at(r, "manager")) || null, managerCode: null, left: gone, termDate: gone ? term ?? null : null, skip, exists, errors, warnings,
+        details: detailsOf((f) => at(r, f), order, today, fullName, warnings) });
     });
   }
 

@@ -127,7 +127,7 @@ test("trùng trong file, quản lý theo tên, cột chưa hỗ trợ được n
   const b = run(csv("x", "Mã NV,Họ tên,Phòng ban,Ngày vào làm,Quản lý trực tiếp,Email,CCCD,Lương cơ bản\nA1,Trưởng Phòng,Marketing,01/01/2024,,tp@x.vn,0123,10000000\nA2,Nhân Viên,Marketing,01/01/2024,Trưởng Phòng,tp@x.vn,0456,8000000\nA2,Lặp Lại,Marketing,01/01/2024,ZZZ,,,\n"));
   assert.deepEqual(b.rows.map((r) => [r.managerCode, r.email, r.errors.length]), [[null, "tp@x.vn", 0], ["A1", null, 0], [null, null, 1]]);
   assert.ok(b.rows[2]!.warnings.some((w) => w.includes("Không xác định được quản lý")));
-  assert.deepEqual(b.columns.filter((c) => c.later).map((c) => [c.header, c.later, c.samples]), [["CCCD", "CCCD/CMND", []], ["Lương cơ bản", "Lương", []]]);
+  assert.deepEqual(b.columns.filter((c) => c.header === "CCCD" || c.header === "Lương cơ bản").map((c) => [c.header, c.field, c.samples]), [["CCCD", "id_number", []], ["Lương cơ bản", "base_salary", []]]);
 });
 
 /* .xlsx tối thiểu dựng tay: shared string, inline string, số, sheet ẩn */
@@ -171,4 +171,23 @@ test("tùy chọn từ web: bỏ giá trị lạ", () => {
 test("viết tắt hay gặp: Mã CC / MCC là mã nhân viên", () => {
   const b = run(csv("x", "STT,Mã CC,Họ và tên,Bộ phận,Ngày vào làm\n1,2001,A B,Marketing,01/01/2024\n"));
   assert.deepEqual([b.columns.find((c) => c.header === "Mã CC")!.field, b.rows[0]!.code], ["employee_code", "2001"]);
+});
+
+test("giai đoạn 2: hồ sơ chi tiết — nhận cột, chuẩn hóa giấy tờ/tiền, giá trị sai chỉ cảnh báo", () => {
+  const b = run(csv("x", "Họ tên,Phòng ban,Ngày vào làm,Ngày sinh,Giới tính,CCCD,Ngày cấp,Nơi cấp,Địa chỉ thường trú,Địa chỉ tạm trú,Bảo hiểm xã hội,Mã số thuế,Số tài khoản,Tên ngân hàng,Người thụ hưởng,Lương chính thức,Mức đóng BHXH,Lương thử việc\n"
+    + "A B,Marketing,01/01/2024,02/07/1999,Nam ,58099005918,12/01/2022,Cục CS QLHC,Thôn 1,Q9,4025870866,8123456789,8.960427184E9,BIDV,A B,\"20,000,000 + KPI\",8000000,15tr\n"
+    + "C D,Marketing,01/01/2024,1/1/2020,X,abc,,,,,123,12,0981,,,0,,\n"));
+  assert.deepEqual(Object.fromEntries(b.columns.filter((c) => c.field).map((c) => [c.header, c.field])), {
+    "Họ tên": "full_name", "Phòng ban": "department", "Ngày vào làm": "hire_date", "Ngày sinh": "birth_date", "Giới tính": "gender", CCCD: "id_number", "Ngày cấp": "id_issued_on",
+    "Nơi cấp": "id_issued_by", "Địa chỉ thường trú": "permanent_address", "Địa chỉ tạm trú": "current_address", "Bảo hiểm xã hội": "social_insurance_no", "Mã số thuế": "tax_code",
+    "Số tài khoản": "bank_account", "Tên ngân hàng": "bank_name", "Người thụ hưởng": "bank_holder", "Lương chính thức": "base_salary", "Mức đóng BHXH": "insurance_salary" });
+  assert.deepEqual(b.columns.find((c) => c.header === "CCCD")!.samples, [], "không hiện giá trị mẫu của cột nhạy cảm");
+  assert.equal(b.columns.find((c) => c.header === "Lương thử việc")!.later, "Lương thử việc");
+  assert.deepEqual(b.rows[0]!.details, { birth_date: "1999-07-02", gender: "male", id_number: "058099005918", id_issued_on: "2022-01-12", id_issued_by: "Cục CS QLHC",
+    permanent_address: "Thôn 1", address: "Q9", social_insurance_no: "4025870866", tax_code: "8123456789", bank: { account_no: "8960427184", bank_name: "BIDV", holder: "A B" },
+    comp: { base: 20_000_000, insurance: 8_000_000 } });
+  assert.ok(b.rows[0]!.warnings.some((w) => w.includes("Lương cơ bản có thêm chữ")));
+  assert.deepEqual(b.rows[1]!.details, {});
+  assert.deepEqual(b.rows[1]!.errors, [], "giá trị hồ sơ sai không chặn dòng");
+  assert.ok(["Ngày sinh", "Giới tính", "Số CCCD/CMND", "Số sổ BHXH", "Mã số thuế", "Số tài khoản", "Lương cơ bản"].every((l) => b.rows[1]!.warnings.some((w) => w.includes(l))));
 });

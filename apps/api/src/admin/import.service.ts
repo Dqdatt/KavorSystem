@@ -3,7 +3,7 @@
    nguyên khối bằng import_employees_with_units. Người đã nghỉ được nhập làm hồ sơ tra cứu (không tính gói, không gán quản lý).
    Lỗi định dạng phụ chỉ cảnh báo; chỉ chặn khi người đang làm thiếu thứ bắt buộc. Không chép email/điện thoại vào audit. */
 import {
-  ADMIN_ERRORS, IMPORT_FIELDS, MANAGEMENT_TIERS, managerTierOk,
+  ADMIN_ERRORS, IMPORT_FIELDS, IMPORT_SENSITIVE, MANAGEMENT_TIERS, managerTierOk,
   type EmployeeImportResult, type EmployeeImportRow, type ImportField, type ImportOptions, type ManagementTier,
 } from "@kavor/contracts";
 import { AuthError } from "../auth/auth.service.js";
@@ -13,7 +13,7 @@ import type { SupabaseGateway } from "../auth/supabase.js";
 import { invalid, type AdminContext } from "./context.js";
 import { req, type Body } from "./validate.js";
 import { planOf } from "../tenancy/plan.js";
-import { buildImport, norm, type Saved } from "./import/detect.js";
+import { buildImport, norm, type Details, type Saved } from "./import/detect.js";
 import { readSpreadsheet, SpreadsheetError, type Sheet } from "./import/spreadsheet.js";
 import { managerRules, type StructPerson } from "./structure.js";
 
@@ -157,6 +157,39 @@ export class EmployeeImport {
       return { code: p.managerId, note: p.managerId ? `Quản lý tự gán: ${name} (${p.note})` : p.note };
     };
 
+    /* Hồ sơ chi tiết: lọc theo quyền (giấy tờ/ngân hàng/thuế cần employee.sensitive.read, lương cần compensation.manage, cả công ty) */
+    const canSensitive = ctx.tenantWide("employee.sensitive.read"), canSalary = ctx.tenantWide("compensation.manage");
+    const notices: string[] = [];
+    const usedSensitive = built.columns.some((c) => c.field && IMPORT_SENSITIVE[c.field] === "sensitive"), usedSalary = built.columns.some((c) => c.field && IMPORT_SENSITIVE[c.field] === "salary");
+    if (usedSensitive && !canSensitive) notices.push("Bạn không có quyền xem dữ liệu nhạy cảm: CCCD, sổ BHXH, mã số thuế, tài khoản ngân hàng sẽ không được nhập.");
+    if (usedSalary && !canSalary) notices.push("Lương chỉ người có quyền Kế toán (quản lý lương) nhập được: cột lương sẽ được bỏ qua.");
+    const allowed = (d: Details): Details => {
+      const x: Details = { ...d };
+      if (!canSensitive) { delete x.id_number; delete x.id_issued_on; delete x.id_issued_by; delete x.social_insurance_no; delete x.tax_code; delete x.bank; }
+      if (!canSalary) delete x.comp;
+      return x;
+    };
+    const LABEL: Record<string, string> = { birth_date: "ngày sinh", gender: "giới tính", id_number: "CCCD", id_issued_on: "ngày cấp", id_issued_by: "nơi cấp",
+      permanent_address: "thường trú", address: "địa chỉ hiện tại", social_insurance_no: "sổ BHXH", tax_code: "mã số thuế", bank: "tài khoản ngân hàng", comp: "lương" };
+    /* Người đã có: chỉ điền chỗ đang trống → tra trạng thái hiện tại để báo đúng sẽ bổ sung gì */
+    const existIds = built.rows.filter((r) => r.exists && !r.skip && Object.keys(allowed(r.details)).length).map((r) => existing.get(r.code)?.id).filter((x): x is string => !!x);
+    const have = new Map<string, Set<string>>();
+    for (let i = 0; i < existIds.length; i += 200) {
+      const ids = existIds.slice(i, i + 200);
+      const [pr, tx, bk, cp] = await Promise.all([
+        db.from("employee_profiles").select("employee_id, birth_date, gender, id_number, id_issued_on, id_issued_by, permanent_address, address, social_insurance_no").in("employee_id", ids),
+        db.from("employee_tax_profiles").select("employee_id, tax_code").in("employee_id", ids),
+        db.from("employee_bank_accounts").select("employee_id").in("employee_id", ids),
+        db.from("employee_compensations").select("employee_id").in("employee_id", ids),
+      ]);
+      for (const q of [pr, tx, bk, cp]) if (q.error) throw q.error;
+      const add = (id: string, k: string) => { const s0 = have.get(id) ?? new Set<string>(); s0.add(k); have.set(id, s0); };
+      for (const r of (pr.data ?? []) as Array<Record<string, unknown>>) for (const [k, v] of Object.entries(r)) if (k !== "employee_id" && v != null) add(r.employee_id as string, k);
+      for (const r of (tx.data ?? []) as Array<{ employee_id: string; tax_code: string | null }>) if (r.tax_code) add(r.employee_id, "tax_code");
+      for (const r of (bk.data ?? []) as Array<{ employee_id: string }>) add(r.employee_id, "bank");
+      for (const r of (cp.data ?? []) as Array<{ employee_id: string }>) add(r.employee_id, "comp");
+    }
+    const details: Array<{ code: string; details: Details }> = [];
     const out: EmployeeImportRow[] = [];
     const apply: Array<Record<string, unknown>> = [];
     for (const r of built.rows) {
@@ -185,9 +218,18 @@ export class EmployeeImport {
           if (a.note) warns.push(a.note);
         }
       }
-      const action: EmployeeImportRow["action"] = r.skip ? "skip" : r.exists ? "exists" : errs.length ? "error" : "create";
+      let fill: string[] = [];
+      if (r.exists && !r.skip) {
+        const id = existing.get(r.code)?.id ?? "", got = have.get(id) ?? new Set<string>(), d = allowed(r.details);
+        const keep = Object.fromEntries(Object.entries(d).filter(([k]) => !got.has(k))) as Details;
+        fill = Object.keys(keep);
+        if (fill.length) details.push({ code: r.code, details: keep });
+      }
+      const action: EmployeeImportRow["action"] = r.skip ? "skip" : r.exists ? (fill.length ? "fill" : "exists") : errs.length ? "error" : "create";
+      if (action === "create" && Object.keys(allowed(r.details)).length) details.push({ code: r.code, details: allowed(r.details) });
+      if (action === "fill") warns.unshift(`Bổ sung chỗ đang trống: ${fill.map((k) => LABEL[k] ?? k).join(", ")}`);
       out.push({ sheet: r.sheet, line: r.line, code: r.code, fullName: r.fullName, department: deptName, position: posName, manager, left: r.left,
-        action, errors: r.skip || r.exists ? [] : errs, warnings: action === "create" ? warns : r.skip ? [r.skip] : [] });
+        action, errors: r.skip || r.exists ? [] : errs, warnings: action === "create" || action === "fill" ? warns : r.skip ? [r.skip] : [] });
       if (action === "create") {
         const br = d?.branch_id ?? branchId!;
         apply.push({ code: r.code, full_name: r.fullName, work_email: r.email, phone: r.phone, hire_date: r.hireDate, employment_type: r.type,
@@ -218,18 +260,18 @@ export class EmployeeImport {
     const count = (a: EmployeeImportRow["action"]) => out.filter((o) => o.action === a).length;
     const result: EmployeeImportResult = {
       fileName, dryRun, applied: false, fileErrors,
-      totals: { rows: out.length, create: apply.length, createLeft: apply.length - liveCount, exists: count("exists"), skip: count("skip"), error: count("error"),
+      totals: { rows: out.length, create: apply.length, createLeft: apply.length - liveCount, exists: count("exists"), fill: count("fill"), skip: count("skip"), error: count("error"),
         warning: out.filter((o) => o.warnings.length && o.action === "create" && !o.left).length },
       capacity: { employees: plan.employees, limit: plan.employeeLimit, planName: plan.name }, rows: out,
       analysis: {
-        sheets: built.sheets, columns: built.columns, dateOrder: built.dateOrder, departments: built.departments, positions: built.positions,
+        sheets: built.sheets, columns: built.columns, dateOrder: built.dateOrder, departments: built.departments, positions: built.positions, notices,
         branches: branches.map((x) => ({ id: x.id, name: x.name })), branchId,
         catalog: { departments: deptList.map((x) => ({ code: x.code, name: x.name })), positions: posList.map((x) => ({ code: x.code, name: x.name })) },
       },
     };
     if (dryRun) return result;
     if (fileErrors.length || result.totals.error) throw new AuthError("IMPORT_HAS_ERRORS", "File còn lỗi; sửa rồi xem trước lại.", 422);
-    if (!apply.length) return result;
+    if (!apply.length && !details.length) return result;
     /* Đơn vị mới hiệu lực từ ngày vào làm sớm nhất; chỉ có người đã nghỉ thì tạo ở trạng thái đã ngừng (ngày nghỉ muộn nhất) */
     const span = (k: "department_code" | "position_code", code: string) => {
       const rows = apply.filter((a) => a[k] === code);
@@ -243,7 +285,7 @@ export class EmployeeImport {
     const pPos = newPos.filter((u) => usedPos.has(u.newCode)).map((u) => ({ code: u.newCode, name: u.value.slice(0, 120), tier: tierOfCode.get(u.newCode) ?? null, ...span("position_code", u.newCode) }));
     const pTiers = [...usedPos].map((c) => posByCode.get(c as string)).filter((x): x is Pos => !!x && x.management_tier == null && tierOfCode.get(x.code.toUpperCase()) != null)
       .map((x) => ({ id: x.id, tier: tierOfCode.get(x.code.toUpperCase()) }));
-    const { data, error } = await db.rpc("import_employees_with_units", { p_tenant: ctx.tenantId, p_departments: pDepts, p_positions: pPos, p_rows: apply, p_position_tiers: pTiers });
+    const { data, error } = await db.rpc("import_employees_with_units", { p_tenant: ctx.tenantId, p_departments: pDepts, p_positions: pPos, p_rows: apply, p_position_tiers: pTiers, p_details: details, p_by: ctx.userId });
     if (error?.code === "23505") throw new AuthError(ADMIN_ERRORS.conflict, "Có mã hoặc email vừa được tạo ở nơi khác; xem trước lại.", 409);
     if (error) throw error;
     const created = (data ?? []) as Array<{ code: string; id: string }>;
@@ -258,7 +300,8 @@ export class EmployeeImport {
     });
     if (mErr) throw mErr;
     await ctx.audit("employee.imported", "tenant", ctx.tenantId, null, { file_name: fileName, rows: out.length, created: created.length, created_left: result.totals.createLeft,
-      skipped: result.totals.exists + result.totals.skip, departments_created: pDepts.length, positions_created: pPos.length, position_tiers_set: pTiers.length });
+      skipped: result.totals.exists + result.totals.skip, departments_created: pDepts.length, positions_created: pPos.length, position_tiers_set: pTiers.length,
+      details_rows: details.length, details_fields: [...new Set(details.flatMap((x) => Object.keys(x.details)))] });
     if (created.length) {
       const { error: aErr } = await db.from("audit_logs").insert(created.map((c) => ({
         tenant_id: ctx.tenantId, actor_user_id: ctx.userId, actor_type: "user", action: "employee.created", resource_type: "employee", resource_id: c.id,

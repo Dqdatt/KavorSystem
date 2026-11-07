@@ -7,7 +7,7 @@ import { Select } from "@kavor/web-ui";
 import { call } from "../_lib/client";
 import { Empty, ErrorLine, Field, Modal, Status, useAction } from "./kit";
 
-const ACTION: Record<EmployeeImportRow["action"], [string, string]> = { create: ["Tạo mới", ""], exists: ["Đã có — bỏ qua", "muted"], skip: ["Bỏ qua", "muted"], error: ["Lỗi", "bad"] };
+const ACTION: Record<EmployeeImportRow["action"], [string, string]> = { create: ["Tạo mới", ""], exists: ["Đã có — bỏ qua", "muted"], fill: ["Bổ sung hồ sơ", "info"], skip: ["Bỏ qua", "muted"], error: ["Lỗi", "bad"] };
 const SOURCE: Record<string, string> = { manual: "bạn chọn", saved: "đã nhớ", header: "theo tên cột", content: "theo nội dung" };
 type Filter = "all" | "error" | "warning" | "skip" | "left";
 
@@ -91,17 +91,16 @@ export function ImportModal({ onClose, onDone }: { onClose: () => void; onDone: 
   }
   function change(o: ImportOptions) { setOpts(o); if (file) void preview(file, o); }
   const a = r?.analysis;
-  const ok = r && !r.fileErrors.length && !r.totals.error && r.totals.create > 0;
   const rows = (r?.rows ?? []).filter((x) => filter === "all" || (filter === "error" ? x.action === "error" : filter === "skip" ? x.action === "skip" || x.action === "exists" : filter === "left" ? x.action === "create" && x.left : x.warnings.length && x.action === "create" && !x.left));
   const cols = (a?.columns ?? []).filter((c) => !c.later);
   const later = (a?.columns ?? []).filter((c) => c.later);
   return (
     <Modal wide title="Nhập nhân viên từ file" sub="Chọn file Excel/CSV công ty đang dùng — không cần sửa theo mẫu. Kavor tự nhận cột, bạn kiểm tra rồi nhập." onClose={onClose}
       foot={<><button className="btn" onClick={onClose}>Đóng</button>
-        <button className="btn primary" disabled={!ok || !!busy} onClick={() => run("apply", async () => {
+        <button className="btn primary" disabled={!(r && !r.fileErrors.length && !r.totals.error && (r.totals.create > 0 || r.totals.fill > 0)) || !!busy} onClick={() => run("apply", async () => {
           const res = await call<EmployeeImportResult>("POST", "employees/import", { fileName: file!.name, file: file!.data, options: opts, dryRun: false });
           setR(res); onDone(); onClose();
-        }, `Đã nhập ${r?.totals.create ?? 0} hồ sơ`)}>{busy === "apply" ? "Đang nhập…" : `Nhập ${r?.totals.create ?? 0} hồ sơ`}</button></>}>
+        }, `Đã nhập ${r?.totals.create ?? 0} hồ sơ`)}>{busy === "apply" ? "Đang nhập…" : r && !r.totals.create && r.totals.fill ? `Bổ sung ${r.totals.fill} hồ sơ` : `Nhập ${r?.totals.create ?? 0} hồ sơ`}</button></>}>
       <div className="form-grid">
         <Field label="File nhân viên" full hint="Excel (.xlsx) hoặc CSV, nhiều sheet cũng được. Cần ít nhất họ tên, phòng ban và ngày vào làm; mã nhân viên, email, chức danh không có thì Kavor tự xử lý.">
           <input type="file" accept=".xlsx,.csv,.tsv,.txt,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv" onChange={(e) => void pick(e.target.files?.[0])} />
@@ -111,11 +110,12 @@ export function ImportModal({ onClose, onDone }: { onClose: () => void; onDone: 
       {busy === "preview" || busy === "apply" ? <Working kind={busy} count={r?.totals.create} /> : null}
       {r && a ? <div style={busy ? { opacity: 0.45, pointerEvents: "none" } : undefined}>
         <div className="card detail-list" style={{ marginTop: 12 }}>
-          <div className="detail-row"><span>{r.fileName}</span><b>{r.totals.create - r.totals.createLeft} tạo mới{r.totals.createLeft ? ` (+${r.totals.createLeft} đã nghỉ)` : ""} · {r.totals.exists} đã có · {r.totals.skip} bỏ qua · <span className={r.totals.error ? "text-red" : ""}>{r.totals.error} lỗi</span>{r.totals.warning ? <span className="text-amber"> · {r.totals.warning} cần xem</span> : null}</b></div>
+          <div className="detail-row"><span>{r.fileName}</span><b>{r.totals.create - r.totals.createLeft} tạo mới{r.totals.createLeft ? ` (+${r.totals.createLeft} đã nghỉ)` : ""} {r.totals.fill ? ` · ${r.totals.fill} bổ sung hồ sơ` : ""} · {r.totals.exists} đã có · {r.totals.skip} bỏ qua · <span className={r.totals.error ? "text-red" : ""}>{r.totals.error} lỗi</span>{r.totals.warning ? <span className="text-amber"> · {r.totals.warning} cần xem</span> : null}</b></div>
           <div className="detail-row"><span>Gói {r.capacity.planName}</span><b>{r.capacity.employees} + {r.totals.create - r.totals.createLeft} / {r.capacity.limit} nhân sự</b></div>
           <label className="detail-row check-row" style={{ margin: 0 }}><span><input type="checkbox" checked={opts.includeLeft !== false} disabled={!!busy} onChange={(e) => change({ ...opts, includeLeft: e.target.checked ? undefined : false })} /> Nhập cả nhân viên đã nghỉ để tra cứu</span><b className="muted" style={{ fontWeight: 500 }}>không tính vào gói, không gửi lời mời</b></label>
         </div>
         {r.fileErrors.map((e) => <ErrorLine key={e} text={e} />)}
+        {a.notices.map((x) => <p key={x} className="text-amber" style={{ fontSize: 12, margin: "8px 0 0" }}>{x}</p>)}
 
         {a.sheets.length > 1 ? <div className="card" style={{ marginTop: 12, padding: 12 }}>
           <b style={{ fontSize: 12.5 }}>Sheet</b>

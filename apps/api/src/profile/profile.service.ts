@@ -11,7 +11,8 @@ import { loadPlacements } from "../attendance/policy.js";
 import type { RequestsService, Viewer } from "../timesheet/requests.service.js";
 
 type Db = SupabaseGateway["admin"];
-type ProfileRow = { employee_id: string; personal_email: string | null; address: string | null; emergency_name: string | null; emergency_phone: string | null; emergency_relation: string | null };
+type ProfileRow = { employee_id: string; personal_email: string | null; address: string | null; emergency_name: string | null; emergency_phone: string | null; emergency_relation: string | null;
+  birth_date?: string | null; gender?: "male" | "female" | "other" | null; id_number?: string | null; id_issued_on?: string | null; id_issued_by?: string | null; permanent_address?: string | null; social_insurance_no?: string | null };
 type BankRow = { employee_id: string; bank_name: string; account_no: string; holder: string };
 const ORDER: ProfileField[] = ["phone", "personalEmail", "address", "emergency", "bank"];
 
@@ -24,7 +25,7 @@ export async function loadPersonal(db: Db, tenantId: string, ids: string[], reve
   const out = new Map<string, PersonalInfo>();
   if (!ids.length) return out;
   const [p, b] = await Promise.all([
-    db.from("employee_profiles").select("employee_id, personal_email, address, emergency_name, emergency_phone, emergency_relation").eq("tenant_id", tenantId).in("employee_id", ids),
+    db.from("employee_profiles").select("employee_id, personal_email, address, emergency_name, emergency_phone, emergency_relation, birth_date, gender, id_number, id_issued_on, id_issued_by, permanent_address, social_insurance_no").eq("tenant_id", tenantId).in("employee_id", ids),
     db.from("employee_bank_accounts").select("employee_id, bank_name, account_no, holder").eq("tenant_id", tenantId).in("employee_id", ids),
   ]);
   if (p.error) throw p.error;
@@ -36,6 +37,9 @@ export async function loadPersonal(db: Db, tenantId: string, ids: string[], reve
       personalEmail: r?.personal_email ?? null, address: r?.address ?? null,
       emergency: r?.emergency_name ? { name: r.emergency_name, phone: r.emergency_phone ?? "", relation: r.emergency_relation ?? "" } : null,
       bank: k ? bankView(k, reveal(id)) : null,
+      birthDate: r?.birth_date ?? null, gender: r?.gender ?? null, idIssuedOn: r?.id_issued_on ?? null, idIssuedBy: r?.id_issued_by ?? null, permanentAddress: r?.permanent_address ?? null,
+      idNumber: r?.id_number ? (reveal(id) ? r.id_number : `••••${r.id_number.slice(-4)}`) : null,
+      socialInsuranceNo: r?.social_insurance_no ? (reveal(id) ? r.social_insurance_no : `••••${r.social_insurance_no.slice(-4)}`) : null,
     });
   }
   return out;

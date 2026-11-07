@@ -47,4 +47,14 @@ Lý do: khách không làm lại bảng theo mẫu; mỗi công ty quản trị 
   (không ghi đè cấp đã có). HR đổi cấp ở màn xem trước.
 - **Tự gán quản lý trực tiếp** khi file không có cột quản lý: người cấp cao hơn gần nhất trong cùng phòng (Nhân viên → Trưởng nhóm → Quản lý); phòng
   không có ai cao hơn → Ban Giám đốc nếu công ty chỉ có một người; nhiều người cùng cấp → không đoán, cảnh báo để HR chọn.
-- Chưa làm: "Trưởng đơn vị" của phòng ban (người thuộc Ban Giám đốc kiêm phụ trách phòng) — xem trả lời 06/11 trong phiên.
+
+## Giai đoạn 2 — hồ sơ chi tiết (07/11/2026)
+
+- Trường mới: ngày sinh, giới tính, CCCD (số, ngày cấp, nơi cấp), thường trú, địa chỉ hiện tại, số sổ BHXH (`employee_profiles`), mã số thuế
+  (`employee_tax_profiles`), tài khoản ngân hàng (`employee_bank_accounts`), lương cơ bản + lương đóng BHXH (phiên bản lương đầu tiên, hiệu lực từ ngày vào làm).
+- **Chỉ điền chỗ đang trống**, không ghi đè dữ liệu đã có/đã duyệt; lương chỉ tạo khi nhân viên chưa có phiên bản nào. Người đã có trong Kavor mà file có
+  thêm thông tin → "Bổ sung hồ sơ" (nhập lại file cũ để điền thông tin còn thiếu).
+- Quyền: giấy tờ/BHXH/thuế/ngân hàng cần `employee.sensitive.read`, lương cần `compensation.manage` (toàn công ty); thiếu quyền thì bỏ cột đó + thông báo,
+  không chặn. Xem trước không hiện giá trị mẫu của cột nhạy cảm; audit không chép giá trị.
+- Chuẩn hóa: CCCD/sổ BHXH mất số 0 đầu → thêm lại; số dạng `8.96E9` → chữ số; tiền chữ tự do ("15tr", "12,000,000 + KPI", "Từ 1/11: LCB …") lấy mức đầu
+  tiên ≥ 100.000, nhiều mức theo ngày thì cảnh báo kiểm lại. Lương thử việc, phụ cấp, lịch sử hợp đồng: chưa nhập (hiện "chưa nhập ở bước này").

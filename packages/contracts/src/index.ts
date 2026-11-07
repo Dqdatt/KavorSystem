@@ -234,7 +234,15 @@ export const IMPORT_FIELDS = {
   work_email: "Email đăng nhập", phone: "Điện thoại", hire_date: "Ngày vào làm", official_date: "Ngày chính thức",
   employment_type: "Loại hợp đồng", department: "Phòng ban", position: "Chức danh", manager: "Quản lý trực tiếp",
   status: "Trạng thái làm việc", termination_date: "Ngày nghỉ việc",
+  birth_date: "Ngày sinh", gender: "Giới tính", id_number: "Số CCCD/CMND", id_issued_on: "Ngày cấp CCCD", id_issued_by: "Nơi cấp CCCD",
+  permanent_address: "Địa chỉ thường trú", current_address: "Địa chỉ hiện tại", social_insurance_no: "Số sổ BHXH", tax_code: "Mã số thuế cá nhân",
+  bank_account: "Số tài khoản", bank_name: "Ngân hàng", bank_holder: "Chủ tài khoản", base_salary: "Lương cơ bản", insurance_salary: "Lương đóng BHXH",
 } as const;
+/* Trường nhạy cảm: cần employee.sensitive.read (giấy tờ, ngân hàng, thuế) hoặc compensation.manage (lương); xem trước không hiện giá trị mẫu */
+export const IMPORT_SENSITIVE: Partial<Record<ImportField, "sensitive" | "salary">> = {
+  id_number: "sensitive", id_issued_on: "sensitive", id_issued_by: "sensitive", social_insurance_no: "sensitive", tax_code: "sensitive",
+  bank_account: "sensitive", bank_name: "sensitive", bank_holder: "sensitive", base_salary: "salary", insurance_salary: "salary",
+};
 export type ImportField = keyof typeof IMPORT_FIELDS;
 export type ImportColumn = {
   key: string; header: string; field: ImportField | null;
@@ -259,18 +267,18 @@ export type ImportOptions = {
 export type ImportAnalysis = {
   sheets: ImportSheet[]; columns: ImportColumn[]; dateOrder: { value: "dmy" | "mdy"; ambiguous: boolean };
   departments: ImportUnit[]; positions: ImportUnit[];
-  branches: Array<{ id: string; name: string }>; branchId: string | null;
+  branches: Array<{ id: string; name: string }>; branchId: string | null; /* Thông báo không chặn (thiếu quyền nhập dữ liệu nhạy cảm/lương) */ notices: string[];
   catalog: { departments: Array<{ code: string; name: string }>; positions: Array<{ code: string; name: string }> };
 };
 export type EmployeeImportRow = {
   sheet: string; line: number; code: string; fullName: string; department: string | null; position: string | null; manager: string | null;
-  action: "create" | "exists" | "skip" | "error"; left: boolean; errors: string[]; warnings: string[];
+  action: "create" | "exists" | "fill" | "skip" | "error"; left: boolean; errors: string[]; warnings: string[];
 };
 /* Gửi lời mời kích hoạt cho nhiều người (sau khi nhập file); người không đủ điều kiện bị bỏ qua kèm lý do */
 export type BulkInviteResult = { sent: number; skipped: Array<{ code: string; reason: string }> };
 export type EmployeeImportResult = {
   fileName: string; dryRun: boolean; applied: boolean; fileErrors: string[];
-  totals: { rows: number; create: number; createLeft: number; exists: number; skip: number; error: number; warning: number };
+  totals: { rows: number; create: number; createLeft: number; exists: number; fill: number; skip: number; error: number; warning: number };
   capacity: { employees: number; limit: number; planName: string };
   rows: EmployeeImportRow[]; analysis: ImportAnalysis;
 };
@@ -303,7 +311,12 @@ export type ProfileChangeInput = {
   phone?: string | null; personalEmail?: string | null; address?: string | null; emergency?: EmergencyContact | null;
   bank?: { bankName: string; accountNo: string; holder: string }; reason?: string | null;
 };
-export type PersonalInfo = { personalEmail: string | null; address: string | null; emergency: EmergencyContact | null; bank: BankAccountView | null };
+export type PersonalInfo = {
+  personalEmail: string | null; address: string | null; emergency: EmergencyContact | null; bank: BankAccountView | null;
+  /* Hồ sơ nhập từ file; số CCCD/sổ BHXH chỉ hiện đủ khi được xem dữ liệu nhạy cảm (còn lại 4 số cuối) */
+  birthDate?: string | null; gender?: "male" | "female" | "other" | null; idNumber?: string | null; idIssuedOn?: string | null; idIssuedBy?: string | null;
+  permanentAddress?: string | null; socialInsuranceNo?: string | null;
+};
 
 /* Hồ sơ của chính nhân viên trên app (chỉ đọc). contract: hợp đồng lao động HR chia sẻ gần nhất (Tài liệu, "HR + Nhân viên", chưa gỡ) */
 export type MyProfile = {

@@ -143,6 +143,10 @@ ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AG
 - Gửi lời mời kích hoạt hàng loạt (26/10, Claude, phiên cloud): `POST /admin/employees/invite` (tối đa 300 người, gửi lần lượt, người đã kích hoạt/đã nghỉ/
   thiếu email/ngoài phạm vi/vừa mời trong 1 phút bị bỏ qua kèm lý do; audit từng người + 1 dòng tổng). Web Nhân viên: nút "Gửi lời mời (N)" cho người
   chưa mời lần nào trong danh sách đang lọc. Smoke import thêm 4 bước; đã thử trên trình duyệt tự động.
+- Nhập nhân viên giai đoạn 2 — hồ sơ chi tiết (07/11, Claude): ngày sinh, giới tính, CCCD, địa chỉ, sổ BHXH, MST, ngân hàng, lương cơ bản/đóng BHXH;
+  chỉ điền chỗ trống, người đã có → "Bổ sung hồ sơ"; lọc theo quyền nhạy cảm/lương; hồ sơ trên web hiện các trường mới (CCCD/BHXH che khi không có quyền).
+  Migration `202611250001_employee_import_details.sql`. Kiểm: unit 17, pgTAP `employee_import_details` 5, import-smoke +5 bước, verify-all --quick đạt,
+  trình duyệt (hồ sơ hiện đủ trường). File thật: 29 người đang làm nhận đủ cột hồ sơ; 22 có lương đọc được, 11 ô lương chữ tự do được cảnh báo.
 - Trưởng đơn vị của phòng ban (07/11, Claude): `departments.head_employee_id` (có thể là người phòng khác, vd. Giám đốc kiêm nhiệm; trigger chặn người công
   ty khác), chọn ở Sửa phòng ban, hiện trên sơ đồ. Quy tắc quản lý mặc định thêm bước: phòng không có ai cấp cao hơn → Trưởng đơn vị (nếu cấp cao hơn) →
   phòng cha → Ban Giám đốc duy nhất; dùng cho Sắp xếp tự động và nhập file. Migration `202611240001_department_head.sql`. Kiểm: unit 3, pgTAP 2,

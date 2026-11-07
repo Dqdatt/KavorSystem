@@ -134,8 +134,12 @@ function EmployeeDrawer({ id, onClose, onEdit, onChanged }: { id: string; onClos
           <div className="drawer-section">
             <h4>Thông tin cá nhân</h4>
             <div className="card detail-list">
+              <div className="detail-row"><span>Ngày sinh · giới tính</span><b>{e.personal.birthDate ? fmtDate(e.personal.birthDate) : "—"} · {e.personal.gender ? { male: "Nam", female: "Nữ", other: "Khác" }[e.personal.gender] : "—"}</b></div>
+              <div className="detail-row"><span>CCCD/CMND</span><b style={{ whiteSpace: "normal" }}>{e.personal.idNumber ? `${e.personal.idNumber}${e.personal.idIssuedOn ? ` · cấp ${fmtDate(e.personal.idIssuedOn)}` : ""}${e.personal.idIssuedBy ? ` · ${e.personal.idIssuedBy}` : ""}` : "—"}</b></div>
+              <div className="detail-row"><span>Số sổ BHXH</span><b>{e.personal.socialInsuranceNo ?? "—"}</b></div>
               <div className="detail-row"><span>Email cá nhân</span><b>{e.personal.personalEmail ?? "—"}</b></div>
-              <div className="detail-row"><span>Địa chỉ</span><b style={{ whiteSpace: "normal" }}>{e.personal.address ?? "—"}</b></div>
+              <div className="detail-row"><span>Thường trú</span><b style={{ whiteSpace: "normal" }}>{e.personal.permanentAddress ?? "—"}</b></div>
+              <div className="detail-row"><span>Địa chỉ hiện tại</span><b style={{ whiteSpace: "normal" }}>{e.personal.address ?? "—"}</b></div>
               <div className="detail-row"><span>Liên hệ khẩn cấp</span><b>{e.personal.emergency ? `${e.personal.emergency.name} · ${e.personal.emergency.relation} · ${e.personal.emergency.phone}` : "—"}</b></div>
               <div className="detail-row"><span>Tài khoản ngân hàng</span><b>{e.personal.bank ? `${e.personal.bank.bankName} · ${e.personal.bank.accountNo ?? `•••• ${e.personal.bank.last4}`} · ${e.personal.bank.holder}` : "—"}</b></div>
             </div>
