@@ -5,7 +5,8 @@
 import { useMemo, useState } from "react";
 import { MANAGEMENT_TIERS, ORG_UNIT_KINDS, type ManagementTier, type OrgTree, type OrgUnit, type OrgUnitKind } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
-import { Empty, ErrorLine, Field, Icon, LoadError, Modal, Status, fmtDate, num, useAction, useMe } from "../../_ui/kit";
+import { Empty, ErrorLine, Field, Icon, LoadError, Modal, Status, can, fmtDate, num, useAction, useMe } from "../../_ui/kit";
+import { StructureModal } from "../../_ui/structure-plan";
 import { Select, Skeleton, SkeletonLines } from "@kavor/web-ui";
 
 type Edit = { mode: "create"; kind: OrgUnitKind; parent?: OrgUnit } | { mode: "edit"; unit: OrgUnit };
@@ -17,6 +18,7 @@ export default function OrganizationPage() {
   const [showEnded, setShowEnded] = useState(false);
   const [edit, setEdit] = useState<Edit | null>(null);
   const [ending, setEnding] = useState<OrgUnit | null>(null);
+  const [arranging, setArranging] = useState(false);
   const units = useMemo(() => (t?.units ?? []).filter((u) => showEnded || u.active), [t, showEnded]);
   const depts = units.filter((u) => u.kind === "department");
   /* Nhân sự của phòng ban gồm cả phòng con */
@@ -28,8 +30,10 @@ export default function OrganizationPage() {
   return (
     <section className="page active">
       <div className="page-head">
-        <div className="head-actions">{t?.canManage ? <button className="btn primary" onClick={() => setEdit({ mode: "create", kind: "department" })}><Icon name="plus" /> Thêm đơn vị</button> : null}</div></div>
+        <div className="head-actions">{t?.canManage ? <>{can(me, "employee.update") ? <button className="btn" onClick={() => setArranging(true)}><Icon name="org" /> Sắp xếp tự động</button> : null}
+          <button className="btn primary" onClick={() => setEdit({ mode: "create", kind: "department" })}><Icon name="plus" /> Thêm đơn vị</button></> : null}</div></div>
       <LoadError error={error} retry={reload} />
+      {arranging ? <StructureModal onClose={() => setArranging(false)} onDone={() => void reload()} /> : null}
       <div className="grid three">
         <article className="card metric-card"><span className="metric-icon"><Icon name="brief" /></span><span className="metric-copy"><span>Pháp nhân</span><strong>{m ? num(m.legalEntities) : wait}</strong><small>{m ? `${num(m.branches)} chi nhánh` : " "}</small></span></article>
         <article className="card metric-card"><span className="metric-icon blue"><Icon name="org" /></span><span className="metric-copy"><span>Phòng ban</span><strong>{m ? num(m.departments) : wait}</strong><small>{m ? `${num(m.positions)} chức danh` : " "}</small></span></article>

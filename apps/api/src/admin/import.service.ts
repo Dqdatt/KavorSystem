@@ -15,6 +15,7 @@ import { req, type Body } from "./validate.js";
 import { planOf } from "../tenancy/plan.js";
 import { buildImport, norm, type Saved } from "./import/detect.js";
 import { readSpreadsheet, SpreadsheetError, type Sheet } from "./import/spreadsheet.js";
+import { managerRules, type StructPerson } from "./structure.js";
 
 export const IMPORT_MAX_ROWS = 1000;
 const MAX_FILE = 5_000_000;
@@ -40,7 +41,7 @@ export function importOptions(v: unknown): ImportOptions {
   };
 }
 
-type Dept = { id: string; code: string; name: string; branch_id: string | null; effective_to: string | null };
+type Dept = { id: string; code: string; name: string; branch_id: string | null; parent_id: string | null; effective_to: string | null };
 type Pos = { id: string; code: string; name: string; management_tier: ManagementTier | null; effective_from: string; effective_to: string | null };
 type Emp = { id: string; employee_code: string; full_name: string; status: string };
 
@@ -69,7 +70,7 @@ export class EmployeeImport {
     }
     const live = `effective_to.is.null,effective_to.gte.${today}`;
     const [{ data: deps }, { data: brs }, { data: pos }, { data: emps }, { data: map }, plan] = await Promise.all([
-      db.from("departments").select("id, code, name, branch_id, effective_to").eq("tenant_id", ctx.tenantId),
+      db.from("departments").select("id, code, name, branch_id, parent_id, effective_to").eq("tenant_id", ctx.tenantId),
       db.from("branches").select("id, name, legal_entity_id").eq("tenant_id", ctx.tenantId).or(live),
       db.from("positions").select("id, code, name, management_tier, effective_from, effective_to").eq("tenant_id", ctx.tenantId),
       db.from("employees").select("id, employee_code, full_name, status").eq("tenant_id", ctx.tenantId),
@@ -139,29 +140,20 @@ export class EmployeeImport {
     const place = activeEmp.length ? await loadPlacements(db, ctx.tenantId, today, activeEmp.length <= 100 ? activeEmp.map((e) => e.id) : undefined) : new Map();
     const deptCodeById = new Map(allDept.map((d) => [d.id, d.code.toUpperCase()]));
     const posById = new Map(allPos.map((p) => [p.id, p]));
-    type Person = { code: string; name: string; dept: string | null; tier: ManagementTier | null };
-    const people: Person[] = activeEmp.map((e) => {
+    const people: StructPerson[] = activeEmp.map((e) => {
       const pl = place.get(e.id);
-      return { code: e.employee_code.toUpperCase(), name: e.full_name, dept: pl ? deptCodeById.get(pl.department_id) ?? null : null, tier: pl ? posById.get(pl.position_id)?.management_tier ?? null : null };
+      return { id: e.employee_code.toUpperCase(), name: e.full_name, dept: pl ? deptCodeById.get(pl.department_id) ?? null : null, tier: pl ? posById.get(pl.position_id)?.management_tier ?? null : null };
     });
     const liveCreate = toCreate.filter((r) => !r.left);
-    for (const r of liveCreate) people.push({ code: r.code, name: r.fullName, dept: r.dept ? deptOf.get(norm(r.dept))?.code ?? null : null, tier: tierOfCode.get(posOf.get(norm(r.pos))?.code ?? "") ?? null });
-    const personOf = new Map(people.map((p) => [p.code, p]));
-    const bod = people.filter((p) => p.tier === 4);
-    /* Quản lý mặc định: người cấp cao hơn gần nhất trong cùng phòng (Nhân viên → Trưởng nhóm → Quản lý); phòng không có ai cao hơn → Ban Giám đốc
-       nếu công ty chỉ có một người. Nhiều người cùng cấp → không đoán, để HR chọn. */
+    for (const r of liveCreate) people.push({ id: r.code, name: r.fullName, dept: r.dept ? deptOf.get(norm(r.dept))?.code ?? null : null, tier: tierOfCode.get(posOf.get(norm(r.pos))?.code ?? "") ?? null });
+    const personOf = new Map(people.map((p) => [p.id, p]));
+    const parentCode = new Map(allDept.map((d) => [d.code.toUpperCase(), d.parent_id ? deptCodeById.get(d.parent_id) ?? null : null]));
+    const deptNameOf = new Map(allDept.map((d) => [d.code.toUpperCase(), d.name]));
+    const rule = managerRules(people, parentCode);
     const autoManager = (code: string): { code: string | null; note: string | null } => {
-      const me = personOf.get(code)!, t = me.tier ?? 1;
-      if (t >= 4) return { code: null, note: null };
-      const above = people.filter((p) => p.code !== code && p.dept && p.dept === me.dept && (p.tier ?? 1) > t);
-      if (above.length) {
-        const min = Math.min(...above.map((p) => p.tier ?? 1)), at = above.filter((p) => (p.tier ?? 1) === min);
-        if (at.length === 1) return { code: at[0]!.code, note: `Quản lý tự gán: ${at[0]!.name} (${MANAGEMENT_TIERS[min as ManagementTier]} cùng phòng)` };
-        return { code: null, note: `Phòng có ${at.length} người cấp ${MANAGEMENT_TIERS[min as ManagementTier]} — chọn quản lý trực tiếp sau` };
-      }
-      const boss = bod.filter((p) => p.code !== code);
-      if (boss.length === 1) return { code: boss[0]!.code, note: `Quản lý tự gán: ${boss[0]!.name} (Ban Giám đốc — phòng chưa có cấp quản lý)` };
-      return { code: null, note: boss.length ? "Phòng chưa có Trưởng nhóm/Quản lý, công ty có nhiều Giám đốc — chọn quản lý trực tiếp sau" : null };
+      const me = personOf.get(code)!, p = rule(me, (c) => deptNameOf.get(c) ?? c);
+      const name = p.managerId ? personOf.get(p.managerId)?.name : null;
+      return { code: p.managerId, note: p.managerId ? `Quản lý tự gán: ${name} (${p.note})` : p.note };
     };
 
     const out: EmployeeImportRow[] = [];

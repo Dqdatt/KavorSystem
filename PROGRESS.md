@@ -143,6 +143,11 @@ ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AG
 - Gửi lời mời kích hoạt hàng loạt (26/10, Claude, phiên cloud): `POST /admin/employees/invite` (tối đa 300 người, gửi lần lượt, người đã kích hoạt/đã nghỉ/
   thiếu email/ngoài phạm vi/vừa mời trong 1 phút bị bỏ qua kèm lý do; audit từng người + 1 dòng tổng). Web Nhân viên: nút "Gửi lời mời (N)" cho người
   chưa mời lần nào trong danh sách đang lọc. Smoke import thêm 4 bước; đã thử trên trình duyệt tự động.
+- Sắp xếp tự động ở Cơ cấu tổ chức (07/11, Claude): một bảng đề xuất cấp cho mọi chức danh (hệ cấp bậc chuẩn, `inferTier`) + quản lý trực tiếp cho
+  mọi nhân viên đang làm (cấp cao hơn gần nhất cùng phòng → phòng cha → Ban Giám đốc duy nhất; nhiều người cùng cấp thì để HR chọn), HR đổi/bỏ chọn rồi
+  áp dụng một lần (`apply_structure_plan`, giữ lịch sử phân công: đóng hôm qua, mở từ hôm nay). Quy tắc dùng chung với nhập file (`apps/api/src/admin/structure.ts`).
+  Migration `202611230001_structure_plan.sql`. Kiểm: unit 2 ca, pgTAP `structure_plan` 6, `tools/structure-smoke.sh` 10 bước, smoke import/org đạt,
+  verify-all --quick đạt, thử trên trình duyệt (đặt sai cấp hàng loạt → đề xuất đổi 4 chức danh + gán 8 người → áp dụng, DB đúng).
 - Nhập nhân viên giai đoạn 1b (06/11, Claude): nhập cả người đã nghỉ (hồ sơ tra cứu), hệ cấp bậc chuẩn suy từ tên chức danh, tự gán quản lý theo
   phòng + cấp, khối tiến trình nổi bật khi đọc/nhập, danh sách nhân viên nhóm theo phòng ban (A–Z theo tên), sửa ô chọn dài tràn sang ô bên cạnh
   (`.kv-select` min-width 0), tải lại danh mục sau khi nhập (form sửa hồ sơ trống phòng ban/chức danh). Migration `202611220001_employee_import_history.sql`.

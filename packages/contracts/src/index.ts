@@ -430,6 +430,15 @@ export function inferTier(title: string): ManagementTier {
   for (const [tier, head, any] of TIER_RULES) if (head.some((k) => n.startsWith(` ${k} `)) || any.some((k) => n.includes(` ${k} `))) return tier;
   return 1;
 }
+/* "Sắp xếp tự động" ở Cơ cấu tổ chức: đề xuất cấp cho chức danh + quản lý trực tiếp cho nhân viên đang làm; HR xem rồi áp dụng một lần */
+export type StructurePosition = { id: string; code: string; name: string; current: ManagementTier | null; suggested: ManagementTier; tier: ManagementTier; people: number };
+export type StructureRow = {
+  employeeId: string; code: string; name: string; department: string | null; position: string | null; tier: ManagementTier | null;
+  current: { id: string; name: string } | null; currentOk: boolean; proposed: { id: string; name: string } | null; change: boolean; note: string | null;
+};
+export type StructurePlan = { today: string; positions: StructurePosition[]; rows: StructureRow[]; changes: { tiers: number; managers: number } };
+/* tiers: cấp HR chọn theo id chức danh; overwrite: đề xuất lại cả người đã có quản lý hợp lệ; skip: nhân viên HR bỏ chọn */
+export type StructureInput = { tiers?: Record<string, ManagementTier>; overwrite?: boolean; skip?: string[] };
 export const managerTierOk = (manager: number | null | undefined, employee: number | null | undefined) =>
   manager == null || employee == null || manager > employee || (manager === 4 && employee === 4);
 

@@ -26,6 +26,7 @@ import type { TimesheetAdmin } from "../timesheet/timesheet-admin.service.js";
 import type { SupportService } from "../support/support.service.js";
 import type { OrgAdmin } from "./org.service.js";
 import type { EmployeeImport } from "./import.service.js";
+import type { StructureAdmin } from "./structure.js";
 import { date, nullableText, oneOf, type Body as Json } from "./validate.js";
 
 export const ADMIN_SERVICES = Symbol("ADMIN_SERVICES");
@@ -33,7 +34,7 @@ export type AdminServices = {
   employees: EmployeesAdmin; attendance: AttendanceAdmin; schedule: ScheduleAdmin;
   settings: SettingsAdmin; rules: RulesAdmin; mfa: MfaAdmin; company: CompanyService;
   timesheets: TimesheetAdmin; requests: RequestsService; notifications: NotificationsService; leave: LeaveService; overtime: OvertimeService; advance: AdvanceService;
-  payroll: PayrollService; inputs: PayrollInputs; announcements: AnnouncementsService; documents: DocumentsService; support: SupportService; org: OrgAdmin; importer: EmployeeImport;
+  payroll: PayrollService; inputs: PayrollInputs; announcements: AnnouncementsService; documents: DocumentsService; support: SupportService; org: OrgAdmin; importer: EmployeeImport; structure: StructureAdmin;
 };
 
 function bearer(header?: string): string {
@@ -82,6 +83,11 @@ export class AdminController {
   /* ---------- Cơ cấu tổ chức + vai trò & phân quyền ---------- */
   @Get("organization")
   orgTree(@Req() r: CorrelatedRequest, @Headers("authorization") a?: string) { return this.run(r, a, (s, c) => s.org.tree(c)); }
+  /* Sắp xếp tự động: đề xuất cấp chức danh + quản lý trực tiếp (plan = xem trước, apply = áp dụng nguyên khối) */
+  @Post("organization/structure/plan") @HttpCode(200)
+  structurePlan(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Body() b: Json) { return this.run(r, a, (s, c) => s.structure.plan(c, b)); }
+  @Post("organization/structure/apply") @HttpCode(200)
+  structureApply(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Body() b: Json) { return this.run(r, a, (s, c) => s.structure.apply(c, b)); }
   @Post("organization/units") @HttpCode(201)
   orgCreate(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Body() b: Json) { return this.run(r, a, (s, c) => s.org.createUnit(c, b)); }
   @Patch("organization/units/:kind/:id")
