@@ -2,7 +2,7 @@
 import { Fragment, Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { AdminDevice, BulkInviteResult, EmployeeDetail, EmployeeListItem, EmployeeStatus, EmploymentType, OrgOptions, RequestItem, RequestQueue } from "@kavor/contracts";
-import { managerTierOk } from "@kavor/contracts";
+import { managerTierOk, type AdminMe } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
 import { EmployeePaySection } from "./pay";
 import {
@@ -97,6 +97,16 @@ function EmployeesPage() {
   );
 }
 
+/* Hồ sơ chia tab để mỗi phần có bố cục đều, không dồn cột */
+type ProfileTab = "overview" | "personal" | "attendance" | "pay" | "requests" | "history";
+const TABS: Array<{ id: ProfileTab; label: string; show: (me: AdminMe) => boolean }> = [
+  { id: "overview", label: "Tổng quan", show: () => true },
+  { id: "personal", label: "Cá nhân", show: () => true },
+  { id: "attendance", label: "Chấm công", show: (me) => can(me, "attendance.read") },
+  { id: "pay", label: "Lương", show: (me) => can(me, "compensation.read") },
+  { id: "requests", label: "Đơn từ", show: (me) => can(me, "request.read") },
+  { id: "history", label: "Lịch sử", show: (me) => can(me, "audit.read") },
+];
 function EmployeeDrawer({ id, onClose, onEdit, onChanged }: { id: string; onClose: () => void; onEdit: (e: EmployeeDetail) => void; onChanged: () => void }) {
   const me = useMe();
   const tz = me.tenant.timezone;
@@ -104,6 +114,7 @@ function EmployeeDrawer({ id, onClose, onEdit, onChanged }: { id: string; onClos
   const { busy, run } = useAction();
   const [ask, setAsk] = useState<null | { title: string; label: string; danger?: boolean; go: (reason: string) => Promise<unknown>; ok: string }>(null);
   const after = () => { void reload(); onChanged(); };
+  const [tab, setTab] = useState<ProfileTab>("overview");
 
   const deviceAct = (d: AdminDevice, action: "approve" | "reject" | "revoke") =>
     action === "approve"
@@ -118,6 +129,9 @@ function EmployeeDrawer({ id, onClose, onEdit, onChanged }: { id: string; onClos
       {!e ? (error ? null : <SkeletonLines lines={6} avatar />) : (
         <>
           <div className="profile-hero"><Avatar name={e.fullName} seed={e.code} /><div><h3>{e.fullName}</h3><p>{[e.position?.name, e.department?.name, e.code].filter(Boolean).join(" · ")}</p></div><div style={{ marginLeft: "auto" }}><Status v={EMP_STATUS[e.status]} /></div></div>
+          <div className="segmented profile-tabs" role="tablist">{TABS.filter((t) => t.show(me)).map((t) => <button key={t.id} role="tab" aria-selected={tab === t.id} className={tab === t.id ? "active" : ""} onClick={() => setTab(t.id)}>{t.label}</button>)}</div>
+          {tab === "overview" ? <div className="profile-grid">
+            <div className="drawer-section"><h4>Công việc</h4>
           <div className="card detail-list">
             <div className="detail-row"><span>Phòng ban</span><b>{e.department?.name ?? "—"}</b></div>
             <div className="detail-row"><span>Chức danh</span><b>{e.position?.name ?? "—"}</b></div>
@@ -129,22 +143,8 @@ function EmployeeDrawer({ id, onClose, onEdit, onChanged }: { id: string; onClos
             <div className="detail-row"><span>Ngày vào làm · loại HĐ</span><b>{fmtDate(e.hireDate)} · {EMPLOYMENT[e.employmentType]}</b></div>
             {e.terminationDate ? <div className="detail-row"><span>Ngày nghỉ việc</span><b>{fmtDate(e.terminationDate)}</b></div> : null}
           </div>
-
-          {/* Thông tin cá nhân do nhân viên đề nghị sửa trên app, HR duyệt (Đơn & phê duyệt); số tài khoản đầy đủ chỉ khi có quyền */}
-          <div className="drawer-section">
-            <h4>Thông tin cá nhân</h4>
-            <div className="card detail-list">
-              <div className="detail-row"><span>Ngày sinh · giới tính</span><b>{e.personal.birthDate ? fmtDate(e.personal.birthDate) : "—"} · {e.personal.gender ? { male: "Nam", female: "Nữ", other: "Khác" }[e.personal.gender] : "—"}</b></div>
-              <div className="detail-row"><span>CCCD/CMND</span><b style={{ whiteSpace: "normal" }}>{e.personal.idNumber ? `${e.personal.idNumber}${e.personal.idIssuedOn ? ` · cấp ${fmtDate(e.personal.idIssuedOn)}` : ""}${e.personal.idIssuedBy ? ` · ${e.personal.idIssuedBy}` : ""}` : "—"}</b></div>
-              <div className="detail-row"><span>Số sổ BHXH</span><b>{e.personal.socialInsuranceNo ?? "—"}</b></div>
-              <div className="detail-row"><span>Email cá nhân</span><b>{e.personal.personalEmail ?? "—"}</b></div>
-              <div className="detail-row"><span>Thường trú</span><b style={{ whiteSpace: "normal" }}>{e.personal.permanentAddress ?? "—"}</b></div>
-              <div className="detail-row"><span>Địa chỉ hiện tại</span><b style={{ whiteSpace: "normal" }}>{e.personal.address ?? "—"}</b></div>
-              <div className="detail-row"><span>Liên hệ khẩn cấp</span><b>{e.personal.emergency ? `${e.personal.emergency.name} · ${e.personal.emergency.relation} · ${e.personal.emergency.phone}` : "—"}</b></div>
-              <div className="detail-row"><span>Tài khoản ngân hàng</span><b>{e.personal.bank ? `${e.personal.bank.bankName} · ${e.personal.bank.accountNo ?? `•••• ${e.personal.bank.last4}`} · ${e.personal.bank.holder}` : "—"}</b></div>
             </div>
-          </div>
-
+            <div>
           <div className="drawer-section">
             <h4>Tài khoản Kavor</h4>
             <div className="card detail-list">
@@ -173,7 +173,6 @@ function EmployeeDrawer({ id, onClose, onEdit, onChanged }: { id: string; onClos
               ) : null}
             </div>
           </div>
-
           <div className="drawer-section">
             <h4>Ca và địa điểm đang áp dụng</h4>
             <div className="card detail-list">
@@ -181,7 +180,25 @@ function EmployeeDrawer({ id, onClose, onEdit, onChanged }: { id: string; onClos
               <div className="detail-row"><span>Địa điểm chấm công</span><b>{e.policies.locations.length ? <>{e.policies.locations.map((l) => `${l.name} (${l.radiusM} m)`).join(", ")}{e.policies.locationSource ? <span className="source-tag">{scopeText(e.policies.locationSource)}</span> : null}</> : <span className="text-red">Chưa có địa điểm</span>}</b></div>
             </div>
           </div>
-
+            </div>
+          </div> : null}
+          {tab === "personal" ? <div className="profile-grid one">
+          {/* Thông tin cá nhân do nhân viên đề nghị sửa trên app, HR duyệt (Đơn & phê duyệt); số tài khoản đầy đủ chỉ khi có quyền */}
+          <div className="drawer-section">
+            <h4>Thông tin cá nhân</h4>
+            <div className="card detail-list">
+              <div className="detail-row"><span>Ngày sinh · giới tính</span><b>{e.personal.birthDate ? fmtDate(e.personal.birthDate) : "—"} · {e.personal.gender ? { male: "Nam", female: "Nữ", other: "Khác" }[e.personal.gender] : "—"}</b></div>
+              <div className="detail-row"><span>CCCD/CMND</span><b style={{ whiteSpace: "normal" }}>{e.personal.idNumber ? `${e.personal.idNumber}${e.personal.idIssuedOn ? ` · cấp ${fmtDate(e.personal.idIssuedOn)}` : ""}${e.personal.idIssuedBy ? ` · ${e.personal.idIssuedBy}` : ""}` : "—"}</b></div>
+              <div className="detail-row"><span>Số sổ BHXH</span><b>{e.personal.socialInsuranceNo ?? "—"}</b></div>
+              <div className="detail-row"><span>Email cá nhân</span><b>{e.personal.personalEmail ?? "—"}</b></div>
+              <div className="detail-row"><span>Thường trú</span><b style={{ whiteSpace: "normal" }}>{e.personal.permanentAddress ?? "—"}</b></div>
+              <div className="detail-row"><span>Địa chỉ hiện tại</span><b style={{ whiteSpace: "normal" }}>{e.personal.address ?? "—"}</b></div>
+              <div className="detail-row"><span>Liên hệ khẩn cấp</span><b>{e.personal.emergency ? `${e.personal.emergency.name} · ${e.personal.emergency.relation} · ${e.personal.emergency.phone}` : "—"}</b></div>
+              <div className="detail-row"><span>Tài khoản ngân hàng</span><b>{e.personal.bank ? `${e.personal.bank.bankName} · ${e.personal.bank.accountNo ?? `•••• ${e.personal.bank.last4}`} · ${e.personal.bank.holder}` : "—"}</b></div>
+            </div>
+          </div>
+          </div> : null}
+          {tab === "attendance" ? <div className="profile-grid one">
           {can(me, "attendance.read") ? (
             <>
               <div className="drawer-section">
@@ -215,17 +232,22 @@ function EmployeeDrawer({ id, onClose, onEdit, onChanged }: { id: string; onClos
               </div>
             </>
           ) : null}
-
+          </div> : null}
+          {tab === "pay" ? <div className="profile-grid one">
           {can(me, "compensation.read") ? <EmployeePaySection employeeId={e.id} name={e.fullName} /> : null}
-
+          </div> : null}
+          {tab === "requests" ? <div className="profile-grid one">
           {can(me, "request.read") ? <EmployeeRequests employeeId={e.id} /> : null}
-
+          </div> : null}
+          {tab === "history" ? <div className="profile-grid one">
           {can(me, "audit.read") && e.audit.length ? (
             <div className="drawer-section">
               <h4>Lịch sử thay đổi</h4>
               <ul className="version-list">{e.audit.slice(0, 15).map((a) => <li key={a.id}>{fmtDateTime(a.createdAt, tz)} · {AUDIT[a.action] ?? a.action} · {a.actor}{a.reason ? ` — ${a.reason}` : ""}</li>)}</ul>
             </div>
           ) : null}
+            {!e.audit.length ? <p className="muted" style={{ fontSize: 12.5 }}>Chưa có thay đổi.</p> : null}
+          </div> : null}
         </>
       )}
       {ask ? <ReasonModal {...ask} onClose={() => setAsk(null)} onDone={after} /> : null}

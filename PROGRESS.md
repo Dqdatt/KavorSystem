@@ -143,7 +143,7 @@ ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AG
 - Gửi lời mời kích hoạt hàng loạt (26/10, Claude, phiên cloud): `POST /admin/employees/invite` (tối đa 300 người, gửi lần lượt, người đã kích hoạt/đã nghỉ/
   thiếu email/ngoài phạm vi/vừa mời trong 1 phút bị bỏ qua kèm lý do; audit từng người + 1 dòng tổng). Web Nhân viên: nút "Gửi lời mời (N)" cho người
   chưa mời lần nào trong danh sách đang lọc. Smoke import thêm 4 bước; đã thử trên trình duyệt tự động.
-- Hồ sơ nhân viên web chuyển từ ngăn bên phải sang modal rộng 2 cột (`Drawer wide`, `.detail-columns`); `.detail-row` không còn đè nhãn khi giá trị dài (07/11, Claude). Đã xem trên trình duyệt.
+- Hồ sơ nhân viên web: modal rộng cao cố định, chia tab (Tổng quan · Cá nhân · Chấm công · Lương · Đơn từ · Lịch sử; tab ẩn theo quyền), Tổng quan 2 cột, tab một mục chia dòng thông tin 2 cột; `.detail-row` không đè nhãn khi giá trị dài (07/11, Claude). Đã xem từng tab trên trình duyệt.
 - Nhập nhân viên giai đoạn 2 — hồ sơ chi tiết (07/11, Claude): ngày sinh, giới tính, CCCD, địa chỉ, sổ BHXH, MST, ngân hàng, lương cơ bản/đóng BHXH;
   chỉ điền chỗ trống, người đã có → "Bổ sung hồ sơ"; lọc theo quyền nhạy cảm/lương; hồ sơ trên web hiện các trường mới (CCCD/BHXH che khi không có quyền).
   Migration `202611250001_employee_import_details.sql`. Kiểm: unit 17, pgTAP `employee_import_details` 5, import-smoke +5 bước, verify-all --quick đạt,
