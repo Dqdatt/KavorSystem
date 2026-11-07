@@ -17,6 +17,18 @@ BEFORE=$(sql "select count(*) from public.employee_assignments where tenant_id='
 check "Xem trước không ghi gì" "$(sql "select count(*) from public.employee_assignments where tenant_id='$HDG'")" "$BEFORE"
 check "Quản lý (không có quyền toàn công ty) → 403" "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$API/admin/organization/structure/plan" -H 'content-type: application/json' -H "authorization: Bearer $MGR" -d '{}')" 403
 
+echo "— Trưởng đơn vị"
+DEPT=$(sql "select id from public.departments where tenant_id='$HDG' and name='Kinh doanh Hà Nội'")
+HEAD=$(sql "select id from public.employees where employee_code='HDG0003'")
+_body="{\"headEmployeeId\":\"$HEAD\"}"
+_h=$(call PATCH "admin/organization/units/department/$DEPT" "$HR" "$_body") || :
+check "Gán trưởng đơn vị (người phòng khác)" "$(echo "$_h" | py "[u['head']['name'] for u in d['units'] if u['id']=='$DEPT'][0]")" "Lê Quang Huy"
+_bad="{\"headEmployeeId\":\"00000000-0000-4000-8000-000000000000\"}"
+check "Trưởng đơn vị không thuộc công ty → 400" "$(curl -s -o /dev/null -w '%{http_code}' -X PATCH "$API/admin/organization/units/department/$DEPT" -H 'content-type: application/json' -H "authorization: Bearer $HR" -d "$_bad")" 400
+_p=$(call POST admin/organization/structure/plan "$HR" '{"overwrite":true}') || :
+check "Phòng không có ai cấp cao hơn → đề xuất trưởng đơn vị" "$(echo "$_p" | py "[(r['proposed']['name'], r['note']) for r in d['rows'] if r['code']=='HDG0004'][0]")" "('Lê Quang Huy', 'Trưởng đơn vị của phòng')"
+_p=$(call POST admin/organization/structure/plan "$HR" '{}') || :
+
 echo "— Áp dụng"
 WANT=$(echo "$_p" | py "d['changes']['managers']")
 _a=$(call POST admin/organization/structure/apply "$HR" '{}') || :

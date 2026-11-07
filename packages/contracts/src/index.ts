@@ -205,6 +205,7 @@ export const ORG_UNIT_KINDS: Record<OrgUnitKind, string> = { legal_entity: "Phá
 export type OrgUnit = {
   id: string; kind: OrgUnitKind; code: string; name: string; parentId: string | null; branchId: string | null;
   taxCode: string | null; jobLevel: string | null; tier: ManagementTier | null; effectiveFrom: string; effectiveTo: string | null; active: boolean; employees: number;
+  /* Phòng ban: trưởng đơn vị (người phụ trách, có thể thuộc phòng khác) */ head: { id: string; name: string } | null;
 };
 export type OrgTree = {
   units: OrgUnit[]; today: string; canManage: boolean;

@@ -33,7 +33,7 @@ export function StructureModal({ onClose, onDone }: { onClose: () => void; onDon
         <div className="card detail-list" style={{ padding: "12px 14px" }}>
           <p className="muted" style={{ fontSize: 12, margin: "0 0 4px", lineHeight: 1.55 }}>
             <b style={{ color: "var(--ink-2)" }}>Cấp bậc chuẩn:</b> {TIERS.map((t) => `${MANAGEMENT_TIERS[t]} (${MANAGEMENT_TIERS_EN[t]})`).join(" → ")}.<br />
-            <b style={{ color: "var(--ink-2)" }}>Quản lý trực tiếp:</b> người cấp cao hơn gần nhất cùng phòng → phòng cấp trên → Ban Giám đốc (khi công ty chỉ có một người). Nhiều người cùng cấp thì để bạn chọn.
+            <b style={{ color: "var(--ink-2)" }}>Quản lý trực tiếp:</b> người cấp cao hơn gần nhất cùng phòng → Trưởng đơn vị của phòng → phòng cấp trên → Ban Giám đốc (khi công ty chỉ có một người). Đặt Trưởng đơn vị ở nút Sửa của phòng ban. Nhiều người cùng cấp thì để bạn chọn.
           </p>
           <label className="detail-row check-row" style={{ margin: 0 }}><span><input type="checkbox" checked={input.overwrite} onChange={(e) => load({ ...input, overwrite: e.target.checked })} /> Đề xuất lại cả người đã có quản lý đúng cấp</span><b className="muted" style={{ fontWeight: 500 }}>mặc định giữ nguyên</b></label>
           <label className="detail-row check-row" style={{ margin: 0 }}><span><input type="checkbox" checked={onlyChanges} onChange={(e) => setOnlyChanges(e.target.checked)} /> Chỉ hiện chỗ thay đổi / cần chọn</span><b /></label>

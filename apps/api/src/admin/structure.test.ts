@@ -20,6 +20,16 @@ test("quản lý mặc định: cấp cao hơn gần nhất cùng phòng → ph�
   assert.equal(twoBoss(P("N", "KHO", 1)).managerId, null);
 });
 
+test("trưởng đơn vị: phòng không có ai cấp cao hơn → trưởng đơn vị (kể cả người phòng khác), trước cả phòng cha và Ban Giám đốc", () => {
+  const people = [P("GD1", "BOD", 4), P("GD2", "BOD", 4), P("TN", "KHO", 2), P("NV", "KHO", 1), P("NV2", "KHO-A", 1), P("QL", "MKT", 3), P("NV3", "MKT", 1)];
+  const rule = managerRules(people, new Map([["KHO-A", "KHO"]]), new Map([["KHO", "GD1"], ["MKT", "NV3"]]));
+  const of = (id: string) => rule(people.find((p) => p.id === id)!);
+  assert.equal(of("NV").managerId, "TN", "trong phòng có Trưởng nhóm thì vẫn ưu tiên");
+  assert.deepEqual([of("TN").managerId, of("TN").note], ["GD1", "Trưởng đơn vị của phòng"]);
+  assert.equal(of("NV2").managerId, "TN", "phòng con lên phòng cha");
+  assert.equal(of("QL").managerId, null, "trưởng đơn vị cấp thấp hơn thì bỏ qua; 2 Giám đốc thì không đoán");
+});
+
 test("đầu vào Sắp xếp tự động: chỉ nhận id hợp lệ và cấp 1–4", () => {
   const id = "11111111-1111-4111-8111-111111111111";
   assert.deepEqual(structureInput({ tiers: { [id]: 2, x: 3, [id.replace(/1$/, "2")]: 9 }, overwrite: "yes", skip: [id, "bad"] }), { tiers: { [id]: 2 }, overwrite: false, skip: [id] });

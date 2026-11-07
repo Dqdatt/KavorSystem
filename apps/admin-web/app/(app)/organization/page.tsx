@@ -3,7 +3,7 @@
    Thêm (thiết kế bổ sung): danh sách cây pháp nhân → chi nhánh → phòng ban, danh mục chức danh, thêm/sửa/ngừng đơn vị (docs/plans/org-roles.md).
    Chưa có: Import (nút của prototype), khối nhiều chi nhánh, vị trí định biên. */
 import { useMemo, useState } from "react";
-import { MANAGEMENT_TIERS, ORG_UNIT_KINDS, type ManagementTier, type OrgTree, type OrgUnit, type OrgUnitKind } from "@kavor/contracts";
+import { MANAGEMENT_TIERS, ORG_UNIT_KINDS, type ManagementTier, type OrgOptions, type OrgTree, type OrgUnit, type OrgUnitKind } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
 import { Empty, ErrorLine, Field, Icon, LoadError, Modal, Status, can, fmtDate, num, useAction, useMe } from "../../_ui/kit";
 import { StructureModal } from "../../_ui/structure-plan";
@@ -56,7 +56,7 @@ export default function OrganizationPage() {
                   const kids = depts.filter((c) => c.parentId === d.id).length;
                   const br = units.find((u) => u.id === d.branchId);
                   return (
-                    <div key={d.id} style={{ paddingTop: 20 }}><div className="card card-body"><b>{d.name}</b><p className="muted">{num(total(d))} nhân sự{br ? ` · ${br.name}` : ""}</p>
+                    <div key={d.id} style={{ paddingTop: 20 }}><div className="card card-body"><b>{d.name}</b><p className="muted">{num(total(d))} nhân sự{br ? ` · ${br.name}` : ""}</p>{d.head ? <p className="muted" style={{ fontSize: 11.5 }}>Trưởng đơn vị: <b style={{ color: "var(--ink-2)" }}>{d.head.name}</b></p> : null}
                       <span className="status">{kids ? `${kids} phòng ban` : d.code}</span></div></div>
                   );
                 })}
@@ -124,6 +124,7 @@ function UnitModal({ t, edit, onClose, onDone }: { t: OrgTree; edit: Edit; onClo
   const [kind, setKind] = useState<OrgUnitKind>(u?.kind ?? (edit.mode === "create" ? edit.kind : "department"));
   const parent0 = edit.mode === "create" ? edit.parent : undefined;
   const [f, setF] = useState({
+    headEmployeeId: u?.head?.id ?? "",
     code: u?.code ?? "", name: u?.name ?? "", taxCode: u?.taxCode ?? "", jobLevel: u?.jobLevel ?? "", tier: u?.tier ? String(u.tier) : "", effectiveFrom: t.today,
     legalEntityId: parent0?.kind === "legal_entity" ? parent0.id : "",
     branchId: parent0?.kind === "branch" ? parent0.id : parent0?.kind === "department" ? parent0.branchId ?? "" : "",
@@ -133,13 +134,14 @@ function UnitModal({ t, edit, onClose, onDone }: { t: OrgTree; edit: Edit; onClo
   const { busy, run } = useAction();
   const set = (k: keyof typeof f) => (e: { target: { value: string } }) => { setF({ ...f, [k]: e.target.value, ...(k === "branchId" ? { parentId: "" } : {}) }); setErr(null); };
   const live = t.units.filter((x) => x.active);
+  const people = useApi<OrgOptions>(u?.kind === "department" ? "org" : null);
   async function save() {
     if (!f.code.trim() || f.name.trim().length < 2) { setErr("Nhập mã và tên đơn vị."); return; }
     if (!u && kind === "branch" && !f.legalEntityId) { setErr("Chọn pháp nhân."); return; }
     if (!u && kind === "department" && !f.branchId) { setErr("Chọn chi nhánh."); return; }
     await run("save", async () => {
       const r = u
-        ? await call<OrgTree>("PATCH", `organization/units/${u.kind}/${u.id}`, { code: f.code, name: f.name, ...(u.kind === "legal_entity" ? { taxCode: f.taxCode || null } : {}), ...(u.kind === "position" ? { jobLevel: f.jobLevel || null, tier: f.tier ? Number(f.tier) : null } : {}) })
+        ? await call<OrgTree>("PATCH", `organization/units/${u.kind}/${u.id}`, { code: f.code, name: f.name, ...(u.kind === "legal_entity" ? { taxCode: f.taxCode || null } : {}), ...(u.kind === "position" ? { jobLevel: f.jobLevel || null, tier: f.tier ? Number(f.tier) : null } : {}), ...(u.kind === "department" ? { headEmployeeId: f.headEmployeeId || null } : {}) })
         : await call<OrgTree>("POST", "organization/units", { kind, code: f.code, name: f.name, effectiveFrom: f.effectiveFrom, taxCode: f.taxCode || null, jobLevel: f.jobLevel || null, tier: f.tier ? Number(f.tier) : null,
             parentId: kind === "branch" ? f.legalEntityId : kind === "department" ? f.parentId || null : null, branchId: kind === "department" ? f.branchId : null });
       onDone(r); onClose();
@@ -158,6 +160,11 @@ function UnitModal({ t, edit, onClose, onDone }: { t: OrgTree; edit: Edit; onClo
           <Field label="Chi nhánh"><Select value={f.branchId} onChange={set("branchId")}><option value="">Chọn…</option>{live.filter((x) => x.kind === "branch").map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</Select></Field>
           <Field label="Phòng ban cha (không bắt buộc)"><Select value={f.parentId} onChange={set("parentId")} disabled={!f.branchId}><option value="">— Cấp cao nhất —</option>{live.filter((x) => x.kind === "department" && x.branchId === f.branchId).map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</Select></Field>
         </> : null}
+        {u?.kind === "department" ? <Field label="Trưởng đơn vị (không bắt buộc)" full>
+          <Select value={f.headEmployeeId} onChange={set("headEmployeeId")} disabled={!people.data}><option value="">Chưa có</option>
+            {(people.data?.employees ?? []).map((x) => <option key={x.id} value={x.id}>{x.name} · {x.code}{x.position ? ` · ${x.position}` : ""}{x.department && x.department !== u.name ? ` (${x.department})` : ""}</option>)}</Select>
+          <small className="muted" style={{ display: "block", marginTop: 6 }}>Người phụ trách phòng, có thể thuộc phòng khác (vd. Giám đốc kiêm nhiệm). Khi phòng không có ai cấp cao hơn, Kavor gán người này làm quản lý trực tiếp (Sắp xếp tự động, nhập file).</small>
+        </Field> : null}
         {(u?.kind ?? kind) === "legal_entity" ? <Field label="Mã số thuế"><input value={f.taxCode} onChange={set("taxCode")} inputMode="numeric" /></Field> : null}
         {(u?.kind ?? kind) === "position" ? <>
           <Field label="Cấp quản lý"><Select value={f.tier} onChange={set("tier")}><option value="">Chưa đặt</option>

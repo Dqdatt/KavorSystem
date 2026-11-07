@@ -41,7 +41,7 @@ export function importOptions(v: unknown): ImportOptions {
   };
 }
 
-type Dept = { id: string; code: string; name: string; branch_id: string | null; parent_id: string | null; effective_to: string | null };
+type Dept = { id: string; code: string; name: string; branch_id: string | null; parent_id: string | null; head_employee_id: string | null; effective_to: string | null };
 type Pos = { id: string; code: string; name: string; management_tier: ManagementTier | null; effective_from: string; effective_to: string | null };
 type Emp = { id: string; employee_code: string; full_name: string; status: string };
 
@@ -70,7 +70,7 @@ export class EmployeeImport {
     }
     const live = `effective_to.is.null,effective_to.gte.${today}`;
     const [{ data: deps }, { data: brs }, { data: pos }, { data: emps }, { data: map }, plan] = await Promise.all([
-      db.from("departments").select("id, code, name, branch_id, parent_id, effective_to").eq("tenant_id", ctx.tenantId),
+      db.from("departments").select("id, code, name, branch_id, parent_id, head_employee_id, effective_to").eq("tenant_id", ctx.tenantId),
       db.from("branches").select("id, name, legal_entity_id").eq("tenant_id", ctx.tenantId).or(live),
       db.from("positions").select("id, code, name, management_tier, effective_from, effective_to").eq("tenant_id", ctx.tenantId),
       db.from("employees").select("id, employee_code, full_name, status").eq("tenant_id", ctx.tenantId),
@@ -149,7 +149,8 @@ export class EmployeeImport {
     const personOf = new Map(people.map((p) => [p.id, p]));
     const parentCode = new Map(allDept.map((d) => [d.code.toUpperCase(), d.parent_id ? deptCodeById.get(d.parent_id) ?? null : null]));
     const deptNameOf = new Map(allDept.map((d) => [d.code.toUpperCase(), d.name]));
-    const rule = managerRules(people, parentCode);
+    const codeOfEmp = new Map(empList.map((e) => [e.id, e.employee_code.toUpperCase()]));
+    const rule = managerRules(people, parentCode, new Map(allDept.map((d) => [d.code.toUpperCase(), d.head_employee_id ? codeOfEmp.get(d.head_employee_id) ?? null : null])));
     const autoManager = (code: string): { code: string | null; note: string | null } => {
       const me = personOf.get(code)!, p = rule(me, (c) => deptNameOf.get(c) ?? c);
       const name = p.managerId ? personOf.get(p.managerId)?.name : null;

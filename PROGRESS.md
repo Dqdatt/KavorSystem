@@ -143,6 +143,10 @@ ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AG
 - Gửi lời mời kích hoạt hàng loạt (26/10, Claude, phiên cloud): `POST /admin/employees/invite` (tối đa 300 người, gửi lần lượt, người đã kích hoạt/đã nghỉ/
   thiếu email/ngoài phạm vi/vừa mời trong 1 phút bị bỏ qua kèm lý do; audit từng người + 1 dòng tổng). Web Nhân viên: nút "Gửi lời mời (N)" cho người
   chưa mời lần nào trong danh sách đang lọc. Smoke import thêm 4 bước; đã thử trên trình duyệt tự động.
+- Trưởng đơn vị của phòng ban (07/11, Claude): `departments.head_employee_id` (có thể là người phòng khác, vd. Giám đốc kiêm nhiệm; trigger chặn người công
+  ty khác), chọn ở Sửa phòng ban, hiện trên sơ đồ. Quy tắc quản lý mặc định thêm bước: phòng không có ai cấp cao hơn → Trưởng đơn vị (nếu cấp cao hơn) →
+  phòng cha → Ban Giám đốc duy nhất; dùng cho Sắp xếp tự động và nhập file. Migration `202611240001_department_head.sql`. Kiểm: unit 3, pgTAP 2,
+  structure-smoke +3 bước, import-smoke đạt, verify-all --quick đạt, thử trên trình duyệt (chọn trưởng đơn vị, lưu, sơ đồ hiện tên).
 - Sắp xếp tự động ở Cơ cấu tổ chức (07/11, Claude): một bảng đề xuất cấp cho mọi chức danh (hệ cấp bậc chuẩn, `inferTier`) + quản lý trực tiếp cho
   mọi nhân viên đang làm (cấp cao hơn gần nhất cùng phòng → phòng cha → Ban Giám đốc duy nhất; nhiều người cùng cấp thì để HR chọn), HR đổi/bỏ chọn rồi
   áp dụng một lần (`apply_structure_plan`, giữ lịch sử phân công: đóng hôm qua, mở từ hôm nay). Quy tắc dùng chung với nhập file (`apps/api/src/admin/structure.ts`).

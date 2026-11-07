@@ -28,7 +28,7 @@ const ROLE_META: Record<string, { description: string; defaultScope: string; pay
 const ROLE_ORDER = ["tenant_admin", "hr_ops", "payroll", "manager", "auditor"];
 const SCOPE_NAME: Record<string, string> = { tenant: "Toàn công ty", direct_reports: "Nhân viên trực tiếp", self: "Bản thân" };
 
-type UnitRow = { id: string; code: string; name: string; effective_from: string; effective_to: string | null; legal_entity_id?: string; branch_id?: string | null; parent_id?: string | null; tax_code?: string | null; job_level?: string | null; management_tier?: number | null };
+type UnitRow = { id: string; code: string; name: string; effective_from: string; effective_to: string | null; legal_entity_id?: string; branch_id?: string | null; parent_id?: string | null; head_employee_id?: string | null; tax_code?: string | null; job_level?: string | null; management_tier?: number | null };
 
 /* Cấp quản lý 1–4 hoặc trống (null/"") */
 function tierOf(b: Body): number | null | undefined {
@@ -52,7 +52,7 @@ export class OrgAdmin {
     const [le, br, de, po] = await Promise.all([
       db.from("legal_entities").select("id, code, name, tax_code, effective_from, effective_to").eq("tenant_id", tenantId).order("code"),
       db.from("branches").select("id, code, name, legal_entity_id, effective_from, effective_to").eq("tenant_id", tenantId).order("code"),
-      db.from("departments").select("id, code, name, branch_id, parent_id, effective_from, effective_to").eq("tenant_id", tenantId).order("code"),
+      db.from("departments").select("id, code, name, branch_id, parent_id, head_employee_id, effective_from, effective_to").eq("tenant_id", tenantId).order("code"),
       db.from("positions").select("id, code, name, job_level, management_tier, effective_from, effective_to").eq("tenant_id", tenantId).order("code"),
     ]);
     for (const r of [le, br, de, po]) if (r.error) throw r.error;
@@ -65,9 +65,10 @@ export class OrgAdmin {
     const today = await this.today(ctx);
     const [{ le, br, de, po }, { data: emps }] = await Promise.all([
       this.units(ctx.db, ctx.tenantId),
-      ctx.db.from("employees").select("id").eq("tenant_id", ctx.tenantId).neq("status", "terminated"),
+      ctx.db.from("employees").select("id, full_name").eq("tenant_id", ctx.tenantId).neq("status", "terminated"),
     ]);
     const ids = ((emps ?? []) as Array<{ id: string }>).map((e) => e.id);
+    const empName = new Map(((emps ?? []) as Array<{ id: string; full_name: string }>).map((e) => [e.id, e.full_name]));
     const place = await loadPlacements(ctx.db, ctx.tenantId, today, ids);
     const n = new Map<string, number>(); const managers = new Set<string>();
     for (const p of place.values()) {
@@ -78,6 +79,7 @@ export class OrgAdmin {
     const unit = (kind: OrgUnitKind, u: UnitRow, parentId: string | null, branchId: string | null): OrgUnit => ({
       id: u.id, kind, code: u.code, name: u.name, parentId, branchId, taxCode: u.tax_code ?? null, jobLevel: u.job_level ?? null, tier: (u.management_tier ?? null) as ManagementTier | null,
       effectiveFrom: u.effective_from, effectiveTo: u.effective_to, active: live(u), employees: n.get(u.id) ?? 0,
+      head: u.head_employee_id ? { id: u.head_employee_id, name: empName.get(u.head_employee_id) ?? "(đã nghỉ việc)" } : null,
     });
     const units = [
       ...le.map((u) => unit("legal_entity", u, null, null)),
@@ -138,6 +140,14 @@ export class OrgAdmin {
     if (kind === "legal_entity" && b?.taxCode !== undefined) patch.tax_code = nullableText(b, "taxCode", 20) ?? null;
     if (kind === "position" && b?.jobLevel !== undefined) patch.job_level = nullableText(b, "jobLevel", 40) ?? null;
     if (kind === "position" && b?.tier !== undefined) patch.management_tier = tierOf(b) ?? null;
+    if (kind === "department" && b?.headEmployeeId !== undefined) {
+      const head = b.headEmployeeId === null || b.headEmployeeId === "" ? null : uuid(b, "headEmployeeId")!;
+      if (head) {
+        const { data: e } = await ctx.db.from("employees").select("id").eq("id", head).eq("tenant_id", ctx.tenantId).neq("status", "terminated").maybeSingle();
+        if (!e) throw invalid("Trưởng đơn vị phải là nhân viên đang làm của công ty.");
+      }
+      patch.head_employee_id = head;
+    }
     const changed = Object.fromEntries(Object.entries(patch).filter(([k, v]) => (before as Record<string, unknown>)[k] !== v));
     if (!Object.keys(changed).length) throw invalid("Không có thay đổi.");
     const { error } = await ctx.db.from(TABLE[kind]).update(changed).eq("id", id).eq("tenant_id", ctx.tenantId);

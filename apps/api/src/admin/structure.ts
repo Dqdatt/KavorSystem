@@ -10,9 +10,9 @@ import type { Body } from "./validate.js";
 export type StructPerson = { id: string; name: string; dept: string | null; tier: ManagementTier | null };
 export type Proposal = { managerId: string | null; note: string | null };
 
-/* Người cấp cao hơn gần nhất trong cùng phòng; phòng không có ai → lên phòng cha (lặp); hết chuỗi → Ban Giám đốc nếu công ty chỉ có một người.
-   Nhiều người cùng cấp ở nơi tìm thấy → không đoán. */
-export function managerRules(people: StructPerson[], parentOf: Map<string, string | null>) {
+/* Mỗi phòng (từ phòng mình lên phòng cha): người cấp cao hơn gần nhất trong phòng, không có thì Trưởng đơn vị của phòng (nếu cấp cao hơn mình);
+   hết chuỗi → Ban Giám đốc nếu công ty chỉ có một người. Nhiều người cùng cấp ở nơi tìm thấy → không đoán. */
+export function managerRules(people: StructPerson[], parentOf: Map<string, string | null>, headOf: Map<string, string | null> = new Map()) {
   const byDept = new Map<string, StructPerson[]>();
   for (const p of people) if (p.dept) byDept.set(p.dept, [...(byDept.get(p.dept) ?? []), p]);
   const bod = people.filter((p) => p.tier === 4);
@@ -23,7 +23,11 @@ export function managerRules(people: StructPerson[], parentOf: Map<string, strin
     for (let d = me.dept, hop = 0; d && !seen.has(d); d = parentOf.get(d) ?? null, hop++) {
       seen.add(d);
       const above = (byDept.get(d) ?? []).filter((p) => p.id !== me.id && (p.tier ?? 1) > t);
-      if (!above.length) continue;
+      if (!above.length) {
+        const head = headOf.get(d) ? people.find((p) => p.id === headOf.get(d)) : undefined;
+        if (head && head.id !== me.id && (head.tier ?? 1) > t) return { managerId: head.id, note: `Trưởng đơn vị ${hop ? `phòng cấp trên ${deptName(d)}` : "của phòng"}` };
+        continue;
+      }
       const min = Math.min(...above.map((p) => p.tier ?? 1)) as ManagementTier, at = above.filter((p) => (p.tier ?? 1) === min);
       const where = hop ? `phòng cấp trên ${deptName(d)}` : "cùng phòng";
       if (at.length === 1) return { managerId: at[0]!.id, note: `${MANAGEMENT_TIERS[min]} ${where}` };
@@ -56,12 +60,12 @@ export class StructureAdmin {
     const today = localParts(new Date(), (await tenantSettings(this.sb, ctx.tenantId)).timezone).date;
     const live = `effective_to.is.null,effective_to.gte.${today}`;
     const [{ data: deps, error: e1 }, { data: pos, error: e2 }, { data: emps, error: e3 }] = await Promise.all([
-      db.from("departments").select("id, name, parent_id").eq("tenant_id", ctx.tenantId).or(live),
+      db.from("departments").select("id, name, parent_id, head_employee_id").eq("tenant_id", ctx.tenantId).or(live),
       db.from("positions").select("id, code, name, management_tier").eq("tenant_id", ctx.tenantId).or(live).order("name"),
       db.from("employees").select("id, employee_code, full_name").eq("tenant_id", ctx.tenantId).neq("status", "terminated"),
     ]);
     if (e1 || e2 || e3) throw e1 ?? e2 ?? e3;
-    const depts = (deps ?? []) as Array<{ id: string; name: string; parent_id: string | null }>;
+    const depts = (deps ?? []) as Array<{ id: string; name: string; parent_id: string | null; head_employee_id: string | null }>;
     const positions = (pos ?? []) as Array<{ id: string; code: string; name: string; management_tier: ManagementTier | null }>;
     const employees = (emps ?? []) as Array<{ id: string; employee_code: string; full_name: string }>;
     const place = employees.length ? await loadPlacements(db, ctx.tenantId, today, employees.length <= 100 ? employees.map((e) => e.id) : undefined) : new Map();
@@ -73,7 +77,7 @@ export class StructureAdmin {
       return { id: e.id, name: e.full_name, dept: pl.department_id, tier: tierOf.get(pl.position_id) ?? null };
     });
     const personOf = new Map(people.map((p) => [p.id, p]));
-    const rule = managerRules(people, new Map(depts.map((d) => [d.id, d.parent_id])));
+    const rule = managerRules(people, new Map(depts.map((d) => [d.id, d.parent_id])), new Map(depts.map((d) => [d.id, d.head_employee_id])));
     const posName = new Map(positions.map((p) => [p.id, p.name]));
     const nameOf = new Map(employees.map((e) => [e.id, e.full_name]));
     const skip = new Set(input.skip);
