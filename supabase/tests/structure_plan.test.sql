@@ -16,7 +16,7 @@ select set_config('test.pos', (current_setting('test.org')::jsonb ->> 'position_
 select is(public.apply_structure_plan(current_setting('test.t')::uuid, '2026-11-07',
   jsonb_build_array(jsonb_build_object('id', current_setting('test.pos'), 'tier', 2)),
   jsonb_build_array(jsonb_build_object('employee_id', current_setting('test.emp'), 'manager_id', current_setting('test.boss')))),
-  '{"tiers": 1, "managers": 1}'::jsonb, 'Đặt 1 cấp, đổi 1 quản lý');
+  '{"tiers": 1, "managers": 1, "grants": 0}'::jsonb, 'Đặt 1 cấp, đổi 1 quản lý');
 select is((select management_tier::int from public.positions where id = current_setting('test.pos')::uuid), 2, 'Cấp chức danh đã đặt');
 select is((select effective_to from public.employee_assignments where employee_id = current_setting('test.emp')::uuid and effective_from = '2026-01-05'), '2026-11-06'::date, 'Phân công cũ đóng hôm qua');
 select is((select manager_employee_id::text from public.employee_assignments where employee_id = current_setting('test.emp')::uuid and effective_from = '2026-11-07'), current_setting('test.boss'), 'Phân công mới từ hôm nay có quản lý');

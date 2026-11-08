@@ -32,5 +32,5 @@ test("trưởng đơn vị: phòng không có ai cấp cao hơn → trưởng đ
 
 test("đầu vào Sắp xếp tự động: chỉ nhận id hợp lệ và cấp 1–4", () => {
   const id = "11111111-1111-4111-8111-111111111111";
-  assert.deepEqual(structureInput({ tiers: { [id]: 2, x: 3, [id.replace(/1$/, "2")]: 9 }, overwrite: "yes", skip: [id, "bad"] }), { tiers: { [id]: 2 }, overwrite: false, skip: [id] });
+  assert.deepEqual(structureInput({ tiers: { [id]: 2, x: 3, [id.replace(/1$/, "2")]: 9 }, overwrite: "yes", skip: [id, "bad"] }), { tiers: { [id]: 2 }, overwrite: false, skip: [id], grantManager: false, skipGrant: [] });
 });

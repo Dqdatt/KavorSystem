@@ -114,9 +114,11 @@ export class EmployeesAdmin {
       .eq("tenant_id", ctx.tenantId).in("memberships.employee_id", ids).neq("roles.code", "employee").lte("effective_from", today);
     if (error) throw error;
     for (const a of (data ?? []) as unknown as Array<{ scope_type: string; effective_to: string | null; roles: { code: string; name: string }; memberships: { employee_id: string; status: string } }>) {
-      if ((a.effective_to && a.effective_to < today) || a.memberships.status !== "active") continue;
+      /* Tài khoản bị khóa: không tính. Chưa kích hoạt: vẫn hiện (quyền có tác dụng khi người đó kích hoạt) */
+      if ((a.effective_to && a.effective_to < today) || a.memberships.status === "suspended") continue;
+      const scope = `${SCOPE_LABEL[a.scope_type] ?? a.scope_type}${a.memberships.status === "active" ? "" : " · chờ kích hoạt tài khoản"}`;
       const list = out.get(a.memberships.employee_id) ?? [];
-      if (!list.some((r) => r.code === a.roles.code && r.scope === (SCOPE_LABEL[a.scope_type] ?? a.scope_type))) list.push({ code: a.roles.code, name: a.roles.name, scope: SCOPE_LABEL[a.scope_type] ?? a.scope_type });
+      if (!list.some((r) => r.code === a.roles.code && r.scope === scope)) list.push({ code: a.roles.code, name: a.roles.name, scope });
       out.set(a.memberships.employee_id, list);
     }
     return out;
@@ -169,8 +171,15 @@ export class EmployeesAdmin {
     ]);
     const personal = personalMap.get(id)!;
     const roles = rolesMap.get(id) ?? [];
+    /* Cấp bậc (theo chức danh) + số người đang báo cáo trực tiếp — để tách bạch với quyền trên Kavor */
+    const [{ data: pos }, { count: reports }] = await Promise.all([
+      p ? ctx.db.from("positions").select("management_tier").eq("id", p.position_id).maybeSingle() : Promise.resolve({ data: null }),
+      ctx.db.from("employee_assignments").select("id", { count: "exact", head: true }).eq("tenant_id", ctx.tenantId).eq("manager_employee_id", id).eq("is_primary", true)
+        .lte("effective_from", today).or(`effective_to.is.null,effective_to.gte.${today}`),
+    ]);
     return {
       ...item!, personal, roles,
+      tier: ((pos as { management_tier: number | null } | null)?.management_tier ?? null) as ManagementTier | null, directReports: reports ?? 0,
       legalEntity: p ? { id: p.legal_entity_id, name: org.names.get(p.legal_entity_id) ?? "—" } : null,
       manager: p?.manager_employee_id ? { id: p.manager_employee_id, name: org.names.get(p.manager_employee_id) ?? "—" } : null,
       assignmentFrom: p?.effective_from ?? null, terminationDate: row.termination_date,

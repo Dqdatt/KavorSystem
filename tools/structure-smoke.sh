@@ -35,5 +35,12 @@ _a=$(call POST admin/organization/structure/apply "$HR" '{}') || :
 check "Áp dụng đúng số thay đổi đã xem trước" "$(echo "$_a" | py "d['applied']['managers']")" "$WANT"
 check "Sau khi áp dụng không còn đề xuất đổi quản lý" "$(echo "$_a" | py "d['changes']['managers']")" 0
 check "Đổi quản lý mở phân công mới từ hôm nay (giữ lịch sử)" "$(sql "select count(*) >= $WANT from public.employee_assignments where tenant_id='$HDG' and effective_from='$TODAY'")" t
-check "Audit organization.structure_applied" "$(sql "select count(*) from public.audit_logs where tenant_id='$HDG' and action='organization.structure_applied'")" 1
+echo "— Cấp quyền Quản lý cho người quản lý"
+_g=$(call POST admin/organization/structure/plan "$HR" '{"grantManager":true}') || :
+WANT_G=$(echo "$_g" | py "d['changes']['grants']")
+check "Có người quản lý chưa có quyền duyệt được đề xuất" "$(echo "$_g" | py "d['changes']['grants'] > 0 and d['canGrant']")" True
+_a2=$(call POST admin/organization/structure/apply "$HR" '{"grantManager":true}') || :
+check "Áp dụng gán đúng số vai trò Quản lý (phạm vi Nhân viên trực tiếp)" "$(echo "$_a2" | py "(d['applied']['grants'], d['changes']['grants'])"):$(sql "select count(*) from public.role_assignments ra join public.roles r on r.id = ra.role_id where ra.tenant_id='$HDG' and r.code='manager' and ra.scope_type='direct_reports' and ra.effective_from='$TODAY'")" "($WANT_G, 0):$WANT_G"
+check "Mặc định không gán quyền khi không chọn" "$(call POST admin/organization/structure/plan "$HR" '{}' | py "d['changes']['grants']")" 0
+check "Audit organization.structure_applied" "$(sql "select count(*) from public.audit_logs where tenant_id='$HDG' and action='organization.structure_applied'")" 2
 echo "Tất cả bước Sắp xếp tự động đều đạt."

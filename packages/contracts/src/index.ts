@@ -389,6 +389,8 @@ export type EmployeeDetail = EmployeeListItem & {
   personal: PersonalInfo;
   /* Vai trò đang giữ (còn hiệu lực hôm nay, trừ Nhân viên): một người giữ được nhiều vai trò, quyền cộng dồn */
   roles: Array<{ code: string; name: string; scope: string }>;
+  /* Cấp bậc theo chức danh (khác quyền trên Kavor) + số người đang báo cáo trực tiếp */
+  tier: ManagementTier | null; directReports: number;
 };
 
 export type EmployeeUpsert = {
@@ -450,9 +452,14 @@ export type StructureRow = {
   employeeId: string; code: string; name: string; department: string | null; position: string | null; tier: ManagementTier | null;
   current: { id: string; name: string } | null; currentOk: boolean; proposed: { id: string; name: string } | null; change: boolean; note: string | null;
 };
-export type StructurePlan = { today: string; positions: StructurePosition[]; rows: StructureRow[]; changes: { tiers: number; managers: number } };
-/* tiers: cấp HR chọn theo id chức danh; overwrite: đề xuất lại cả người đã có quản lý hợp lệ; skip: nhân viên HR bỏ chọn */
-export type StructureInput = { tiers?: Record<string, ManagementTier>; overwrite?: boolean; skip?: string[] };
+export type StructureGrant = { employeeId: string; name: string; position: string | null; reports: number; selected: boolean };
+export type StructurePlan = {
+  today: string; positions: StructurePosition[]; rows: StructureRow[]; grants: StructureGrant[]; canGrant: boolean;
+  changes: { tiers: number; managers: number; grants: number };
+};
+/* tiers: cấp HR chọn theo id chức danh; overwrite: đề xuất lại cả người đã có quản lý hợp lệ; skip: nhân viên HR bỏ chọn;
+   grantManager: gán vai trò Quản lý (Nhân viên trực tiếp) cho người đang/ sẽ quản lý người khác mà chưa có quyền duyệt; skipGrant: bỏ chọn */
+export type StructureInput = { tiers?: Record<string, ManagementTier>; overwrite?: boolean; skip?: string[]; grantManager?: boolean; skipGrant?: string[] };
 export const managerTierOk = (manager: number | null | undefined, employee: number | null | undefined) =>
   manager == null || employee == null || manager > employee || (manager === 4 && employee === 4);
 

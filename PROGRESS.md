@@ -143,6 +143,10 @@ ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AG
 - Gửi lời mời kích hoạt hàng loạt (26/10, Claude, phiên cloud): `POST /admin/employees/invite` (tối đa 300 người, gửi lần lượt, người đã kích hoạt/đã nghỉ/
   thiếu email/ngoài phạm vi/vừa mời trong 1 phút bị bỏ qua kèm lý do; audit từng người + 1 dòng tổng). Web Nhân viên: nút "Gửi lời mời (N)" cho người
   chưa mời lần nào trong danh sách đang lọc. Smoke import thêm 4 bước; đã thử trên trình duyệt tự động.
+- Cấp bậc ≠ quyền (08/11, Claude): hồ sơ hiện "Cấp bậc" (theo chức danh, kèm số người đang quản lý) và "Quyền trên Kavor" (vai trò; tài khoản chưa
+  kích hoạt vẫn hiện, ghi "chờ kích hoạt"); nhắc khi đang quản lý người khác mà chưa có quyền duyệt. Sắp xếp tự động thêm "Gán vai trò Quản lý (Nhân viên
+  trực tiếp)" cho người sẽ quản lý mà chưa có Quản lý/HCNS/Quản trị viên — HR bỏ chọn được, cần `role.assign` toàn công ty, cùng giao dịch
+  (`202611260001_structure_grant_manager.sql`), audit `role.granted`. Sửa smoke approvers theo hành vi nhập mới (vòng/sai cấp = cảnh báo, bỏ quản lý).
 - Xuống dòng hợp lý toàn web (07/11, Claude): `Phrases` (kit) ngắt sau dấu phẩy/chấm giữa, giữ nguyên tên riêng ("Quảng Ngãi"); số dính đơn vị (`50 m`, `₫`); `text-wrap: balance/pretty`; nhãn viên/nút không xuống dòng; ô phòng ban/chức danh tối thiểu 120px. Đã xem hồ sơ + danh sách ở 900px.
 - Hồ sơ nhân viên web: modal rộng cao cố định, chia tab (Tổng quan · Cá nhân · Chấm công · Lương · Đơn từ · Lịch sử; tab ẩn theo quyền), Tổng quan 2 cột, tab một mục chia dòng thông tin 2 cột; `.detail-row` không đè nhãn khi giá trị dài (07/11, Claude). Đã xem từng tab trên trình duyệt.
 - Nhập nhân viên giai đoạn 2 — hồ sơ chi tiết (07/11, Claude): ngày sinh, giới tính, CCCD, địa chỉ, sổ BHXH, MST, ngân hàng, lương cơ bản/đóng BHXH;

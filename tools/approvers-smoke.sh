@@ -68,6 +68,7 @@ check "Checklist: không sai, còn chức danh chưa đặt cấp" "$(call GET a
 CSV=$(mktemp); printf 'employee_code,full_name,work_email,hire_date,employment_type,department_code,position_code,manager_code\nTS010,Mười,muoi@tsd.test,%s,official,HCNS,QTV,TS011\nTS011,Mười Một,muoimot@tsd.test,%s,official,HCNS,QTV,TS010\nTS012,Mười Hai,muoihai@tsd.test,%s,official,HCNS,QL,TS002X\nTS013,Mười Ba,muoiba@tsd.test,%s,official,HCNS,QL,TS005\nTS005,Năm,nam@tsd.test,%s,official,HCNS,NV,\n' "$TODAY" "$TODAY" "$TODAY" "$TODAY" "$TODAY" > "$CSV"
 B=$(python3 -c "import json,sys; print(json.dumps({'fileName':'x.csv','csv':open(sys.argv[1],encoding='utf-8').read(),'dryRun':True}))" "$CSV"); rm -f "$CSV"
 r=$(call POST admin/employees/import "$ADM" "$B")
-check "Nhập file: vòng quản lý giữa hai dòng mới bị báo lỗi" "$(echo "$r" | py "[any('vòng' in e for e in x['errors']) for x in d['rows'] if x['code'] in ('TS010','TS011')]")" "[True, True]"
-check "Nhập file: quản lý cấp thấp hơn (Nhân viên quản lý Quản lý) bị báo lỗi" "$(echo "$r" | py "[any('cấp cao hơn' in e for e in x['errors']) for x in d['rows'] if x['code']=='TS013']")" "[True]"
+# Nhập file không chặn dòng vì quản lý (docs/plans/employee-import.md): vòng quản lý / sai cấp → bỏ quản lý + cảnh báo, gán sau
+check "Nhập file: hai dòng mới quản lý lẫn nhau → không ghi vòng (bỏ quản lý + cảnh báo, không chặn dòng)" "$(echo "$r" | py "[(x['action'], x['manager'], len(x['warnings']) > 0) for x in d['rows'] if x['code'] in ('TS010','TS011')]")" "[('create', None, True), ('create', None, True)]"
+check "Nhập file: quản lý cấp thấp hơn (Nhân viên quản lý Quản lý) → cảnh báo, bỏ quản lý" "$(echo "$r" | py "[(x['manager'], any('không cao hơn' in w for w in x['warnings'])) for x in d['rows'] if x['code']=='TS013']")" "[(None, True)]"
 echo "Tất cả bước người duyệt ở công ty mới đều đạt."

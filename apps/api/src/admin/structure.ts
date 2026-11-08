@@ -45,8 +45,8 @@ const UUID = /^[0-9a-f-]{36}$/i;
 export function structureInput(b: Body): Required<StructureInput> {
   const raw = b?.tiers && typeof b.tiers === "object" && !Array.isArray(b.tiers) ? b.tiers as Record<string, unknown> : {};
   const tiers = Object.fromEntries(Object.entries(raw).filter(([k, v]) => UUID.test(k) && [1, 2, 3, 4].includes(v as number)).slice(0, 2000)) as Record<string, ManagementTier>;
-  const skip = Array.isArray(b?.skip) ? (b.skip as unknown[]).filter((x): x is string => typeof x === "string" && UUID.test(x)).slice(0, 5000) : [];
-  return { tiers, overwrite: b?.overwrite === true, skip };
+  const ids = (v: unknown) => Array.isArray(v) ? (v as unknown[]).filter((x): x is string => typeof x === "string" && UUID.test(x)).slice(0, 5000) : [];
+  return { tiers, overwrite: b?.overwrite === true, skip: ids(b?.skip), grantManager: b?.grantManager === true, skipGrant: ids(b?.skipGrant) };
 }
 
 export class StructureAdmin {
@@ -96,20 +96,37 @@ export class StructureAdmin {
         note: currentOk && !input.overwrite ? "Giữ quản lý hiện tại (đúng cấp)" : p.note ?? (curId && !currentOk ? "Quản lý hiện tại sai cấp hoặc đã nghỉ" : null),
       };
     }).sort((a, b) => (a.department ?? "").localeCompare(b.department ?? "", "vi") || (b.tier ?? 1) - (a.tier ?? 1) || a.name.localeCompare(b.name, "vi"));
+    /* Người sẽ quản lý người khác sau khi áp dụng mà chưa có vai trò duyệt (Quản lý / Nhân sự vận hành / Quản trị viên) → đề xuất gán Quản lý */
+    const reports = new Map<string, number>();
+    for (const r of rows) { const m = r.change ? r.proposed?.id : r.current?.id; if (m) reports.set(m, (reports.get(m) ?? 0) + 1); }
+    const { data: ra, error: e4 } = await db.from("role_assignments").select("roles!inner(code), memberships!inner(employee_id)")
+      .eq("tenant_id", ctx.tenantId).lte("effective_from", today).or(`effective_to.is.null,effective_to.gte.${today}`);
+    if (e4) throw e4;
+    const approver = new Set(((ra ?? []) as unknown as Array<{ roles: { code: string }; memberships: { employee_id: string } }>)
+      .filter((x) => ["manager", "tenant_admin", "hr_ops"].includes(x.roles.code)).map((x) => x.memberships.employee_id));
+    const placeOf = (id: string) => place.get(id);
+    const grants = [...reports].filter(([id]) => !approver.has(id) && nameOf.has(id)).map(([id, n]) => ({
+      employeeId: id, name: nameOf.get(id)!, position: posName.get(placeOf(id)?.position_id ?? "") ?? null, reports: n,
+      selected: input.grantManager && !input.skipGrant.includes(id),
+    })).sort((a, b) => b.reports - a.reports || a.name.localeCompare(b.name, "vi"));
     const outPos = positions.map((p) => ({ id: p.id, code: p.code, name: p.name, current: p.management_tier, suggested: inferTier(p.name), tier: tierOf.get(p.id)!,
       people: people.filter((x) => place.get(x.id)?.position_id === p.id).length }));
-    return { today, positions: outPos, rows, changes: { tiers: outPos.filter((p) => p.tier !== p.current).length, managers: rows.filter((r) => r.change).length } };
+    return { today, positions: outPos, rows, grants, canGrant: ctx.tenantWide("role.assign"),
+      changes: { tiers: outPos.filter((p) => p.tier !== p.current).length, managers: rows.filter((r) => r.change).length, grants: grants.filter((g) => g.selected).length } };
   }
 
-  async apply(ctx: AdminContext, b: Body): Promise<StructurePlan & { applied: { tiers: number; managers: number } }> {
+  async apply(ctx: AdminContext, b: Body): Promise<StructurePlan & { applied: { tiers: number; managers: number; grants: number } }> {
     /* Tính lại ở máy chủ từ cùng lựa chọn (không tin danh sách client gửi) */
     const plan = await this.plan(ctx, b);
     const tiers = plan.positions.filter((p) => p.tier !== p.current).map((p) => ({ id: p.id, tier: p.tier }));
     const managers = plan.rows.filter((r) => r.change).map((r) => ({ employee_id: r.employeeId, manager_id: r.proposed!.id }));
-    const { data, error } = await ctx.db.rpc("apply_structure_plan", { p_tenant: ctx.tenantId, p_today: plan.today, p_tiers: tiers, p_managers: managers });
+    const grantIds = plan.grants.filter((g) => g.selected).map((g) => g.employeeId);
+    if (grantIds.length) ctx.requireTenantWide("role.assign");
+    const { data, error } = await ctx.db.rpc("apply_structure_plan", { p_tenant: ctx.tenantId, p_today: plan.today, p_tiers: tiers, p_managers: managers, p_grants: grantIds });
     if (error) throw error;
-    const applied = data as { tiers: number; managers: number };
-    await ctx.audit("organization.structure_applied", "tenant", ctx.tenantId, null, { tiers, managers, applied });
+    const applied = data as { tiers: number; managers: number; grants: number };
+    await ctx.audit("organization.structure_applied", "tenant", ctx.tenantId, null, { tiers, managers, grants: grantIds, applied });
+    for (const id of grantIds) await ctx.audit("role.granted", "employee", id, null, { role: "manager", scope_type: "direct_reports", effective_from: plan.today, source: "structure_plan" });
     return { ...(await this.plan(ctx, { tiers: Object.fromEntries(plan.positions.map((p) => [p.id, p.tier])) })), applied };
   }
 }

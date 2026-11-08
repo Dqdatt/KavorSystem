@@ -2,7 +2,7 @@
 import { Fragment, Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { AdminDevice, BulkInviteResult, EmployeeDetail, EmployeeListItem, EmployeeStatus, EmploymentType, OrgOptions, RequestItem, RequestQueue } from "@kavor/contracts";
-import { managerTierOk, type AdminMe } from "@kavor/contracts";
+import { MANAGEMENT_TIERS, MANAGEMENT_TIERS_EN, managerTierOk, type AdminMe } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
 import { EmployeePaySection } from "./pay";
 import {
@@ -137,7 +137,11 @@ function EmployeeDrawer({ id, onClose, onEdit, onChanged }: { id: string; onClos
             <div className="detail-row"><span>Chức danh</span><b>{e.position?.name ?? "—"}</b></div>
             <div className="detail-row"><span>Chi nhánh · pháp nhân</span><b><Phrases text={`${e.branch?.name ?? "—"} · ${e.legalEntity?.name ?? "—"}`} /></b></div>
             <div className="detail-row"><span>Quản lý trực tiếp</span><b>{e.manager?.name ?? "—"}</b></div>
-            <div className="detail-row"><span>Vai trò</span><b><Phrases text={e.roles.length ? e.roles.map((r) => `${r.name} (${r.scope})`).join(", ") : "Nhân viên"} /></b></div>
+            <div className="detail-row"><span>Cấp bậc</span><b>{e.tier ? `${MANAGEMENT_TIERS[e.tier]} (${MANAGEMENT_TIERS_EN[e.tier]})` : "Chưa đặt"}{e.directReports ? ` · quản lý ${e.directReports} người` : ""}</b></div>
+            {/* Cấp bậc theo chức danh; quyền xem/duyệt trên web theo vai trò được gán — hai thứ tách nhau */}
+            <div className="detail-row"><span>Quyền trên Kavor</span><b><Phrases text={e.roles.length ? e.roles.map((r) => `${r.name} (${r.scope})`).join(", ") : "Nhân viên (chỉ dùng app)"} /></b></div>
+            {e.directReports && !e.roles.some((r) => ["manager", "tenant_admin", "hr_ops"].includes(r.code)) ? <p className="text-amber" style={{ fontSize: 12, margin: "8px 0 2px" }}>
+              Đang quản lý {e.directReports} người nhưng chưa có quyền duyệt: chưa xem đơn, bảng công của cấp dưới trên web. <a href="/roles">Gán vai trò Quản lý</a> hoặc dùng Sắp xếp tự động ở Cơ cấu tổ chức.</p> : null}
             <div className="detail-row"><span>Email công ty</span><b>{e.email ?? "—"}</b></div>
             <div className="detail-row"><span>Điện thoại</span><b>{e.phone ?? "—"}</b></div>
             <div className="detail-row"><span>Ngày vào làm · loại HĐ</span><b>{fmtDate(e.hireDate)} · {EMPLOYMENT[e.employmentType]}</b></div>
