@@ -2,7 +2,7 @@
    Không ghi số tiền, CSV, tên file hay note nhập vào audit/log. */
 import type {
   MyPayslip, MyPayslips, PayComponent, PayrollAction, PayrollBatch, PayrollBoard, PayrollCycle,
-  PayrollDetail, PayrollEvent, PayrollImportOutcome, PayrollIssue, PayrollResult, PayrollStatus, PayrollTransition,
+  PayrollComputePreview, PayrollComputeRow, PayrollDetail, PayrollEvent, PayrollImportOutcome, PayrollInputRow, PayrollIssue, PayrollLawParams, PayrollResult, PayrollStatus, PayrollTransition,
 } from "@kavor/contracts";
 import { AuthError, type EmployeeRow } from "../auth/auth.service.js";
 import type { SupabaseGateway } from "../auth/supabase.js";
@@ -10,6 +10,9 @@ import { conflict, forbidden, invalid, notFound, type AdminContext } from "../ad
 import { date, nullableText, req, type Body } from "../admin/validate.js";
 import { EMP_LITE, MONTH, type EmployeeLite, type TimesheetService } from "../timesheet/timesheet.service.js";
 import { issue, readCsv, validateCsv, type ImportRow } from "./csv.js";
+import { computeCycleRow, type PayItemMeta } from "./cycle-calc.js";
+import { lawAt } from "./law.js";
+import { payrollConfigOf } from "../admin/settings.service.js";
 
 type Db = SupabaseGateway["admin"];
 type CycleRow = {
@@ -47,6 +50,7 @@ function dbError(e: unknown): never {
   if (message.includes("PAYROLL_REOPEN_REASON_REQUIRED")) throw invalid("Lý do mở lại cần ít nhất 5 ký tự.");
   if (err.code === "23505") throw conflict("Kỳ lương hoặc dữ liệu này đã tồn tại.");
   if (/PAYROLL_(RESULTS_LOCKED|TRANSITION_INVALID|IMPORT_NOT_READY|BATCH_MISMATCH|BATCH_ALREADY_APPLIED|IMPORT_HAS_ERRORS)/.test(message)) throw conflict("Trạng thái kỳ hoặc lần nhập đã thay đổi; cần file hợp lệ đã áp thành công trước khi gửi/duyệt.");
+  console.error("[payroll] lỗi DB", err.code ?? "", message.slice(0, 300));
   throw new AuthError("INTERNAL_ERROR", "Không xử lý được dữ liệu lương. Vui lòng thử lại.", 500, true);
 }
 
@@ -251,6 +255,72 @@ export class PayrollService {
     const { data: batch, error: batchErr } = await ctx.db.from("payroll_import_batches").select("id, file_name, total_rows, error_rows, warnings, created_by, created_at").eq("tenant_id", ctx.tenantId).eq("id", bid).single();
     if (batchErr) dbError(batchErr);
     return { cycle: cycleView(await this.cycle(ctx.db, ctx.tenantId, month)), batch: batchView(batch as BatchRow, applied) };
+  }
+
+  /* Kavor tính kỳ lương từ bảng lương đầu vào đã chốt (cài đặt + danh mục khoản của công ty, tham số luật Kavor). dryRun (mặc định) = xem trước;
+     ghi = một lần "nhập" qua record_payroll_import + replace_payroll_results như file, nên duyệt/công bố/phiếu lương giữ nguyên. */
+  async compute(ctx: AdminContext, month: string, b: Body): Promise<PayrollComputePreview | PayrollImportOutcome> {
+    const c = await this.scopedCycle(ctx, month, "payroll.import");
+    ctx.require("compensation.read");
+    if (!["open", "prepared", "under_review"].includes(c.status)) throw conflict("Kỳ lương đã duyệt, không tính lại được.");
+    const dryRun = b?.dryRun !== false;
+    const [{ data: sheets, error: e1 }, { data: laws, error: e2 }, { data: ts }, { data: pi, error: e3 }, allowed] = await Promise.all([
+      ctx.db.from("payroll_input_sheets").select("rows, finalized_at").eq("tenant_id", ctx.tenantId).eq("month", month).order("finalized_at", { ascending: false }).limit(1),
+      ctx.db.from("payroll_law_versions").select("effective_from, params, sources"),
+      ctx.db.from("tenant_settings").select("payroll_settings").eq("tenant_id", ctx.tenantId).maybeSingle(),
+      ctx.db.from("pay_items").select("id, name, pay_mode, insurable, tax_mode, tax_free_cap").eq("tenant_id", ctx.tenantId),
+      ctx.scopedEmployeeIds("payroll.import"),
+    ]);
+    if (e1 || e2 || e3) dbError((e1 ?? e2 ?? e3)!);
+    const sheet = (sheets ?? [])[0] as { rows: PayrollInputRow[]; finalized_at: string } | undefined;
+    if (!sheet) throw conflict("Chưa chốt bảng lương đầu vào tháng này — chốt ở tab Bảng lương đầu vào trước.");
+    const law = lawAt((laws ?? []) as Array<{ effective_from: string; params: PayrollLawParams; sources: Array<{ item: string; ref: string; verified: boolean }> }>, c.period_end);
+    if (!law) throw conflict(`Chưa có tham số luật lương hiệu lực ngày ${c.period_end}.`);
+    const config = payrollConfigOf((ts as { payroll_settings?: unknown } | null)?.payroll_settings);
+    const items = new Map(((pi ?? []) as Array<{ id: string; name: string; pay_mode: PayItemMeta["payMode"]; insurable: boolean; tax_mode: PayItemMeta["taxMode"]; tax_free_cap: number | null }>)
+      .map((x) => [x.id, { id: x.id, name: x.name, payMode: x.pay_mode, insurable: x.insurable, taxMode: x.tax_mode, taxFreeCap: x.tax_free_cap }]));
+    const rows: PayrollComputeRow[] = [], skipped: PayrollComputePreview["skipped"] = [];
+    let employerCost = 0;
+    for (const r of sheet.rows) {
+      if (!allowed.has(r.employee.id)) continue;
+      const out = computeCycleRow(r, items, config, law.params, law.effective_from);
+      if ("skip" in out) { skipped.push({ code: r.employee.code, fullName: r.employee.fullName, reason: out.skip }); continue; }
+      employerCost += out.calc.totals.employerCost;
+      rows.push({ employee: { id: r.employee.id, code: r.employee.code, fullName: r.employee.fullName, department: r.employee.department }, workDays: r.credited,
+        gross: out.gross, deduction: out.deduction, net: out.net, lines: out.lines, warnings: [...new Set(out.warnings)] });
+    }
+    const sum = (k: "gross" | "deduction" | "net") => rows.reduce((n, x) => n + x[k], 0);
+    const unverified = law.sources.filter((x) => !x.verified).map((x) => `${x.item}: ${x.ref}`);
+    const preview: PayrollComputePreview = { month, sheetFinalizedAt: sheet.finalized_at, lawFrom: law.effective_from, unverified, config, rows, skipped,
+      totals: { employees: rows.length, gross: sum("gross"), deduction: sum("deduction"), net: sum("net"), employerCost } };
+    if (dryRun) return preview;
+    if (!rows.length) throw invalid("Không có nhân viên nào tính được.");
+    /* Thành phần lương cho phiếu: tạo nếu chưa có (mã cố định; khoản danh mục = ITEM_<id>) */
+    const need = new Map<string, { name: string; kind: "earning" | "deduction" | "net"; order: number }>([["NET", { name: "Thực nhận", kind: "net", order: 900 }]]);
+    const ORDER: Record<string, number> = { BASE: 10, OT_PAY: 60, INS_SI: 110, INS_HI: 111, INS_UI: 112, UNION_FEE: 120, PIT: 130, ADVANCE: 140 };
+    for (const x of rows) for (const l of x.lines) if (!need.has(l.code)) need.set(l.code, { name: l.name, kind: l.kind, order: ORDER[l.code] ?? 30 });
+    const have = new Map((await this.components(ctx.db, ctx.tenantId)).map((x) => [x.code, x.id]));
+    const missing = [...need].filter(([code]) => !have.has(code)).map(([code, v]) => ({ tenant_id: ctx.tenantId, code, name: v.name.slice(0, 200), kind: v.kind, display_order: v.order }));
+    if (missing.length) {
+      /* Bảng danh mục chỉ ghi qua máy chủ (RLS chặn client); đã kiểm payroll.import trên kỳ ở trên */
+      const { error } = await this.sb.admin.from("pay_components").upsert(missing, { onConflict: "tenant_id,code", ignoreDuplicates: true });
+      if (error) dbError(error);
+    }
+    const comp = new Map((await this.components(ctx.db, ctx.tenantId)).map((x) => [x.code, x.id]));
+    const at = new Intl.DateTimeFormat("vi-VN", { timeZone: "Asia/Ho_Chi_Minh", dateStyle: "short", timeStyle: "short" }).format(new Date(sheet.finalized_at));
+    const warnings = rows.flatMap((x) => x.warnings.filter((w) => !unverified.includes(w)).map((w) => issue("warning", "COMPUTE_WARNING", w, null, null, x.employee.code))).slice(0, 300);
+    const { data: bid, error } = await ctx.db.rpc("record_payroll_import", { p_cycle: c.id, p_user: ctx.userId, p_file_name: `Kavor tính · bảng đầu vào chốt ${at}`,
+      p_total_rows: rows.length, p_error_rows: 0, p_warnings: warnings });
+    if (error) dbError(error);
+    const { error: rErr } = await ctx.db.rpc("replace_payroll_results", { p_cycle: c.id, p_batch: bid, p_user: ctx.userId, p_rows: rows.map((x) => ({
+      employeeId: x.employee.id, gross: x.gross, deduction: x.deduction, net: x.net, workDays: Math.min(31, x.workDays), note: "Kavor tính",
+      items: [...x.lines.map((l) => ({ componentId: comp.get(l.code)!, amount: l.amount, label: l.formula || l.name })), { componentId: comp.get("NET")!, amount: x.net, label: "Thực nhận" }],
+    })) });
+    if (rErr) dbError(rErr);
+    await ctx.audit("payroll.computed", "payroll_cycle", c.id, null, { month, batchId: bid, employees: rows.length, skipped: skipped.length, lawFrom: law.effective_from, config });
+    const { data: batch, error: batchErr } = await ctx.db.from("payroll_import_batches").select("id, file_name, total_rows, error_rows, warnings, created_by, created_at").eq("tenant_id", ctx.tenantId).eq("id", bid).single();
+    if (batchErr) dbError(batchErr);
+    return { cycle: cycleView(await this.cycle(ctx.db, ctx.tenantId, month)), batch: batchView(batch as BatchRow, true) };
   }
 
   async transition(ctx: AdminContext, month: string, action: string, b: Body): Promise<PayrollTransition> {

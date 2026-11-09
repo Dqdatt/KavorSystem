@@ -3,14 +3,17 @@
    tab Tạm ứng và Lương cơ bản chuyển từ trang /advances cũ. Mỗi tab chỉ hiện với người có quyền tương ứng. */
 import { Suspense, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { can, useMe } from "../../_ui/kit";
+import { can, tenantToday, useMe } from "../../_ui/kit";
+import { call } from "../../_lib/client";
+import { PayCalc } from "@kavor/web-ui";
+import type { PayCalcResult } from "@kavor/contracts";
 import { Advances, Salary } from "./advances";
 import { Cycles } from "./cycles";
 import { Inputs } from "./inputs";
 import { PayItems } from "./pay-items";
 
-type Tab = "cycles" | "inputs" | "advances" | "salary" | "items";
-const TABS: Array<[Tab, string, string]> = [["inputs", "Bảng lương đầu vào", "compensation.read"], ["cycles", "Kỳ lương", "payroll.read"], ["advances", "Tạm ứng", "salary_advance.process"], ["salary", "Mức lương", "compensation.read"], ["items", "Khoản phụ cấp", "compensation.read"]];
+type Tab = "cycles" | "inputs" | "advances" | "salary" | "items" | "calc";
+const TABS: Array<[Tab, string, string]> = [["inputs", "Bảng lương đầu vào", "compensation.read"], ["cycles", "Kỳ lương", "payroll.read"], ["advances", "Tạm ứng", "salary_advance.process"], ["salary", "Mức lương", "compensation.read"], ["items", "Khoản phụ cấp", "compensation.read"], ["calc", "Tính thử lương", "compensation.read"]];
 
 function PayrollPage() {
   const me = useMe();
@@ -27,7 +30,7 @@ function PayrollPage() {
   return (
     <section className="page active">
       <div className="page-head"><div>{switcher}</div></div>
-      {tab === "salary" ? <Salary /> : tab === "advances" ? <Advances /> : null}
+      {tab === "salary" ? <Salary /> : tab === "advances" ? <Advances /> : tab === "calc" ? <PayCalc defaultDate={tenantToday(me.tenant.timezone)} onCalc={(i) => call<PayCalcResult>("POST", "payroll/calc-preview", i)} /> : null}
     </section>
   );
 }

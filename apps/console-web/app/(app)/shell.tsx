@@ -11,12 +11,12 @@ type NavItem = { href: string; label: string; icon: string };
    "gần giới hạn" vào Gói dịch vụ, Sync jobs, Sự cố, Releases, Feature flags, Cài đặt nền tảng) sẽ thêm khi tới lượt. */
 const NAV: Array<{ label?: string; items: NavItem[] }> = [
   { items: [{ href: "/", label: "Tổng quan nền tảng", icon: "home" }] },
-  { label: "Khách hàng", items: [{ href: "/tenants", label: "Doanh nghiệp", icon: "building" }, { href: "/plans", label: "Gói dịch vụ", icon: "card" }] },
+  { label: "Khách hàng", items: [{ href: "/tenants", label: "Doanh nghiệp", icon: "building" }, { href: "/plans", label: "Gói dịch vụ", icon: "card" }, { href: "/payroll-law", label: "Tham số luật lương", icon: "log" }] },
   { label: "An toàn", items: [{ href: "/support", label: "Quyền hỗ trợ", icon: "lock" }, { href: "/recoveries", label: "Khôi phục chủ sở hữu", icon: "key" }, { href: "/audit", label: "Nhật ký hoạt động", icon: "log" }] },
 ];
 /* Chỉ quản trị viên Console thấy (API cũng chặn người khác) */
 const ADMIN_NAV = { label: "Hệ thống", items: [{ href: "/operators", label: "Nhân viên Kavor", icon: "users" }] };
-const TITLES: Record<string, string> = { "/": "Tổng quan nền tảng", "/tenants": "Doanh nghiệp", "/plans": "Gói dịch vụ", "/support": "Quyền hỗ trợ", "/recoveries": "Khôi phục chủ sở hữu", "/audit": "Nhật ký hoạt động", "/operators": "Nhân viên Kavor" };
+const TITLES: Record<string, string> = { "/": "Tổng quan nền tảng", "/tenants": "Doanh nghiệp", "/plans": "Gói dịch vụ", "/payroll-law": "Tham số luật lương", "/support": "Quyền hỗ trợ", "/recoveries": "Khôi phục chủ sở hữu", "/audit": "Nhật ký hoạt động", "/operators": "Nhân viên Kavor" };
 
 export function Shell({ me, children }: { me: OperatorMe; children: ReactNode }) {
   const path = usePathname();

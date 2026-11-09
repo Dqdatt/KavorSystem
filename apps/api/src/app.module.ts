@@ -26,6 +26,7 @@ import { SupportService } from "./support/support.service.js";
 import { OrgAdmin } from "./admin/org.service.js";
 import { EmployeeImport } from "./admin/import.service.js";
 import { StructureAdmin } from "./admin/structure.js";
+import { PayrollLawService } from "./payroll/law.service.js";
 import { TimesheetController, TIMESHEET_SERVICES } from "./timesheet/timesheet.controller.js";
 import { TimesheetService } from "./timesheet/timesheet.service.js";
 import { RequestsService } from "./timesheet/requests.service.js";
@@ -66,7 +67,7 @@ import type { TimesheetServices } from "./timesheet/timesheet.controller.js";
         if (!sb) return null;
         const c = loadConfig();
         const mailer = new Mailer(c.mail);
-        return { console: new ConsoleService(sb, mailer, c.adminWebUrl), mfa: new MfaAdmin(sb), support: new SupportService(sb), operators: new OperatorsService(sb, mailer, c.consoleWebUrl, c.consoleBootstrap) };
+        return { console: new ConsoleService(sb, mailer, c.adminWebUrl), mfa: new MfaAdmin(sb), support: new SupportService(sb), operators: new OperatorsService(sb, mailer, c.consoleWebUrl, c.consoleBootstrap), law: new PayrollLawService() };
       },
     },
     { provide: BrandingStore, inject: [SupabaseGateway], useFactory: (sb: SupabaseGateway | null) => (sb ? new BrandingStore(sb) : null) },
@@ -81,7 +82,7 @@ import type { TimesheetServices } from "./timesheet/timesheet.controller.js";
           attendance, schedule, company,
           employees: new EmployeesAdmin(sb, new Mailer(loadConfig().mail), attendance),
           settings: new SettingsAdmin(sb, branding, schedule), rules: new RulesAdmin(schedule), mfa: new MfaAdmin(sb),
-          timesheets: new TimesheetAdmin(ts.timesheets, ts.requests), requests: ts.requests, notifications: ts.notifications, leave: ts.leave, overtime: ts.overtime, advance: ts.advance, payroll: ts.payroll, inputs: ts.inputs, announcements: ts.announcements, documents: ts.documents, support: new SupportService(sb), org: new OrgAdmin(sb), importer: new EmployeeImport(sb), structure: new StructureAdmin(sb),
+          timesheets: new TimesheetAdmin(ts.timesheets, ts.requests), requests: ts.requests, notifications: ts.notifications, leave: ts.leave, overtime: ts.overtime, advance: ts.advance, payroll: ts.payroll, inputs: ts.inputs, announcements: ts.announcements, documents: ts.documents, support: new SupportService(sb), org: new OrgAdmin(sb), importer: new EmployeeImport(sb), structure: new StructureAdmin(sb), law: new PayrollLawService(),
         };
       },
     },

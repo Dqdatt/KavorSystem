@@ -2,8 +2,8 @@
 /* Tab Kỳ lương — bám page-payroll + modal payrollImport của prototype HR (banner, 4 chỉ số, "Danh sách lỗi cần xử lý", "Quy trình kỳ lương").
    Thiết kế bổ sung: chọn/mở kỳ, bảng kết quả, lịch sử nhập, nhật ký. Chế độ final_result_import: công ty tính lương ngoài Kavor,
    Kavor nhập CSV (khóa employee_code), kiểm tra, duyệt (người duyệt ≠ người nhập lần cuối), công bố phiếu lương. */
-import { useRef, useState, type ReactNode } from "react";
-import type { PayComponent, PayrollAction, PayrollBoard, PayrollCycle, PayrollDetail, PayrollImportOutcome, PayrollIssue, PayrollResult, PayrollStatus, PayrollTransition } from "@kavor/contracts";
+import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
+import type { PayComponent, PayrollAction, PayrollComputePreview, PayrollBoard, PayrollCycle, PayrollDetail, PayrollImportOutcome, PayrollIssue, PayrollResult, PayrollStatus, PayrollTransition } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
 import { Empty, ErrorLine, Field, Icon, LoadError, Modal, Person, Status, can, fmtDate, fmtDateTime, num, tenantToday, useAction, useMe, useToast } from "../../_ui/kit";
 import { ReasonModal } from "../../_ui/reason-modal";
@@ -55,7 +55,7 @@ export function Cycles({ tabs }: { tabs: ReactNode }) {
   const cur = board?.cycles.find((c) => c.month === month)?.month ?? board?.cycles[0]?.month ?? null;
   const { data: raw, error: detailError, reload: reloadDetail } = useApi<PayrollDetail>(cur ? `payroll/cycles/${cur}` : null);
   const d = raw && raw.cycle.month === cur ? raw : null;
-  const [modal, setModal] = useState<"create" | "import" | PayrollAction | null>(null);
+  const [modal, setModal] = useState<"create" | "import" | "compute" | PayrollAction | null>(null);
   const refresh = () => { void reload(); void reloadDetail(); };
   const next = d?.actions.find((a) => a !== "reopen");
 
@@ -70,6 +70,7 @@ export function Cycles({ tabs }: { tabs: ReactNode }) {
             </Select>
           ) : null}
           {board?.canCreate ? <button className="btn" onClick={() => setModal("create")}><Icon name="plus" /> Mở kỳ lương</button> : null}
+          {d?.canImport && can(me, "compensation.read") ? <button className="btn primary" onClick={() => setModal("compute")}>Kavor tính lương</button> : null}
           {d?.canImport ? <button className="btn" onClick={() => setModal("import")}><Icon name="upload" /> Nhập kết quả</button> : null}
           {d?.actions.includes("reopen") ? <button className="btn" onClick={() => setModal("reopen")}>Mở lại</button> : null}
           {next ? <button className="btn primary" onClick={() => setModal(next)}>{ACTION[next].label}</button> : null}
@@ -82,9 +83,10 @@ export function Cycles({ tabs }: { tabs: ReactNode }) {
 
       {modal === "create" && board ? <CreateModal cycles={board.cycles} tz={me.tenant.timezone} onClose={() => setModal(null)} onDone={(m) => { setMonth(m); void reload(); }} /> : null}
       {modal === "import" && d ? <ImportModal d={d} onClose={() => setModal(null)} onDone={refresh} /> : null}
+      {modal === "compute" && d ? <ComputeModal month={d.cycle.month} onClose={() => setModal(null)} onDone={refresh} /> : null}
       {modal === "reopen" && d ? <ReasonModal title={`Mở lại kỳ lương ${mm(d.cycle.month)}?`} label="Lý do mở lại (lưu trong nhật ký kỳ lương)" ok={ACTION.reopen.ok}
         go={(reason) => call<PayrollTransition>("POST", `payroll/cycles/${d.cycle.month}/reopen`, { reason })} onClose={() => setModal(null)} onDone={refresh} /> : null}
-      {modal && modal !== "create" && modal !== "import" && modal !== "reopen" && d ? <ActionModal d={d} action={modal} onClose={() => setModal(null)} onDone={refresh} /> : null}
+      {modal && modal !== "create" && modal !== "import" && modal !== "compute" && modal !== "reopen" && d ? <ActionModal d={d} action={modal} onClose={() => setModal(null)} onDone={refresh} /> : null}
     </>
   );
 }
@@ -316,6 +318,53 @@ function ActionModal({ d, action, onClose, onDone }: { d: PayrollDetail; action:
         <div className="detail-row"><span>Cảnh báo đối chiếu</span><b>{num(d.warnings.length)}</b></div>
         <div className="detail-row"><span>Ngày trả lương</span><b>{fmtDate(d.cycle.payDate)}</b></div>
       </div>
+    </Modal>
+  );
+}
+
+/* Kavor tính lương từ bảng lương đầu vào đã chốt: xem trước từng người (bấm để xem từng khoản + cách tính) rồi ghi vào kỳ.
+   Ghi xong đi tiếp luồng cũ: gửi kiểm tra → duyệt → công bố phiếu lương. */
+function ComputeModal({ month, onClose, onDone }: { month: string; onClose: () => void; onDone: () => void }) {
+  const [preview, setPreview] = useState<PayrollComputePreview | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [open, setOpen] = useState<string | null>(null);
+  const { busy, run } = useAction();
+  useEffect(() => {
+    void run("load", async () => { try { setPreview(await call<PayrollComputePreview>("POST", `payroll/cycles/${month}/compute`, {})); } catch (e) { setErr(e instanceof Error ? e.message : "Không tính được."); } });
+  }, [month]); // eslint-disable-line react-hooks/exhaustive-deps
+  const r = preview;
+  return (
+    <Modal wide title={`Kavor tính lương tháng ${month.slice(5)}/${month.slice(0, 4)}`} sub="Từ bảng lương đầu vào đã chốt, khoản phụ cấp và cài đặt lương của công ty, luật BH/thuế Kavor cập nhật. Xem trước — chưa ghi gì." onClose={onClose}
+      foot={<><button className="btn" onClick={onClose}>Đóng</button>
+        <button className="btn primary" disabled={!r || !r.rows.length || !!busy} onClick={() => run("apply", async () => {
+          await call("POST", `payroll/cycles/${month}/compute`, { dryRun: false }); onDone(); onClose();
+        }, `Đã ghi kết quả ${r?.rows.length ?? 0} người vào kỳ lương`)}>{busy === "apply" ? "Đang ghi…" : `Ghi vào kỳ lương (${r?.rows.length ?? 0} người)`}</button></>}>
+      {busy === "load" ? <div className="card" role="status" style={{ padding: 16, display: "grid", gap: 10 }}><b>Kavor đang tính lương…</b><div className="progress indeterminate"><i /></div></div> : null}
+      <ErrorLine text={err} />
+      {r ? <>
+        <div className="card detail-list">
+          <div className="detail-row"><span>Bảng đầu vào</span><b>Chốt {fmtDateTime(r.sheetFinalizedAt, "Asia/Ho_Chi_Minh")} · {r.rows.length} người{r.skipped.length ? ` · bỏ qua ${r.skipped.length}` : ""}</b></div>
+          <div className="detail-row"><span>Cài đặt công ty · luật</span><b>Vùng {["I", "II", "III", "IV"][r.config.region - 1]} · thử việc {r.config.probation === "insured" ? "đóng BH" : "khấu trừ 10%"} · luật từ {fmtDate(r.lawFrom)}</b></div>
+          <div className="detail-row"><span>Tổng thu nhập · khấu trừ</span><b>{money(r.totals.gross)} · {money(r.totals.deduction)}</b></div>
+          <div className="detail-row"><span>Tổng thực nhận</span><b style={{ fontSize: 15 }}>{money(r.totals.net)}</b></div>
+          <div className="detail-row"><span>Chi phí công ty (gồm BH, KPCĐ)</span><b>{money(r.totals.employerCost)}</b></div>
+        </div>
+        {r.unverified.length ? <p className="text-amber" style={{ fontSize: 12, margin: "8px 0 0" }}>Luật cần đối chiếu: {r.unverified.join("; ")}</p> : null}
+        {r.skipped.length ? <p className="muted" style={{ fontSize: 12, margin: "6px 0 0" }}>Bỏ qua: {r.skipped.map((x) => `${x.fullName} (${x.reason})`).join(", ")}</p> : null}
+        <div className="table-wrap" style={{ marginTop: 12, maxHeight: 420, overflow: "auto" }}><table className="data-table" style={{ minWidth: 0 }}>
+          <thead><tr><th>Nhân viên</th><th className="num">Công</th><th className="num">Thu nhập</th><th className="num">Khấu trừ</th><th className="num">Thực nhận</th></tr></thead><tbody>
+          {r.rows.map((x) => (<Fragment key={x.employee.id}>
+            <tr className="clickable" onClick={() => setOpen(open === x.employee.id ? null : x.employee.id)}>
+              <td><b>{x.employee.fullName}</b> <span className="muted" style={{ fontSize: 11 }}>{x.employee.code}{x.warnings.length ? ` · ${x.warnings.length} lưu ý` : ""}</span></td>
+              <td className="num">{num(x.workDays)}</td><td className="num">{money(x.gross)}</td><td className="num">{money(x.deduction)}</td><td className="num"><b>{money(x.net)}</b></td>
+            </tr>
+            {open === x.employee.id ? <tr><td colSpan={5} style={{ whiteSpace: "normal", background: "var(--surface-2)" }}>
+              {x.lines.map((l) => <div key={l.code} className="detail-row"><span>{l.kind === "deduction" ? "− " : ""}{l.name}<div className="muted" style={{ fontSize: 11 }}>{l.formula}</div></span><b>{money(l.amount)}</b></div>)}
+              {x.warnings.length ? <p className="text-amber" style={{ fontSize: 11.5, margin: "6px 0 0" }}>{x.warnings.join(" · ")}</p> : null}
+            </td></tr> : null}
+          </Fragment>))}
+        </tbody></table></div>
+      </> : null}
     </Modal>
   );
 }

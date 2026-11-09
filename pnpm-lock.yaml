@@ -254,6 +254,10 @@ importers:
         version: 7.0.2
 
   packages/web-ui:
+    dependencies:
+      '@kavor/contracts':
+        specifier: workspace:*
+        version: link:../contracts
     devDependencies:
       '@types/react':
         specifier: ^19.2.2

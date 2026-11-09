@@ -5,3 +5,4 @@ export type { ThemeChoice } from "./theme";
 export { PasswordInput } from "./password";
 export type { PasswordInputProps } from "./password";
 export { Skeleton, SkeletonLines, SkeletonRows } from "./skeleton";
+export { PayCalc } from "./pay-calc";

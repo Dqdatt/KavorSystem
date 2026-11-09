@@ -143,6 +143,15 @@ ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AG
 - Gửi lời mời kích hoạt hàng loạt (26/10, Claude, phiên cloud): `POST /admin/employees/invite` (tối đa 300 người, gửi lần lượt, người đã kích hoạt/đã nghỉ/
   thiếu email/ngoài phạm vi/vừa mời trong 1 phút bị bỏ qua kèm lý do; audit từng người + 1 dòng tổng). Web Nhân viên: nút "Gửi lời mời (N)" cho người
   chưa mời lần nào trong danh sách đang lọc. Smoke import thêm 4 bước; đã thử trên trình duyệt tự động.
+- Tính lương phần 2 (08/11, Claude — `docs/plans/payroll-calc.md`): Cài đặt doanh nghiệp → Lương (vùng, thử việc), Kỳ lương → "Kavor tính lương" từ
+  bảng đầu vào đã chốt theo khoản phụ cấp/cài đặt của công ty, ghi vào kỳ như nhập file (duyệt/công bố/phiếu giữ nguyên). Migration
+  `202611280001_payroll_compute.sql`. Kiểm: unit 9 (bộ tính), `tools/payroll-compute-smoke.sh` 18 bước, trình duyệt (xem trước + chi tiết dòng).
+  Sửa thêm: không hưởng lương từ 14 ngày làm việc → không đóng BH (trước đó ra thực nhận âm).
+  Sửa lỗi có từ trước: xóa vĩnh viễn doanh nghiệp đã nhập/tính kỳ lương bị PURGE_STUCK (kỳ lương ↔ lần nhập khóa ngoại vòng) —
+  `202611290001_purge_tenant_payroll.sql` + pgTAP `purge_payroll`.
+- Tính lương phần 1 (08/11, Claude — `docs/plans/payroll-calc.md`): tham số luật lương do Kavor duy trì theo phiên bản (`202611270001_payroll_law.sql`,
+  2 phiên bản 2026 có nguồn, 2 mục cần đối chiếu), bộ tính thuần BH/đoàn phí/thuế TNCN/thực nhận có công thức từng dòng, Console "Tham số luật lương",
+  web HR "Tính thử lương" (thành phần dùng chung `PayCalc` ở web-ui). Kiểm: unit 5, pgTAP 4, `tools/payroll-law-smoke.sh` 13 bước, trình duyệt (tính thử).
 - Cấp bậc ≠ quyền (08/11, Claude): hồ sơ hiện "Cấp bậc" (theo chức danh, kèm số người đang quản lý) và "Quyền trên Kavor" (vai trò; tài khoản chưa
   kích hoạt vẫn hiện, ghi "chờ kích hoạt"); nhắc khi đang quản lý người khác mà chưa có quyền duyệt. Sắp xếp tự động thêm "Gán vai trò Quản lý (Nhân viên
   trực tiếp)" cho người sẽ quản lý mà chưa có Quản lý/HCNS/Quản trị viên — HR bỏ chọn được, cần `role.assign` toàn công ty, cùng giao dịch

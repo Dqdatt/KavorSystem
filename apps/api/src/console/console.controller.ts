@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Headers, HttpCode, HttpException, Inject, Param, Post, Req } from "@nestjs/common";
+import { Body, Controller, Get, Headers, HttpCode, HttpException, Inject, Param, Patch, Post, Req } from "@nestjs/common";
 import { ADMIN_ERRORS, AUTH_ERRORS, type ApiEnvelope, type AuthSession, type ConsoleAuthResult } from "@kavor/contracts";
 import type { Session } from "@supabase/supabase-js";
 import type { CorrelatedRequest } from "../correlation.middleware.js";
@@ -10,9 +10,10 @@ import { operatorOf, resolveConsole, type ConsoleContext } from "./context.js";
 import type { ConsoleService } from "./console.service.js";
 import type { SupportService } from "../support/support.service.js";
 import type { OperatorsService } from "./operators.service.js";
+import { PayrollLawService } from "../payroll/law.service.js";
 
 export const CONSOLE_SERVICES = Symbol("CONSOLE_SERVICES");
-export type ConsoleServices = { console: ConsoleService; mfa: MfaAdmin; support: SupportService; operators: OperatorsService };
+export type ConsoleServices = { console: ConsoleService; mfa: MfaAdmin; support: SupportService; operators: OperatorsService; law: PayrollLawService };
 
 function bearer(header?: string): string {
   const m = /^Bearer\s+(.+)$/i.exec(header ?? "");
@@ -153,6 +154,15 @@ export class ConsoleController {
   supportView(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string, @Param("scope") scope: string) { return this.run(r, a, (s, c) => s.support.view(c, id, scope)); }
 
   /* ---------- Nhân viên Kavor (quản trị viên Console) ---------- */
+  /* Tham số luật tính lương (Kavor duy trì) */
+  @Get("payroll-law")
+  lawList(@Req() r: CorrelatedRequest, @Headers("authorization") a?: string) { return this.run(r, a, (s, c) => s.law.list(c)); }
+  @Post("payroll-law") @HttpCode(201)
+  lawCreate(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Body() b: Json) { return this.run(r, a, (s, c) => s.law.create(c, b)); }
+  @Patch("payroll-law/:id")
+  lawUpdate(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string, @Body() b: Json) { return this.run(r, a, (s, c) => s.law.update(c, id, b)); }
+  @Post("payroll-law/preview") @HttpCode(200)
+  lawPreview(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Body() b: Json) { return this.run(r, a, (s, c) => s.law.preview(c, b)); }
   @Get("operators")
   operators(@Req() r: CorrelatedRequest, @Headers("authorization") a?: string) { return this.run(r, a, (s, c) => s.operators.list(c)); }
   @Post("operators/invites") @HttpCode(201)

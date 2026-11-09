@@ -43,13 +43,13 @@ type SetAction = (n: ReactNode) => void;
 /* ---------- Doanh nghiệp ---------- */
 function Company({ setAction }: { setAction: SetAction }) {
   const { data, error, reload, setData } = useApi<CompanySettings>("settings");
-  const [f, setF] = useState<{ displayName: string; legalName: string; taxCode: string; phone: string; email: string; hours: string; note: string; newsReadReceipt: boolean; periodStartDay: string } | null>(null);
+  const [f, setF] = useState<{ displayName: string; legalName: string; taxCode: string; phone: string; email: string; hours: string; note: string; newsReadReceipt: boolean; periodStartDay: string; region: string; probation: string } | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const { busy, run } = useAction();
   useEffect(() => {
     if (!data || f) return;
     setF({ displayName: data.tenant.displayName, legalName: data.tenant.legalName ?? "", taxCode: data.tenant.taxCode ?? "", phone: data.support.phone ?? "", email: data.support.email ?? "",
-      hours: data.support.hours ?? "", note: data.support.note ?? "", newsReadReceipt: data.platform.newsReadReceipt, periodStartDay: String(data.attendance.periodStartDay) });
+      hours: data.support.hours ?? "", note: data.support.note ?? "", newsReadReceipt: data.platform.newsReadReceipt, periodStartDay: String(data.attendance.periodStartDay), region: String(data.payroll.region), probation: data.payroll.probation });
   }, [data, f]);
   const manage = !!data?.canManage;
   const save = async () => {
@@ -62,6 +62,7 @@ function Company({ setAction }: { setAction: SetAction }) {
         displayName: f.displayName, legalName: f.legalName || null, taxCode: f.taxCode || null,
         support: { phone: f.phone || null, email: f.email || null, hours: f.hours || null, note: f.note || null }, platform: { newsReadReceipt: f.newsReadReceipt },
         attendance: { periodStartDay: day },
+        payroll: { region: Number(f.region) as 1, probation: f.probation as "insured" },
       });
       setData(d);
     }, "Đã lưu cấu hình doanh nghiệp");
@@ -99,7 +100,17 @@ function Company({ setAction }: { setAction: SetAction }) {
         <div className="card-head" style={{ borderTop: "1px solid var(--line)" }}><h3>Kỳ công</h3></div>
         <div className="card-body"><Field label="Kỳ công bắt đầu ngày" hint={(() => { const d = Number(f.periodStartDay); return d > 1 && d <= 28 ? `Ví dụ kỳ tháng 10: ${d}/09 – ${d - 1}/10. Kỳ đã khóa giữ nguyên.` : d === 1 ? "Theo tháng dương lịch." : "Từ 1 đến 28."; })()}>
           <input type="number" min={1} max={28} value={f.periodStartDay} onChange={set("periodStartDay")} disabled={!manage} />
-        </Field></div></article>
+        </Field></div>
+        {/* Cài đặt lương công ty tự chọn; luật (BH, thuế) do Kavor duy trì; khoản phụ cấp ở Lương & tạm ứng → Khoản phụ cấp */}
+        <div className="card-head" style={{ borderTop: "1px solid var(--line)" }}><div><h3>Lương</h3><p>Dùng khi Kavor tính kỳ lương. Khoản phụ cấp và cách chịu thuế đặt ở Lương & tạm ứng → Khoản phụ cấp.</p></div></div>
+        <div className="card-body form-grid">
+          <Field label="Vùng lương tối thiểu" hint="Theo địa bàn trụ sở làm việc; dùng cho trần BHTN và cảnh báo lương đóng BH thấp hơn mức tối thiểu.">
+            <Select value={f.region} onChange={set("region")} disabled={!manage}>{["1", "2", "3", "4"].map((v) => <option key={v} value={v}>Vùng {["I", "II", "III", "IV"][Number(v) - 1]}</option>)}</Select>
+          </Field>
+          <Field label="Nhân viên thử việc" hint="Hợp đồng thử việc riêng thường không đóng BH; ký HĐLĐ có điều khoản thử việc thì đóng BH như chính thức.">
+            <Select value={f.probation} onChange={set("probation")} disabled={!manage}><option value="withholding">Không đóng BH, khấu trừ thuế 10%</option><option value="insured">Đóng BH, tính thuế như chính thức</option></Select>
+          </Field>
+        </div></article>
       </div>
       <div className="split-panel" style={{ marginTop: 14 }}>
         <article className="card"><div className="card-head"><div><h3>Thương hiệu</h3><p>Hiển thị trên app nhân viên. PNG, JPEG hoặc WebP, tối đa 2 MB.</p></div></div><div className="card-body">

@@ -27,6 +27,7 @@ import type { SupportService } from "../support/support.service.js";
 import type { OrgAdmin } from "./org.service.js";
 import type { EmployeeImport } from "./import.service.js";
 import type { StructureAdmin } from "./structure.js";
+import type { PayrollLawService } from "../payroll/law.service.js";
 import { date, nullableText, oneOf, type Body as Json } from "./validate.js";
 
 export const ADMIN_SERVICES = Symbol("ADMIN_SERVICES");
@@ -34,7 +35,7 @@ export type AdminServices = {
   employees: EmployeesAdmin; attendance: AttendanceAdmin; schedule: ScheduleAdmin;
   settings: SettingsAdmin; rules: RulesAdmin; mfa: MfaAdmin; company: CompanyService;
   timesheets: TimesheetAdmin; requests: RequestsService; notifications: NotificationsService; leave: LeaveService; overtime: OvertimeService; advance: AdvanceService;
-  payroll: PayrollService; inputs: PayrollInputs; announcements: AnnouncementsService; documents: DocumentsService; support: SupportService; org: OrgAdmin; importer: EmployeeImport; structure: StructureAdmin;
+  payroll: PayrollService; inputs: PayrollInputs; announcements: AnnouncementsService; documents: DocumentsService; support: SupportService; org: OrgAdmin; importer: EmployeeImport; structure: StructureAdmin; law: PayrollLawService;
 };
 
 function bearer(header?: string): string {
@@ -83,6 +84,11 @@ export class AdminController {
   /* ---------- Cơ cấu tổ chức + vai trò & phân quyền ---------- */
   @Get("organization")
   orgTree(@Req() r: CorrelatedRequest, @Headers("authorization") a?: string) { return this.run(r, a, (s, c) => s.org.tree(c)); }
+  /* Tham số luật lương (đọc) + tính thử một người */
+  @Get("payroll/law")
+  payrollLaw(@Req() r: CorrelatedRequest, @Headers("authorization") a?: string) { return this.run(r, a, (s, c) => s.law.forTenant(c)); }
+  @Post("payroll/calc-preview") @HttpCode(200)
+  payrollPreview(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Body() b: Json) { return this.run(r, a, (s, c) => s.law.previewTenant(c, b)); }
   /* Sắp xếp tự động: đề xuất cấp chức danh + quản lý trực tiếp (plan = xem trước, apply = áp dụng nguyên khối) */
   @Post("organization/structure/plan") @HttpCode(200)
   structurePlan(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Body() b: Json) { return this.run(r, a, (s, c) => s.structure.plan(c, b)); }
@@ -321,6 +327,9 @@ export class AdminController {
   payrollDetail(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("month") m: string) { return this.run(r, a, (s, c) => s.payroll.detail(c, m)); }
   @Post("payroll/cycles/:month/import") @HttpCode(200)
   payrollImport(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("month") m: string, @Body() b: Json) { return this.run(r, a, (s, c) => s.payroll.importCsv(c, m, b)); }
+  /* Kavor tính kỳ lương từ bảng đầu vào đã chốt: dryRun (mặc định) xem trước, dryRun=false ghi vào kỳ */
+  @Post("payroll/cycles/:month/compute") @HttpCode(200)
+  payrollCompute(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("month") m: string, @Body() b: Json) { return this.run(r, a, (s, c) => s.payroll.compute(c, m, b)); }
   @Post("payroll/cycles/:month/:action") @HttpCode(200)
   payrollTransition(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("month") m: string, @Param("action") action: string, @Body() b: Json) { return this.run(r, a, (s, c) => s.payroll.transition(c, m, action, b)); }
 

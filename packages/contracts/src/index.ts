@@ -531,7 +531,9 @@ export type TenantProfile = {
 };
 /* Kỳ công: từ ngày periodStartDay tháng trước tới ngày trước đó của tháng này (1 = tháng dương lịch) */
 export type AttendanceConfig = { periodStartDay: number };
-export type CompanySettings = { tenant: TenantProfile; branding: Branding; support: SupportContact; platform: PlatformPolicy; attendance: AttendanceConfig; updatedAt: string; canManage: boolean };
+/* Cài đặt lương do công ty chọn: vùng lương tối thiểu, thử việc đóng BH hay khấu trừ 10% */
+export type PayrollConfig = { region: 1 | 2 | 3 | 4; probation: "insured" | "withholding" };
+export type CompanySettings = { tenant: TenantProfile; branding: Branding; support: SupportContact; platform: PlatformPolicy; attendance: AttendanceConfig; payroll: PayrollConfig; updatedAt: string; canManage: boolean };
 export type CompanySettingsUpdate = {
   displayName?: string;
   legalName?: string | null;
@@ -539,6 +541,7 @@ export type CompanySettingsUpdate = {
   support?: Partial<SupportContact>;
   platform?: { newsReadReceipt?: boolean };
   attendance?: { periodStartDay?: number };
+  payroll?: Partial<PayrollConfig>;
 };
 export type BrandingUpload = { contentType: string; dataBase64: string };
 
@@ -1336,4 +1339,40 @@ export type WorkflowDef = {
   requestType: RequestType; name: string;
   current: { versionNo: number; steps: WorkflowStepInput[]; effectiveFrom: string } | null;
   versions: Array<{ versionNo: number; steps: WorkflowStepInput[]; effectiveFrom: string; note: string | null; createdAt: string }>;
+};
+
+/* ---------- Tham số luật tính lương (Kavor duy trì, phiên bản theo ngày) + bộ tính (docs/plans/payroll-calc.md) ---------- */
+export type PayrollLawParams = {
+  baseSalary: number; regionMinWage: Record<"1" | "2" | "3" | "4", number>;
+  employee: { si: number; hi: number; ui: number }; employer: { si: number; hi: number; ui: number };
+  capMultiplier: { siHi: number; ui: number }; deduction: { self: number; dependent: number };
+  pit: Array<{ upTo: number | null; rate: number }>; casual: { rate: number; threshold: number };
+  union: { employee: number; employeeCapOfBase: number; employer: number };
+};
+export type PayrollLawVersion = {
+  id: string; effectiveFrom: string; params: PayrollLawParams; sources: Array<{ item: string; ref: string; verified: boolean }>;
+  note: string | null; state: "active" | "future" | "past"; editable: boolean;
+};
+export type PayCalcInput = {
+  date: string; gross: number; taxFree?: number; insuranceSalary?: number | null; region: 1 | 2 | 3 | 4;
+  dependents?: number; unionMember?: boolean; contract?: "labor" | "casual"; advance?: number;
+  /* false = tháng không đóng BH (vd. không làm việc, không hưởng lương từ 14 ngày làm việc trở lên) — vẫn tính thuế lũy tiến */ insured?: boolean;
+};
+export type PayCalcLine = { key: string; label: string; amount: number; formula: string };
+export type PayCalcResult = {
+  lawFrom: string; unverified: string[];
+  employee: PayCalcLine[]; employer: PayCalcLine[];
+  totals: { gross: number; insurance: number; union: number; taxable: number; assessable: number; pit: number; advance: number; net: number; employerCost: number };
+};
+
+/* Kavor tính kỳ lương từ bảng lương đầu vào đã chốt (xem trước rồi ghi vào kỳ) */
+export type PayrollComputeLine = { code: string; name: string; kind: "earning" | "deduction"; amount: number; formula: string };
+export type PayrollComputeRow = {
+  employee: { id: string; code: string; fullName: string; department: string | null };
+  workDays: number; gross: number; deduction: number; net: number; lines: PayrollComputeLine[]; warnings: string[];
+};
+export type PayrollComputePreview = {
+  month: string; sheetFinalizedAt: string; lawFrom: string; unverified: string[]; config: PayrollConfig;
+  rows: PayrollComputeRow[]; skipped: Array<{ code: string; fullName: string; reason: string }>;
+  totals: { employees: number; gross: number; deduction: number; net: number; employerCost: number };
 };
