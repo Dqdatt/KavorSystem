@@ -8,10 +8,13 @@ const LAW: PayrollLawParams = {
   employee: { si: 0.08, hi: 0.015, ui: 0.01 }, employer: { si: 0.175, hi: 0.03, ui: 0.01 }, capMultiplier: { siHi: 20, ui: 20 },
   deduction: { self: 15_500_000, dependent: 6_200_000 },
   pit: [{ upTo: 10e6, rate: 0.05 }, { upTo: 30e6, rate: 0.1 }, { upTo: 60e6, rate: 0.2 }, { upTo: 100e6, rate: 0.3 }, { upTo: null, rate: 0.35 }],
-  casual: { rate: 0.1, threshold: 2_000_000 }, union: { employee: 0.01, employeeCapOfBase: 0.1, employer: 0.02 },
+  casual: { rate: 0.1, threshold: 2_000_000 }, union: { employee: 0.005, employeeCapOfBase: 0.1, employer: 0.02 },
+  taxFree: { meal: 730_000 }, overtimeTaxFree: "full",
 };
 const ITEMS = new Map<string, PayItemMeta>([
-  ["lunch", { id: "11111111-aaaa", name: "Ăn trưa", payMode: "by_workdays", insurable: false, taxMode: "partial", taxFreeCap: 730_000 }],
+  ["lunch", { id: "11111111-aaaa", name: "Ăn trưa", payMode: "by_workdays", insurable: false, taxMode: "meal", taxFreeCap: null }],
+  ["phone", { id: "44444444-dddd", name: "Điện thoại", payMode: "by_workdays", insurable: false, taxMode: "taxable", taxFreeCap: null }],
+  ["fuel", { id: "55555555-eeee", name: "Xăng xe", payMode: "by_workdays", insurable: false, taxMode: "taxable", taxFreeCap: null }],
   ["cc", { id: "22222222-bbbb", name: "Chuyên cần", payMode: "conditional", insurable: false, taxMode: "taxable", taxFreeCap: null }],
   ["resp", { id: "33333333-cccc", name: "Trách nhiệm", payMode: "fixed", insurable: true, taxMode: "taxable", taxFreeCap: null }],
 ]);
@@ -22,7 +25,7 @@ const row = (o: Partial<PayrollInputRow>): PayrollInputRow => ({
 } as PayrollInputRow);
 const cfg = { region: 1 as const, probation: "withholding" as const };
 
-test("đủ công: lương + khoản theo danh mục (theo công, chuyên cần, cố định có BH) + OT; ăn trưa miễn đến mức; BH tính cả khoản có BH", () => {
+test("đủ công: lương + khoản theo danh mục (theo công, chuyên cần, cố định có BH) + OT; ăn trưa miễn đến mức luật; OT miễn toàn bộ; BH tính cả khoản có BH", () => {
   const r = computeCycleRow(row({ items: [{ itemId: "lunch", name: "Ăn trưa", amount: 1_040_000 }, { itemId: "cc", name: "Chuyên cần", amount: 500_000 }, { itemId: "resp", name: "Trách nhiệm", amount: 2_000_000 }],
     overtime: { "150": 120 } }), ITEMS, cfg, LAW, "2026-01-01");
   assert.ok(!("skip" in r));
@@ -33,7 +36,7 @@ test("đủ công: lương + khoản theo danh mục (theo công, chuyên cần,
   assert.equal(r.gross, 26_000_000 + 1_040_000 + 500_000 + 2_000_000 + 375_000);
   assert.equal(at("INS_SI")!.amount, Math.round(28_000_000 * 0.08), "lương đóng BH = cơ bản + khoản có BH");
   const ins = Math.round(28e6 * 0.08) + Math.round(28e6 * 0.015) + Math.round(28e6 * 0.01);
-  const taxFree = 730_000 + 125_000;
+  const taxFree = 730_000 + 375_000;
   assert.equal(r.calc.totals.assessable, r.gross - taxFree - ins - 15_500_000);
   assert.equal(r.net, r.gross - r.deduction);
 });
@@ -63,4 +66,24 @@ test("không hưởng lương từ 14 ngày làm việc: không đóng BH, khôn
   if ("skip" in r || "skip" in r2) return assert.fail();
   assert.deepEqual([r.gross, r.deduction, r.net, r.lines.some((l) => l.code.startsWith("INS")), r.warnings.some((w) => /không đóng BH/.test(w))], [0, 0, 0, false, true]);
   assert.equal(r2.lines.some((l) => l.code.startsWith("INS")), true, "thiếu 13 ngày (< 14) vẫn đóng BH");
+});
+
+test("ca của HR C&B: lương cứng 10 triệu (đóng BHXH 7 triệu + ăn trưa 730k + điện thoại 1,5 triệu + xăng xe 770k), công 25/27, đoàn viên", () => {
+  const r = computeCycleRow(row({ baseSalary: 7_000_000, standard: 27, credited: 25, unionMember: true, items: [
+    { itemId: "lunch", name: "Ăn trưa", amount: 730_000 }, { itemId: "phone", name: "Điện thoại", amount: 1_500_000 }, { itemId: "fuel", name: "Xăng xe", amount: 770_000 }] }), ITEMS, cfg, LAW, "2026-01-01");
+  if ("skip" in r) return assert.fail(r.skip);
+  /* Làm tròn từng dòng: 6.481.481 + 675.926 + 1.388.889 + 712.963 = 9.259.259 (bằng 10 tr ÷ 27 × 25) */
+  assert.equal(r.gross, 9_259_259);
+  const at = (c: string) => r.lines.find((l) => l.code === c)?.amount ?? 0;
+  assert.deepEqual([at("INS_SI") + at("INS_HI") + at("INS_UI"), at("UNION_FEE"), at("PIT")], [735_000, 35_000, 0]);
+  assert.equal(r.net, 8_489_259);
+});
+
+test("OT theo tham số luật: full miễn toàn bộ, premium chỉ phần trên giờ thường", () => {
+  const ot = { overtime: { "150": 600 } };
+  const f = computeCycleRow(row(ot), ITEMS, cfg, LAW, "x"), p = computeCycleRow(row(ot), ITEMS, cfg, { ...LAW, overtimeTaxFree: "premium" }, "x");
+  if ("skip" in f || "skip" in p) return assert.fail();
+  const pay = Math.round(10 * (26_000_000 / 26 / 8) * 1.5);
+  assert.equal(f.calc.totals.taxable, f.gross - pay);
+  assert.equal(p.calc.totals.taxable, p.gross - Math.round(pay / 3));
 });

@@ -22,6 +22,8 @@ export function checkLawParams(p: unknown): string | null {
   }
   if (!rate(x.casual?.rate) || !num(x.casual?.threshold, 0, 1e9)) return "Khấu trừ thuế thời vụ không hợp lệ.";
   if (!rate(x.union?.employee) || !rate(x.union?.employeeCapOfBase) || !rate(x.union?.employer)) return "Tỷ lệ đoàn phí không hợp lệ.";
+  if (!num(x.taxFree?.meal, 0, 1e9)) return "Mức miễn thuế tiền ăn trưa, ăn ca không hợp lệ (taxFree.meal).";
+  if (x.overtimeTaxFree !== "full" && x.overtimeTaxFree !== "premium") return "overtimeTaxFree phải là \"full\" hoặc \"premium\".";
   return null;
 }
 

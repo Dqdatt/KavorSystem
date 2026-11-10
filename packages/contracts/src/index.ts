@@ -955,12 +955,12 @@ export type CompensationInput = {
 /* ---------- Lương đầu vào (HCNS): mục "Lương" trong hồ sơ nhân viên ---------- */
 /* Danh mục khoản thu nhập (phụ cấp/thưởng) do doanh nghiệp tự khai; số tiền do doanh nghiệp tự nhập */
 export type PayItemMode = "by_workdays" | "fixed" | "conditional";
-export type PayItemTax = "taxable" | "exempt" | "partial";
+export type PayItemTax = "taxable" | "exempt" | "partial" | "meal";
 export type PayItem = {
   id: string; name: string; kind: "allowance" | "bonus";
   /* by_workdays: chia theo công · fixed: đủ tháng trả đủ · conditional: có điều kiện (ví dụ chuyên cần) */
   payMode: PayItemMode; insurable: boolean;
-  /* partial: miễn thuế đến taxFreeCap ₫/tháng */
+  /* partial: miễn thuế đến taxFreeCap ₫/tháng · meal: ăn giữa ca, miễn đến mức luật (PayrollLawParams.taxFree.meal) */
   taxMode: PayItemTax; taxFreeCap: number | null;
   /* Mức gợi ý khi nhập lương (null = không có) */
   defaultAmount: number | null;
@@ -1348,6 +1348,10 @@ export type PayrollLawParams = {
   capMultiplier: { siHi: number; ui: number }; deduction: { self: number; dependent: number };
   pit: Array<{ upTo: number | null; rate: number }>; casual: { rate: number; threshold: number };
   union: { employee: number; employeeCapOfBase: number; employer: number };
+  /* Mức miễn thuế theo luật: tiền ăn giữa ca ₫/tháng */
+  taxFree: { meal: number };
+  /* full: tiền lương làm thêm giờ/làm đêm miễn thuế toàn bộ (Luật 109/2025) · premium: chỉ phần cao hơn giờ thường (luật cũ) */
+  overtimeTaxFree: "full" | "premium";
 };
 export type PayrollLawVersion = {
   id: string; effectiveFrom: string; params: PayrollLawParams; sources: Array<{ item: string; ref: string; verified: boolean }>;

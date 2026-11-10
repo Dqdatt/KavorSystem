@@ -14,7 +14,7 @@ const STATE: Record<PayrollLawVersion["state"], [string, string]> = { active: ["
 function Summary({ p }: { p: PayrollLawParams }) {
   const row = (k: string, v: string) => <div className="detail-row"><span>{k}</span><b>{v}</b></div>;
   return (
-    <div className="card detail-list">
+    <div className="card detail-list label-cap">
       {row("Lương cơ sở", vnd(p.baseSalary))}
       {row("Lương tối thiểu vùng I–IV", (["1", "2", "3", "4"] as const).map((r) => vnd(p.regionMinWage[r])).join(" · "))}
       {row("Người lao động BHXH · BHYT · BHTN", `${pct(p.employee.si)} · ${pct(p.employee.hi)} · ${pct(p.employee.ui)}`)}
@@ -22,8 +22,10 @@ function Summary({ p }: { p: PayrollLawParams }) {
       {row("Trần đóng", `BHXH/BHYT ${p.capMultiplier.siHi} × lương cơ sở = ${vnd(p.baseSalary * p.capMultiplier.siHi)} · BHTN ${p.capMultiplier.ui} × lương tối thiểu vùng`)}
       {row("Giảm trừ bản thân · người phụ thuộc", `${vnd(p.deduction.self)} · ${vnd(p.deduction.dependent)}`)}
       {row("Biểu thuế", p.pit.map((b, i) => `${b.upTo ? `đến ${(b.upTo / 1e6).toLocaleString("vi-VN")} tr` : i ? "trên" : "mọi mức"} ${pct(b.rate)}`).join(" · "))}
-      {row("Thời vụ (dưới 3 tháng)", `${pct(p.casual.rate)} từ ${vnd(p.casual.threshold)}`)}
+      {row("Khấu trừ 10% (dưới 3 tháng)", `${pct(p.casual.rate)} từ ${vnd(p.casual.threshold)}`)}
       {row("Đoàn phí", `NLĐ ${pct(p.union.employee)} (tối đa ${pct(p.union.employeeCapOfBase)} lương cơ sở) · công ty ${pct(p.union.employer)}`)}
+      {row("Miễn thuế tiền ăn trưa, ăn ca", p.taxFree ? `${vnd(p.taxFree.meal)}/tháng` : "—")}
+      {row("Miễn thuế làm thêm giờ, làm đêm", p.overtimeTaxFree === "full" ? "Toàn bộ (trong giới hạn giờ)" : p.overtimeTaxFree === "premium" ? "Phần cao hơn giờ thường" : "—")}
     </div>
   );
 }
@@ -89,7 +91,7 @@ export default function PayrollLaw() {
             <div className="profile-grid" style={{ marginTop: 10 }}>
               <Summary p={v.params} />
               <div className="card detail-list">
-                {v.sources.map((s) => <div key={s.item} className="detail-row"><span>{s.item}</span><b className={s.verified ? "" : "text-amber"} style={{ fontWeight: 500 }}>{s.verified ? "" : "Cần đối chiếu · "}{s.ref}</b></div>)}
+                {v.sources.map((s) => <div key={s.item} className="detail-row stack"><span>{s.item}</span><b className={s.verified ? "" : "text-amber"} style={{ fontWeight: 500 }}>{s.verified ? "" : "Cần đối chiếu · "}{s.ref}</b></div>)}
               </div>
             </div>
           </article>

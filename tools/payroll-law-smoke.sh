@@ -13,6 +13,11 @@ _r=$(call POST admin/payroll/calc-preview "$HR" '{"date":"2026-03-31","gross":20
 check "Tính thử 20 triệu tháng 3/2026: BH 2,1 tr, thuế 120.000, thực nhận 17,78 tr, kèm cảnh báo chưa đối chiếu" "$(echo "$_r" | py "(d['lawFrom'], d['totals']['insurance'], d['totals']['pit'], d['totals']['net'], len(d['unverified']) > 0)")" "('2026-01-01', 2100000, 120000, 17780000, True)"
 _r=$(call POST admin/payroll/calc-preview "$HR" '{"date":"2026-08-31","gross":60000000,"region":1}') || :
 check "Tháng 8/2026 dùng phiên bản 01/07 (trần BHXH 50,6 tr)" "$(echo "$_r" | py "(d['lawFrom'], [l['amount'] for l in d['employee'] if l['key']=='si'][0])")" "('2026-07-01', 4048000)"
+check "Phiên bản 01/07/2026 (sửa 10/11): đoàn phí 0,5%, khấu trừ 10% từ 5 triệu, ăn giữa ca 1,2 triệu, OT miễn toàn bộ" "$(call GET admin/payroll/law "$HR" | py "[(v['params']['union']['employee'], v['params']['casual']['threshold'], v['params']['taxFree']['meal'], v['params']['overtimeTaxFree']) for v in d if v['effectiveFrom']=='2026-07-01'][0]")" "(0.005, 5000000, 1200000, 'full')"
+_r=$(call POST admin/payroll/calc-preview "$HR" '{"date":"2026-08-31","gross":4900000,"region":1,"contract":"casual"}') || :
+check "Tháng 8/2026, HĐ dưới 3 tháng 4,9 triệu: không khấu trừ (dưới 5 triệu)" "$(echo "$_r" | py "d['totals']['pit']")" 0
+_r=$(call POST admin/payroll/calc-preview "$HR" '{"date":"2026-03-31","gross":9259259,"taxFree":730000,"insuranceSalary":7000000,"region":1,"unionMember":true}') || :
+check "Ca HR C&B: BH 735.000, đoàn phí 35.000, thực nhận 8.489.259" "$(echo "$_r" | py "(d['totals']['insurance'], d['totals']['union'], d['totals']['net'])")" "(735000, 35000, 8489259)"
 check "Quản lý (không xem lương) → 403" "$(curl -s -o /dev/null -w '%{http_code}' "$API/admin/payroll/law" -H "authorization: Bearer $MGR")" 403
 check "Đầu vào sai → 400" "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$API/admin/payroll/calc-preview" -H 'content-type: application/json' -H "authorization: Bearer $HR" -d '{"gross":-1}')" 400
 echo "— Console: chỉ Quản trị Console sửa được"

@@ -15,7 +15,7 @@ const PAY_MODE_HINT: Record<PayItemMode, string> = {
   fixed: "Đủ tháng làm việc là trả đủ, không chia theo công",
   conditional: "Ví dụ thưởng chuyên cần: mất khi nghỉ/đi trễ — Kế toán xét theo quy định công ty",
 };
-export const TAX_MODE: Record<PayItemTax, string> = { taxable: "Chịu thuế", exempt: "Không chịu thuế", partial: "Miễn thuế đến mức" };
+export const TAX_MODE: Record<PayItemTax, string> = { taxable: "Chịu thuế", exempt: "Không chịu thuế", partial: "Miễn thuế đến mức", meal: "Tiền ăn — miễn theo luật" };
 const digits = (s: string) => s.replace(/\D/g, "");
 const moneyInput = (s: string) => (s ? Number(digits(s)).toLocaleString("vi-VN") : "");
 
@@ -100,10 +100,10 @@ function PayItemModal({ item, onClose, save }: { item: PayItem | null; onClose: 
         <Field label="Tính vào lương đóng BH">
           <Select value={f.insurable ? "1" : "0"} onChange={(e) => setF({ ...f, insurable: e.target.value === "1" })}><option value="0">Không</option><option value="1">Có</option></Select>
         </Field>
-        <Field label="Thuế TNCN">
+        <Field label="Thuế TNCN" hint={f.taxMode === "meal" ? "Dùng cho tiền ăn trưa, ăn ca. Phần trong mức luật cho phép không tính thuế, phần vượt mới tính. Kavor tự cập nhật mức này khi luật đổi — công ty không cần nhập." : undefined}>
           <Select value={f.taxMode} onChange={(e) => setF({ ...f, taxMode: e.target.value as PayItemTax })}>{(Object.keys(TAX_MODE) as PayItemTax[]).map((k) => <option key={k} value={k}>{TAX_MODE[k]}</option>)}</Select>
         </Field>
-        {f.taxMode === "partial" ? <Field label="Mức miễn thuế (₫/tháng)" hint="Theo quy định hiện hành, Kế toán xác nhận"><input inputMode="numeric" value={moneyInput(f.cap)} onChange={(e) => setF({ ...f, cap: digits(e.target.value) })} placeholder="Ví dụ 730.000" /></Field> : null}
+        {f.taxMode === "partial" ? <Field label="Mức miễn thuế (₫/tháng)" hint="Theo quy định hiện hành, Kế toán xác nhận"><input inputMode="numeric" value={moneyInput(f.cap)} onChange={(e) => setF({ ...f, cap: digits(e.target.value) })} placeholder="Ví dụ 1.000.000" /></Field> : null}
         <Field label="Mức mặc định (₫/tháng)" hint="Không bắt buộc — điền sẵn khi nhập lương"><input inputMode="numeric" value={moneyInput(f.amount)} onChange={(e) => setF({ ...f, amount: digits(e.target.value) })} placeholder="Để trống nếu mỗi người một mức" /></Field>
         <Field label="Ghi chú"><input value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} placeholder="Ví dụ: Theo quy chế lương 2026" /></Field>
       </div>

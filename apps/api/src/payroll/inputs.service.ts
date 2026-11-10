@@ -27,14 +27,14 @@ const DEP_COLS = "id, employee_id, full_name, relation, birth_date, tax_code, fr
 type ItemRow = { id: string; name: string; kind: PayItem["kind"]; pay_mode: PayItem["payMode"]; insurable: boolean; tax_mode: PayItem["taxMode"]; tax_free_cap: number | null; default_amount: number | null; sort_order: number; note: string | null; archived_at: string | null };
 const ITEM_COLS = "id, name, kind, pay_mode, insurable, tax_mode, tax_free_cap, default_amount, sort_order, note, archived_at";
 const MODES: readonly PayItem["payMode"][] = ["by_workdays", "fixed", "conditional"];
-const TAXES: readonly PayItem["taxMode"][] = ["taxable", "exempt", "partial"];
+const TAXES: readonly PayItem["taxMode"][] = ["taxable", "exempt", "partial", "meal"];
 const payItem = (r: ItemRow): PayItem => ({
   id: r.id, name: r.name, kind: r.kind, payMode: r.pay_mode, insurable: r.insurable, taxMode: r.tax_mode, taxFreeCap: r.tax_free_cap === null ? null : Number(r.tax_free_cap),
   defaultAmount: r.default_amount === null ? null : Number(r.default_amount), sortOrder: r.sort_order, note: r.note, archived: !!r.archived_at,
 });
 /* Mẫu phổ biến (chỉ tên + cách tính gợi ý, không có số tiền) — doanh nghiệp sửa/xóa theo thực tế */
 const TEMPLATES: Array<Partial<ItemRow> & { name: string }> = [
-  { name: "Phụ cấp ăn trưa", pay_mode: "by_workdays", tax_mode: "partial" },
+  { name: "Phụ cấp ăn trưa", pay_mode: "by_workdays", tax_mode: "meal" },
   { name: "Phụ cấp xăng xe", pay_mode: "by_workdays" },
   { name: "Phụ cấp điện thoại", pay_mode: "fixed", tax_mode: "partial" },
   { name: "Phụ cấp trách nhiệm", pay_mode: "by_workdays", insurable: true },

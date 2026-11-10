@@ -10,6 +10,14 @@ simulator hay iPhone** vì phiên cloud không có Mac). Người dùng giao "c�
 ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AGENT_PLAYBOOK.md`; kiểm tra toàn bộ bằng `bash tools/verify-all.sh`.
 
 ## Đã xong
+- Sửa tham số luật lương sau rà soát luật (10/11, Claude Desktop — `docs/plans/payroll-law-research-2026-11.md`, Phần 0 của
+  `docs/plans/payroll-tenant-rules.md`): đoàn phí 0,5% (QĐ 61/QĐ-TLĐ, trước ghi sai 1%); khấu trừ 10% từ 5 triệu/lần từ 01/07/2026 (NĐ 253/2026);
+  tham số mới `taxFree.meal` (ăn giữa ca 730k → 1,2tr từ 01/07/2026) và `overtimeTaxFree` (`full` = OT/làm đêm miễn thuế toàn bộ theo Luật 109/2025);
+  khoản phụ cấp thêm cách tính thuế "Tiền ăn — miễn theo luật" (`pay_items.tax_mode = 'meal'`, khoản ăn trưa cũ tự chuyển); Console hiện 2 tham
+  số mới. Migration `202611300001_payroll_law_fix.sql` sửa 2 phiên bản đã hiệu lực (tạm tắt guard — sửa nhập sai, **bản online cần
+  `tools/cloud-supabase.sh` trước khi push**). Kiểm: unit bộ tính 13 (có ca HR C&B 10tr/27/25 → 9.259.259, BH 735.000, đoàn phí 35.000, thực nhận
+  8.489.259), pgTAP `payroll_law` 8, `payroll-law-smoke.sh` 16 bước. Kỳ lương đã tính trước không tự tính lại. Đã xem form khoản phụ cấp trên web local (nhãn mới, mẫu ăn trưa dùng cách tính mới); smoke lương chạy lại trên API khởi động lại (compute 18, inputs 46, law 16, payroll 105, advance 31, purge 20). Đã xem Console (Tham số luật lương: thêm kiểu `.detail-list.label-cap` / `.detail-row.stack` ở kavor.css để nhãn và nguồn dài không bị ép chữ). Sửa kèm: thanh tab `.segmented` không co nút nữa (trước bị đè chữ khi hẹp, giờ cuộn ngang).
+  Còn `verified: false`: ngày hiệu lực ngưỡng 5tr (một nguồn ghi 01/01/2026), cách hiểu miễn thuế OT.
 - Khoản phụ cấp theo doanh nghiệp + lương cứng (5/11, Claude Desktop — `docs/plans/payroll-inputs.md` mục "Bổ sung"): tab "Khoản phụ cấp" ở
   Lương & tạm ứng (công ty tự khai khoản, cách trả, đóng BH, thuế, mức mặc định; thêm mẫu phổ biến; ngừng dùng), form lương nhập lương cơ
   bản + từng khoản → tự cộng lương cứng; bảng lương đầu vào/Excel có cột lương cứng + từng khoản; tạm ứng = % lương cứng (API + chữ trên

@@ -1,11 +1,11 @@
 /* Tính một dòng kỳ lương từ bảng lương đầu vào đã chốt + danh mục khoản của công ty + cài đặt lương công ty + tham số luật (thuần, có test).
    Lương theo công = lương cơ bản × công hưởng lương ÷ công chuẩn (từng đoạn nếu đổi lương giữa kỳ). Khoản theo danh mục: by_workdays theo công,
    fixed trả đủ khi có công, conditional (chuyên cần) chỉ khi đủ công + không trễ + không thiếu chấm công + không nghỉ không lương. Làm thêm giờ =
-   lương giờ (lương cơ bản ÷ công chuẩn ÷ 8) × giờ × hệ số; phần cao hơn giờ thường miễn thuế. Rồi bộ tính luật (calc.ts). */
+   lương giờ (lương cơ bản ÷ công chuẩn ÷ 8) × giờ × hệ số; miễn thuế theo tham số luật (toàn bộ từ 2026, hoặc phần cao hơn giờ thường). Ăn giữa ca miễn đến mức luật. Rồi bộ tính luật (calc.ts). */
 import type { PayCalcResult, PayrollComputeLine, PayrollConfig, PayrollInputRow, PayrollLawParams } from "@kavor/contracts";
 import { computePay } from "./calc.js";
 
-export type PayItemMeta = { id: string; name: string; payMode: "by_workdays" | "fixed" | "conditional"; insurable: boolean; taxMode: "taxable" | "exempt" | "partial"; taxFreeCap: number | null };
+export type PayItemMeta = { id: string; name: string; payMode: "by_workdays" | "fixed" | "conditional"; insurable: boolean; taxMode: "taxable" | "exempt" | "partial" | "meal"; taxFreeCap: number | null };
 const vnd = (n: number) => `${Math.round(n).toLocaleString("vi-VN")} ₫`;
 const d = (n: number) => n.toLocaleString("vi-VN", { maximumFractionDigits: 2 });
 const cut = (s: string) => (s.length > 200 ? `${s.slice(0, 197)}…` : s);
@@ -34,7 +34,7 @@ export function computeCycleRow(row: PayrollInputRow, items: Map<string, PayItem
     else if (m.payMode === "fixed") { amt = row.credited > 0 ? it.amount : 0; f = row.credited > 0 ? "Cố định theo tháng" : "Không có công trong kỳ"; }
     else { amt = full ? it.amount : 0; f = full ? "Đủ điều kiện (đủ công, không trễ, không thiếu chấm công)" : `Không đủ điều kiện${row.lateMinutes ? ` · trễ ${row.lateMinutes} phút` : ""}${row.missingDays ? ` · thiếu ${row.missingDays} ngày chấm công` : ""}${row.unpaidLeaveDays ? ` · nghỉ không lương ${d(row.unpaidLeaveDays)} ngày` : ""}`; }
     if (m.insurable) insurableItems += it.amount;
-    const free = m.taxMode === "exempt" ? amt : m.taxMode === "partial" ? Math.min(amt, m.taxFreeCap ?? 0) : 0;
+    const free = m.taxMode === "exempt" ? amt : m.taxMode === "partial" ? Math.min(amt, m.taxFreeCap ?? 0) : m.taxMode === "meal" ? Math.min(amt, law.taxFree.meal) : 0;
     taxFree += free;
     if (amt || m.payMode === "conditional") lines.push({ code: `ITEM_${m.id.replace(/-/g, "").slice(0, 12).toUpperCase()}`, name: m.name, kind: "earning", amount: amt,
       formula: cut(`${f}${free ? ` · miễn thuế ${vnd(free)}` : ""}`) });
@@ -47,10 +47,10 @@ export function computeCycleRow(row: PayrollInputRow, items: Map<string, PayItem
     const c = Number(coef), h = minutes / 60;
     if (!h || !c) continue;
     const v = Math.round(h * hourly * c / 100);
-    ot += v; taxFree += Math.round(v * (c - 100) / c);
+    ot += v; taxFree += law.overtimeTaxFree === "full" ? v : Math.round(v * (c - 100) / c);
     otParts.push(`${d(h)} giờ × ${vnd(hourly)} × ${c}%`);
   }
-  if (ot) lines.push({ code: "OT_PAY", name: "Làm thêm giờ", kind: "earning", amount: ot, formula: cut(`${otParts.join(" + ")} · phần trên giờ thường miễn thuế`) });
+  if (ot) lines.push({ code: "OT_PAY", name: "Làm thêm giờ", kind: "earning", amount: ot, formula: cut(`${otParts.join(" + ")} · ${law.overtimeTaxFree === "full" ? "miễn thuế (trong giới hạn giờ luật lao động)" : "phần trên giờ thường miễn thuế"}`) });
   const gross = lines.reduce((n, l) => n + l.amount, 0);
   /* 4. Luật: BH, đoàn phí, thuế, tạm ứng */
   const type = segs[segs.length - 1]!.employmentType;
