@@ -22,6 +22,7 @@ import type { PayrollService } from "../payroll/payroll.service.js";
 import type { PayrollInputs } from "../payroll/inputs.service.js";
 import type { AnnouncementsService } from "../announcements/announcements.service.js";
 import type { DocumentsService } from "../documents/documents.service.js";
+import type { ChecklistService } from "../documents/checklist.service.js";
 import type { TimesheetAdmin } from "../timesheet/timesheet-admin.service.js";
 import type { SupportService } from "../support/support.service.js";
 import type { OrgAdmin } from "./org.service.js";
@@ -35,7 +36,7 @@ export type AdminServices = {
   employees: EmployeesAdmin; attendance: AttendanceAdmin; schedule: ScheduleAdmin;
   settings: SettingsAdmin; rules: RulesAdmin; mfa: MfaAdmin; company: CompanyService;
   timesheets: TimesheetAdmin; requests: RequestsService; notifications: NotificationsService; leave: LeaveService; overtime: OvertimeService; advance: AdvanceService;
-  payroll: PayrollService; inputs: PayrollInputs; announcements: AnnouncementsService; documents: DocumentsService; support: SupportService; org: OrgAdmin; importer: EmployeeImport; structure: StructureAdmin; law: PayrollLawService;
+  payroll: PayrollService; inputs: PayrollInputs; announcements: AnnouncementsService; documents: DocumentsService; checklist: ChecklistService; support: SupportService; org: OrgAdmin; importer: EmployeeImport; structure: StructureAdmin; law: PayrollLawService;
 };
 
 function bearer(header?: string): string {
@@ -363,6 +364,26 @@ export class AdminController {
     res.setHeader("cache-control", "private, no-store");
     res.setHeader("x-content-type-options", "nosniff");
     return new StreamableFile(env.data!.data);
+  }
+
+  /* Danh mục giấy tờ hồ sơ: công ty tự khai (document.manage toàn công ty), HR tích từng nhân viên (document.upload trong phạm vi) */
+  @Get("checklist/items")
+  checklistItems(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined) { return this.run(r, a, (s, c) => s.checklist.list(c)); }
+  @Post("checklist/items") @HttpCode(201)
+  checklistCreate(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Body() b: Json) { return this.run(r, a, (s, c) => s.checklist.create(c, b)); }
+  @Post("checklist/items/templates") @HttpCode(200)
+  checklistTemplates(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined) { return this.run(r, a, (s, c) => s.checklist.addTemplates(c)); }
+  @Patch("checklist/items/:id")
+  checklistUpdate(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string, @Body() b: Json) { return this.run(r, a, (s, c) => s.checklist.update(c, id, b)); }
+  @Post("checklist/items/:id/archive") @HttpCode(200)
+  checklistArchive(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string, @Body() b: Json) { return this.run(r, a, (s, c) => s.checklist.archive(c, id, b)); }
+  @Get("checklist/gaps")
+  checklistGaps(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined) { return this.run(r, a, (s, c) => s.checklist.gaps(c)); }
+  @Get("employees/:id/checklist")
+  employeeChecklist(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string) { return this.run(r, a, (s, c) => s.checklist.employee(c, id)); }
+  @Post("employees/:id/checklist/:itemId") @HttpCode(200)
+  employeeChecklistSet(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string, @Param("itemId") itemId: string, @Body() b: Json) {
+    return this.run(r, a, (s, c) => s.checklist.setEntry(c, id, itemId, b));
   }
 
   /* Tài liệu nhân sự: danh sách theo phạm vi, tải lên (phiên bản bất biến), sửa thông tin, gỡ, tải file (ghi audit) */

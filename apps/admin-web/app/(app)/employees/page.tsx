@@ -1,10 +1,11 @@
 "use client";
 import { Fragment, Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import type { AdminDevice, BulkInviteResult, EmployeeDetail, EmployeeListItem, EmployeeStatus, EmploymentType, OrgOptions, RequestItem, RequestQueue } from "@kavor/contracts";
+import type { AdminDevice, BulkInviteResult, ChecklistGaps, EmployeeDetail, EmployeeListItem, EmployeeStatus, EmploymentType, OrgOptions, RequestItem, RequestQueue } from "@kavor/contracts";
 import { MANAGEMENT_TIERS, MANAGEMENT_TIERS_EN, managerTierOk, type AdminMe } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
 import { EmployeePaySection } from "./pay";
+import { EmployeeChecklistSection } from "../documents/checklist";
 import {
   ACCOUNT, Avatar, DEVICE, EMP_STATUS, EMPLOYMENT, Drawer, Empty, ErrorLine, Field, Icon, LoadError, Modal, Person, Phrases, REJECT_REASON, Status, scopeText,
   ago, can, fmtDate, fmtDateTime, tenantToday, useAction, useMe,
@@ -32,6 +33,7 @@ function EmployeesPage() {
   const [dept, setDept] = useState("");
   const [status, setStatus] = useState("working");
   const [account, setAccount] = useState(params.get("account") ?? "all");
+  const [papers, setPapers] = useState(params.get("papers") ?? "all");
   const [editing, setEditing] = useState<EmployeeDetail | "new" | null>(null);
   const [importing, setImporting] = useState(false);
   const [bulk, setBulk] = useState(false);
@@ -41,15 +43,19 @@ function EmployeesPage() {
   const query = useMemo(() => new URLSearchParams({ status, account, ...(dept ? { departmentId: dept } : {}) }).toString(), [status, account, dept]);
   const list = useApi<EmployeeListItem[]>(`employees?${query}`, { tables: ["employees", "employee_devices"], tenantId: me.tenant.id });
   const org = useApi<OrgOptions>("org");
+  /* Giấy tờ bắt buộc còn thiếu (danh mục công ty tự khai) — chỉ người xem được tài liệu */
+  const gaps = useApi<ChecklistGaps>(can(me, "document.read") ? "checklist/gaps" : null);
+  const missing = useMemo(() => new Map((gaps.data?.rows ?? []).map((r) => [r.employeeId, r.missing])), [gaps.data]);
   /* Nhóm theo phòng ban (A–Z), trong phòng theo tên rồi họ — cách đọc danh sách quen thuộc ở VN */
   const rows = useMemo(() => {
     const k = q.trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/g, "d");
     const all = list.data ?? [];
-    const hit = k ? all.filter((e) => `${e.fullName} ${e.code} ${e.email ?? ""}`.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/g, "d").includes(k)) : all;
+    const base = papers === "missing" ? all.filter((e) => missing.has(e.id)) : all;
+    const hit = k ? base.filter((e) => `${e.fullName} ${e.code} ${e.email ?? ""}`.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/g, "d").includes(k)) : base;
     const given = (n: string) => n.trim().split(/\s+/).at(-1) ?? n;
     return [...hit].sort((a, b) => (a.department ? 0 : 1) - (b.department ? 0 : 1) || (a.department?.name ?? "").localeCompare(b.department?.name ?? "", "vi")
       || given(a.fullName).localeCompare(given(b.fullName), "vi") || a.fullName.localeCompare(b.fullName, "vi"));
-  }, [list.data, q]);
+  }, [list.data, q, papers, missing]);
   const groupSize = useMemo(() => { const m = new Map<string, number>(); for (const e of rows) m.set(e.department?.name ?? "", (m.get(e.department?.name ?? "") ?? 0) + 1); return m; }, [rows]);
   const uninvited = rows.filter((e) => e.account === "not_invited" && e.email && e.status !== "terminated");
   const open = (id: string | null) => { const p = new URLSearchParams(params.toString()); if (id) p.set("id", id); else p.delete("id"); router.replace(`/employees?${p.toString()}`, { scroll: false }); };
@@ -69,6 +75,7 @@ function EmployeesPage() {
           </Select>
           <Select className="select" value={status} onChange={(e) => setStatus(e.target.value)} aria-label="Trạng thái"><option value="working">Đang làm việc</option><option value="terminated">Đã nghỉ việc</option><option value="all">Tất cả trạng thái</option></Select>
           <Select className="select" value={account} onChange={(e) => setAccount(e.target.value)} aria-label="Tài khoản"><option value="all">Mọi tài khoản</option><option value="pending">Chưa kích hoạt</option><option value="active">Đã kích hoạt</option><option value="locked">Đã khóa</option></Select>
+          {gaps.data?.itemCount ? <Select className="select" value={papers} onChange={(e) => setPapers(e.target.value)} aria-label="Giấy tờ"><option value="all">Mọi hồ sơ giấy tờ</option><option value="missing">Thiếu giấy tờ ({missing.size})</option></Select> : null}
           <span className="toolbar-spacer" />
           {/* Gửi lời mời cho người chưa mời lần nào trong danh sách đang lọc (thường sau khi nhập từ file) */}
           {can(me, "membership.invite") && uninvited.length ? <button className="btn small" onClick={() => setBulk(true)}><Icon name="mail" /> Gửi lời mời ({uninvited.length})</button> : null}
@@ -81,7 +88,8 @@ function EmployeesPage() {
               <tr className="clickable" onClick={() => open(e.id)}>
                 <td><Person name={e.fullName} sub={`${e.email ?? "chưa có email"} · ${e.code}`} seed={e.code} /></td>
                 <td className="wrap">{e.department?.name ?? "—"}</td><td className="wrap">{e.position?.name ?? "—"}</td><td>{fmtDate(e.hireDate)}</td><td>{EMPLOYMENT[e.employmentType]}</td>
-                <td><Status v={ACCOUNT[e.account]} />{e.devicePending ? <span className="source-tag" title="Có thiết bị chờ duyệt">Máy chờ duyệt</span> : null}</td>
+                <td><Status v={ACCOUNT[e.account]} />{e.devicePending ? <span className="source-tag" title="Có thiết bị chờ duyệt">Máy chờ duyệt</span> : null}
+                  {missing.get(e.id) ? <span className="source-tag" title={`Thiếu: ${missing.get(e.id)!.join(", ")}`}>Thiếu {missing.get(e.id)!.length} giấy tờ</span> : null}</td>
                 <td><Status v={EMP_STATUS[e.status]} /></td>
                 <td><Icon name="arrow" size={16} className="icon" /></td>
               </tr>
@@ -89,7 +97,7 @@ function EmployeesPage() {
           </tbody></table></div>
         )}
       </article>
-      {openId ? <EmployeeDrawer id={openId} onClose={() => open(null)} onEdit={setEditing} onChanged={list.reload} /> : null}
+      {openId ? <EmployeeDrawer id={openId} onClose={() => { open(null); void gaps.reload(); }} onEdit={setEditing} onChanged={list.reload} /> : null}
       {editing && org.data ? <EmployeeForm org={org.data} employee={editing === "new" ? null : editing} onClose={() => setEditing(null)} onSaved={(id) => { setEditing(null); void list.reload(); open(id); }} /> : null}
       {bulk ? <BulkInvite rows={uninvited} onClose={() => setBulk(false)} onDone={() => void list.reload()} /> : null}
       {importing ? <ImportModal onClose={() => setImporting(false)} onDone={() => { void list.reload(); void org.reload(); }} /> : null}
@@ -98,12 +106,13 @@ function EmployeesPage() {
 }
 
 /* Hồ sơ chia tab để mỗi phần có bố cục đều, không dồn cột */
-type ProfileTab = "overview" | "personal" | "attendance" | "pay" | "requests" | "history";
+type ProfileTab = "overview" | "personal" | "attendance" | "pay" | "papers" | "requests" | "history";
 const TABS: Array<{ id: ProfileTab; label: string; show: (me: AdminMe) => boolean }> = [
   { id: "overview", label: "Tổng quan", show: () => true },
   { id: "personal", label: "Cá nhân", show: () => true },
   { id: "attendance", label: "Chấm công", show: (me) => can(me, "attendance.read") },
   { id: "pay", label: "Lương", show: (me) => can(me, "compensation.read") },
+  { id: "papers", label: "Giấy tờ", show: (me) => can(me, "document.read") },
   { id: "requests", label: "Đơn từ", show: (me) => can(me, "request.read") },
   { id: "history", label: "Lịch sử", show: (me) => can(me, "audit.read") },
 ];
@@ -239,6 +248,9 @@ function EmployeeDrawer({ id, onClose, onEdit, onChanged }: { id: string; onClos
           </div> : null}
           {tab === "pay" ? <div className="profile-grid one">
           {can(me, "compensation.read") ? <EmployeePaySection employeeId={e.id} name={e.fullName} /> : null}
+          </div> : null}
+          {tab === "papers" ? <div className="profile-grid one">
+          {can(me, "document.read") ? <EmployeeChecklistSection employeeId={e.id} /> : null}
           </div> : null}
           {tab === "requests" ? <div className="profile-grid one">
           {can(me, "request.read") ? <EmployeeRequests employeeId={e.id} /> : null}

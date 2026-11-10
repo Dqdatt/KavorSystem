@@ -102,6 +102,10 @@ pnpm build
   trong kỳ; chốt cần kỳ công đã khóa, `payroll_input_sheets` bất biến, client không đọc trực tiếp. Phụ cấp = khoản trong danh mục `pay_items` của
   từng công ty (số tiền công ty tự nhập), ghi bằng RPC `add_employee_compensation` (`allowance` = tổng khoản); lương cứng = cơ bản + phụ cấp, tạm ứng tính trên lương cứng. Kiểm thử: `bash tools/db-reset.sh && bash tools/payroll-inputs-smoke.sh`.
 - Tham số luật lương (`payroll_law_versions`, không có `tenant_id`): Kavor duy trì ở Console, phiên bản đã hiệu lực bất biến; mức chưa đối chiếu văn bản gốc để `verified: false`. Bộ tính `apps/api/src/payroll/calc.ts` (thuần). Kiểm thử: `bash tools/db-reset.sh && bash tools/payroll-law-smoke.sh`. Kỳ lương "Kavor tính lương" (`apps/api/src/payroll/cycle-calc.ts`, cài đặt `tenant_settings.payroll_settings`, khoản theo `pay_items` của công ty — Kavor không áp mẫu bảng lương): `bash tools/db-reset.sh && bash tools/payroll-compute-smoke.sh`.
+- Danh mục giấy tờ hồ sơ (`apps/api/src/documents/checklist.service.ts`): công ty tự khai, HR tích; không có trạng thái giữ bản chính (BLLĐ Điều 17).
+  Kiểm thử: `bash tools/db-reset.sh && bash tools/checklist-smoke.sh`.
+- `tools/dev-backend.sh` chạy API **không** tự nạp lại code (`tsx`, không `watch`): sửa API xong phải chạy lại script đó trước khi smoke/thử web,
+  không thì smoke chạy trên code cũ (đã xảy ra 11/11).
 - Tài liệu nhân sự: phiên bản bất biến (thay file = phiên bản mới), gỡ thay cho xóa; mọi lần tải ghi audit `document.downloaded`. File riêng tư + liên kết ký dùng chung `apps/api/src/files/private-files.ts` (chữ ký gắn loại tài nguyên). Smoke dùng vai trò riêng chỉ có quyền tài liệu — đừng gán `hr_ops` cho nhân viên mẫu trong smoke (test RLS khác chạy sau sẽ lỗi). Kiểm thử: `bash tools/db-reset.sh && bash tools/documents-smoke.sh`.
 - Xóa vĩnh viễn doanh nghiệp (Console, chỉ Quản trị Console, doanh nghiệp phải tạm khóa/đã đóng, gõ lại mã): `purge_tenant` xóa mọi bảng có
   `tenant_id` (lặp tới khi hết, bỏ qua trigger bảo vệ nhờ cờ cục bộ `kavor.purge_tenant`), API xóa tiếp tài khoản Auth chỉ thuộc doanh nghiệp đó và file

@@ -39,6 +39,7 @@ import { PayrollInputs } from "./payroll/inputs.service.js";
 import { PayrollService } from "./payroll/payroll.service.js";
 import { AnnouncementsService } from "./announcements/announcements.service.js";
 import { DocumentsService } from "./documents/documents.service.js";
+import { ChecklistService } from "./documents/checklist.service.js";
 import { ProfileService } from "./profile/profile.service.js";
 import type { TimesheetServices } from "./timesheet/timesheet.controller.js";
 
@@ -82,7 +83,7 @@ import type { TimesheetServices } from "./timesheet/timesheet.controller.js";
           attendance, schedule, company,
           employees: new EmployeesAdmin(sb, new Mailer(loadConfig().mail), attendance),
           settings: new SettingsAdmin(sb, branding, schedule), rules: new RulesAdmin(schedule), mfa: new MfaAdmin(sb),
-          timesheets: new TimesheetAdmin(ts.timesheets, ts.requests), requests: ts.requests, notifications: ts.notifications, leave: ts.leave, overtime: ts.overtime, advance: ts.advance, payroll: ts.payroll, inputs: ts.inputs, announcements: ts.announcements, documents: ts.documents, support: new SupportService(sb), org: new OrgAdmin(sb), importer: new EmployeeImport(sb), structure: new StructureAdmin(sb), law: new PayrollLawService(),
+          timesheets: new TimesheetAdmin(ts.timesheets, ts.requests), requests: ts.requests, notifications: ts.notifications, leave: ts.leave, overtime: ts.overtime, advance: ts.advance, payroll: ts.payroll, inputs: ts.inputs, announcements: ts.announcements, documents: ts.documents, checklist: new ChecklistService(), support: new SupportService(sb), org: new OrgAdmin(sb), importer: new EmployeeImport(sb), structure: new StructureAdmin(sb), law: new PayrollLawService(),
         };
       },
     },

@@ -1213,6 +1213,30 @@ export type DocumentBoard = {
   metrics: { total: number; expiringSoon: number; expired: number; missingContract: number; downloadsWeek: number };
   canUpload: boolean; canManage: boolean;
 };
+/* Danh mục giấy tờ hồ sơ (công ty tự khai) + HR tích từng nhân viên. Không có trạng thái "giữ bản chính" (BLLĐ 2019 Điều 17). */
+export type ChecklistItem = {
+  id: string; name: string; required: boolean;
+  /* null = áp dụng cho mọi tình trạng lao động */
+  employmentTypes: EmploymentType[] | null;
+  /* Mục đích thu thập (Luật Bảo vệ dữ liệu cá nhân 2025) */
+  purpose: string | null; sortOrder: number; archived: boolean;
+};
+export type ChecklistItemList = { items: ChecklistItem[]; canManage: boolean };
+export type ChecklistItemInput = { name: string; required: boolean; employmentTypes: EmploymentType[] | null; purpose?: string | null; sortOrder?: number };
+/* copy: nộp bản sao · original_checked: đã đối chiếu bản chính (trả lại bản chính) */
+export type ChecklistForm = "copy" | "original_checked";
+export type ChecklistStatus = "submitted" | "waived";
+export type ChecklistEntry = {
+  item: ChecklistItem;
+  /* Mục có áp dụng cho tình trạng lao động hiện tại của nhân viên */
+  applies: boolean;
+  status: ChecklistStatus | null; form: ChecklistForm | null; submittedOn: string | null; note: string | null; updatedAt: string | null;
+};
+export type EmployeeChecklist = { employeeId: string; employmentType: EmploymentType; entries: ChecklistEntry[]; missingRequired: number; canEdit: boolean };
+/* status null = bỏ tích (chưa nộp) */
+export type ChecklistEntryInput = { status: ChecklistStatus | null; form?: ChecklistForm | null; submittedOn?: string | null; note?: string | null };
+/* Nhân viên đang làm trong phạm vi còn thiếu giấy tờ bắt buộc */
+export type ChecklistGaps = { rows: Array<{ employeeId: string; missing: string[] }>; itemCount: number };
 export type DocumentDetail = { item: EmployeeDocument; versions: DocumentVersion[]; canUpload: boolean; canManage: boolean };
 export type DocumentFileInput = { fileName: string; dataBase64: string; note?: string | null };
 export type DocumentMeta = { category: DocumentCategory; title: string; docNo?: string | null; issuedOn?: string | null; expiresOn?: string | null; visibility: DocumentVisibility };

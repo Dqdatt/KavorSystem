@@ -10,6 +10,13 @@ simulator hay iPhone** vì phiên cloud không có Mac). Người dùng giao "c�
 ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AGENT_PLAYBOOK.md`; kiểm tra toàn bộ bằng `bash tools/verify-all.sh`.
 
 ## Đã xong
+- Danh mục giấy tờ hồ sơ (11/11, Claude Desktop — Phần A của `docs/plans/payroll-tenant-rules.md`, theo feedback HR C&B): công ty tự khai danh mục
+  (Tài liệu → **Danh mục giấy tờ**: tên, bắt buộc, áp dụng cho tình trạng lao động nào, mục đích thu thập; 11 mẫu phổ biến; ngừng dùng thay cho xóa),
+  HR tích từng người ở hồ sơ nhân viên → tab **Giấy tờ** (Đã nộp = bản sao / đã đối chiếu bản chính + ngày nộp; Không áp dụng cần lý do; không có
+  "giữ bản chính" vì BLLĐ Điều 17 cấm), danh sách nhân viên có bộ lọc + nhãn "Thiếu N giấy tờ". Quyền: xem `document.read`, tích `document.upload`
+  trong phạm vi, khai danh mục `document.manage` toàn công ty. Migration `202612010001_document_checklist.sql` (**bản online cần
+  `tools/cloud-supabase.sh` trước khi push**), pgTAP `document_checklist` 11, `tools/checklist-smoke.sh` 25 bước, đã thử trên web local (thêm mẫu,
+  tích, sửa, bộ lọc). Chưa làm: nhân viên xem giấy tờ còn thiếu trên app; nhắc xử lý bản sao khi nhân viên nghỉ việc.
 - Sửa tham số luật lương sau rà soát luật (10/11, Claude Desktop — `docs/plans/payroll-law-research-2026-11.md`, Phần 0 của
   `docs/plans/payroll-tenant-rules.md`): đoàn phí 0,5% (QĐ 61/QĐ-TLĐ, trước ghi sai 1%); khấu trừ 10% từ 5 triệu/lần từ 01/07/2026 (NĐ 253/2026);
   tham số mới `taxFree.meal` (ăn giữa ca 730k → 1,2tr từ 01/07/2026) và `overtimeTaxFree` (`full` = OT/làm đêm miễn thuế toàn bộ theo Luật 109/2025);

@@ -9,6 +9,7 @@ import { DOCUMENT_CATEGORIES, type DocumentBoard, type DocumentCategory, type Do
 import { call, useApi } from "../../_lib/client";
 import { Drawer, Empty, ErrorLine, Field, Icon, LoadError, Modal, Person, Status, fmtDate, fmtDateTime, num, useAction, useMe } from "../../_ui/kit";
 import { ReasonModal } from "../../_ui/reason-modal";
+import { ChecklistCatalog } from "./checklist";
 import { Select, SkeletonLines, SkeletonRows } from "@kavor/web-ui";
 
 const MAX = 5 * 1024 * 1024;
@@ -30,6 +31,7 @@ function DocumentsPage() {
   const [cat, setCat] = useState<DocumentCategory | "all">("all");
   const [state, setState] = useState<keyof typeof STATE>("live");
   const [uploading, setUploading] = useState(false);
+  const [catalog, setCatalog] = useState(false);
   const openId = params.get("open");
   const open = (id: string | null) => router.replace(id ? `/documents?open=${id}` : "/documents", { scroll: false });
   const m = b?.metrics;
@@ -42,7 +44,7 @@ function DocumentsPage() {
   return (
     <section className="page active">
       <div className="page-head">
-        <div className="head-actions">{b?.canUpload ? <button className="btn primary" onClick={() => setUploading(true)}><Icon name="upload" /> Tải tài liệu</button> : null}</div></div>
+        <div className="head-actions"><button className="btn" onClick={() => setCatalog(true)}><Icon name="checks" /> Danh mục giấy tờ</button>{b?.canUpload ? <button className="btn primary" onClick={() => setUploading(true)}><Icon name="upload" /> Tải tài liệu</button> : null}</div></div>
       <LoadError error={error} retry={reload} />
       <div className="grid metrics">
         <article className="card metric-card"><span className="metric-icon"><Icon name="file" /></span><span className="metric-copy"><span>Tổng tài liệu</span><strong>{m ? num(m.total) : "—"}</strong><small>{num(used)} danh mục</small></span></article>
@@ -78,6 +80,7 @@ function DocumentsPage() {
         )}
       </article>
       {openId ? <DetailDrawer id={openId} onClose={() => open(null)} onChanged={() => void reload()} /> : null}
+      {catalog ? <ChecklistCatalog onClose={() => setCatalog(false)} /> : null}
       {uploading ? <UploadModal onClose={() => setUploading(false)} onDone={(d) => { void reload(); open(d.item.id); }} /> : null}
     </section>
   );
