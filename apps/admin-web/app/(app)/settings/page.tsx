@@ -11,7 +11,7 @@ import {
 } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
 import { SupportPanel } from "../../_ui/support";
-import { Empty, ErrorLine, Field, Icon, LoadError, Modal, SCOPE, Status, can, fmtDate, fmtDateTime, num, tenantToday, useAction, useMe } from "../../_ui/kit";
+import { PageActions, Empty, ErrorLine, Field, Icon, LoadError, Modal, SCOPE, Status, can, fmtDate, fmtDateTime, num, tenantToday, useAction, useMe } from "../../_ui/kit";
 import { ReasonModal } from "../../_ui/reason-modal";
 import { Hint, Select, SkeletonRows } from "@kavor/web-ui";
 
@@ -31,8 +31,8 @@ function SettingsPage() {
     <section className="page active">
       <div className="page-head">
         <div><div className="segmented" role="tablist">{tabs.map(([k, l]) => <button key={k} role="tab" aria-selected={tab === k} className={tab === k ? "active" : ""} onClick={() => { setAction(null); router.replace(`/settings?tab=${k}`, { scroll: false }); }}>{l}</button>)}</div></div>
-        <div className="head-actions">{action}</div>
       </div>
+      <PageActions>{action}</PageActions>
       {tab === "company" || tab === "payroll" ? <Company key={tab} part={tab} setAction={setAction} /> : tab === "setup" ? <Setup /> : tab === "rules" ? <Rules setAction={setAction} /> : tab === "holidays" ? <Holidays setAction={setAction} /> : tab === "support" ? <SupportPanel /> : <Privacy setAction={setAction} />}
     </section>
   );
@@ -167,7 +167,7 @@ function Company({ setAction, part }: { setAction: SetAction; part: "company" | 
 
 function SwitchRow({ label, note, checked, locked, onChange }: { label: string; note?: string; checked: boolean; locked?: boolean; onChange?: (v: boolean) => void }) {
   return (
-    <div className="detail-row">
+    <div className="detail-row switch-row">
       <span className="switch-copy"><b>{label}</b>{note ? <small>{note}</small> : null}</span>
       <label className="switch" style={locked ? { opacity: 0.55 } : undefined}><input type="checkbox" checked={checked} disabled={locked} onChange={(e) => onChange?.(e.target.checked)} aria-label={label} /><i /></label>
     </div>
@@ -188,7 +188,7 @@ function BrandImage({ kind, version, manage, onSaved }: { kind: BrandingKind; ve
   const box = { border: "1px dashed var(--line-strong)", borderRadius: 12, background: "var(--surface-2)", display: "grid", placeItems: "center", overflow: "hidden", color: "var(--muted)", fontSize: 12 } as const;
   return (
     <div>
-      <div style={{ ...box, ...(logo ? { width: 120, height: 120 } : { width: "100%", aspectRatio: "320 / 124" }) }}>
+      <div style={{ ...box, ...(logo ? { width: 120, height: 120 } : { width: "100%", maxWidth: 400, aspectRatio: "320 / 124" }) }}>
         {version ? <img src={`/api/branding/${kind}?v=${version}`} alt={logo ? "Logo công ty" : "Ảnh bìa"} style={{ width: "100%", height: "100%", objectFit: logo ? "contain" : "cover" }} />
           : <span>{logo ? "Chưa có logo" : "Ảnh bìa mặc định của Kavor"}</span>}
       </div>

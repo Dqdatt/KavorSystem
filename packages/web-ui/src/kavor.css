@@ -762,3 +762,36 @@ button.account-chip:hover, button.account-chip.open { background: var(--hover); 
 .banner.soft-warn .banner-icon { width: 34px; height: 34px; color: var(--amber); background: var(--surface); }
 .banner.soft .banner-icon { width: 34px; height: 34px; color: var(--green); background: var(--accent-2); }
 .banner.soft-warn .btn, .banner.soft .btn { background: var(--surface); color: var(--ink); border-color: var(--line-strong); }
+
+/* ---------- Topbar: tên trang · tìm kiếm · nút của trang · chuông · tài khoản (nút trang không còn chiếm một hàng riêng) ---------- */
+.topbar { display: flex; align-items: center; gap: 14px; }
+.topbar .title-copy { flex: 0 1 auto; min-width: 120px; }
+.topbar > .search { flex: 0 1 380px; min-width: 180px; }
+.topbar .top-actions { margin-left: auto; flex: none; }
+.page-actions { display: flex; align-items: center; gap: 8px; }
+.page-actions:empty { display: none; }
+.page-actions + .icon-btn, .page-actions:not(:empty) { margin-right: 6px; }
+.page-actions:not(:empty)::after { content: ""; width: 1px; height: 24px; margin-left: 6px; background: var(--line); }
+@media (max-width: 1280px) { .topbar > .search { flex-basis: 260px; } }
+@media (max-width: 1020px) { .topbar .title-copy { flex: 1 1 auto; } }
+/* Điện thoại: nút của trang xuống dòng thứ hai của topbar */
+@media (max-width: 760px) {
+  .topbar { flex-wrap: wrap; height: auto; min-height: 68px; padding-top: 12px; padding-bottom: 12px; row-gap: 10px; }
+  .topbar .top-actions { display: contents; }
+  .topbar .top-actions > .page-actions + * { margin-left: auto; }
+  .page-actions { order: 10; flex: 1 1 100%; flex-wrap: wrap; justify-content: flex-end; margin-right: 0 !important; }
+  .page-actions::after { display: none; }
+}
+/* Hàng công tắc: chữ bên trái, công tắc sát phải */
+.detail-row.switch-row { grid-template-columns: minmax(0, 1fr) auto; padding: 10px 0; }
+/* Ô bảng có nhiều nhãn: xếp dọc, không tràn sang cột bên */
+.cell-stack { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 6px 0; }
+.cell-stack .source-tag { margin-left: 0; }
+button.metric-btn { font: inherit; color: inherit; text-align: left; cursor: pointer; transition: border-color .15s, box-shadow .15s; }
+button.metric-btn:hover { border-color: var(--accent-line); }
+/* Điện thoại: thẻ số liệu 2 cột, bỏ biểu tượng cho đỡ cao */
+@media (max-width: 640px) {
+  .grid.metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .metric-card { min-height: 0; grid-template-columns: minmax(0, 1fr); padding: 12px 14px; }
+  .metric-card .metric-icon { display: none; }
+}

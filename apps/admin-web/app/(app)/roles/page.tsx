@@ -5,7 +5,7 @@
 import { useState } from "react";
 import type { OrgOptions, RoleAssignmentRow, RoleInfo, RolesBoard, ScopeType } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
-import { ACCOUNT, Drawer, Empty, ErrorLine, Field, Icon, LoadError, Modal, Person, Status, fmtDate, num, useAction, useMe } from "../../_ui/kit";
+import { PageActions, ACCOUNT, Drawer, Empty, ErrorLine, Field, Icon, LoadError, Modal, Person, Status, fmtDate, num, useAction, useMe } from "../../_ui/kit";
 import { Hint, Select, SkeletonRows } from "@kavor/web-ui";
 
 const SCOPE: Record<string, string> = { tenant: "Toàn công ty", legal_entity: "Pháp nhân", branch: "Chi nhánh", department: "Phòng ban", direct_reports: "Nhân viên trực tiếp", self: "Bản thân" };
@@ -19,11 +19,10 @@ export default function RolesPage() {
   const role = b?.roles.find((r) => r.code === open) ?? null;
   return (
     <section className="page active">
-      <div className="page-head">
-        <div><p>Một người giữ được nhiều vai trò, quyền cộng dồn<Hint text={`Ví dụ Quản trị viên công ty kiêm Nhân sự vận hành: gán vai trò mới không thay vai trò đang có. Vai trò Nhân viên được gán tự động khi kích hoạt tài khoản. Quyền thay đổi có hiệu lực ngay ở thao tác kế tiếp của người đó.${me.permissions.includes("role.assign") ? "" : " Chỉ quản trị viên công ty được gán hoặc thu hồi vai trò."}`} /></p></div>
-        <div className="head-actions">{b?.canAssign ? <button className="btn primary" onClick={() => setAssign("any")}><Icon name="plus" /> Gán vai trò</button> : null}</div></div>
+      <PageActions>{b?.canAssign ? <button className="btn primary" onClick={() => setAssign("any")}><Icon name="plus" /> Gán vai trò</button> : null}</PageActions>
       <LoadError error={error} retry={reload} />
       <article className="card">
+        <div className="card-head"><h3>Vai trò mẫu<Hint text={`Một người giữ được nhiều vai trò, quyền cộng dồn (ví dụ Quản trị viên công ty kiêm Nhân sự vận hành): gán vai trò mới không thay vai trò đang có. Vai trò Nhân viên được gán tự động khi kích hoạt tài khoản. Quyền thay đổi có hiệu lực ngay ở thao tác kế tiếp của người đó.${me.permissions.includes("role.assign") ? "" : " Chỉ quản trị viên công ty được gán hoặc thu hồi vai trò."}`} /></h3></div>
         {b && !b.roles.length ? <Empty title="Chưa có vai trò" /> : (
           <div className="table-wrap"><table className="data-table"><thead><tr><th>Vai trò</th><th>Người dùng</th><th>Phạm vi mặc định</th><th>Dữ liệu lương</th><th>Lần cập nhật</th><th>Trạng thái</th></tr></thead><tbody>
             {!b && !error ? <SkeletonRows cols={6} rows={5} /> : null}

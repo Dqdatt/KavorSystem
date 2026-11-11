@@ -3,7 +3,7 @@ import { Suspense, useMemo, useState, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { AdminAttendanceEvent, AdminDevice, AttendanceBoard, TodayRow } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
-import { DEVICE, Empty, Icon, LoadError, Person, REJECT_REASON, Status, can, dur, fmtDate, fmtDateTime, fmtTime, longDate, meters, tenantToday, useAction, useMe } from "../../_ui/kit";
+import { PageActions, DEVICE, Empty, Icon, LoadError, Person, REJECT_REASON, Status, can, dur, fmtDate, fmtDateTime, fmtTime, longDate, meters, tenantToday, useAction, useMe } from "../../_ui/kit";
 import { ReasonModal } from "../../_ui/reason-modal";
 import { MonthTab } from "./month";
 import { OvertimeTab } from "./overtime";
@@ -23,8 +23,8 @@ function AttendancePage() {
     <section className="page active">
       <div className="page-head">
         <div><div className="segmented" role="tablist">{TABS.filter(([, , perm]) => !perm || can(me, perm)).map(([k, label]) => <button key={k} role="tab" aria-selected={tab === k} className={tab === k ? "active" : ""} onClick={() => go(k)}>{label}</button>)}</div></div>
-        <div className="head-actions">{tab === "month" ? action : null}</div>
       </div>
+      {tab === "month" ? <PageActions>{action}</PageActions> : null}
       {tab === "month" ? <MonthTab setAction={setAction} /> : tab === "overtime" ? <OvertimeTab /> : tab === "today" ? <Today tz={me.tenant.timezone} tenantId={me.tenant.id} /> : tab === "rejected" ? <Rejected tz={me.tenant.timezone} tenantId={me.tenant.id} /> : <Devices tz={me.tenant.timezone} tenantId={me.tenant.id} />}
     </section>
   );

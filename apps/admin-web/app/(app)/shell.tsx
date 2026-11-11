@@ -78,6 +78,7 @@ export function Shell({ me, children }: { me: AdminMe; children: ReactNode }) {
                   onKeyDown={(e) => { if (e.key === "Enter" && q.trim()) router.push(`/employees?q=${encodeURIComponent(q.trim())}`); }} /></label>
               ) : <span />}
               <div className="top-actions">
+                <div id="page-actions" className="page-actions" />
                 <NotificationBell />
                 <AccountMenu live={live} />
               </div>

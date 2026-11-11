@@ -10,6 +10,12 @@ simulator hay iPhone** vì phiên cloud không có Mac). Người dùng giao "c�
 ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AGENT_PLAYBOOK.md`; kiểm tra toàn bộ bằng `bash tools/verify-all.sh`.
 
 ## Đã xong
+- Bố cục web HR vòng 2 (11/11, Claude Desktop — phản hồi: nhiều trang có hàng chỉ 2 nút bên phải, bên trái trống): nút hành động của trang
+  lên **topbar** cạnh tên trang (`PageActions` ở `app/_ui/kit.tsx`, portal vào `#page-actions`; điện thoại xuống hàng 2 của topbar) — áp cho
+  Nhân viên, Cơ cấu, Chấm công (Bảng công), Ca & địa điểm, Nghỉ phép, Đơn, Lương (kỳ lương, đầu vào, khoản phụ cấp), Tài liệu, Bản tin, Vai trò,
+  Cài đặt (nút Lưu luôn thấy). Bản tin bỏ khối "Bài đang xuất bản" trùng bảng → 4 thẻ số liệu bấm để lọc. Công tắc Chính sách nền tảng sát
+  phải; chip "Thiếu N giấy tờ" xếp dọc (trước bị cắt); kỳ công thành nhãn cạnh ô chọn tháng; ảnh bìa xem trước tối đa 400px; thẻ số liệu 2 cột
+  trên điện thoại. Đã chụp toàn bộ trang bằng Claude in Chrome (1664px) + khung 390px.
 - Gọn UI web HR (11/11, Claude Desktop — phản hồi người dùng: rối, chữ nhỏ/giải thích nhiều, rớt chữ, cài đặt nên ở góc phải):
   **menu tài khoản** khi bấm tên doanh nghiệp góc trên phải (`app/_ui/account-menu.tsx`: tên/email + mọi vai trò kèm phạm vi, doanh nghiệp,
   Cài đặt doanh nghiệp, Thiết lập ban đầu, Hỗ trợ Kavor, giao diện Sáng/Tối/Tự động, trạng thái cập nhật trực tiếp, Đăng xuất) — thanh bên bỏ

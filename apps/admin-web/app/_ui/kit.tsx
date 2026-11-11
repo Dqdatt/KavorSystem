@@ -139,6 +139,13 @@ export function Drawer({ onClose, head, children, wide }: { onClose: () => void;
 }
 
 /* hint: giải thích → biểu tượng ⓘ cạnh nhãn (chỉ hiện khi di chuột/chạm); note: dòng ngắn luôn hiện (cảnh báo, kết quả tính) */
+/* Nút hành động của trang hiện trên topbar cạnh tên trang (portal vào #page-actions) — không còn hàng nút riêng để trống bên trái */
+export function PageActions({ children }: { children: ReactNode }) {
+  const [host, setHost] = useState<Element | null>(null);
+  useEffect(() => { setHost(document.getElementById("page-actions")); }, []);
+  return host ? createPortal(<>{children}</>, host) : null;
+}
+
 export function Field({ label, full, hint, note, children }: { label: string; full?: boolean; hint?: ReactNode; note?: ReactNode; children: ReactNode }) {
   return <div className={`field ${full ? "full" : ""}`}><label>{label}{hint ? <Hint text={hint} /> : null}</label>{children}{note ? <small>{note}</small> : null}</div>;
 }

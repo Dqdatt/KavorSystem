@@ -7,7 +7,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { ANNOUNCEMENT_CATEGORIES, ANNOUNCEMENT_MAX_BYTES, type AnnouncementAdmin, type AnnouncementBoard, type AnnouncementCategory,
   type AnnouncementDetail, type AnnouncementInput, type AnnouncementStatus, type AnnouncementUnit } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
-import { Drawer, Empty, ErrorLine, Field, Icon, LoadError, Modal, Person, Status, fmtDateTime, num, useAction, useMe } from "../../_ui/kit";
+import { PageActions, Drawer, Empty, ErrorLine, Field, Icon, LoadError, Modal, Person, Status, fmtDateTime, num, useAction, useMe } from "../../_ui/kit";
 import { Select, SkeletonLines, SkeletonRows } from "@kavor/web-ui";
 import { RichText, RichTextEditor } from "../../_ui/rich-text";
 
@@ -46,7 +46,7 @@ function AnnouncementsPage() {
   const openId = params.get("open");
   const open = (id: string | null) => router.replace(id ? `/announcements?open=${id}` : "/announcements", { scroll: false });
   const items = b?.items ?? [];
-  const live = items.filter((a) => a.status === "published").slice(0, 5);
+  const live = items.filter((a) => a.status === "published");
   const scheduled = items.filter((a) => a.status === "scheduled").sort((x, y) => (x.publishAt ?? "").localeCompare(y.publishAt ?? ""));
   const rows = items.filter((a) => (filter === "all" || a.status === filter) && (!q.trim() || a.title.toLowerCase().includes(q.trim().toLowerCase())));
   const tz = me.tenant.timezone;
@@ -54,30 +54,13 @@ function AnnouncementsPage() {
 
   return (
     <section className="page active">
-      <div className="page-head">
-        <div className="head-actions"><button className="btn primary" onClick={() => setEditing("new")}><Icon name="plus" /> Tạo bài viết</button></div></div>
+      <PageActions><button className="btn primary" onClick={() => setEditing("new")}><Icon name="plus" /> Tạo bài viết</button></PageActions>
       <LoadError error={error} retry={reload} />
-      <div className="grid two-one">
-        <article className="card"><div className="card-head"><h3>Bài đang xuất bản</h3><button className="btn small" onClick={() => { setFilter("all"); all.current?.scrollIntoView({ behavior: "smooth" }); }}>Tất cả bài</button></div>
-          {b && !live.length ? <Empty title="Chưa có bài đang hiện" text="Bấm “Tạo bài viết” để soạn bài đầu tiên." /> : (
-            <div className="quick-list">{live.map((a) => (
-              <button key={a.id} className="quick-item" style={{ font: "inherit", textAlign: "left", width: "100%" }} onClick={() => open(a.id)}>
-                <span className={`metric-icon ${a.important ? "red" : ICON[a.category][1]}`}><Icon name={a.important ? "alert" : ICON[a.category][0]} /></span>
-                <span className="quick-copy"><b>{a.title}</b><span>{audienceText(a)} · {[a.important ? "quan trọng" : null, a.pinned ? "đã ghim" : null, ANNOUNCEMENT_CATEGORIES[a.category].toLowerCase()].filter(Boolean).join(" · ")}</span></span>
-                <Status v={[`${pct(a)}% đã đọc`, pct(a) >= 80 ? "" : "warn"]} />
-              </button>
-            ))}</div>
-          )}
-        </article>
-        <article className="card"><div className="card-head"><h3>Lịch xuất bản</h3></div>
-          {b && !scheduled.length ? <Empty title="Chưa có bài hẹn giờ" text="Khi xuất bản, chọn “Hẹn giờ” để bài tự hiện đúng lúc." /> : (
-            <div className="detail-list">{scheduled.map((a) => (
-              <button key={a.id} className="detail-row" style={{ font: "inherit", width: "100%", background: "none", border: 0, borderBottom: "1px solid var(--line-soft)", cursor: "pointer", textAlign: "left" }} onClick={() => open(a.id)}>
-                <span>{fmtDateTime(a.publishAt, tz).slice(0, 5)} · {a.title}</span><b>{fmtDateTime(a.publishAt, tz).slice(-5)}</b>
-              </button>
-            ))}</div>
-          )}
-        </article>
+      <div className="grid metrics">
+        <MetricBtn icon="news" tone="" label="Đang hiện" value={b ? num(live.length) : "—"} sub={live.length ? `Đọc trung bình ${Math.round(live.reduce((t, a) => t + pct(a), 0) / live.length)}%` : "Chưa có bài đang hiện"} onClick={() => setFilter("published")} />
+        <MetricBtn icon="clock" tone="blue" label="Hẹn giờ" value={b ? num(scheduled.length) : "—"} sub={scheduled[0] ? `Gần nhất ${fmtDateTime(scheduled[0].publishAt, tz)}` : "Không có bài hẹn giờ"} onClick={() => setFilter("scheduled")} />
+        <MetricBtn icon="file" tone="amber" label="Nháp" value={b ? num(items.filter((a) => a.status === "draft").length) : "—"} sub="Chưa gửi tới nhân viên" onClick={() => setFilter("draft")} />
+        <MetricBtn icon="alert" tone="red" label="Quan trọng đang hiện" value={b ? num(live.filter((a) => a.important).length) : "—"} sub="Cần nhân viên xác nhận đã đọc" onClick={() => setFilter("published")} />
       </div>
 
       <article className="card" ref={all}>
@@ -300,5 +283,15 @@ function PublishModal({ a, onClose, onDone }: { a: AnnouncementAdmin; onClose: (
       </div>
       <ErrorLine text={err} />
     </Modal>
+  );
+}
+
+/* Thẻ số liệu bấm được: lọc bảng bên dưới theo trạng thái */
+function MetricBtn({ icon, tone, label, value, sub, onClick }: { icon: string; tone: string; label: string; value: string; sub: string; onClick: () => void }) {
+  return (
+    <button className="card metric-card metric-btn" onClick={onClick}>
+      <span className={`metric-icon ${tone}`}><Icon name={icon} /></span>
+      <span className="metric-copy"><span>{label}</span><strong>{value}</strong><small>{sub}</small></span>
+    </button>
   );
 }

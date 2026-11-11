@@ -5,7 +5,7 @@
 import { useMemo, useState } from "react";
 import { MANAGEMENT_TIERS, ORG_UNIT_KINDS, type ManagementTier, type OrgOptions, type OrgTree, type OrgUnit, type OrgUnitKind } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
-import { Empty, ErrorLine, Field, Icon, LoadError, Modal, Status, can, fmtDate, num, useAction, useMe } from "../../_ui/kit";
+import { PageActions, Empty, ErrorLine, Field, Icon, LoadError, Modal, Status, can, fmtDate, num, useAction, useMe } from "../../_ui/kit";
 import { StructureModal } from "../../_ui/structure-plan";
 import { Select, Skeleton, SkeletonLines } from "@kavor/web-ui";
 
@@ -29,9 +29,8 @@ export default function OrganizationPage() {
   const wait = !t && !error ? <Skeleton w={56} h={24} /> : "—";
   return (
     <section className="page active">
-      <div className="page-head">
-        <div className="head-actions">{t?.canManage ? <>{can(me, "employee.update") ? <button className="btn" onClick={() => setArranging(true)}><Icon name="org" /> Sắp xếp tự động</button> : null}
-          <button className="btn primary" onClick={() => setEdit({ mode: "create", kind: "department" })}><Icon name="plus" /> Thêm đơn vị</button></> : null}</div></div>
+      <PageActions>{t?.canManage ? <>{can(me, "employee.update") ? <button className="btn" onClick={() => setArranging(true)}><Icon name="org" /> Sắp xếp tự động</button> : null}
+          <button className="btn primary" onClick={() => setEdit({ mode: "create", kind: "department" })}><Icon name="plus" /> Thêm đơn vị</button></> : null}</PageActions>
       <LoadError error={error} retry={reload} />
       {arranging ? <StructureModal onClose={() => setArranging(false)} onDone={() => void reload()} /> : null}
       <div className="grid three">

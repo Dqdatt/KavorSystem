@@ -46,7 +46,7 @@ pnpm build
 - Web: CSS dùng chung một nguồn `packages/web-ui/src/kavor.css` (màu là biến, theme sáng/tối qua `<html data-theme>`, không có thuộc tính =
   theo hệ điều hành; Montserrat tự host) — không viết mã màu cứng trong trang, không tạo CSS riêng cho từng web. Dropdown dùng `Select` của
   `@kavor/web-ui` (không dùng `<select>` gốc); tên trang chỉ ở topbar (page-head không có h2). Giải thích dùng ⓘ (`Field hint`, `Hint` của `@kavor/web-ui`), `Field note` chỉ cho cảnh báo/kết quả cần luôn thấy; chữ tối thiểu
-  12px. Cài đặt doanh nghiệp, giao diện và Đăng xuất nằm trong menu tài khoản góc trên phải (`app/_ui/account-menu.tsx`), không đặt ở thanh bên. Chữ hiển thị theo bảng từ Việt hóa trong
+  12px. Cài đặt doanh nghiệp, giao diện và Đăng xuất nằm trong menu tài khoản góc trên phải (`app/_ui/account-menu.tsx`), không đặt ở thanh bên. Nút hành động của trang dùng `PageActions` (hiện trên topbar), không tạo page-head chỉ có nút. Chữ hiển thị theo bảng từ Việt hóa trong
   `docs/plans/web-ui-polish.md` (tenant → công ty/doanh nghiệp, Tenant Admin → quản trị viên công ty…); mã kỹ thuật giữ nguyên.
 
 ## Cạm bẫy

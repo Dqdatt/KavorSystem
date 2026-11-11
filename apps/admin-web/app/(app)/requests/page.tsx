@@ -5,7 +5,7 @@ import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { STEP_RESOLVERS, type OrgOptions, type RequestItem, type RequestQueue, type RequestQueueStatus, type RequestType, type StepResolver, type WorkflowDef, type WorkflowStepInput } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
-import { Empty, ErrorLine, Field, Icon, LoadError, Modal, Person, Status, can, fmtDate, fmtDateTime, num, tenantToday, useAction, useMe } from "../../_ui/kit";
+import { PageActions, Empty, ErrorLine, Field, Icon, LoadError, Modal, Person, Status, can, fmtDate, fmtDateTime, num, tenantToday, useAction, useMe } from "../../_ui/kit";
 import { REQUEST_STATUS, REQUEST_TYPE, RequestModal, requestSummary, slaLabel } from "../../_ui/request";
 import { Select, SkeletonRows } from "@kavor/web-ui";
 
@@ -46,10 +46,9 @@ function RequestsPage() {
   const exportHref = `/api/requests/export?status=${status}&${new URLSearchParams(Object.entries({ ...f, q: qq }).filter(([, v]) => v)).toString()}`;
   return (
     <section className="page active">
-      <div className="page-head">
-        <div className="head-actions">
+      <PageActions>
           <a className="btn" href={exportHref}><Icon name="download" /> Xuất CSV</a>
-          {can(me, "request.read") ? <button className="btn" onClick={() => setConfig(true)}><Icon name="settings" /> Cấu hình luồng duyệt</button> : null}</div></div>
+          {can(me, "request.read") ? <button className="btn" onClick={() => setConfig(true)}><Icon name="settings" /> Cấu hình luồng duyệt</button> : null}</PageActions>
       <LoadError error={error} retry={reload} />
       <article className="card">
         <div className="toolbar">

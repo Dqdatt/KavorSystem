@@ -5,7 +5,7 @@
 import { useMemo, useState, type ReactNode } from "react";
 import type { PayrollInputRow, PayrollInputSheet } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
-import { EMPLOYMENT, Empty, ErrorLine, Field, Icon, LoadError, Modal, Person, Status, fmtDate, fmtDateTime, num, useAction, useMe } from "../../_ui/kit";
+import { PageActions, EMPLOYMENT, Empty, ErrorLine, Field, Icon, LoadError, Modal, Person, Status, fmtDate, fmtDateTime, num, useAction, useMe } from "../../_ui/kit";
 import { money } from "../../_ui/request";
 import { Hint, Select, SkeletonRows } from "@kavor/web-ui";
 
@@ -42,11 +42,13 @@ export function Inputs({ tabs }: { tabs: ReactNode }) {
         <div className="head-actions">
           <Select className="select" value={cur ?? ""} onChange={(e) => { setMonth(e.target.value); setLive(false); }} aria-label="Kỳ">{months.map((x) => <option key={x} value={x}>{monthLabel(x)}</option>)}</Select>
           {s ? <span className="muted nowrap" style={{ fontSize: 12.5 }}>{fmtDate(s.period.start).slice(0, 5)}–{fmtDate(s.period.end)}</span> : null}
+        </div>
+      </div>
+      <PageActions>
           {s ? <a className="btn" href={exportHref}><Icon name="download" /> Xuất Excel</a> : null}
           {s?.canFinalize ? <button className="btn primary" disabled={!s.period.locked} title={s.period.locked ? undefined : "Khóa kỳ công trước khi chốt"} onClick={() => setFinalizing(true)}>
             <Icon name="lock" /> {s.finalized ? "Chốt lại" : "Chốt bảng"}</button> : null}
-        </div>
-      </div>
+      </PageActions>
       <LoadError error={error} retry={reload} />
       {s && !s.period.locked ? <div className="note-amber" style={{ marginBottom: 12 }}>Kỳ công chưa khóa nên số công còn thay đổi. Khóa ở <b>Chấm công → Bảng công tháng</b> rồi mới chốt.</div> : null}
       {s?.finalized ? (

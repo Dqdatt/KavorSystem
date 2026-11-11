@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { LocationDef, OrgOptions, PolicyAssignment, PolicyKind, PolicyScopeType, ShiftDef, ShiftVersion } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
-import { Empty, ErrorLine, Field, Icon, LoadError, Modal, SCOPE, Status, can, fmtDate, tenantToday, useAction, useMe } from "../../_ui/kit";
+import { PageActions, Empty, ErrorLine, Field, Icon, LoadError, Modal, SCOPE, Status, can, fmtDate, tenantToday, useAction, useMe } from "../../_ui/kit";
 import { ReasonModal } from "../../_ui/reason-modal";
 import { Select, SkeletonRows } from "@kavor/web-ui";
 
@@ -41,7 +41,8 @@ function Shifts({ tabs }: { tabs: ReactNode }) {
   return (
     <>
       <LoadError error={error} retry={reload} />
-      <div className="page-head"><div>{tabs}</div><div className="head-actions">{manage ? <button className="btn primary" onClick={() => setForm("new")}><Icon name="plus" /> Tạo ca</button> : null}</div></div>
+      <div className="page-head"><div>{tabs}</div></div>
+      <PageActions>{manage ? <button className="btn primary" onClick={() => setForm("new")}><Icon name="plus" /> Tạo ca</button> : null}</PageActions>
       {data && !data.length ? <Empty title="Chưa có mẫu ca" /> : (
         <div className="grid two">
           {(data ?? []).map((s) => (
@@ -117,7 +118,8 @@ function Locations({ tabs }: { tabs: ReactNode }) {
   return (
     <>
       <LoadError error={error} retry={reload} />
-      <div className="page-head"><div>{tabs}</div><div className="head-actions">{manage ? <button className="btn primary" onClick={() => setForm("new")}><Icon name="plus" /> Thêm địa điểm</button> : null}</div></div>
+      <div className="page-head"><div>{tabs}</div></div>
+      <PageActions>{manage ? <button className="btn primary" onClick={() => setForm("new")}><Icon name="plus" /> Thêm địa điểm</button> : null}</PageActions>
       <article className="card">
         {data && !data.length ? <Empty title="Chưa có địa điểm chấm công" /> : (
           <div className="table-wrap"><table className="data-table" style={{ minWidth: 900 }}><thead><tr><th>Địa điểm</th><th>Chi nhánh</th><th>Tọa độ</th><th title="Bán kính · sai số GPS tối đa">Bán kính · sai số</th><th>Phiên bản</th><th>Trạng thái</th><th /></tr></thead><tbody>
@@ -208,7 +210,8 @@ function Assignments({ tabs }: { tabs: ReactNode }) {
   const rows = (data ?? []).filter((a) => showOld || a.state === "active" || a.state === "scheduled");
   return (
     <>
-      <div className="page-head"><div>{tabs}</div><div className="head-actions">{manage ? <button className="btn primary" onClick={() => setCreating(true)}><Icon name="plus" /> Áp dụng mới</button> : null}</div></div>
+      <div className="page-head"><div>{tabs}</div></div>
+      <PageActions>{manage ? <button className="btn primary" onClick={() => setCreating(true)}><Icon name="plus" /> Áp dụng mới</button> : null}</PageActions>
       <LoadError error={error} retry={reload} />
       <article className="card">
         <div className="toolbar">

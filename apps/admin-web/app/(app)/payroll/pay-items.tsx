@@ -5,7 +5,7 @@
 import { useState, type ReactNode } from "react";
 import type { PayItem, PayItemInput, PayItemList, PayItemMode, PayItemTax } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
-import { Empty, ErrorLine, Field, Icon, LoadError, Modal, Status, useAction } from "../../_ui/kit";
+import { PageActions, Empty, ErrorLine, Field, Icon, LoadError, Modal, Status, useAction } from "../../_ui/kit";
 import { money } from "../../_ui/request";
 import { Select, SkeletonRows } from "@kavor/web-ui";
 
@@ -26,16 +26,14 @@ export function PayItems({ tabs }: { tabs: ReactNode }) {
   const active = (l?.items ?? []).filter((x) => !x.archived);
   return (
     <>
-      <div className="page-head">
-        <div>{tabs}</div>
-        <div className="head-actions">
+      <div className="page-head"><div>{tabs}</div></div>
+      <PageActions>
           {l?.canManage ? <>
             <button className="btn" disabled={!!busy} onClick={() => void run("tpl", async () => setData(await call<PayItemList>("POST", "payroll/pay-items/templates", {})), "Đã thêm các khoản mẫu")}>
               <Icon name="plus" /> Thêm khoản mẫu</button>
             <button className="btn primary" onClick={() => setEdit("new")}><Icon name="plus" /> Thêm khoản</button>
           </> : null}
-        </div>
-      </div>
+      </PageActions>
       <LoadError error={error} retry={reload} />
       <article className="card">
         {l && !l.items.length ? (

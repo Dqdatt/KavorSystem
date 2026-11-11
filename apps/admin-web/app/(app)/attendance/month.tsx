@@ -44,7 +44,6 @@ export function MonthTab({ setAction }: { setAction: (n: ReactNode) => void }) {
   return (
     <>
       <LoadError error={error} retry={reload} />
-      {b ? <p className="muted" style={{ margin: "-6px 0 12px", fontSize: 12 }}>Kỳ {fmtDate(b.period.start)}–{fmtDate(b.period.end)} · {b.period.locked && b.lock ? `đã khóa ${fmtDateTime(b.lock.lockedAt, b.timezone)}${b.lock.lockedBy ? ` bởi ${b.lock.lockedBy}` : ""}` : "chưa khóa"}</p> : null}
       <div className="grid metrics">
         <article className="card metric-card"><span className="metric-icon"><Icon name="users" /></span><span className="metric-copy"><span>Đủ công</span><strong>{m ? num(m.full) : "—"}</strong><small>{m && m.employees ? `${((m.full / m.employees) * 100).toLocaleString("vi-VN", { maximumFractionDigits: 1 })}% nhân sự` : " "}</small></span></article>
         <article className="card metric-card"><span className="metric-icon red"><Icon name="alert" /></span><span className="metric-copy"><span>Thiếu công</span><strong>{m ? num(m.short) : "—"}</strong><small>{m ? `${num(m.unexplained)} ngày chưa giải trình` : " "}</small></span></article>
@@ -58,6 +57,7 @@ export function MonthTab({ setAction }: { setAction: (n: ReactNode) => void }) {
           <button className={`filter-chip ${filter === "short" ? "active" : ""}`} onClick={() => setFilter("short")}>Thiếu công {m?.short ?? 0}</button>
           <button className={`filter-chip ${filter === "late" ? "active" : ""}`} onClick={() => setFilter("late")}>Đi muộn {m?.lateEmployees ?? 0}</button>
           <span className="toolbar-spacer" />
+          {b ? <span className={`status ${b.period.locked ? "" : "warn"}`} title={b.period.locked && b.lock ? `Khóa lúc ${fmtDateTime(b.lock.lockedAt, b.timezone)}${b.lock.lockedBy ? ` bởi ${b.lock.lockedBy}` : ""}` : undefined}>{fmtDate(b.period.start).slice(0, 5)}–{fmtDate(b.period.end)} · {b.period.locked ? "đã khóa" : "chưa khóa"}</span> : null}
           <Select className="select" value={cur ?? ""} onChange={(e) => setMonth(e.target.value)} aria-label="Kỳ công">{months.map((x) => <option key={x} value={x}>{monthLabel(x)}</option>)}</Select>
         </div>
         {b && !rows.length ? <Empty title="Không có nhân viên phù hợp" /> : (

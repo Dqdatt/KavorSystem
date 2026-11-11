@@ -7,7 +7,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { DOCUMENT_CATEGORIES, type DocumentBoard, type DocumentCategory, type DocumentDetail, type DocumentExpiry, type DocumentMeta,
   type DocumentVisibility, type EmployeeDocument, type EmployeeListItem } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
-import { Drawer, Empty, ErrorLine, Field, Icon, LoadError, Modal, Person, Status, fmtDate, fmtDateTime, num, useAction, useMe } from "../../_ui/kit";
+import { PageActions, Drawer, Empty, ErrorLine, Field, Icon, LoadError, Modal, Person, Status, fmtDate, fmtDateTime, num, useAction, useMe } from "../../_ui/kit";
 import { ReasonModal } from "../../_ui/reason-modal";
 import { ChecklistCatalog } from "./checklist";
 import { Select, SkeletonLines, SkeletonRows } from "@kavor/web-ui";
@@ -43,8 +43,7 @@ function DocumentsPage() {
 
   return (
     <section className="page active">
-      <div className="page-head">
-        <div className="head-actions"><button className="btn" onClick={() => setCatalog(true)}><Icon name="checks" /> Danh mục giấy tờ</button>{b?.canUpload ? <button className="btn primary" onClick={() => setUploading(true)}><Icon name="upload" /> Tải tài liệu</button> : null}</div></div>
+      <PageActions><button className="btn" onClick={() => setCatalog(true)}><Icon name="checks" /> Danh mục giấy tờ</button>{b?.canUpload ? <button className="btn primary" onClick={() => setUploading(true)}><Icon name="upload" /> Tải tài liệu</button> : null}</PageActions>
       <LoadError error={error} retry={reload} />
       <div className="grid metrics">
         <article className="card metric-card"><span className="metric-icon"><Icon name="file" /></span><span className="metric-copy"><span>Tổng tài liệu</span><strong>{m ? num(m.total) : "—"}</strong><small>{num(used)} danh mục</small></span></article>

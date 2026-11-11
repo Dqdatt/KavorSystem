@@ -5,7 +5,7 @@
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import type { PayComponent, PayrollAction, PayrollComputePreview, PayrollBoard, PayrollCycle, PayrollDetail, PayrollImportOutcome, PayrollIssue, PayrollResult, PayrollStatus, PayrollTransition } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
-import { Empty, ErrorLine, Field, Icon, LoadError, Modal, Person, Status, can, fmtDate, fmtDateTime, num, tenantToday, useAction, useMe, useToast } from "../../_ui/kit";
+import { PageActions, Empty, ErrorLine, Field, Icon, LoadError, Modal, Person, Status, can, fmtDate, fmtDateTime, num, tenantToday, useAction, useMe, useToast } from "../../_ui/kit";
 import { ReasonModal } from "../../_ui/reason-modal";
 import { money } from "../../_ui/request";
 import { Select, Hint } from "@kavor/web-ui";
@@ -69,13 +69,15 @@ export function Cycles({ tabs }: { tabs: ReactNode }) {
               {board.cycles.map((x) => <option key={x.id} value={x.month}>Kỳ {mm(x.month)} · {STATUS[x.status][0]}</option>)}
             </Select>
           ) : null}
+        </div>
+      </div>
+      <PageActions>
           {board?.canCreate ? <button className="btn" onClick={() => setModal("create")}><Icon name="plus" /> Mở kỳ lương</button> : null}
           {d?.canImport && can(me, "compensation.read") ? <button className="btn primary" onClick={() => setModal("compute")}>Kavor tính lương</button> : null}
           {d?.canImport ? <button className="btn" onClick={() => setModal("import")}><Icon name="upload" /> Nhập kết quả</button> : null}
           {d?.actions.includes("reopen") ? <button className="btn" onClick={() => setModal("reopen")}>Mở lại</button> : null}
           {next ? <button className="btn primary" onClick={() => setModal(next)}>{ACTION[next].label}</button> : null}
-        </div>
-      </div>
+      </PageActions>
       <LoadError error={error ?? detailError} retry={refresh} />
       {board && !board.cycles.length ? (
         <article className="card"><Empty title="Chưa có kỳ lương nào" text={board.canCreate ? "Bấm “Mở kỳ lương” để tạo kỳ theo tháng, rồi nhập file kết quả CSV." : "Kế toán có quyền toàn công ty sẽ mở kỳ lương theo tháng."} /></article>

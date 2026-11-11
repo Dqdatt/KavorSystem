@@ -6,7 +6,7 @@ import { MANAGEMENT_TIERS, MANAGEMENT_TIERS_EN, managerTierOk, type AdminMe } fr
 import { call, useApi } from "../../_lib/client";
 import { EmployeePaySection } from "./pay";
 import { EmployeeChecklistSection } from "../documents/checklist";
-import {
+import { PageActions,
   ACCOUNT, Avatar, DEVICE, EMP_STATUS, EMPLOYMENT, Drawer, Empty, ErrorLine, Field, Icon, LoadError, Modal, Person, Phrases, REJECT_REASON, Status, scopeText,
   ago, can, fmtDate, fmtDateTime, tenantToday, useAction, useMe,
 } from "../../_ui/kit";
@@ -62,10 +62,7 @@ function EmployeesPage() {
 
   return (
     <section className="page active">
-      <div className="page-head">
-        <div><p>{list.data ? `${rows.length} hồ sơ` : <Skeleton w={150} h={10} style={{ display: "inline-block" }} />}</p></div>
-        <div className="head-actions">{can(me, "employee.create") ? <><button className="btn" onClick={() => setImporting(true)}><Icon name="upload" /> Nhập từ file</button><button className="btn primary" onClick={() => setEditing("new")}><Icon name="plus" /> Thêm nhân viên</button></> : null}</div>
-      </div>
+      <PageActions>{can(me, "employee.create") ? <><button className="btn" onClick={() => setImporting(true)}><Icon name="upload" /> Nhập từ file</button><button className="btn primary" onClick={() => setEditing("new")}><Icon name="plus" /> Thêm nhân viên</button></> : null}</PageActions>
       <LoadError error={list.error} retry={list.reload} />
       <article className="card">
         <div className="toolbar">
@@ -77,6 +74,7 @@ function EmployeesPage() {
           <Select className="select" value={account} onChange={(e) => setAccount(e.target.value)} aria-label="Tài khoản"><option value="all">Mọi tài khoản</option><option value="pending">Chưa kích hoạt</option><option value="active">Đã kích hoạt</option><option value="locked">Đã khóa</option></Select>
           {gaps.data?.itemCount ? <Select className="select" value={papers} onChange={(e) => setPapers(e.target.value)} aria-label="Giấy tờ"><option value="all">Mọi hồ sơ giấy tờ</option><option value="missing">Thiếu giấy tờ ({missing.size})</option></Select> : null}
           <span className="toolbar-spacer" />
+          {list.data ? <span className="muted nowrap" style={{ fontSize: 13 }}>{rows.length} hồ sơ</span> : null}
           {/* Gửi lời mời cho người chưa mời lần nào trong danh sách đang lọc (thường sau khi nhập từ file) */}
           {can(me, "membership.invite") && uninvited.length ? <button className="btn small" onClick={() => setBulk(true)}><Icon name="mail" /> Gửi lời mời ({uninvited.length})</button> : null}
         </div>
@@ -88,8 +86,8 @@ function EmployeesPage() {
               <tr className="clickable" onClick={() => open(e.id)}>
                 <td><Person name={e.fullName} sub={`${e.code} · ${e.email ?? "chưa có email"}`} seed={e.code} /></td>
                 <td className="wrap">{e.department?.name ?? "—"}</td><td className="wrap">{e.position?.name ?? "—"}</td><td>{fmtDate(e.hireDate)}</td><td>{EMPLOYMENT[e.employmentType]}</td>
-                <td><Status v={ACCOUNT[e.account]} />{e.devicePending ? <span className="source-tag" title="Có thiết bị chờ duyệt">Máy chờ duyệt</span> : null}
-                  {missing.get(e.id) ? <span className="source-tag" title={`Thiếu: ${missing.get(e.id)!.join(", ")}`}>Thiếu {missing.get(e.id)!.length} giấy tờ</span> : null}</td>
+                <td><span className="cell-stack"><Status v={ACCOUNT[e.account]} />{e.devicePending ? <span className="source-tag" title="Có thiết bị chờ duyệt">Máy chờ duyệt</span> : null}
+                  {missing.get(e.id) ? <span className="source-tag" title={`Thiếu: ${missing.get(e.id)!.join(", ")}`}>Thiếu {missing.get(e.id)!.length} giấy tờ</span> : null}</span></td>
                 <td><Status v={EMP_STATUS[e.status]} /></td>
                 <td><Icon name="arrow" size={16} className="icon" /></td>
               </tr>

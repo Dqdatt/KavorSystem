@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { LEAVE_TX_KINDS, type EmployeeLeave, type LeaveBalance, type LeaveBoard, type RequestItem } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
-import { Drawer, Empty, ErrorLine, Field, Icon, LoadError, Person, Status, fmtDate, fmtDateTime, useAction, useMe } from "../../_ui/kit";
+import { PageActions, Drawer, Empty, ErrorLine, Field, Icon, LoadError, Person, Status, fmtDate, fmtDateTime, useAction, useMe } from "../../_ui/kit";
 import { REQUEST_STATUS, RequestModal, requestSummary } from "../../_ui/request";
 import { Select, SkeletonLines, SkeletonRows, Hint } from "@kavor/web-ui";
 
@@ -24,8 +24,7 @@ export default function LeavePage() {
   const granted = (b?.rows ?? []).reduce((n, r) => n + (r.balance ? r.balance.granted + r.balance.carry + r.balance.adjusted : 0), 0);
   return (
     <section className="page active">
-      <div className="page-head">
-        <div className="head-actions"><Link className="btn" href="/settings?tab=rules"><Icon name="settings" /> Quy định phép năm</Link></div></div>
+      <PageActions><Link className="btn" href="/settings?tab=rules"><Icon name="settings" /> Quy định phép năm</Link></PageActions>
       <LoadError error={error} retry={reload} />
       <div className="grid metrics">
         <article className="card metric-card"><span className="metric-icon"><Icon name="plane" /></span><span className="metric-copy"><span>Phép khả dụng</span><strong>{m ? d1(m.available) : "—"}</strong><small>ngày toàn công ty</small></span></article>
