@@ -4,7 +4,7 @@
    Mức lương là phiên bản theo ngày hiệu lực (không sửa bản cũ); người phụ thuộc tính giảm trừ theo tháng bắt đầu/kết thúc.
    Lương cứng (thỏa thuận lúc phỏng vấn) = lương cơ bản (đóng BH) + các khoản phụ cấp/thưởng trong danh mục của công ty. */
 import { useState } from "react";
-import type { CompensationInput, CompensationVersion, DependentInput, EmployeeDependent, EmployeePay, EmploymentType, PayItemList } from "@kavor/contracts";
+import type { CompensationInput, CompensationVersion, DependentInput, EmployeeDependent, EmployeePay, EmploymentType, PayItemList, ProbationContract, TaxProfileInput } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
 import { EMPLOYMENT, ErrorLine, Field, Modal, fmtDate, fmtDateTime, tenantToday, useAction, useMe } from "../../_ui/kit";
 import { ReasonModal } from "../../_ui/reason-modal";
@@ -34,10 +34,12 @@ export function EmployeePaySection({ employeeId, name }: { employeeId: string; n
             <div className="detail-row"><span>Lương cơ bản</span><b>{c ? money(c.baseSalary) : "—"}</b></div>
             {c?.items.map((x) => <div key={x.itemId} className="detail-row"><span>{x.name}</span><b>{money(x.amount)}</b></div>)}
             {c && !c.items.length && c.allowance ? <div className="detail-row"><span>Phụ cấp</span><b>{money(c.allowance)}</b></div> : null}
-            <div className="detail-row"><span>Lương đóng bảo hiểm</span><b>{c ? (c.insuranceSalary ? money(c.insuranceSalary) : "Bằng lương cơ bản") : "—"}</b></div>
+            <div className="detail-row"><span>Lương đóng bảo hiểm</span><b>{c ? (c.insuranceSalary ? money(c.insuranceSalary) : "Lương cơ bản + các khoản có tính BH") : "—"}</b></div>
             <div className="detail-row"><span>Tình trạng lao động</span><b>{type(c)}</b></div>
             <div className="detail-row"><span>Mã số thuế cá nhân</span><b>{p.taxCode ?? <span className="muted">Chưa có</span>}</b></div>
             <div className="detail-row"><span>Đoàn viên công đoàn</span><b>{p.unionMember ? "Có" : "Không"}</b></div>
+            {p.probationContract || type(c) === "Thử việc" ? <div className="detail-row"><span>Hình thức thử việc</span><b>{p.probationContract === "in_contract" ? "Trong HĐLĐ (đóng BH)" : p.probationContract === "separate" ? "Hợp đồng thử việc riêng" : "Theo quy chế công ty"}</b></div> : null}
+            {p.commitment08 || p.withholdingRequested ? <div className="detail-row"><span>Khấu trừ thuế 10%</span><b>{p.commitment08 ? "Có cam kết 08/CK-TNCN — không khấu trừ" : "Khấu trừ cả khi dưới ngưỡng (theo yêu cầu)"}</b></div> : null}
             <div className="detail-row"><span>Người phụ thuộc</span><b>{p.activeDependents ? `${p.activeDependents} người đang giảm trừ` : "Không"}</b></div>
           </div>
           {p.dependents.length ? (
@@ -156,24 +158,39 @@ export function CompensationModal({ title, current, fallbackType, onClose, save 
   );
 }
 
-function TaxModal({ pay, name, onClose, save }: { pay: EmployeePay; name: string; onClose: () => void; save: (b: { taxCode: string | null; unionMember: boolean }) => Promise<unknown> }) {
+function TaxModal({ pay, name, onClose, save }: { pay: EmployeePay; name: string; onClose: () => void; save: (b: TaxProfileInput) => Promise<unknown> }) {
   const [tax, setTax] = useState(pay.taxCode ?? "");
   const [union, setUnion] = useState(pay.unionMember);
+  const [contract, setContract] = useState<ProbationContract | "">(pay.probationContract ?? "");
+  const [commit, setCommit] = useState(pay.commitment08);
+  const [requested, setRequested] = useState(pay.withholdingRequested);
   const [err, setErr] = useState<string | null>(null);
   const { busy, run } = useAction();
   async function go() {
     const t = tax.trim();
     if (t && !/^[0-9]{10}([0-9]{2}|-[0-9]{3})?$/.test(t)) { setErr("Mã số thuế gồm 10 hoặc 13 chữ số (0123456789 hoặc 0123456789-001)."); return; }
+    if (commit && !t) { setErr("Cam kết 08/CK-TNCN cần có mã số thuế cá nhân."); return; }
     setErr(null);
-    await run("save", async () => { await save({ taxCode: t || null, unionMember: union }); onClose(); }, "Đã lưu thông tin thuế");
+    await run("save", async () => { await save({ taxCode: t || null, unionMember: union, probationContract: contract || null, commitment08: commit, withholdingRequested: requested }); onClose(); }, "Đã lưu thông tin thuế");
   }
   return (
-    <Modal title={`Thuế & công đoàn · ${name}`} sub="Kế toán dùng để tính thuế TNCN và đoàn phí công đoàn." onClose={onClose}
+    <Modal title={`Thuế & công đoàn · ${name}`} sub="Kế toán dùng để tính thuế TNCN, bảo hiểm khi thử việc và đoàn phí công đoàn." onClose={onClose}
       foot={<><button className="btn" onClick={onClose}>Hủy</button><button className="btn primary" disabled={!!busy} onClick={() => void go()}>{busy ? "Đang lưu…" : "Lưu"}</button></>}>
       <div className="form-grid">
         <Field label="Mã số thuế cá nhân"><input value={tax} onChange={(e) => setTax(e.target.value)} placeholder="8012345678" /></Field>
         <Field label="Đoàn viên công đoàn">
           <Select value={union ? "1" : "0"} onChange={(e) => setUnion(e.target.value === "1")}><option value="0">Không</option><option value="1">Có</option></Select>
+        </Field>
+        <Field label="Hình thức thử việc" full hint="Hợp đồng thử việc riêng: không đóng BH, khấu trừ 10%. Thử việc ghi trong HĐLĐ (từ 1 tháng): đóng BH ngay, thuế như chính thức.">
+          <Select value={contract} onChange={(e) => setContract(e.target.value as ProbationContract | "")}>
+            <option value="">Theo quy chế công ty</option><option value="separate">Hợp đồng thử việc riêng</option><option value="in_contract">Thử việc trong HĐLĐ</option>
+          </Select>
+        </Field>
+        <Field label="Cam kết 08/CK-TNCN" hint="Người không ký HĐLĐ / HĐ dưới 3 tháng, tổng thu nhập cả năm chưa tới mức chịu thuế: không khấu trừ 10%.">
+          <Select value={commit ? "1" : "0"} onChange={(e) => setCommit(e.target.value === "1")}><option value="0">Không có</option><option value="1">Đã nộp cam kết</option></Select>
+        </Field>
+        <Field label="Khấu trừ dưới ngưỡng" hint="Mặc định chỉ khấu trừ 10% khi chi từ ngưỡng luật quy định; chọn Có nếu người lao động yêu cầu khấu trừ.">
+          <Select value={requested ? "1" : "0"} onChange={(e) => setRequested(e.target.value === "1")}><option value="0">Không</option><option value="1">Có, theo yêu cầu</option></Select>
         </Field>
       </div>
       <ErrorLine text={err} />

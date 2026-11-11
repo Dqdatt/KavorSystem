@@ -44,8 +44,11 @@ export function computePay(input: PayCalcInput, law: PayrollLawParams, lawFrom: 
   const taxable = gross - taxFree;
   let assessable = 0, pit = 0;
   if (casual) {
-    pit = taxable >= law.casual.threshold ? Math.round(taxable * law.casual.rate) : 0;
-    emp.push({ key: "pit", label: "Thuế TNCN (khấu trừ)", amount: pit, formula: taxable >= law.casual.threshold ? `${vnd(taxable)} × ${pct(law.casual.rate)}` : `Dưới ${vnd(law.casual.threshold)} — không khấu trừ` });
+    /* Không HĐ / HĐ dưới 3 tháng: khấu trừ khi từ ngưỡng, hoặc dưới ngưỡng nếu cá nhân yêu cầu; có cam kết 08/CK-TNCN thì không khấu trừ */
+    const withhold = !input.commitment08 && taxable > 0 && (taxable >= law.casual.threshold || !!input.withholdingRequested);
+    pit = withhold ? Math.round(taxable * law.casual.rate) : 0;
+    emp.push({ key: "pit", label: "Thuế TNCN (khấu trừ)", amount: pit, formula: input.commitment08 ? "Có cam kết 08/CK-TNCN — không khấu trừ"
+      : withhold ? `${vnd(taxable)} × ${pct(law.casual.rate)}${taxable < law.casual.threshold ? " (cá nhân yêu cầu khấu trừ)" : ""}` : `Dưới ${vnd(law.casual.threshold)} — không khấu trừ` });
   } else {
     const ded = law.deduction.self + deps * law.deduction.dependent;
     assessable = Math.max(0, taxable - insurance - ded);

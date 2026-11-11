@@ -134,3 +134,10 @@ test("đơn OT: chấm công thực tế để đối chiếu — ngày tới nu
   const today = overtimeAttendance("2026-10-24", "2026-10-24", "17:30", "19:30", ev([["in", "07:58"]]), null)!;
   assert.equal(overtimeAttendanceText(today), "Vào 07:58 · Ra --:-- · chưa đối chiếu (hôm nay)");
 });
+
+test("ngày lễ rơi vào ngày làm việc theo ca: tính vào công chuẩn và 1 công; lễ vào thứ 7 (ca T2–T6) không tính; lễ chưa tới chỉ vào công chuẩn", () => {
+  const tue = day("2026-10-20", [], { holiday: "Lễ" }), sat = day("2026-10-24", [], { holiday: "Lễ" }), fut = day("2026-10-27", [], { holiday: "Lễ" });
+  assert.deepEqual([tue.kind, tue.credit, tue.paidHoliday, sat.paidHoliday, fut.credit, fut.paidHoliday], ["holiday", 1, true, false, 0, true]);
+  const s = summarize([tue, sat, fut, day("2026-10-21", [["in", "08:00"], ["out", "17:00"]])].map((d) => ({ ...d, canExplain: false, explainDeadline: null })));
+  assert.deepEqual([s.standard, s.credited], [3, 2]);
+});

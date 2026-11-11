@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import type { PayrollInputRow, PayrollLawParams } from "@kavor/contracts";
+import type { PayrollConfig, PayrollInputRow, PayrollLawParams } from "@kavor/contracts";
 import { computeCycleRow, type PayItemMeta } from "./cycle-calc.js";
 
 const LAW: PayrollLawParams = {
@@ -23,7 +23,7 @@ const row = (o: Partial<PayrollInputRow>): PayrollInputRow => ({
   employmentType: "official", baseSalary: 26_000_000, insuranceSalary: null, allowance: 0, segments: [], standard: 26, credited: 26, paidLeaveDays: 0, unpaidLeaveDays: 0,
   holidays: 0, lateMinutes: 0, missingDays: 0, overtime: {}, dependents: 0, taxCode: null, unionMember: false, advance: 0, bank: null, warnings: [], ...o,
 } as PayrollInputRow);
-const cfg = { region: 1 as const, probation: "withholding" as const };
+const cfg: PayrollConfig = { region: 1, probationRate: 0.85, probationAllowances: false, probationContract: "separate", unionFee: { collect: true, rate: null }, prorate: "total", effectiveFrom: null };
 
 test("đủ công: lương + khoản theo danh mục (theo công, chuyên cần, cố định có BH) + OT; ăn trưa miễn đến mức luật; OT miễn toàn bộ; BH tính cả khoản có BH", () => {
   const r = computeCycleRow(row({ items: [{ itemId: "lunch", name: "Ăn trưa", amount: 1_040_000 }, { itemId: "cc", name: "Chuyên cần", amount: 500_000 }, { itemId: "resp", name: "Trách nhiệm", amount: 2_000_000 }],
@@ -52,13 +52,41 @@ test("thiếu công: lương và khoản theo công tỷ lệ; chuyên cần m�
   assert.equal(r.lines.find((l) => l.code === "ADVANCE")!.amount, 3_000_000);
 });
 
-test("thử việc theo cài đặt công ty: khấu trừ 10% không BH, hoặc đóng BH như chính thức; thiếu lương thì bỏ qua", () => {
+test("thử việc: 85% lương; HĐ thử việc riêng → không BH, khấu trừ 10%; thử việc trong HĐLĐ (hồ sơ ghi) → đóng BH; thiếu lương thì bỏ qua", () => {
   const p = row({ employmentType: "probation", baseSalary: 8_000_000 });
-  const w = computeCycleRow(p, ITEMS, cfg, LAW, "x"), i = computeCycleRow(p, ITEMS, { ...cfg, probation: "insured" }, LAW, "x");
+  const w = computeCycleRow(p, ITEMS, cfg, LAW, "x"), i = computeCycleRow({ ...p, probationContract: "in_contract" }, ITEMS, cfg, LAW, "x");
   if ("skip" in w || "skip" in i) return assert.fail();
-  assert.deepEqual([w.lines.filter((l) => l.code.startsWith("INS")).length, w.lines.find((l) => l.code === "PIT")!.amount], [0, 800_000]);
+  assert.deepEqual([w.lines.find((l) => l.code === "BASE")!.amount, w.lines.find((l) => l.code === "BASE")!.name], [6_800_000, "Lương thử việc"]);
+  assert.deepEqual([w.lines.filter((l) => l.code.startsWith("INS")).length, w.lines.find((l) => l.code === "PIT")!.amount], [0, 680_000]);
   assert.deepEqual([i.lines.filter((l) => l.code.startsWith("INS")).length, i.lines.find((l) => l.code === "PIT")], [3, undefined]);
+  assert.equal(i.lines.find((l) => l.code === "INS_SI")!.amount, Math.round(6_800_000 * 0.08), "BH tính trên lương thử việc");
   assert.deepEqual(computeCycleRow(row({ baseSalary: null }), ITEMS, cfg, LAW, "x"), { skip: "Chưa có mức lương" });
+});
+
+test("thử việc lương cứng 10 triệu (7 tr + phụ cấp 3 tr): không phụ cấp → một dòng 85% × 10 tr; có phụ cấp → lương và từng khoản × 85%", () => {
+  const p = row({ employmentType: "probation", baseSalary: 7_000_000, allowance: 3_000_000, items: [{ itemId: "lunch", name: "Ăn trưa", amount: 730_000 }, { itemId: "phone", name: "Điện thoại", amount: 2_270_000 }] });
+  const a = computeCycleRow(p, ITEMS, cfg, LAW, "x"), b = computeCycleRow(p, ITEMS, { ...cfg, probationAllowances: true }, LAW, "x");
+  if ("skip" in a || "skip" in b) return assert.fail();
+  assert.deepEqual(a.lines.filter((l) => l.kind === "earning").map((l) => [l.name, l.amount]), [["Lương thử việc", 8_500_000]]);
+  assert.deepEqual(b.lines.filter((l) => l.kind === "earning").map((l) => l.amount), [5_950_000, 620_500, 1_929_500]);
+  assert.match(a.warnings.join(" "), /85% lương cứng, không có dòng phụ cấp/);
+});
+
+test("đoàn phí theo quy chế: không thu, hoặc tỷ lệ riêng; cam kết 08 thì không khấu trừ 10%", () => {
+  const u = row({ baseSalary: 7_000_000, unionMember: true });
+  const off = computeCycleRow(u, ITEMS, { ...cfg, unionFee: { collect: false, rate: null } }, LAW, "x"), own = computeCycleRow(u, ITEMS, { ...cfg, unionFee: { collect: true, rate: 0.01 } }, LAW, "x");
+  if ("skip" in off || "skip" in own) return assert.fail();
+  assert.deepEqual([off.lines.some((l) => l.code === "UNION_FEE"), own.lines.find((l) => l.code === "UNION_FEE")!.amount], [false, 70_000]);
+  const c = computeCycleRow(row({ employmentType: "intern", baseSalary: 8_000_000, commitment08: true }), ITEMS, cfg, LAW, "x");
+  if ("skip" in c) return assert.fail();
+  assert.equal(c.lines.find((l) => l.code === "PIT")?.amount, undefined);
+});
+
+test("chia trên tổng làm tròn một lần; chia từng khoản làm tròn từng dòng", () => {
+  const r = row({ baseSalary: 1_000_000, standard: 3, credited: 1, items: [{ itemId: "phone", name: "Điện thoại", amount: 1_000_000 }] });
+  const t = computeCycleRow(r, ITEMS, cfg, LAW, "x"), e = computeCycleRow(r, ITEMS, { ...cfg, prorate: "per_item" }, LAW, "x");
+  if ("skip" in t || "skip" in e) return assert.fail();
+  assert.deepEqual([t.gross, e.gross], [666_667, 666_666]);
 });
 
 test("không hưởng lương từ 14 ngày làm việc: không đóng BH, không ra thực nhận âm vì BH", () => {

@@ -10,6 +10,15 @@ simulator hay iPhone** vì phiên cloud không có Mac). Người dùng giao "c�
 ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AGENT_PLAYBOOK.md`; kiểm tra toàn bộ bằng `bash tools/verify-all.sh`.
 
 ## Đã xong
+- Quy chế lương theo công ty (11/11, Claude Desktop — Phần B của `docs/plans/payroll-tenant-rules.md`): cài đặt lương thành **phiên bản theo ngày
+  hiệu lực** (`payroll_policy_versions`, tra theo ngày cuối kỳ; Cài đặt doanh nghiệp → Lương có "Áp dụng từ ngày"): vùng, chia theo công (trên tổng —
+  mặc định, khớp Excel; hoặc từng khoản), **thử việc = tỷ lệ × lương cứng** (mặc định 85%, chặn dưới 85%; mặc định một dòng không phụ cấp),
+  hình thức thử việc mặc định (HĐ thử việc riêng: không BH + khấu trừ 10% · trong HĐLĐ: đóng BH, lũy tiến) — từng người ghi riêng ở Lương → Thuế &
+  công đoàn, kèm **cam kết 08/CK-TNCN** và "khấu trừ dưới ngưỡng theo yêu cầu"; **đoàn phí**: công ty bật/tắt thu, tỷ lệ để trống = tham số luật
+  (0,5%) hoặc ghi tỷ lệ riêng. **Ngày lễ** rơi vào ngày làm việc theo ca tính vào công chuẩn và 1 công (BLLĐ Điều 112). Khoản phụ cấp mẫu cố định/theo
+  công mặc định **tính đóng BH** (NĐ 158/2025), form cảnh báo khi tắt. Migration `202612020001_payroll_policy.sql` (**bản online cần
+  `tools/cloud-supabase.sh` trước khi push**). Kiểm: unit 32 (bộ tính + bảng công), smoke compute 21, inputs 49, timesheet 48; đã xem form trên web
+  local. Chưa làm: thứ 7 làm nửa ngày; cờ "thỏa thuận vẫn đóng BH" khi nghỉ không lương ≥ 14 ngày.
 - Danh mục giấy tờ hồ sơ (11/11, Claude Desktop — Phần A của `docs/plans/payroll-tenant-rules.md`, theo feedback HR C&B): công ty tự khai danh mục
   (Tài liệu → **Danh mục giấy tờ**: tên, bắt buộc, áp dụng cho tình trạng lao động nào, mục đích thu thập; 11 mẫu phổ biến; ngừng dùng thay cho xóa),
   HR tích từng người ở hồ sơ nhân viên → tab **Giấy tờ** (Đã nộp = bản sao / đã đối chiếu bản chính + ngày nộp; Không áp dụng cần lý do; không có

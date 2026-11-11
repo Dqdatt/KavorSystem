@@ -27,19 +27,21 @@ const DEP_COLS = "id, employee_id, full_name, relation, birth_date, tax_code, fr
 type ItemRow = { id: string; name: string; kind: PayItem["kind"]; pay_mode: PayItem["payMode"]; insurable: boolean; tax_mode: PayItem["taxMode"]; tax_free_cap: number | null; default_amount: number | null; sort_order: number; note: string | null; archived_at: string | null };
 const ITEM_COLS = "id, name, kind, pay_mode, insurable, tax_mode, tax_free_cap, default_amount, sort_order, note, archived_at";
 const MODES: readonly PayItem["payMode"][] = ["by_workdays", "fixed", "conditional"];
+type TaxRow = { tax_code: string | null; union_member: boolean; probation_contract: "separate" | "in_contract" | null; commitment_08: boolean; withholding_requested: boolean };
 const TAXES: readonly PayItem["taxMode"][] = ["taxable", "exempt", "partial", "meal"];
 const payItem = (r: ItemRow): PayItem => ({
   id: r.id, name: r.name, kind: r.kind, payMode: r.pay_mode, insurable: r.insurable, taxMode: r.tax_mode, taxFreeCap: r.tax_free_cap === null ? null : Number(r.tax_free_cap),
   defaultAmount: r.default_amount === null ? null : Number(r.default_amount), sortOrder: r.sort_order, note: r.note, archived: !!r.archived_at,
 });
-/* Mẫu phổ biến (chỉ tên + cách tính gợi ý, không có số tiền) — doanh nghiệp sửa/xóa theo thực tế */
+/* Mẫu phổ biến (chỉ tên + cách tính gợi ý, không có số tiền) — doanh nghiệp sửa/xóa theo thực tế. Khoản cố định/theo công ghi trong HĐLĐ, trả đều
+   mỗi kỳ mặc định tính đóng BHXH (Luật BHXH 2024 Điều 31, NĐ 158/2025 Điều 7); khoản có điều kiện (chuyên cần) không tính. */
 const TEMPLATES: Array<Partial<ItemRow> & { name: string }> = [
-  { name: "Phụ cấp ăn trưa", pay_mode: "by_workdays", tax_mode: "meal" },
-  { name: "Phụ cấp xăng xe", pay_mode: "by_workdays" },
-  { name: "Phụ cấp điện thoại", pay_mode: "fixed", tax_mode: "partial" },
+  { name: "Phụ cấp ăn trưa", pay_mode: "by_workdays", tax_mode: "meal", insurable: true },
+  { name: "Phụ cấp xăng xe", pay_mode: "by_workdays", insurable: true },
+  { name: "Phụ cấp điện thoại", pay_mode: "fixed", tax_mode: "partial", insurable: true },
   { name: "Phụ cấp trách nhiệm", pay_mode: "by_workdays", insurable: true },
   { name: "Phụ cấp chức vụ", pay_mode: "by_workdays", insurable: true },
-  { name: "Phụ cấp nhà ở", pay_mode: "by_workdays" },
+  { name: "Phụ cấp nhà ở", pay_mode: "by_workdays", insurable: true },
   { name: "Thưởng chuyên cần", kind: "bonus", pay_mode: "conditional" },
 ];
 type CompItemRow = { compensation_id: string; item_id: string; amount: number; pay_items: { name: string; sort_order: number } | null };
@@ -175,14 +177,14 @@ export class PayrollInputs {
       db.from("employees").select("employment_type").eq("tenant_id", ctx.tenantId).eq("id", employeeId).maybeSingle(),
       db.from("employee_compensations").select(COMP_COLS).eq("tenant_id", ctx.tenantId).eq("employee_id", employeeId).order("effective_from", { ascending: false }),
       db.from("employee_dependents").select(DEP_COLS).eq("tenant_id", ctx.tenantId).eq("employee_id", employeeId).order("from_month"),
-      db.from("employee_tax_profiles").select("tax_code, union_member").eq("tenant_id", ctx.tenantId).eq("employee_id", employeeId).maybeSingle(),
+      db.from("employee_tax_profiles").select("tax_code, union_member, probation_contract, commitment_08, withholding_requested").eq("tenant_id", ctx.tenantId).eq("employee_id", employeeId).maybeSingle(),
       this.timesheets.tenantClock(ctx.db, ctx.tenantId),
     ]);
     if (error ?? cErr ?? dErr ?? tErr) throw error ?? cErr ?? dErr ?? tErr;
     if (!emp) throw notFound("nhân viên");
     const items = await this.compItems(ctx, ((comps ?? []) as CompRow[]).map((c) => c.id));
     const history = ((comps ?? []) as CompRow[]).map((c) => version(c, items));
-    const t = tax as { tax_code: string | null; union_member: boolean } | null;
+    const t = tax as TaxRow | null;
     const month = clock.today.slice(0, 7);
     /* Ghi vào loại tài nguyên riêng để lượt xem không lấn "Lịch sử thay đổi" của hồ sơ */
     if (audit) await ctx.audit("compensation.viewed", "employee_pay", employeeId, null, null);
@@ -190,6 +192,7 @@ export class PayrollInputs {
       employmentType: (emp as { employment_type: EmploymentType }).employment_type,
       current: history.find((h) => h.effectiveFrom <= clock.today) ?? null, history,
       taxCode: t?.tax_code ?? null, unionMember: !!t?.union_member,
+      probationContract: t?.probation_contract ?? null, commitment08: !!t?.commitment_08, withholdingRequested: !!t?.withholding_requested,
       dependents: ((deps ?? []) as DepRow[]).map(dependent), activeDependents: ((deps ?? []) as DepRow[]).filter((d) => activeIn(d, month)).length,
       canManage: ctx.can("compensation.manage"),
     };
@@ -231,11 +234,17 @@ export class PayrollInputs {
     await ctx.requireEmployee("compensation.manage", employeeId);
     const taxCode = taxField(b, "taxCode");
     if (typeof b?.unionMember !== "boolean") throw invalid("unionMember phải là true/false.");
-    const { data: before } = await ctx.db.from("employee_tax_profiles").select("tax_code, union_member").eq("employee_id", employeeId).maybeSingle();
-    const { error } = await ctx.db.from("employee_tax_profiles").upsert({ employee_id: employeeId, tenant_id: ctx.tenantId, tax_code: taxCode, union_member: b.unionMember, updated_by: ctx.userId, updated_at: new Date().toISOString() });
+    const { data: before } = await ctx.db.from("employee_tax_profiles").select("tax_code, union_member, probation_contract, commitment_08, withholding_requested").eq("employee_id", employeeId).maybeSingle();
+    const b0 = before as TaxRow | null;
+    const pc = b?.probationContract === undefined ? b0?.probation_contract ?? null : b.probationContract === null ? null : oneOf(b, "probationContract", ["separate", "in_contract"] as const)!;
+    const flag = (k: string, cur: boolean | undefined) => { const v = b?.[k]; if (v === undefined) return !!cur; if (typeof v !== "boolean") throw invalid(`${k} phải là true/false.`); return v; };
+    const commitment = flag("commitment08", b0?.commitment_08), requested = flag("withholdingRequested", b0?.withholding_requested);
+    if (commitment && !taxCode) throw invalid("Cam kết 08/CK-TNCN cần nhân viên có mã số thuế cá nhân.");
+    const { error } = await ctx.db.from("employee_tax_profiles").upsert({ employee_id: employeeId, tenant_id: ctx.tenantId, tax_code: taxCode, union_member: b.unionMember,
+      probation_contract: pc, commitment_08: commitment, withholding_requested: requested, updated_by: ctx.userId, updated_at: new Date().toISOString() });
     if (error) throw error;
-    const b0 = before as { tax_code: string | null; union_member: boolean } | null;
-    await ctx.audit("tax_profile.changed", "employee", employeeId, b0 ? { has_tax_code: !!b0.tax_code, union_member: b0.union_member } : null, { has_tax_code: !!taxCode, union_member: b.unionMember });
+    await ctx.audit("tax_profile.changed", "employee", employeeId, b0 ? { has_tax_code: !!b0.tax_code, union_member: b0.union_member, probation_contract: b0.probation_contract, commitment_08: b0.commitment_08, withholding_requested: b0.withholding_requested } : null,
+      { has_tax_code: !!taxCode, union_member: b.unionMember, probation_contract: pc, commitment_08: commitment, withholding_requested: requested });
     return this.pay(ctx, employeeId, false);
   }
 
@@ -323,12 +332,12 @@ export class PayrollInputs {
       this.timesheets.build(ctx.tenantId, emps, month, { periodStartDay }),
       db.from("employee_compensations").select(COMP_COLS).eq("tenant_id", ctx.tenantId).in("employee_id", eids).lte("effective_from", p.end).order("effective_from"),
       db.from("employee_dependents").select(DEP_COLS).eq("tenant_id", ctx.tenantId).in("employee_id", eids),
-      db.from("employee_tax_profiles").select("employee_id, tax_code, union_member").eq("tenant_id", ctx.tenantId).in("employee_id", eids),
+      db.from("employee_tax_profiles").select("employee_id, tax_code, union_member, probation_contract, commitment_08, withholding_requested").eq("tenant_id", ctx.tenantId).in("employee_id", eids),
       db.from("salary_advances").select("employee_id, amount").eq("tenant_id", ctx.tenantId).in("employee_id", eids).eq("deduct_month", `${month}-01`).not("paid_at", "is", null),
       db.from("employee_assignments").select("employee_id, effective_from, effective_to, departments(name), positions(name)").eq("tenant_id", ctx.tenantId).eq("is_primary", true).in("employee_id", eids)
         .lte("effective_from", p.end).order("effective_from", { ascending: false }),
     ]);
-    const tax = new Map(((taxes ?? []) as Array<{ employee_id: string; tax_code: string | null; union_member: boolean }>).map((t) => [t.employee_id, t]));
+    const tax = new Map(((taxes ?? []) as Array<TaxRow & { employee_id: string }>).map((t) => [t.employee_id, t]));
     const adv = new Map<string, number>();
     for (const a of (advs ?? []) as Array<{ employee_id: string; amount: number }>) adv.set(a.employee_id, (adv.get(a.employee_id) ?? 0) + Number(a.amount));
     const place = new Map<string, { department: string | null; position: string | null }>();
@@ -371,7 +380,8 @@ export class PayrollInputs {
         standard: s.standard, credited: s.credited, paidLeaveDays: leave(true), unpaidLeaveDays: leave(false), holidays: days.filter((d) => d.kind === "holiday").length,
         lateMinutes: s.lateMinutes, missingDays: s.missingDays, overtime,
         dependents: ((deps ?? []) as DepRow[]).filter((d) => d.employee_id === e.id && activeIn(d, month)).length,
-        taxCode: t?.tax_code ?? null, unionMember: !!t?.union_member, advance: adv.get(e.id) ?? 0, bank: banks.get(e.id) ?? null, warnings,
+        taxCode: t?.tax_code ?? null, unionMember: !!t?.union_member,
+        probationContract: t?.probation_contract ?? null, commitment08: !!t?.commitment_08, withholdingRequested: !!t?.withholding_requested, advance: adv.get(e.id) ?? 0, bank: banks.get(e.id) ?? null, warnings,
       };
     });
   }

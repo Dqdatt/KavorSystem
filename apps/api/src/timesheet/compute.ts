@@ -100,9 +100,11 @@ export function computeDay(i: DayInput): Omit<TimesheetDay, "canExplain" | "expl
     request: i.request, overtime: overtimeOf(i.overtime, inMin, outMin, i.date < i.today),
   };
   const workday = !!shift && shift.workDays.includes(weekday) && !i.holiday;
+  /* Ngày lễ rơi vào ngày làm việc theo ca: nghỉ hưởng nguyên lương (BLLĐ 2019 Điều 112) → tính vào công chuẩn và 1 công thực tế */
+  const paidHoliday = !!shift && shift.workDays.includes(weekday) && !!i.holiday;
   const leave = workday ? i.leave ?? null : null;
-  const empty = { lateMinutes: 0, earlyMinutes: 0, workedMinutes: 0, credit: 0, issue: null, workday, leave };
-  if (!i.employed) return { ...base, kind: "not_employed", ...empty, workday: false };
+  const empty = { lateMinutes: 0, earlyMinutes: 0, workedMinutes: 0, credit: 0, issue: null, workday, leave, paidHoliday };
+  if (!i.employed) return { ...base, kind: "not_employed", ...empty, workday: false, paidHoliday: false };
   if (leave?.half === "full") {
     /* Nghỉ cả ngày: không cần chấm công; có lương thì tính 1 công (kể cả ngày tương lai đã được duyệt) */
     return { ...base, kind: "leave", ...empty, credit: leave.paid && i.date <= i.today ? 1 : 0 };
@@ -110,7 +112,7 @@ export function computeDay(i: DayInput): Omit<TimesheetDay, "canExplain" | "expl
   if (i.date > i.today) return { ...base, kind: "future", ...empty };
   if (!workday) {
     /* Đi làm ngày nghỉ vẫn hiện giờ, không tính công thường (OT xử lý ở module OT). Hôm nay là ngày nghỉ thì vẫn là "off". */
-    return { ...base, kind: i.holiday ? "holiday" : "off", ...empty };
+    return { ...base, kind: i.holiday ? "holiday" : "off", ...empty, credit: paidHoliday && i.date <= i.today ? 1 : 0 };
   }
   const s = minutesOf(shift!.start), e = minutesOf(shift!.end);
   /* Nghỉ nửa ngày: muộn/sớm xét theo nửa ca còn phải làm (chia ở nghỉ trưa; ca không nghỉ trưa chia giữa ca) */
@@ -150,8 +152,8 @@ export function summarize(days: TimesheetDay[]): TimesheetSummary {
   const open = (d: TimesheetDay) => !d.request || d.request.status === "rejected" || d.request.status === "cancelled";
   return {
     credited: days.reduce((n, d) => n + d.credit, 0),
-    /* Ngày làm việc theo ca trong kỳ (không gồm ngày nghỉ/lễ, kể cả ngày chưa tới) */
-    standard: days.filter((d) => d.workday).length,
+    /* Ngày làm việc theo ca trong kỳ, gồm ngày lễ rơi vào ngày làm việc (kể cả ngày chưa tới) */
+    standard: days.filter((d) => d.workday || d.paidHoliday).length,
     lateDays: work.filter((d) => d.lateMinutes > 0).length,
     lateMinutes: work.reduce((n, d) => n + d.lateMinutes, 0),
     earlyDays: work.filter((d) => d.earlyMinutes > 0).length,

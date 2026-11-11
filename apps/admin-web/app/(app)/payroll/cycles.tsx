@@ -344,7 +344,7 @@ function ComputeModal({ month, onClose, onDone }: { month: string; onClose: () =
       {r ? <>
         <div className="card detail-list">
           <div className="detail-row"><span>Bảng đầu vào</span><b>Chốt {fmtDateTime(r.sheetFinalizedAt, "Asia/Ho_Chi_Minh")} · {r.rows.length} người{r.skipped.length ? ` · bỏ qua ${r.skipped.length}` : ""}</b></div>
-          <div className="detail-row"><span>Cài đặt công ty · luật</span><b>Vùng {["I", "II", "III", "IV"][r.config.region - 1]} · thử việc {r.config.probation === "insured" ? "đóng BH" : "khấu trừ 10%"} · luật từ {fmtDate(r.lawFrom)}</b></div>
+          <div className="detail-row"><span>Cài đặt công ty · luật</span><b>Vùng {["I", "II", "III", "IV"][r.config.region - 1]} · thử việc {Math.round(r.config.probationRate * 100)}% lương cứng ({r.config.probationContract === "in_contract" ? "trong HĐLĐ, đóng BH" : "HĐ riêng, khấu trừ 10%"}) · đoàn phí {r.config.unionFee.collect ? "có thu" : "không thu"} · luật từ {fmtDate(r.lawFrom)}</b></div>
           <div className="detail-row"><span>Tổng thu nhập · khấu trừ</span><b>{money(r.totals.gross)} · {money(r.totals.deduction)}</b></div>
           <div className="detail-row"><span>Tổng thực nhận</span><b style={{ fontSize: 15 }}>{money(r.totals.net)}</b></div>
           <div className="detail-row"><span>Chi phí công ty (gồm BH, KPCĐ)</span><b>{money(r.totals.employerCost)}</b></div>

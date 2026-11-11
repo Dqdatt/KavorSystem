@@ -531,8 +531,23 @@ export type TenantProfile = {
 };
 /* Kỳ công: từ ngày periodStartDay tháng trước tới ngày trước đó của tháng này (1 = tháng dương lịch) */
 export type AttendanceConfig = { periodStartDay: number };
-/* Cài đặt lương do công ty chọn: vùng lương tối thiểu, thử việc đóng BH hay khấu trừ 10% */
-export type PayrollConfig = { region: 1 | 2 | 3 | 4; probation: "insured" | "withholding" };
+/* Quy chế lương do công ty chọn, có phiên bản theo ngày hiệu lực (tra theo ngày cuối kỳ lương) */
+export type ProbationContract = "separate" | "in_contract";
+export type PayrollConfig = {
+  region: 1 | 2 | 3 | 4;
+  /* Lương thử việc = tỷ lệ × lương cứng (BLLĐ 2019 Điều 26: ít nhất 85%) */
+  probationRate: number;
+  /* true: thử việc vẫn có từng dòng phụ cấp (cũng nhân tỷ lệ); false: một dòng lương thử việc, không dòng phụ cấp */
+  probationAllowances: boolean;
+  /* Mặc định khi hồ sơ không ghi: separate = HĐ thử việc riêng (không BH, khấu trừ 10%) · in_contract = thử việc trong HĐLĐ (đóng BH, lũy tiến) */
+  probationContract: ProbationContract;
+  /* collect: có thu đoàn phí qua lương; rate null = theo tham số luật Kavor duy trì */
+  unionFee: { collect: boolean; rate: number | null };
+  /* total: (lương + khoản theo công) ÷ công chuẩn × công thực tế, làm tròn một lần · per_item: làm tròn từng khoản */
+  prorate: "total" | "per_item";
+  /* Ngày phiên bản bắt đầu hiệu lực (null = mặc định Kavor, công ty chưa lưu) */
+  effectiveFrom: string | null;
+};
 export type CompanySettings = { tenant: TenantProfile; branding: Branding; support: SupportContact; platform: PlatformPolicy; attendance: AttendanceConfig; payroll: PayrollConfig; updatedAt: string; canManage: boolean };
 export type CompanySettingsUpdate = {
   displayName?: string;
@@ -541,7 +556,8 @@ export type CompanySettingsUpdate = {
   support?: Partial<SupportContact>;
   platform?: { newsReadReceipt?: boolean };
   attendance?: { periodStartDay?: number };
-  payroll?: Partial<PayrollConfig>;
+  /* Lưu thành phiên bản từ effectiveFrom (trống = hôm nay); trùng ngày = sửa phiên bản đó */
+  payroll?: Partial<Omit<PayrollConfig, "unionFee">> & { unionFee?: { collect: boolean; rate: number | null } };
 };
 export type BrandingUpload = { contentType: string; dataBase64: string };
 
@@ -818,6 +834,8 @@ export type TimesheetDay = {
   request: { id: string; no: string; status: RequestStatus } | null;
   /* Ngày làm việc theo ca (không phải ngày nghỉ/lễ) — kể cả ngày tương lai */
   workday: boolean;
+  /* Ngày lễ rơi vào ngày làm việc theo ca: hưởng nguyên lương, tính vào công chuẩn và 1 công (bản lưu cũ không có) */
+  paidHoliday?: boolean;
   /* Nghỉ phép đã duyệt: cả ngày → kind "leave"; nửa ngày vẫn là ngày làm việc, nửa còn lại phải chấm công */
   leave: { typeName: string; half: LeaveHalf; paid: boolean; requestNo: string } | null;
   /* Làm thêm giờ đã duyệt của ngày (cộng các đơn). minutes = giờ được tính (phần trùng với giờ vào → ra), approvedMinutes = giờ trên đơn;
@@ -981,13 +999,15 @@ export type EmployeeDependent = {
   fromMonth: string; toMonth: string | null;
 };
 export type DependentInput = { fullName: string; relation: string; birthDate?: string | null; taxCode?: string | null; fromMonth: string; toMonth?: string | null };
-export type TaxProfileInput = { taxCode: string | null; unionMember: boolean };
+export type TaxProfileInput = { taxCode: string | null; unionMember: boolean; probationContract?: ProbationContract | null; commitment08?: boolean; withholdingRequested?: boolean };
 export type EmployeePay = {
   employmentType: EmploymentType;
   /* Bản đang hiệu lực hôm nay (null = chưa nhập); history mới nhất trước, gồm cả bản tương lai */
   current: CompensationVersion | null;
   history: CompensationVersion[];
   taxCode: string | null; unionMember: boolean;
+  /* null = theo quy chế lương công ty */ probationContract: ProbationContract | null;
+  /* Cam kết 08/CK-TNCN: không khấu trừ 10% · yêu cầu khấu trừ 10% cả khi dưới ngưỡng */ commitment08: boolean; withholdingRequested: boolean;
   dependents: EmployeeDependent[];
   /* Số người phụ thuộc đang tính giảm trừ tháng này */
   activeDependents: number;
@@ -1013,6 +1033,8 @@ export type PayrollInputRow = {
   /* Phút OT được tính theo hệ số (%), ví dụ { "150": 120, "200": 60 } */
   overtime: Record<string, number>;
   dependents: number; taxCode: string | null; unionMember: boolean;
+  /* Bản chốt cũ không có các trường này */
+  probationContract?: ProbationContract | null; commitment08?: boolean; withholdingRequested?: boolean;
   /* Tạm ứng đã chi, khấu trừ tháng này */
   advance: number;
   bank: BankAccountView | null;
@@ -1384,6 +1406,7 @@ export type PayrollLawVersion = {
 export type PayCalcInput = {
   date: string; gross: number; taxFree?: number; insuranceSalary?: number | null; region: 1 | 2 | 3 | 4;
   dependents?: number; unionMember?: boolean; contract?: "labor" | "casual"; advance?: number;
+  /* casual: có cam kết 08/CK-TNCN → không khấu trừ; yêu cầu khấu trừ → khấu trừ cả khi dưới ngưỡng */ commitment08?: boolean; withholdingRequested?: boolean;
   /* false = tháng không đóng BH (vd. không làm việc, không hưởng lương từ 14 ngày làm việc trở lên) — vẫn tính thuế lũy tiến */ insured?: boolean;
 };
 export type PayCalcLine = { key: string; label: string; amount: number; formula: string };

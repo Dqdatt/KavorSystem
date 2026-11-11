@@ -7,7 +7,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import {
   NEAR_LIMIT_RATIO, RULE_KINDS, checkRuleConfig,
   type BrandingKind, type CompanySettings, type HolidayYear, type OrgOptions, type PolicyAssignment, type PolicyScopeType, type PrivacyOverview,
-  type RuleConfig, type RuleKind, type RulePolicy, type RuleVersion, type SetupChecklist, type SetupStepState,
+  type PayrollConfig, type ProbationContract, type RuleConfig, type RuleKind, type RulePolicy, type RuleVersion, type SetupChecklist, type SetupStepState,
 } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
 import { SupportPanel } from "../../_ui/support";
@@ -40,16 +40,22 @@ function SettingsPage() {
 
 type SetAction = (n: ReactNode) => void;
 
+/* Quy chế lương: tỷ lệ hiển thị dạng % (85 = 0.85) */
+type PayForm = { region: string; rate: string; allowances: boolean; contract: ProbationContract; collect: boolean; unionRate: string; prorate: PayrollConfig["prorate"]; from: string };
+const pctText = (r: number) => String(Math.round(r * 10000) / 100).replace(".", ",");
+const payForm = (p: PayrollConfig, from: string): PayForm => ({ region: String(p.region), rate: pctText(p.probationRate), allowances: p.probationAllowances, contract: p.probationContract,
+  collect: p.unionFee.collect, unionRate: p.unionFee.rate === null ? "" : pctText(p.unionFee.rate), prorate: p.prorate, from });
+
 /* ---------- Doanh nghiệp ---------- */
 function Company({ setAction }: { setAction: SetAction }) {
   const { data, error, reload, setData } = useApi<CompanySettings>("settings");
-  const [f, setF] = useState<{ displayName: string; legalName: string; taxCode: string; phone: string; email: string; hours: string; note: string; newsReadReceipt: boolean; periodStartDay: string; region: string; probation: string } | null>(null);
+  const [f, setF] = useState<{ displayName: string; legalName: string; taxCode: string; phone: string; email: string; hours: string; note: string; newsReadReceipt: boolean; periodStartDay: string; pay: PayForm } | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const { busy, run } = useAction();
   useEffect(() => {
     if (!data || f) return;
     setF({ displayName: data.tenant.displayName, legalName: data.tenant.legalName ?? "", taxCode: data.tenant.taxCode ?? "", phone: data.support.phone ?? "", email: data.support.email ?? "",
-      hours: data.support.hours ?? "", note: data.support.note ?? "", newsReadReceipt: data.platform.newsReadReceipt, periodStartDay: String(data.attendance.periodStartDay), region: String(data.payroll.region), probation: data.payroll.probation });
+      hours: data.support.hours ?? "", note: data.support.note ?? "", newsReadReceipt: data.platform.newsReadReceipt, periodStartDay: String(data.attendance.periodStartDay), pay: payForm(data.payroll, tenantToday(data.tenant.timezone)) });
   }, [data, f]);
   const manage = !!data?.canManage;
   const save = async () => {
@@ -57,14 +63,20 @@ function Company({ setAction }: { setAction: SetAction }) {
     if (f.displayName.trim().length < 2) { setErr("Tên hiển thị cần ít nhất 2 ký tự."); return; }
     const day = Number(f.periodStartDay);
     if (!Number.isInteger(day) || day < 1 || day > 28) { setErr("Ngày bắt đầu kỳ công từ 1 đến 28."); return; }
+    const pr = Number(f.pay.rate.replace(",", ".")), ur = f.pay.unionRate.trim() ? Number(f.pay.unionRate.replace(",", ".")) : null;
+    if (!(pr >= 85 && pr <= 100)) { setErr("Lương thử việc từ 85% đến 100% lương cứng (Bộ luật Lao động, Điều 26)."); return; }
+    if (ur !== null && !(ur >= 0 && ur <= 5)) { setErr("Tỷ lệ đoàn phí riêng từ 0% đến 5%, hoặc để trống."); return; }
+    const payroll = { region: Number(f.pay.region) as 1, probationRate: Math.round(pr * 100) / 10000, probationAllowances: f.pay.allowances, probationContract: f.pay.contract,
+      unionFee: { collect: f.pay.collect, rate: ur === null ? null : Math.round(ur * 100) / 10000 }, prorate: f.pay.prorate, effectiveFrom: f.pay.from };
+    const changed = JSON.stringify(payForm(data!.payroll, f.pay.from)) !== JSON.stringify(f.pay);
     const ok = await run("save", async () => {
       const d = await call<CompanySettings>("PATCH", "settings", {
         displayName: f.displayName, legalName: f.legalName || null, taxCode: f.taxCode || null,
         support: { phone: f.phone || null, email: f.email || null, hours: f.hours || null, note: f.note || null }, platform: { newsReadReceipt: f.newsReadReceipt },
         attendance: { periodStartDay: day },
-        payroll: { region: Number(f.region) as 1, probation: f.probation as "insured" },
+        ...(changed ? { payroll } : {}),
       });
-      setData(d);
+      setData(d); setF((x) => (x ? { ...x, pay: payForm(d.payroll, x.pay.from) } : x));
     }, "Đã lưu cấu hình doanh nghiệp");
     if (ok) setErr(null);
   };
@@ -75,6 +87,7 @@ function Company({ setAction }: { setAction: SetAction }) {
   if (error) return <LoadError error={error} retry={reload} />;
   if (!data || !f) return null;
   const set = (k: keyof typeof f) => (e: { target: { value: string } }) => { setF({ ...f, [k]: e.target.value }); setErr(null); };
+  const setPay = (k: "region" | "rate" | "contract" | "unionRate" | "prorate" | "from") => (e: { target: { value: string } }) => { setF({ ...f, pay: { ...f.pay, [k]: e.target.value } as PayForm }); setErr(null); };
   const p = data.platform;
   return (
     <>
@@ -105,10 +118,28 @@ function Company({ setAction }: { setAction: SetAction }) {
         <div className="card-head" style={{ borderTop: "1px solid var(--line)" }}><div><h3>Lương</h3><p>Dùng khi Kavor tính kỳ lương. Khoản phụ cấp và cách chịu thuế đặt ở Lương & tạm ứng → Khoản phụ cấp.</p></div></div>
         <div className="card-body form-grid">
           <Field label="Vùng lương tối thiểu" hint="Theo địa bàn trụ sở làm việc; dùng cho trần BHTN và cảnh báo lương đóng BH thấp hơn mức tối thiểu.">
-            <Select value={f.region} onChange={set("region")} disabled={!manage}>{["1", "2", "3", "4"].map((v) => <option key={v} value={v}>Vùng {["I", "II", "III", "IV"][Number(v) - 1]}</option>)}</Select>
+            <Select value={f.pay.region} onChange={setPay("region")} disabled={!manage}>{["1", "2", "3", "4"].map((v) => <option key={v} value={v}>Vùng {["I", "II", "III", "IV"][Number(v) - 1]}</option>)}</Select>
           </Field>
-          <Field label="Nhân viên thử việc" hint="Hợp đồng thử việc riêng thường không đóng BH; ký HĐLĐ có điều khoản thử việc thì đóng BH như chính thức.">
-            <Select value={f.probation} onChange={set("probation")} disabled={!manage}><option value="withholding">Không đóng BH, khấu trừ thuế 10%</option><option value="insured">Đóng BH, tính thuế như chính thức</option></Select>
+          <Field label="Chia theo công" hint={f.pay.prorate === "total" ? "Tổng lương ÷ công chuẩn × công thực tế, làm tròn một lần — khớp bảng Excel thường dùng." : "Làm tròn từng khoản (có thể lệch vài đồng so với chia trên tổng)."}>
+            <Select value={f.pay.prorate} onChange={setPay("prorate")} disabled={!manage}><option value="total">Chia trên tổng lương</option><option value="per_item">Chia từng khoản</option></Select>
+          </Field>
+          <Field label="Lương thử việc (% lương cứng)" hint="Luật: ít nhất 85% (Bộ luật Lao động, Điều 26). Mức lương nhập trong hồ sơ là mức chính thức.">
+            <input inputMode="decimal" value={f.pay.rate} onChange={setPay("rate")} disabled={!manage} />
+          </Field>
+          <Field label="Phụ cấp khi thử việc" hint={f.pay.allowances ? "Lương và từng khoản phụ cấp đều nhân tỷ lệ thử việc." : "Một dòng lương thử việc = tỷ lệ × lương cứng, không có dòng phụ cấp."}>
+            <Select value={f.pay.allowances ? "1" : "0"} onChange={(e) => setF({ ...f, pay: { ...f.pay, allowances: e.target.value === "1" } })} disabled={!manage}><option value="0">Không có dòng phụ cấp</option><option value="1">Có dòng phụ cấp</option></Select>
+          </Field>
+          <Field label="Hình thức thử việc mặc định" hint={f.pay.contract === "separate" ? "Không đóng BH, khấu trừ thuế 10%. Hồ sơ nhân viên có thể ghi riêng (Lương → Thuế & công đoàn)." : "Đóng BH ngay, thuế như chính thức. Hồ sơ nhân viên có thể ghi riêng (Lương → Thuế & công đoàn)."}>
+            <Select value={f.pay.contract} onChange={setPay("contract")} disabled={!manage}>
+              <option value="separate">Hợp đồng thử việc riêng</option><option value="in_contract">Thử việc trong HĐLĐ</option>
+            </Select>
+          </Field>
+          <Field label="Đoàn phí qua lương" hint={f.pay.collect ? "Trừ của người được đánh dấu đoàn viên. Tỷ lệ để trống = theo quy định Kavor cập nhật (0,5% lương đóng BHXH)." : "Công ty chưa có công đoàn cơ sở hoặc không thu qua lương. Kinh phí công đoàn 2% phía công ty vẫn tính."}>
+            <Select value={f.pay.collect ? "1" : "0"} onChange={(e) => setF({ ...f, pay: { ...f.pay, collect: e.target.value === "1" } })} disabled={!manage}><option value="1">Có thu</option><option value="0">Không thu</option></Select>
+          </Field>
+          {f.pay.collect ? <Field label="Tỷ lệ đoàn phí riêng (%)" hint="Chỉ nhập khi công đoàn cơ sở có quy định khác."><input inputMode="decimal" value={f.pay.unionRate} onChange={setPay("unionRate")} disabled={!manage} placeholder="Theo quy định" /></Field> : null}
+          <Field label="Áp dụng từ ngày" hint={data.payroll.effectiveFrom ? `Quy chế hiện tại áp dụng từ ${fmtDate(data.payroll.effectiveFrom)}. Kỳ lương tính theo quy chế hiệu lực ngày cuối kỳ; kỳ đã tính giữ nguyên.` : "Chưa lưu lần nào — đang dùng mặc định Kavor."}>
+            <input type="date" value={f.pay.from} onChange={setPay("from")} disabled={!manage} />
           </Field>
         </div></article>
       </div>

@@ -23,11 +23,30 @@ type TenantRow = { code: string; display_name: string; legal_name: string | null
 type SettingsRow = { branding: Record<string, string>; support_contact: unknown; platform_policy: Record<string, unknown>; attendance_settings: Record<string, unknown>; payroll_settings?: Record<string, unknown>; updated_at: string };
 /* Kỳ công mặc định 26 tháng trước → 25 tháng này (PILOT_RULEBOOK §1) */
 export const DEFAULT_PERIOD_START_DAY = 26;
-/* Cài đặt lương công ty: mặc định vùng I, thử việc không đóng BH + khấu trừ 10% */
-export const payrollConfigOf = (v: unknown): PayrollConfig => {
-  const x = (v ?? {}) as { region?: unknown; probation?: unknown };
-  return { region: ([1, 2, 3, 4].includes(x.region as number) ? x.region : 1) as PayrollConfig["region"], probation: x.probation === "insured" ? "insured" : "withholding" };
+/* Quy chế lương công ty (phiên bản payroll_policy_versions). Mặc định Kavor: vùng I, thử việc 85% lương cứng không phụ cấp, HĐ thử việc riêng
+   (không BH, khấu trừ 10%), thu đoàn phí theo tham số luật, chia theo công trên tổng. Đọc được cả dạng cũ { probation: insured|withholding }. */
+export const payrollConfigOf = (v: unknown, effectiveFrom: string | null = null): PayrollConfig => {
+  const x = (v ?? {}) as Record<string, unknown>;
+  const u = (x.unionFee ?? {}) as { collect?: unknown; rate?: unknown };
+  const rate = typeof x.probationRate === "number" && x.probationRate >= 0.85 && x.probationRate <= 1 ? x.probationRate : 0.85;
+  return {
+    region: ([1, 2, 3, 4].includes(x.region as number) ? x.region : 1) as PayrollConfig["region"],
+    probationRate: rate, probationAllowances: x.probationAllowances === true,
+    probationContract: x.probationContract === "in_contract" || x.probation === "insured" ? "in_contract" : "separate",
+    unionFee: { collect: u.collect !== false, rate: typeof u.rate === "number" && u.rate >= 0 && u.rate <= 0.05 ? u.rate : null },
+    prorate: x.prorate === "per_item" ? "per_item" : "total", effectiveFrom,
+  };
 };
+type PolicyRow = { effective_from: string; settings: Record<string, unknown> };
+/* Phiên bản hiệu lực vào ngày `date` (null = mới nhất, kể cả phiên bản tương lai) */
+export async function payrollConfigAt(db: AdminContext["db"], tenantId: string, date: string | null): Promise<PayrollConfig> {
+  let q = db.from("payroll_policy_versions").select("effective_from, settings").eq("tenant_id", tenantId).order("effective_from", { ascending: false }).limit(1);
+  if (date) q = q.lte("effective_from", date);
+  const { data, error } = await q.maybeSingle();
+  if (error) throw error;
+  const r = data as PolicyRow | null;
+  return payrollConfigOf(r?.settings, r?.effective_from ?? null);
+}
 export const periodStartDayOf = (attendance: unknown) => {
   const v = (attendance as { periodStartDay?: unknown } | null)?.periodStartDay;
   return typeof v === "number" && Number.isInteger(v) && v >= 1 && v <= 28 ? v : DEFAULT_PERIOD_START_DAY;
@@ -57,7 +76,7 @@ export class SettingsAdmin {
       tenant: { code: t.code, displayName: t.display_name, legalName: t.legal_name, taxCode: t.tax_code, timezone: t.timezone, currency: t.currency, plan: await planOf(ctx.db, ctx.tenantId) },
       branding: { logoVersion: brandingVersion(s.branding.logoPath), coverVersion: brandingVersion(s.branding.coverPath) },
       support: supportOf(s.support_contact), platform, attendance: { periodStartDay: periodStartDayOf(s.attendance_settings) },
-      payroll: payrollConfigOf(s.payroll_settings), updatedAt: s.updated_at, canManage: ctx.tenantWide("tenant.settings.manage"),
+      payroll: await payrollConfigAt(ctx.db, ctx.tenantId, null), updatedAt: s.updated_at, canManage: ctx.tenantWide("tenant.settings.manage"),
     };
   }
 
@@ -98,12 +117,27 @@ export class SettingsAdmin {
         settings.attendance_settings = { ...cur.attendance_settings, periodStartDay: day };
       }
     }
+    let payroll: Record<string, unknown> | null = null, payrollFrom = "";
     if (b?.payroll !== undefined) {
       const x = (b.payroll ?? {}) as Body;
       if (x.region !== undefined && ![1, 2, 3, 4].includes(x.region as number)) throw invalid("Vùng lương tối thiểu 1–4.");
-      if (x.probation !== undefined && !["insured", "withholding"].includes(x.probation as string)) throw invalid("Cách xử lý thử việc không hợp lệ.");
-      const { s: cur } = await this.load(ctx);
-      settings.payroll_settings = { ...payrollConfigOf(cur.payroll_settings), ...(x.region !== undefined ? { region: x.region } : {}), ...(x.probation !== undefined ? { probation: x.probation } : {}) };
+      if (x.probationRate !== undefined && !(typeof x.probationRate === "number" && x.probationRate >= 0.85 && x.probationRate <= 1))
+        throw invalid("Lương thử việc phải từ 85% đến 100% lương cứng (Bộ luật Lao động, Điều 26).");
+      if (x.probationContract !== undefined && !["separate", "in_contract"].includes(x.probationContract as string)) throw invalid("Hình thức thử việc không hợp lệ.");
+      if (x.prorate !== undefined && !["total", "per_item"].includes(x.prorate as string)) throw invalid("Cách chia theo công không hợp lệ.");
+      const u = x.unionFee as { collect?: unknown; rate?: unknown } | undefined;
+      if (u !== undefined && (typeof u?.collect !== "boolean" || !(u.rate === null || (typeof u.rate === "number" && u.rate >= 0 && u.rate <= 0.05))))
+        throw invalid("Đoàn phí: tỷ lệ riêng từ 0% đến 5%, hoặc để trống theo quy định Kavor cập nhật.");
+      const { data: today, error } = await ctx.db.rpc("tenant_today", { p_tenant: ctx.tenantId });
+      if (error) throw error;
+      payrollFrom = date(x, "effectiveFrom", true) ?? (today as string);
+      const min = new Date(Date.parse(`${today as string}T00:00:00Z`) - 62 * 86400_000).toISOString().slice(0, 10);
+      if (payrollFrom < min) throw invalid("Ngày áp dụng quy chế lương không được sớm hơn 2 tháng trước.");
+      const cur = await payrollConfigAt(ctx.db, ctx.tenantId, payrollFrom);
+      const { effectiveFrom: _f, ...base } = cur;
+      payroll = { ...base };
+      for (const k of ["region", "probationRate", "probationAllowances", "probationContract", "prorate", "unionFee"] as const)
+        if (x[k] !== undefined) payroll[k] = k === "probationAllowances" ? x[k] === true : x[k];
     }
     if (Object.keys(tenant).length) {
       const { error } = await ctx.db.from("tenants").update(tenant).eq("id", ctx.tenantId);
@@ -112,6 +146,12 @@ export class SettingsAdmin {
     if (Object.keys(settings).length) {
       const { error } = await ctx.db.from("tenant_settings").upsert({ tenant_id: ctx.tenantId, ...settings, updated_by: ctx.userId }, { onConflict: "tenant_id" });
       if (error) throw error;
+    }
+    if (payroll) {
+      const { error } = await ctx.db.from("payroll_policy_versions").upsert({ tenant_id: ctx.tenantId, effective_from: payrollFrom, settings: payroll, created_by: ctx.userId, updated_at: new Date().toISOString() },
+        { onConflict: "tenant_id,effective_from" });
+      if (error) throw error;
+      await ctx.audit("payroll_policy.saved", "tenant", ctx.tenantId, before.payroll, { ...payroll, effectiveFrom: payrollFrom });
     }
     const after = await this.get(ctx);
     if (Object.keys(tenant).length || Object.keys(settings).length) {

@@ -94,7 +94,7 @@ Giữ quy tắc không đóng BH tháng đó (Luật 2024 Điều 33 k5); để 
 
 0. **Phần 0 – sửa tham số luật (3.0)** — ưu tiên vì công thức hiện tại đang tính sai đoàn phí, ngưỡng 10%, miễn thuế OT/cơm trưa.
 1. **Phần A – checklist giấy tờ — đã làm 11/11** (migration `202612010001_document_checklist.sql`, `tools/checklist-smoke.sh`; route API `checklist/*`, `employees/:id/checklist`): migration + pgTAP → contracts → API → smoke → web.
-2. **Phần B – quy chế lương:** migration (`payroll_policy_versions`, cờ cam kết 08) → `compute.ts` (ngày lễ) → `cycle-calc.ts` (chia trên tổng, đoàn phí %,
+2. **Phần B – quy chế lương — đã làm 11/11 (trừ T7 nửa ngày)** (migration `202612020001_payroll_policy.sql`): migration (`payroll_policy_versions`, cờ cam kết 08) → `compute.ts` (ngày lễ) → `cycle-calc.ts` (chia trên tổng, đoàn phí %,
    thử việc 85%) với unit test: ca feedback (ra 9.259.259 / 735.000 / thuế 0), thử việc 85% × 15tr không phụ cấp, thực tập trên/dưới 2tr, tháng có lễ
    → web (Cài đặt → Lương, nhãn "Lương đóng BHXH") → `payroll-compute-smoke.sh` mở rộng.
 3. **Phần C – tham số luật:** đối chiếu đoàn phí, danh sách khoản thuộc căn cứ đóng BHXH.

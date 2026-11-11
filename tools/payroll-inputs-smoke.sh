@@ -64,6 +64,9 @@ B="{\"baseSalary\":16000000,\"effectiveFrom\":\"$P\"}"
 check "Quản lý không sửa lương → 403" "$(status POST admin/employees/$HA/pay/compensation "$MGR" "$B")" 403
 check "MST sai → 400" "$(status POST admin/employees/$HA/pay/tax "$HR" '{"taxCode":"12AB","unionMember":true}')" 400
 check "Lưu MST + đoàn viên công đoàn" "$(call POST admin/employees/$HA/pay/tax "$HR" '{"taxCode":"8012345678","unionMember":true}' | py "(d['taxCode'], d['unionMember'])")" "('8012345678', True)"
+check "Cam kết 08 khi chưa có MST → 400" "$(status POST admin/employees/$HA/pay/tax "$HR" '{"taxCode":null,"unionMember":true,"commitment08":true}')" 400
+check "Hình thức thử việc sai → 400" "$(status POST admin/employees/$HA/pay/tax "$HR" '{"taxCode":"8012345678","unionMember":true,"probationContract":"x"}')" 400
+check "Lưu hình thức thử việc + cam kết 08, giữ nguyên khi không gửi" "$(call POST admin/employees/$HA/pay/tax "$HR" '{"taxCode":"8012345678","unionMember":true,"probationContract":"in_contract","commitment08":true}' | py "(d['probationContract'], d['commitment08'], d['withholdingRequested'])")|$(call POST admin/employees/$HA/pay/tax "$HR" '{"taxCode":"8012345678","unionMember":true}' | py "(d['probationContract'], d['commitment08'])")" "('in_contract', True, False)|('in_contract', True)"
 B="{\"fullName\":\"A\",\"relation\":\"Con\",\"fromMonth\":\"$PREV\",\"toMonth\":\"2020-01\"}"
 check "Tháng kết thúc trước tháng bắt đầu → 400" "$(status POST admin/employees/$HA/pay/dependents "$HR" "$B")" 400
 B="{\"fullName\":\"Nguyễn Minh Khang\",\"relation\":\"Con\",\"birthDate\":\"2019-04-02\",\"fromMonth\":\"$PREV\"}"

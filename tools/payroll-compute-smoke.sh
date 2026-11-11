@@ -8,10 +8,16 @@ HR=$(mfa "$(activate HD0007 thao.mai@haidang.vn)"); need "HR Admin bật MFA" "$
 PAY=$(mfa "$(activate HD0215 nhung.do@haidang.vn)"); need "Kế toán bật MFA" "$PAY"
 
 echo "— Cài đặt lương của công ty"
-check "Mặc định: vùng I, thử việc khấu trừ 10%" "$(call GET admin/settings "$HR" | py "(d['payroll']['region'], d['payroll']['probation'])")" "(1, 'withholding')"
-check "Đổi vùng II, thử việc đóng BH" "$(call PATCH admin/settings "$HR" '{"payroll":{"region":2,"probation":"insured"}}' | py "(d['payroll']['region'], d['payroll']['probation'])")" "(2, 'insured')"
-check "Giá trị sai → 400" "$(curl -s -o /dev/null -w '%{http_code}' -X PATCH "$API/admin/settings" -H 'content-type: application/json' -H "authorization: Bearer $HR" -d '{"payroll":{"region":5}}')" 400
-call PATCH admin/settings "$HR" '{"payroll":{"region":1,"probation":"withholding"}}' >/dev/null
+check "Mặc định Kavor: vùng I, thử việc 85% không phụ cấp, HĐ thử việc riêng, thu đoàn phí theo luật, chia trên tổng, chưa có phiên bản" \
+  "$(call GET admin/settings "$HR" | py "(lambda p: (p['region'], p['probationRate'], p['probationAllowances'], p['probationContract'], p['unionFee'], p['prorate'], p['effectiveFrom']))(d['payroll'])")" \
+  "(1, 0.85, False, 'separate', {'collect': True, 'rate': None}, 'total', None)"
+_r=$(call PATCH admin/settings "$HR" '{"payroll":{"region":2,"probationRate":0.9,"probationContract":"in_contract","unionFee":{"collect":false,"rate":null}}}') || :
+check "Lưu quy chế thành phiên bản từ hôm nay" "$(echo "$_r" | py "(lambda p: (p['region'], p['probationRate'], p['probationContract'], p['unionFee']['collect'], p['effectiveFrom']))(d['payroll'])")" "(2, 0.9, 'in_contract', False, '$(today)')"
+check "Lương thử việc dưới 85% → 400" "$(curl -s -o /dev/null -w '%{http_code}' -X PATCH "$API/admin/settings" -H 'content-type: application/json' -H "authorization: Bearer $HR" -d '{"payroll":{"probationRate":0.8}}')" 400
+check "Vùng sai → 400" "$(curl -s -o /dev/null -w '%{http_code}' -X PATCH "$API/admin/settings" -H 'content-type: application/json' -H "authorization: Bearer $HR" -d '{"payroll":{"region":5}}')" 400
+check "Ngày áp dụng quá xa trong quá khứ → 400" "$(curl -s -o /dev/null -w '%{http_code}' -X PATCH "$API/admin/settings" -H 'content-type: application/json' -H "authorization: Bearer $HR" -d "{\"payroll\":{\"region\":1,\"effectiveFrom\":\"$(today -90)\"}}")" 400
+call PATCH admin/settings "$HR" '{"payroll":{"region":1,"probationRate":0.85,"probationContract":"separate","unionFee":{"collect":true,"rate":null}}}' >/dev/null
+check "Lưu lại cùng ngày = sửa phiên bản đó (không thêm phiên bản)" "$(sql "select count(*) || '|' || max(settings->>'region') from public.payroll_policy_versions v join public.tenants t on t.id = v.tenant_id where t.code = 'HDG-001'")" "1|1"
 
 echo "— Chuẩn bị: khóa kỳ công tháng trước, mở kỳ lương"
 CUR=$(call GET admin/payroll/inputs "$HR" | py "d['month']")

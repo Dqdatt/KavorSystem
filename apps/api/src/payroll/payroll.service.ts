@@ -2,7 +2,7 @@
    Không ghi số tiền, CSV, tên file hay note nhập vào audit/log. */
 import type {
   MyPayslip, MyPayslips, PayComponent, PayrollAction, PayrollBatch, PayrollBoard, PayrollCycle,
-  PayrollComputePreview, PayrollComputeRow, PayrollDetail, PayrollEvent, PayrollImportOutcome, PayrollInputRow, PayrollIssue, PayrollLawParams, PayrollResult, PayrollStatus, PayrollTransition,
+  PayrollComputePreview, PayrollComputeRow, PayrollDetail, PayrollEvent, PayrollConfig, PayrollImportOutcome, PayrollInputRow, PayrollIssue, PayrollLawParams, PayrollResult, PayrollStatus, PayrollTransition,
 } from "@kavor/contracts";
 import { AuthError, type EmployeeRow } from "../auth/auth.service.js";
 import type { SupabaseGateway } from "../auth/supabase.js";
@@ -12,7 +12,7 @@ import { EMP_LITE, MONTH, type EmployeeLite, type TimesheetService } from "../ti
 import { issue, readCsv, validateCsv, type ImportRow } from "./csv.js";
 import { computeCycleRow, type PayItemMeta } from "./cycle-calc.js";
 import { lawAt } from "./law.js";
-import { payrollConfigOf } from "../admin/settings.service.js";
+import { payrollConfigAt } from "../admin/settings.service.js";
 
 type Db = SupabaseGateway["admin"];
 type CycleRow = {
@@ -267,7 +267,7 @@ export class PayrollService {
     const [{ data: sheets, error: e1 }, { data: laws, error: e2 }, { data: ts }, { data: pi, error: e3 }, allowed] = await Promise.all([
       ctx.db.from("payroll_input_sheets").select("rows, finalized_at").eq("tenant_id", ctx.tenantId).eq("month", month).order("finalized_at", { ascending: false }).limit(1),
       ctx.db.from("payroll_law_versions").select("effective_from, params, sources"),
-      ctx.db.from("tenant_settings").select("payroll_settings").eq("tenant_id", ctx.tenantId).maybeSingle(),
+      payrollConfigAt(ctx.db, ctx.tenantId, c.period_end).then((v) => ({ data: v })),
       ctx.db.from("pay_items").select("id, name, pay_mode, insurable, tax_mode, tax_free_cap").eq("tenant_id", ctx.tenantId),
       ctx.scopedEmployeeIds("payroll.import"),
     ]);
@@ -276,7 +276,7 @@ export class PayrollService {
     if (!sheet) throw conflict("Chưa chốt bảng lương đầu vào tháng này — chốt ở tab Bảng lương đầu vào trước.");
     const law = lawAt((laws ?? []) as Array<{ effective_from: string; params: PayrollLawParams; sources: Array<{ item: string; ref: string; verified: boolean }> }>, c.period_end);
     if (!law) throw conflict(`Chưa có tham số luật lương hiệu lực ngày ${c.period_end}.`);
-    const config = payrollConfigOf((ts as { payroll_settings?: unknown } | null)?.payroll_settings);
+    const config = ts as PayrollConfig;
     const items = new Map(((pi ?? []) as Array<{ id: string; name: string; pay_mode: PayItemMeta["payMode"]; insurable: boolean; tax_mode: PayItemMeta["taxMode"]; tax_free_cap: number | null }>)
       .map((x) => [x.id, { id: x.id, name: x.name, payMode: x.pay_mode, insurable: x.insurable, taxMode: x.tax_mode, taxFreeCap: x.tax_free_cap }]));
     const rows: PayrollComputeRow[] = [], skipped: PayrollComputePreview["skipped"] = [];

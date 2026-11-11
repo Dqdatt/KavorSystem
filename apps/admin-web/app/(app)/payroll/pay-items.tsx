@@ -72,7 +72,7 @@ export function PayItems({ tabs }: { tabs: ReactNode }) {
 
 function PayItemModal({ item, onClose, save }: { item: PayItem | null; onClose: () => void; save: (b: PayItemInput) => Promise<unknown> }) {
   const [f, setF] = useState({
-    name: item?.name ?? "", kind: item?.kind ?? "allowance", payMode: item?.payMode ?? "by_workdays", insurable: item?.insurable ?? false,
+    name: item?.name ?? "", kind: item?.kind ?? "allowance", payMode: item?.payMode ?? "by_workdays", insurable: item?.insurable ?? true,
     taxMode: item?.taxMode ?? "taxable", cap: item?.taxFreeCap ? String(item.taxFreeCap) : "", amount: item?.defaultAmount ? String(item.defaultAmount) : "", note: item?.note ?? "",
   });
   const [err, setErr] = useState<string | null>(null);
@@ -95,9 +95,10 @@ function PayItemModal({ item, onClose, save }: { item: PayItem | null; onClose: 
           <Select value={f.kind} onChange={(e) => setF({ ...f, kind: e.target.value as PayItem["kind"] })}><option value="allowance">Phụ cấp</option><option value="bonus">Thưởng</option></Select>
         </Field>
         <Field label="Cách trả" hint={PAY_MODE_HINT[f.payMode]}>
-          <Select value={f.payMode} onChange={(e) => setF({ ...f, payMode: e.target.value as PayItemMode })}>{(Object.keys(PAY_MODE) as PayItemMode[]).map((k) => <option key={k} value={k}>{PAY_MODE[k]}</option>)}</Select>
+          <Select value={f.payMode} onChange={(e) => { const m = e.target.value as PayItemMode; setF({ ...f, payMode: m, ...(item ? {} : { insurable: m !== "conditional" }) }); }}>{(Object.keys(PAY_MODE) as PayItemMode[]).map((k) => <option key={k} value={k}>{PAY_MODE[k]}</option>)}</Select>
         </Field>
-        <Field label="Tính vào lương đóng BH">
+        <Field label="Tính vào lương đóng BH" hint={f.payMode !== "conditional" && !f.insurable ? "Khoản cố định ghi trong HĐLĐ, trả đều mỗi kỳ thường phải tính đóng BHXH (NĐ 158/2025) — để Không có rủi ro bị truy thu."
+          : f.payMode === "conditional" && f.insurable ? "Khoản có điều kiện (theo năng suất, chuyên cần) thường không tính đóng BHXH." : undefined}>
           <Select value={f.insurable ? "1" : "0"} onChange={(e) => setF({ ...f, insurable: e.target.value === "1" })}><option value="0">Không</option><option value="1">Có</option></Select>
         </Field>
         <Field label="Thuế TNCN" hint={f.taxMode === "meal" ? "Dùng cho tiền ăn trưa, ăn ca. Phần trong mức luật cho phép không tính thuế, phần vượt mới tính. Kavor tự cập nhật mức này khi luật đổi — công ty không cần nhập." : undefined}>
