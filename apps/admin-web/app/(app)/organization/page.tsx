@@ -42,7 +42,7 @@ export default function OrganizationPage() {
       <article className="card">
         <div className="card-head"><div><h3>{me.tenant.name}</h3><p>Hiệu lực tại {t ? fmtDate(t.today) : "—"}</p></div>
           <div className="head-actions">
-            {list ? <label className="check-row" style={{ fontSize: 11.5 }}><input type="checkbox" checked={showEnded} onChange={(e) => setShowEnded(e.target.checked)} /> Hiện đơn vị đã ngừng</label> : null}
+            {list ? <label className="check-row" style={{ fontSize: 12.5 }}><input type="checkbox" checked={showEnded} onChange={(e) => setShowEnded(e.target.checked)} /> Hiện đơn vị đã ngừng</label> : null}
             <button className="btn small" onClick={() => setList(!list)}>{list ? "Sơ đồ" : "Danh sách"}</button>
           </div></div>
         {!t ? (error ? null : <SkeletonLines lines={5} />) : list ? <UnitList t={t} units={units} total={total} onEdit={setEdit} onEnd={setEnding} /> : (
@@ -56,7 +56,7 @@ export default function OrganizationPage() {
                   const kids = depts.filter((c) => c.parentId === d.id).length;
                   const br = units.find((u) => u.id === d.branchId);
                   return (
-                    <div key={d.id} style={{ paddingTop: 20 }}><div className="card card-body"><b>{d.name}</b><p className="muted">{num(total(d))} nhân sự{br ? ` · ${br.name}` : ""}</p>{d.head ? <p className="muted" style={{ fontSize: 11.5 }}>Trưởng đơn vị: <b style={{ color: "var(--ink-2)" }}>{d.head.name}</b></p> : null}
+                    <div key={d.id} style={{ paddingTop: 20 }}><div className="card card-body"><b>{d.name}</b><p className="muted">{num(total(d))} nhân sự{br ? ` · ${br.name}` : ""}</p>{d.head ? <p className="muted" style={{ fontSize: 12.5 }}>Trưởng đơn vị: <b style={{ color: "var(--ink-2)" }}>{d.head.name}</b></p> : null}
                       <span className="status">{kids ? `${kids} phòng ban` : d.code}</span></div></div>
                   );
                 })}
@@ -86,7 +86,7 @@ function UnitList({ t, units, total, onEdit, onEnd }: { t: OrgTree; units: OrgUn
     <div className="table-wrap"><table className="data-table" style={{ minWidth: 900 }}><thead><tr><th>Đơn vị</th><th>Mã</th><th>Nhân sự</th><th>Hiệu lực</th><th>Trạng thái</th><th /></tr></thead><tbody>
       {rows.map(({ u, depth }) => (
         <tr key={u.id}>
-          <td style={{ paddingLeft: 14 + depth * 22 }}><b>{u.name}</b><div className="muted" style={{ fontSize: 10.5 }}>{ORG_UNIT_KINDS[u.kind]}{u.taxCode ? ` · MST ${u.taxCode}` : ""}</div></td>
+          <td style={{ paddingLeft: 14 + depth * 22 }}><b>{u.name}</b><div className="muted" style={{ fontSize: 12 }}>{ORG_UNIT_KINDS[u.kind]}{u.taxCode ? ` · MST ${u.taxCode}` : ""}</div></td>
           <td>{u.code}</td>
           <td className="num">{num(u.kind === "department" ? total(u) : u.employees)}</td>
           <td className="nowrap">{fmtDate(u.effectiveFrom)}{u.effectiveTo ? ` – ${fmtDate(u.effectiveTo)}` : ""}</td>
@@ -106,7 +106,7 @@ function Positions({ t, units, onEdit, onEnd }: { t: OrgTree; units: OrgUnit[]; 
   const ps = units.filter((u) => u.kind === "position");
   return (
     <article className="card" style={{ marginTop: 14 }}>
-      <div className="card-head"><div><h3>Chức danh</h3><p>Dùng khi thêm và chuyển công tác nhân viên</p></div>
+      <div className="card-head"><h3>Chức danh</h3>
         {t.canManage ? <button className="btn small" onClick={() => onEdit({ mode: "create", kind: "position" })}><Icon name="plus" /> Chức danh</button> : null}</div>
       <div className="table-wrap"><table className="data-table"><thead><tr><th>Chức danh</th><th>Mã</th><th>Cấp quản lý</th><th>Ngạch</th><th>Nhân sự</th><th>Trạng thái</th><th /></tr></thead><tbody>
         {ps.map((p) => (

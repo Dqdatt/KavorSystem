@@ -107,9 +107,9 @@ export function Salary() {
                 <td className="num">{r.fixedSalary ? <b>{money(r.fixedSalary)}</b> : <span className="muted">Chưa nhập</span>}</td>
                 <td className="num">{r.baseSalary ? money(r.baseSalary) : "—"}</td>
                 <td>{fmtDate(r.effectiveFrom)}</td>
-                <td className="muted" style={{ whiteSpace: "normal", fontSize: 11 }}>{r.history.slice(1, 3).map((h) => `${money(h.baseSalary + h.allowance)} từ ${fmtDate(h.effectiveFrom)}`).join(" · ") || "—"}</td>
+                <td className="muted" style={{ whiteSpace: "normal", fontSize: 12 }}>{r.history.slice(1, 3).map((h) => `${money(h.baseSalary + h.allowance)} từ ${fmtDate(h.effectiveFrom)}`).join(" · ") || "—"}</td>
                 {/* Tài khoản HR đã duyệt từ đề nghị sửa hồ sơ (Kế toán chỉ đọc) */}
-                <td style={{ whiteSpace: "normal", fontSize: 11 }}>{r.bank ? <><b>{r.bank.accountNo ?? `•••• ${r.bank.last4}`}</b><div className="muted">{r.bank.bankName} · {r.bank.holder}</div></> : <span className="muted">Chưa có</span>}</td>
+                <td style={{ whiteSpace: "normal", fontSize: 12 }}>{r.bank ? <><b>{r.bank.accountNo ?? `•••• ${r.bank.last4}`}</b><div className="muted">{r.bank.bankName} · {r.bank.holder}</div></> : <span className="muted">Chưa có</span>}</td>
                 <td>{b?.canManage ? <button className="btn small" onClick={() => setEdit(r)}>{r.baseSalary ? "Đổi lương" : "Nhập lương"}</button> : null}</td>
               </tr>
             ))}

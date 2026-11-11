@@ -45,7 +45,7 @@ export function StructureModal({ onClose, onDone }: { onClose: () => void; onDon
             <thead><tr><th>Chức danh</th><th className="num" style={{ width: 70 }}>Người</th><th style={{ width: "22%" }}>Đang đặt</th><th style={{ width: "30%" }}>Áp dụng</th></tr></thead><tbody>
             {positions.map((p) => (
               <tr key={p.id}>
-                <td style={{ whiteSpace: "normal" }}>{p.name} <span className="muted" style={{ fontSize: 11 }}>{p.code}</span></td><td className="num">{p.people}</td>
+                <td style={{ whiteSpace: "normal" }}>{p.name} <span className="muted" style={{ fontSize: 12 }}>{p.code}</span></td><td className="num">{p.people}</td>
                 <td className={p.current == null ? "muted" : ""}>{p.current ? MANAGEMENT_TIERS[p.current] : "Chưa đặt"}</td>
                 <td><Select value={String(p.tier)} onChange={(e) => load({ ...input, tiers: { ...input.tiers, [p.id]: Number(e.target.value) as ManagementTier } })} aria-label={`Cấp của ${p.name}`}>
                   {TIERS.map((t) => <option key={t} value={t}>{MANAGEMENT_TIERS[t]}{t === p.suggested ? " (đề xuất)" : ""}</option>)}
@@ -66,10 +66,10 @@ export function StructureModal({ onClose, onDone }: { onClose: () => void; onDon
                 <tr>
                   <td>{r.change || skipped ? <input type="checkbox" checked={!skipped} aria-label={`Áp dụng cho ${r.name}`}
                     onChange={(e) => load({ ...input, skip: e.target.checked ? input.skip.filter((x) => x !== r.employeeId) : [...input.skip, r.employeeId] })} /> : null}</td>
-                  <td style={{ whiteSpace: "normal" }}><b>{r.name}</b><div className="muted" style={{ fontSize: 11 }}>{r.position ?? "—"} · {r.tier ? MANAGEMENT_TIERS[r.tier] : "Nhân viên"}</div></td>
-                  <td style={{ whiteSpace: "normal" }} className={r.current && !r.currentOk ? "text-red" : r.current ? "" : "muted"}>{r.current?.name ?? "Chưa có"}{r.current && !r.currentOk ? <div style={{ fontSize: 11 }}>sai cấp</div> : null}</td>
+                  <td style={{ whiteSpace: "normal" }}><b>{r.name}</b><div className="muted" style={{ fontSize: 12 }}>{r.position ?? "—"} · {r.tier ? MANAGEMENT_TIERS[r.tier] : "Nhân viên"}</div></td>
+                  <td style={{ whiteSpace: "normal" }} className={r.current && !r.currentOk ? "text-red" : r.current ? "" : "muted"}>{r.current?.name ?? "Chưa có"}{r.current && !r.currentOk ? <div style={{ fontSize: 12 }}>sai cấp</div> : null}</td>
                   <td style={{ whiteSpace: "normal" }}>{r.proposed && (r.change || skipped) ? <b>{r.proposed.name}</b> : r.proposed ? <span className="muted">{r.proposed.name}</span> : <span className="muted">—</span>}
-                    {r.note ? <div className={r.proposed ? "muted" : "text-amber"} style={{ fontSize: 11 }}>{r.note}</div> : null}</td>
+                    {r.note ? <div className={r.proposed ? "muted" : "text-amber"} style={{ fontSize: 12 }}>{r.note}</div> : null}</td>
                 </tr>
               </Fragment>);
             })}
@@ -77,7 +77,7 @@ export function StructureModal({ onClose, onDone }: { onClose: () => void; onDon
         </div>
         {plan.grants.length ? <div className="card" style={{ marginTop: 12, padding: 12 }}>
           <b style={{ fontSize: 12.5 }}>Quyền duyệt cho người quản lý: {n.grants} người</b>
-          <p className="muted" style={{ fontSize: 11.5, margin: "4px 0 0" }}>Những người dưới đây sẽ quản lý người khác nhưng mới có quyền Nhân viên — chưa xem đơn, bảng công của cấp dưới trên web.
+          <p className="muted" style={{ fontSize: 12.5, margin: "4px 0 0" }}>Những người dưới đây sẽ quản lý người khác nhưng mới có quyền Nhân viên — chưa xem đơn, bảng công của cấp dưới trên web.
             Gán vai trò <b>Quản lý</b> (phạm vi Nhân viên trực tiếp, từ hôm nay; thu hồi được ở Vai trò &amp; phân quyền).</p>
           {!plan.canGrant ? <p className="text-amber" style={{ fontSize: 12, margin: "6px 0 0" }}>Bạn không có quyền gán vai trò — nhờ quản trị viên công ty.</p> : <>
             <label className="check-row" style={{ fontSize: 12, margin: "8px 0 0" }}><input type="checkbox" checked={input.grantManager} onChange={(e) => load({ ...input, grantManager: e.target.checked })} /> Gán vai trò Quản lý khi áp dụng</label>
@@ -87,7 +87,7 @@ export function StructureModal({ onClose, onDone }: { onClose: () => void; onDon
                 <tr key={g.employeeId}>
                   <td><input type="checkbox" disabled={!input.grantManager} checked={g.selected} aria-label={`Gán Quản lý cho ${g.name}`}
                     onChange={(e) => load({ ...input, skipGrant: e.target.checked ? input.skipGrant.filter((x) => x !== g.employeeId) : [...input.skipGrant, g.employeeId] })} /></td>
-                  <td style={{ whiteSpace: "normal" }}><b>{g.name}</b>{g.position ? <div className="muted" style={{ fontSize: 11 }}>{g.position}</div> : null}</td>
+                  <td style={{ whiteSpace: "normal" }}><b>{g.name}</b>{g.position ? <div className="muted" style={{ fontSize: 12 }}>{g.position}</div> : null}</td>
                   <td className="num">{g.reports}</td>
                 </tr>
               ))}

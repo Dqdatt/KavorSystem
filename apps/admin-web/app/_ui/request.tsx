@@ -50,8 +50,8 @@ export function Steps({ r, tz }: { r: RequestItem; tz: string }) {
     <div className="card detail-list">
       {r.steps.map((s) => (
         <div key={s.taskId} className="detail-row" style={{ gridTemplateColumns: "1fr auto", minHeight: 48 }}>
-          <span style={{ color: "var(--ink)", fontSize: 11.5 }}>Bước {s.stepNo} · {STEP_RESOLVERS[s.resolver]}{s.assignee && s.resolver === "direct_manager" ? `: ${s.assignee}` : ""}
-            <small style={{ display: "block", color: "var(--muted)", fontSize: 10.5, marginTop: 2 }}>
+          <span style={{ color: "var(--ink)", fontSize: 12.5 }}>Bước {s.stepNo} · {STEP_RESOLVERS[s.resolver]}{s.assignee && s.resolver === "direct_manager" ? `: ${s.assignee}` : ""}
+            <small style={{ display: "block", color: "var(--muted)", fontSize: 12, marginTop: 2 }}>
               {s.actedAt ? `${s.actedBy ?? "—"} · ${fmtDateTime(s.actedAt, tz)}${s.comment ? ` · “${s.comment}”` : ""}` : s.status === "pending" && s.dueAt ? `Hạn ${fmtDateTime(s.dueAt, tz)}` : s.status === "skipped" ? "Không có người duyệt ở bước này" : "—"}
             </small></span>
           <Status v={STEP_STATUS[s.status]} />

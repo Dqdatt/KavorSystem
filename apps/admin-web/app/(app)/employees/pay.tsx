@@ -46,7 +46,7 @@ export function EmployeePaySection({ employeeId, name }: { employeeId: string; n
             <div className="card" style={{ marginTop: 10 }}><div className="table-wrap"><table className="data-table compact"><tbody>
               {p.dependents.map((d) => (
                 <tr key={d.id}>
-                  <td><b>{d.fullName}</b><div className="muted" style={{ fontSize: 11 }}>{d.relation}{d.birthDate ? ` · sinh ${fmtDate(d.birthDate)}` : ""}{d.taxCode ? ` · MST ${d.taxCode}` : ""}</div></td>
+                  <td><b>{d.fullName}</b><div className="muted" style={{ fontSize: 12 }}>{d.relation}{d.birthDate ? ` · sinh ${fmtDate(d.birthDate)}` : ""}{d.taxCode ? ` · MST ${d.taxCode}` : ""}</div></td>
                   <td className="nowrap">{monthText(d.fromMonth)} → {monthText(d.toMonth)}</td>
                   <td className="nowrap" style={{ textAlign: "right" }}>{p.canManage ? <>
                     <button className="btn small" onClick={() => { setDep(d); setEdit("dep"); }}>Sửa</button>{" "}

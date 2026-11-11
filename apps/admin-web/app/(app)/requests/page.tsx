@@ -64,8 +64,7 @@ function RequestsPage() {
           <Select className="select" value={f.type} onChange={set("type")} aria-label="Loại đơn"><option value="">Mọi loại đơn</option>{(Object.keys(REQUEST_TYPE) as RequestType[]).map((t) => <option key={t} value={t}>{REQUEST_TYPE[t]}</option>)}</Select>
           <Select className="select" value={f.departmentId} onChange={set("departmentId")} aria-label="Phòng ban"><option value="">Mọi phòng ban</option>{(org?.departments ?? []).map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}</Select>
           <Select className="select" value={f.dateBy} onChange={set("dateBy")} aria-label="Lọc theo ngày"><option value="applied">Ngày áp dụng</option><option value="submitted">Ngày gửi</option></Select>
-          <input type="date" value={f.from} max={f.to || undefined} onChange={set("from")} aria-label="Từ ngày" />
-          <input type="date" value={f.to} min={f.from || undefined} onChange={set("to")} aria-label="Đến ngày" />
+          <span className="date-range"><input type="date" value={f.from} max={f.to || undefined} onChange={set("from")} aria-label="Từ ngày" /><i>–</i><input type="date" value={f.to} min={f.from || undefined} onChange={set("to")} aria-label="Đến ngày" /></span>
           {filtered ? <button className="btn small" onClick={() => { setF({ type: "", departmentId: "", from: "", to: "", dateBy: "applied" }); setQ(""); setPage(1); }}>Bỏ lọc</button> : null}
         </div>
         {data && !items.length ? <Empty title={status === "pending" && !filtered && !only ? "Không còn đơn nào chờ duyệt" : "Không có đơn phù hợp"} /> : (
@@ -133,11 +132,11 @@ function WorkflowModal({ onClose }: { onClose: () => void }) {
             <Select className="select" disabled={!manage} value={s.resolver} onChange={(e) => set(i, { resolver: e.target.value as StepResolver })}>
               {(Object.keys(STEP_RESOLVERS) as StepResolver[]).filter((k) => k !== "payroll" || type === "salary_advance").map((k) => <option key={k} value={k}>{STEP_RESOLVERS[k]}</option>)}
             </Select>
-            <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11.5 }}>Hạn xử lý <input type="number" min={1} max={240} disabled={!manage} value={s.slaHours} onChange={(e) => set(i, { slaHours: Number(e.target.value) || 1 })} style={{ width: 64 }} /> giờ</label>
-            {type === "leave" ? <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11.5 }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5 }}>Hạn xử lý <input type="number" min={1} max={240} disabled={!manage} value={s.slaHours} onChange={(e) => set(i, { slaHours: Number(e.target.value) || 1 })} style={{ width: 64 }} /> giờ</label>
+            {type === "leave" ? <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5 }}>
               <input type="checkbox" disabled={!manage} checked={s.daysOver != null} onChange={(e) => set(i, { daysOver: e.target.checked ? 2 : null })} />Chỉ khi nghỉ trên
               <input type="number" min={0} max={30} disabled={!manage || s.daysOver == null} value={s.daysOver ?? ""} onChange={(e) => set(i, { daysOver: Number(e.target.value) || 0 })} style={{ width: 48 }} /> ngày</label>
-              : type === "salary_advance" ? <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11.5 }}>
+              : type === "salary_advance" ? <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5 }}>
               <input type="checkbox" disabled={!manage} checked={s.amountOver != null} onChange={(e) => set(i, { amountOver: e.target.checked ? 5000000 : null })} />Chỉ khi trên
               <input type="number" min={0} step={500000} disabled={!manage || s.amountOver == null} value={s.amountOver ?? ""} onChange={(e) => set(i, { amountOver: Number(e.target.value) || 0 })} style={{ width: 96 }} /> ₫</label> : null}
             {manage ? <button className="btn small" disabled={list.length <= 1} onClick={() => setSteps(list.filter((_, k) => k !== i))}>Bỏ</button> : <span />}
@@ -148,7 +147,7 @@ function WorkflowModal({ onClose }: { onClose: () => void }) {
         const free = (["direct_manager", "hr", "payroll"] as StepResolver[]).find((k) => (k !== "payroll" || type === "salary_advance") && !list.some((s) => s.resolver === k));
         if (free) setSteps([...list, { resolver: free, slaHours: 24 }]);
       }}><Icon name="plus" /> Thêm bước</button> : null}
-      <p className="muted" style={{ fontSize: 11.5, margin: "10px 0" }}>Không có quản lý trực tiếp (hoặc người gửi chính là quản lý) thì bước Quản lý được bỏ qua; không còn bước nào thì chuyển cho Phòng Nhân sự. Không ai tự duyệt đơn của mình.{type === "leave" ? " Đơn nghỉ trước phép (số dư âm) luôn cần Phòng Nhân sự duyệt." : ""}</p>
+      <p className="muted" style={{ fontSize: 12.5, margin: "10px 0" }}>Không có quản lý trực tiếp (hoặc người gửi chính là quản lý) thì bước Quản lý được bỏ qua; không còn bước nào thì chuyển cho Phòng Nhân sự. Không ai tự duyệt đơn của mình.{type === "leave" ? " Đơn nghỉ trước phép (số dư âm) luôn cần Phòng Nhân sự duyệt." : ""}</p>
       {manage ? <div className="form-grid">
         <Field label="Hiệu lực từ"><input type="date" min={tenantToday(me.tenant.timezone)} value={from} onChange={(e) => setFrom(e.target.value)} /></Field>
         <Field label="Ghi chú"><input value={note} onChange={(e) => setNote(e.target.value)} /></Field>

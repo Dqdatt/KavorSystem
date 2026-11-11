@@ -91,11 +91,11 @@ function AnnouncementsPage() {
             {!b && !error ? <SkeletonRows cols={6} rows={6} /> : null}
             {rows.map((a) => (
               <tr key={a.id} className="clickable" onClick={() => open(a.id)}>
-                <td style={{ whiteSpace: "normal" }}><b>{a.title}</b><div className="muted" style={{ fontSize: 10.5 }}>{[a.authorLabel, a.important ? "Quan trọng" : null, a.pinned ? "Đã ghim" : null, a.attachment ? "Có file đính kèm" : null].filter(Boolean).join(" · ")}</div></td>
+                <td style={{ whiteSpace: "normal" }}><b>{a.title}</b><div className="muted" style={{ fontSize: 12 }}>{[a.authorLabel, a.important ? "Quan trọng" : null, a.pinned ? "Đã ghim" : null, a.attachment ? "Có file đính kèm" : null].filter(Boolean).join(" · ")}</div></td>
                 <td>{ANNOUNCEMENT_CATEGORIES[a.category]}</td>
                 <td style={{ whiteSpace: "normal" }}>{audienceText(a)}</td>
                 <td><Status v={STATUS[a.status]} /></td>
-                <td className="nowrap">{a.publishAt ? fmtDateTime(a.publishAt, tz) : "—"}{a.visibleUntil ? <div className="muted" style={{ fontSize: 10.5 }}>đến {fmtDateTime(a.visibleUntil, tz)}</div> : null}</td>
+                <td className="nowrap">{a.publishAt ? fmtDateTime(a.publishAt, tz) : "—"}{a.visibleUntil ? <div className="muted" style={{ fontSize: 12 }}>đến {fmtDateTime(a.visibleUntil, tz)}</div> : null}</td>
                 <td className="num">{a.status === "draft" || a.status === "scheduled" ? <span className="muted">{num(a.recipients)} người nhận</span> : `${num(a.reads)}/${num(a.recipients)} · ${pct(a)}%`}</td>
               </tr>
             ))}
@@ -125,7 +125,7 @@ function DetailDrawer({ id, onClose, onEdit, onPublish, onChanged }: { id: strin
     run(key, async () => { await call("POST", `announcements/${id}/${path}`, {}); onChanged(); if (after) after(); else void reload(); }, ok);
 
   return (
-    <Drawer onClose={onClose} head={<><div><b>Chi tiết bài viết</b><div className="muted" style={{ fontSize: 10 }}>{a ? `${ANNOUNCEMENT_CATEGORIES[a.category]} · ${a.authorLabel}` : "Đang tải…"}</div></div>
+    <Drawer onClose={onClose} head={<><div><b>Chi tiết bài viết</b><div className="muted" style={{ fontSize: 12 }}>{a ? `${ANNOUNCEMENT_CATEGORIES[a.category]} · ${a.authorLabel}` : "Đang tải…"}</div></div>
       {a ? <span style={{ marginLeft: "auto" }}><Status v={STATUS[a.status]} /></span> : null}</>}>
       <LoadError error={error} retry={reload} />
       {!a ? (error ? null : <SkeletonLines lines={6} />) : (
@@ -139,7 +139,7 @@ function DetailDrawer({ id, onClose, onEdit, onPublish, onChanged }: { id: strin
             {a.status === "draft" || a.status === "scheduled" ? <button className="btn small danger" onClick={() => setConfirm("remove")}>Xóa</button> : null}
           </div>
           <article className="card" style={{ padding: 16 }}>
-            <div className="muted" style={{ fontSize: 10.5 }}>{a.publishAt ? `${a.status === "scheduled" ? "Hẹn xuất bản" : "Xuất bản"} ${fmtDateTime(a.publishAt, tz)}` : "Chưa xuất bản"}{a.important ? " · Quan trọng" : ""}{a.pinned ? " · Đã ghim" : ""}</div>
+            <div className="muted" style={{ fontSize: 12 }}>{a.publishAt ? `${a.status === "scheduled" ? "Hẹn xuất bản" : "Xuất bản"} ${fmtDateTime(a.publishAt, tz)}` : "Chưa xuất bản"}{a.important ? " · Quan trọng" : ""}{a.pinned ? " · Đã ghim" : ""}</div>
             <h3 style={{ margin: "6px 0 12px", fontSize: 16 }}>{a.title}</h3>
             <div style={{ fontSize: 12.5, lineHeight: 1.6 }}><RichText body={a.body} /></div>
             {a.attachment ? <a className="btn small" href={`/api/announcements/${a.id}/attachment`} target="_blank" rel="noreferrer"><Icon name="file" /> {a.attachment.name} · {kb(a.attachment.size)}</a> : null}
@@ -237,7 +237,7 @@ function Editor({ a, units, onClose, onSaved }: { a: AnnouncementAdmin | null; u
             <div className="card" style={{ padding: 12, marginTop: 8, display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(190px, 1fr))", gap: 8 }}>
               {(["branch", "department"] as const).map((t) => (
                 <div key={t} style={{ display: "contents" }}>
-                  <b style={{ gridColumn: "1 / -1", fontSize: 10.5, color: "var(--muted)" }}>{t === "branch" ? "Chi nhánh" : "Phòng ban (gồm cả phòng con)"}</b>
+                  <b style={{ gridColumn: "1 / -1", fontSize: 12, color: "var(--muted)" }}>{t === "branch" ? "Chi nhánh" : "Phòng ban (gồm cả phòng con)"}</b>
                   {units.filter((u) => u.type === t).map((u) => <label key={u.id} className="check-row"><input type="checkbox" checked={has(u)} onChange={(e) => toggle(u, e.target.checked)} /> {u.name}</label>)}
                 </div>
               ))}

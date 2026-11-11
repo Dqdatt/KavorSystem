@@ -33,7 +33,7 @@ export function ChecklistCatalog({ onClose }: { onClose: () => void }) {
           {!l && !error ? <SkeletonRows cols={5} rows={6} /> : null}
           {(l?.items ?? []).map((x) => (
             <tr key={x.id} className={x.archived ? "muted" : undefined}>
-              <td className="wrap"><b>{x.name}</b>{x.purpose ? <div className="muted" style={{ fontSize: 11 }}>Mục đích: {x.purpose}</div> : null}</td>
+              <td className="wrap"><b>{x.name}</b>{x.purpose ? <div className="muted" style={{ fontSize: 12 }}>Mục đích: {x.purpose}</div> : null}</td>
               <td>{x.required ? "Bắt buộc" : "Không bắt buộc"}</td>
               <td className="wrap">{typesText(x.employmentTypes)}</td>
               <td><Status v={x.archived ? ["Ngừng dùng", "muted"] : ["Đang dùng", ""]} /></td>
@@ -109,7 +109,7 @@ export function EmployeeChecklistSection({ employeeId }: { employeeId: string })
             {shown.map((e) => (
               <tr key={e.item.id}>
                 <td className="wrap"><b>{e.item.name}</b>{e.item.required && e.applies ? <span className="source-tag">Bắt buộc</span> : null}{e.item.archived ? <span className="source-tag">Ngừng dùng</span> : null}
-                  {e.note ? <div className="muted" style={{ fontSize: 11 }}>{e.note}</div> : null}</td>
+                  {e.note ? <div className="muted" style={{ fontSize: 12 }}>{e.note}</div> : null}</td>
                 <td className="wrap">{e.status === "submitted" ? <><Status v={["Đã nộp", ""]} /> <span className="muted" style={{ fontSize: 12 }}>{FORM[e.form!]} · {fmtDate(e.submittedOn)}</span></>
                   : e.status === "waived" ? <Status v={["Không áp dụng", "muted"]} /> : <Status v={e.item.required ? ["Chưa nộp", "warn"] : ["Chưa nộp", "muted"]} />}</td>
                 <td className="nowrap" style={{ textAlign: "right" }}>{c.canEdit ? <>

@@ -47,7 +47,7 @@ export function PayItems({ tabs }: { tabs: ReactNode }) {
             {!l && !error ? <SkeletonRows cols={7} rows={5} /> : null}
             {(l?.items ?? []).map((x) => (
               <tr key={x.id} className={x.archived ? "muted" : undefined}>
-                <td><b>{x.name}</b><div className="muted" style={{ fontSize: 11 }}>{x.kind === "bonus" ? "Thưởng" : "Phụ cấp"}{x.note ? ` · ${x.note}` : ""}</div></td>
+                <td><b>{x.name}</b><div className="muted" style={{ fontSize: 12 }}>{x.kind === "bonus" ? "Thưởng" : "Phụ cấp"}{x.note ? ` · ${x.note}` : ""}</div></td>
                 <td>{PAY_MODE[x.payMode]}</td>
                 <td>{x.insurable ? "Có" : "Không"}</td>
                 <td>{x.taxMode === "partial" ? (x.taxFreeCap ? `Miễn đến ${money(x.taxFreeCap)}` : "Miễn một phần") : TAX_MODE[x.taxMode]}</td>

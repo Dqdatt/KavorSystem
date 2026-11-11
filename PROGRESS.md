@@ -10,6 +10,16 @@ simulator hay iPhone** vì phiên cloud không có Mac). Người dùng giao "c�
 ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AGENT_PLAYBOOK.md`; kiểm tra toàn bộ bằng `bash tools/verify-all.sh`.
 
 ## Đã xong
+- Gọn UI web HR (11/11, Claude Desktop — phản hồi người dùng: rối, chữ nhỏ/giải thích nhiều, rớt chữ, cài đặt nên ở góc phải):
+  **menu tài khoản** khi bấm tên doanh nghiệp góc trên phải (`app/_ui/account-menu.tsx`: tên/email + mọi vai trò kèm phạm vi, doanh nghiệp,
+  Cài đặt doanh nghiệp, Thiết lập ban đầu, Hỗ trợ Kavor, giao diện Sáng/Tối/Tự động, trạng thái cập nhật trực tiếp, Đăng xuất) — thanh bên bỏ
+  khối cài đặt/đăng xuất/người dùng, topbar bỏ chữ "Trực tiếp" và nút theme. **Gợi ý ⓘ** (`Hint` ở `@kavor/web-ui`, tooltip portal): `Field hint`
+  giờ là ⓘ cạnh nhãn, `Field note` cho dòng luôn hiện (cảnh báo, ví dụ tính); mô tả dài ở đầu thẻ chuyển vào ⓘ. Chữ tối thiểu 12px (79 chỗ
+  inline 10–11,5px, `<small>` mặc định), bảng 13px. Cài đặt tách tab "Kỳ công & lương" (form 3 cột). Đơn & phê duyệt: khoảng ngày gộp một ô;
+  Lương đầu vào: cột Rà soát đưa lên thứ 2 (gộp "N cảnh báo" + ⓘ), cột người cố định khi cuộn ngang; thẻ số liệu dòng phụ 2 dòng thay cho "…";
+  banner cảnh báo không gấp dùng nền nhạt (`.banner.soft-warn`/`.soft`); tab đầu trang không bị đè khi hẹp. Đã xem trên trình duyệt (1440, 1280,
+  390 px, sáng/tối) bằng script đo: không còn chữ < 12px (trừ chữ viết tắt trong avatar), không bảng tràn ngang trừ Lương đầu vào (cố ý, cột
+  đầu cố định). Console dùng chung CSS: mới xem trang đăng nhập, chưa đăng nhập Console để xem trong.
 - Quy chế lương theo công ty (11/11, Claude Desktop — Phần B của `docs/plans/payroll-tenant-rules.md`): cài đặt lương thành **phiên bản theo ngày
   hiệu lực** (`payroll_policy_versions`, tra theo ngày cuối kỳ; Cài đặt doanh nghiệp → Lương có "Áp dụng từ ngày"): vùng, chia theo công (trên tổng —
   mặc định, khớp Excel; hoặc từng khoản), **thử việc = tỷ lệ × lương cứng** (mặc định 85%, chặn dưới 85%; mặc định một dòng không phụ cấp),

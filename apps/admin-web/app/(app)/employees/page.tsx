@@ -86,7 +86,7 @@ function EmployeesPage() {
             {rows.map((e, i) => (<Fragment key={e.id}>
               {i === 0 || rows[i - 1]!.department?.name !== e.department?.name ? <tr className="group-row"><td colSpan={8}>{e.department?.name ?? "Chưa có phòng ban"} <span className="muted">· {groupSize.get(e.department?.name ?? "")} người</span></td></tr> : null}
               <tr className="clickable" onClick={() => open(e.id)}>
-                <td><Person name={e.fullName} sub={`${e.email ?? "chưa có email"} · ${e.code}`} seed={e.code} /></td>
+                <td><Person name={e.fullName} sub={`${e.code} · ${e.email ?? "chưa có email"}`} seed={e.code} /></td>
                 <td className="wrap">{e.department?.name ?? "—"}</td><td className="wrap">{e.position?.name ?? "—"}</td><td>{fmtDate(e.hireDate)}</td><td>{EMPLOYMENT[e.employmentType]}</td>
                 <td><Status v={ACCOUNT[e.account]} />{e.devicePending ? <span className="source-tag" title="Có thiết bị chờ duyệt">Máy chờ duyệt</span> : null}
                   {missing.get(e.id) ? <span className="source-tag" title={`Thiếu: ${missing.get(e.id)!.join(", ")}`}>Thiếu {missing.get(e.id)!.length} giấy tờ</span> : null}</td>
@@ -132,7 +132,7 @@ function EmployeeDrawer({ id, onClose, onEdit, onChanged }: { id: string; onClos
         go: (reason) => call("POST", `devices/${d.id}/${action}`, { reason }) });
 
   return (
-    <Drawer wide onClose={onClose} head={<><div><b>Hồ sơ nhân viên</b><div className="muted" style={{ fontSize: 10 }}>{e ? `Mã ${e.code}` : "Đang tải…"}</div></div>
+    <Drawer wide onClose={onClose} head={<><div><b>Hồ sơ nhân viên</b></div>
       {e && can(me, "employee.update") ? <button className="btn small" style={{ marginLeft: "auto" }} onClick={() => onEdit(e)}>Sửa hồ sơ</button> : null}</>}>
       <LoadError error={error} retry={reload} />
       {!e ? (error ? null : <SkeletonLines lines={6} avatar />) : (
@@ -311,7 +311,7 @@ function EmployeeForm({ org, employee, onClose, onSaved }: { org: OrgOptions; em
       <div className="form-grid">
         <Field label="Họ và tên"><input value={f.fullName} onChange={set("fullName")} placeholder="Nguyễn Văn A" /></Field>
         <Field label="Mã nhân viên"><input value={f.employeeCode} onChange={set("employeeCode")} placeholder="HD0301" /></Field>
-        <Field label="Email công ty" hint={employee?.account === "active" || employee?.account === "locked" ? "Đã kích hoạt: không đổi được email đăng nhập" : undefined}>
+        <Field label="Email công ty" note={employee?.account === "active" || employee?.account === "locked" ? "Đã kích hoạt: không đổi được email đăng nhập" : undefined}>
           <input type="email" value={f.workEmail} onChange={set("workEmail")} disabled={employee?.account === "active" || employee?.account === "locked"} />
         </Field>
         <Field label="Điện thoại"><input value={f.phone} onChange={set("phone")} /></Field>
@@ -367,7 +367,7 @@ function EmployeeRequests({ employeeId }: { employeeId: string }) {
           ))}
         </tbody></table></div></div>
       )}
-      {data && data.total > data.items.length ? <p className="muted" style={{ fontSize: 11.5, marginTop: 8 }}>Đang hiện {data.items.length} đơn mới nhất. Xem đủ ở Đơn & phê duyệt → tab Tất cả, tìm theo mã nhân viên.</p> : null}
+      {data && data.total > data.items.length ? <p className="muted" style={{ fontSize: 12.5, marginTop: 8 }}>Đang hiện {data.items.length} đơn mới nhất. Xem đủ ở Đơn & phê duyệt → tab Tất cả, tìm theo mã nhân viên.</p> : null}
       {open ? <RequestModal r={open} onClose={() => setOpen(null)} onDone={() => void reload()} /> : null}
     </div>
   );

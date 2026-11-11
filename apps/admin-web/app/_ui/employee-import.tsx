@@ -3,7 +3,7 @@
    chức danh → HR xem trước, đổi chỗ nào chưa đúng (đổi là xem trước lại) → nhập. Cách khớp được nhớ cho lần sau. */
 import { useEffect, useState } from "react";
 import { IMPORT_FIELDS, MANAGEMENT_TIERS, type ManagementTier, type EmployeeImportResult, type EmployeeImportRow, type ImportField, type ImportOptions, type ImportUnit } from "@kavor/contracts";
-import { Select } from "@kavor/web-ui";
+import { Hint, Select } from "@kavor/web-ui";
 import { call } from "../_lib/client";
 import { Empty, ErrorLine, Field, Modal, Status, useAction } from "./kit";
 
@@ -31,14 +31,13 @@ function UnitTable({ title, units, catalog, onPick, onTier }: {
   const merged = fresh.length - newGroups.length;
   return (
     <div className="card" style={{ marginTop: 12, padding: 12 }}>
-      <b style={{ fontSize: 12.5 }}>{title}: {newGroups.length} tạo mới{merged ? `, ${merged} gộp` : ""}{open.length > fresh.length ? `, ${open.length - fresh.length} có sẵn chưa đặt cấp` : ""}</b>
-      {onTier ? <p className="muted" style={{ fontSize: 11, margin: "4px 0 0" }}>Cấp bậc chuẩn: Nhân viên (Staff) → Trưởng nhóm (Team Lead) → Quản lý (Manager) → Ban Giám đốc (Director). Kavor đoán theo tên chức danh; quản lý trực tiếp được tự gán theo cấp trong cùng phòng.</p> : null}
+      <b style={{ fontSize: 12.5 }}>{title}: {newGroups.length} tạo mới{merged ? `, ${merged} gộp` : ""}{open.length > fresh.length ? `, ${open.length - fresh.length} có sẵn chưa đặt cấp` : ""}{onTier ? <Hint text="Cấp bậc chuẩn: Nhân viên (Staff) → Trưởng nhóm (Team Lead) → Quản lý (Manager) → Ban Giám đốc (Director). Kavor đoán theo tên chức danh; quản lý trực tiếp được tự gán theo cấp trong cùng phòng." /> : null}</b>
       <div className="table-wrap" style={{ marginTop: 8, maxHeight: 300, overflow: "auto" }}><table className="data-table" style={{ tableLayout: "fixed", width: "100%", minWidth: 0 }}><thead><tr>
         <th>Trong file</th><th className="num" style={{ width: 70 }}>Người</th><th style={{ width: onTier ? "38%" : "55%" }}>Kavor dùng</th>{onTier ? <th style={{ width: "24%" }}>Cấp</th> : null}</tr></thead><tbody>
         {open.map((u) => (
           <tr key={u.key}>
-            <td style={{ whiteSpace: "normal" }}>{u.value}{u.suggested ? <span className="text-amber" style={{ fontSize: 11 }}> · Kavor đoán, kiểm tra lại</span> : null}</td>
-            <td className="num">{u.live}{u.rows > u.live ? <span className="muted" style={{ fontSize: 11 }}> +{u.rows - u.live} nghỉ</span> : null}</td>
+            <td style={{ whiteSpace: "normal" }}>{u.value}{u.suggested ? <span className="text-amber" style={{ fontSize: 12 }}> · Kavor đoán, kiểm tra lại</span> : null}</td>
+            <td className="num">{u.live}{u.rows > u.live ? <span className="muted" style={{ fontSize: 12 }}> +{u.rows - u.live} nghỉ</span> : null}</td>
             <td style={{ whiteSpace: "normal" }}>{u.existing ? <span>{u.existing.name} ({u.existing.code})</span> : <Select value={u.choice} onChange={(e) => onPick(u.key, e.target.value)} aria-label={`${title} cho ${u.value}`}>
               <option value={`new:${u.key}`}>Tạo mới “{u.value}” ({u.newCode})</option>
               {fresh.filter((x) => x !== u && x.choice === `new:${x.key}`).map((x) => <option key={x.key} value={`new:${x.key}`}>Gộp vào “{x.value}” (mới)</option>)}
@@ -47,7 +46,7 @@ function UnitTable({ title, units, catalog, onPick, onTier }: {
             {onTier ? <td style={{ whiteSpace: "normal" }}>{u.choice === `new:${u.key}` || (u.existing && !u.existing.tier) ? <>
               <Select value={String(u.tier ?? 1)} onChange={(e) => onTier(u.key, Number(e.target.value) as ManagementTier)} aria-label={`Cấp của ${u.value}`}>
                 {([1, 2, 3, 4] as ManagementTier[]).map((t) => <option key={t} value={t}>{MANAGEMENT_TIERS[t]}</option>)}
-              </Select>{u.tierInferred ? <div className="muted" style={{ fontSize: 10.5, marginTop: 2 }}>đoán theo tên</div> : null}</> : <span className="muted">theo đơn vị gộp</span>}</td> : null}
+              </Select>{u.tierInferred ? <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>đoán theo tên</div> : null}</> : <span className="muted">theo đơn vị gộp</span>}</td> : null}
           </tr>
         ))}
       </tbody></table></div>
@@ -141,15 +140,15 @@ export function ImportModal({ onClose, onDone }: { onClose: () => void; onDone: 
           <div className="table-wrap" style={{ marginTop: 8, maxHeight: 280, overflow: "auto" }}><table className="data-table" style={{ tableLayout: "fixed", width: "100%", minWidth: 0 }}><thead><tr><th>Cột trong file</th><th>Ví dụ</th><th>Kavor hiểu là</th></tr></thead><tbody>
             {cols.map((c) => (
               <tr key={c.key}>
-                <td>{c.header}</td><td className="muted" style={{ fontSize: 11, whiteSpace: "normal" }}>{c.samples.join(" · ") || "—"}</td>
+                <td>{c.header}</td><td className="muted" style={{ fontSize: 12, whiteSpace: "normal" }}>{c.samples.join(" · ") || "—"}</td>
                 <td style={{ width: "40%", whiteSpace: "normal" }}><Select value={c.field ?? ""} onChange={(e) => change({ ...opts, columns: { ...opts.columns, [c.key]: e.target.value as ImportField | "" } })} aria-label={`Trường cho cột ${c.header}`}>
                   <option value="">Không dùng</option>
                   {(Object.keys(IMPORT_FIELDS) as ImportField[]).map((f) => <option key={f} value={f}>{IMPORT_FIELDS[f]}</option>)}
-                </Select>{c.field && c.source ? <div className="muted" style={{ fontSize: 10.5, marginTop: 2 }}>{SOURCE[c.source]}</div> : null}</td>
+                </Select>{c.field && c.source ? <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>{SOURCE[c.source]}</div> : null}</td>
               </tr>
             ))}
           </tbody></table></div>
-          {later.length ? <p className="muted" style={{ fontSize: 11, margin: "8px 0 0" }}>Kavor nhận ra nhưng chưa nhập ở bước này (giữ nguyên trong file của bạn): {[...new Set(later.map((c) => c.later))].join(", ")}.</p> : null}
+          {later.length ? <p className="muted" style={{ fontSize: 12, margin: "8px 0 0" }}>Kavor nhận ra nhưng chưa nhập ở bước này (giữ nguyên trong file của bạn): {[...new Set(later.map((c) => c.later))].join(", ")}.</p> : null}
         </div> : null}
 
         <UnitTable title="Phòng ban" units={a.departments} catalog={a.catalog.departments} onPick={(k, v) => change({ ...opts, units: { ...opts.units, department: { ...opts.units?.department, [k]: v } } })} />
@@ -165,10 +164,10 @@ export function ImportModal({ onClose, onDone }: { onClose: () => void; onDone: 
         {rows.length ? <div className="table-wrap" style={{ marginTop: 8, maxHeight: 360, overflow: "auto" }}><table className="data-table" style={{ minWidth: 0 }}><thead><tr><th>Sheet · dòng</th><th>Mã · họ tên</th><th>Phòng ban · chức danh</th><th>Kết quả</th></tr></thead><tbody>
           {rows.map((x) => (
             <tr key={`${x.sheet}:${x.line}`}>
-              <td className="muted" style={{ fontSize: 11 }}>{x.sheet} · {x.line}</td><td><b>{x.code || "—"}</b> · {x.fullName || "—"}</td><td style={{ whiteSpace: "normal" }}>{x.department ?? "—"} · {x.position ?? "—"}{x.manager ? <div className="muted" style={{ fontSize: 11 }}>Quản lý: {x.manager}</div> : null}</td>
+              <td className="muted" style={{ fontSize: 12 }}>{x.sheet} · {x.line}</td><td><b>{x.code || "—"}</b> · {x.fullName || "—"}</td><td style={{ whiteSpace: "normal" }}>{x.department ?? "—"} · {x.position ?? "—"}{x.manager ? <div className="muted" style={{ fontSize: 12 }}>Quản lý: {x.manager}</div> : null}</td>
               <td style={{ whiteSpace: "normal" }}><Status v={x.action === "create" && x.left ? ["Lưu — đã nghỉ", "violet"] : ACTION[x.action]} />
-                {x.errors.length ? <div className="text-red" style={{ fontSize: 11, marginTop: 3 }}>{x.errors.join("; ")}</div> : null}
-                {x.warnings.length ? <div className={x.action === "create" ? "text-amber" : "muted"} style={{ fontSize: 11, marginTop: 3 }}>{x.warnings.join("; ")}</div> : null}</td>
+                {x.errors.length ? <div className="text-red" style={{ fontSize: 12, marginTop: 3 }}>{x.errors.join("; ")}</div> : null}
+                {x.warnings.length ? <div className={x.action === "create" ? "text-amber" : "muted"} style={{ fontSize: 12, marginTop: 3 }}>{x.warnings.join("; ")}</div> : null}</td>
             </tr>
           ))}
         </tbody></table></div> : r.fileErrors.length ? null : <Empty title="Không có dòng phù hợp" />}

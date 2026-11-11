@@ -45,7 +45,7 @@ export default function Overview() {
     <section className="page active">
       <LoadError error={error} retry={reload} />
       {me.tenantAdminCount < 2 && can(me, "role.read") ? (
-        <div className="banner">
+        <div className="banner soft-warn">
           <span className="banner-icon"><Icon name="shield" /></span>
           <span className="banner-copy"><b>Công ty chỉ có {me.tenantAdminCount} quản trị viên</b><span>Nên có ít nhất 2 quản trị viên công ty để không mất quyền quản trị khi một người nghỉ hoặc mất tài khoản.</span></span>
         </div>
@@ -56,7 +56,7 @@ export default function Overview() {
           <Link className="btn" href="/settings?tab=setup">Xem checklist <Icon name="arrow" /></Link>
         </div>
       ) : o && o.devicesPending > 0 ? (
-        <div className="banner">
+        <div className="banner soft-warn">
           <span className="banner-icon"><Icon name="phone" /></span>
           <span className="banner-copy"><b>{o.devicesPending} thiết bị đang chờ duyệt</b><span>Nhân viên chưa chấm công được trên máy mới cho tới khi HR duyệt.</span></span>
           <Link className="btn" href="/attendance?tab=devices">Duyệt thiết bị <Icon name="arrow" /></Link>

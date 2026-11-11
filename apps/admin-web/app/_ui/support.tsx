@@ -6,7 +6,7 @@ import Link from "next/link";
 import { SUPPORT_SCOPES, type SupportBanner as Banner, type SupportSession, type SupportStatus } from "@kavor/contracts";
 import { call, useApi } from "../_lib/client";
 import { Empty, ErrorLine, Field, Icon, LoadError, Modal, Status, fmtDateTime, fmtTime, useAction, useMe } from "./kit";
-import { SkeletonRows } from "@kavor/web-ui";
+import { SkeletonRows, Hint } from "@kavor/web-ui";
 
 export const SSTATUS: Record<SupportStatus, [string, string]> = {
   pending: ["Chờ duyệt", "warn"], active: ["Đang hỗ trợ", "info"], rejected: ["Đã từ chối", "bad"], cancelled: ["Kavor đã hủy", "muted"],
@@ -53,16 +53,16 @@ export function SupportPanel() {
     <>
       <LoadError error={error} retry={reload} />
       <article className="card">
-        <div className="card-head"><div><h3>Yêu cầu hỗ trợ từ Kavor</h3><p>Nhân viên Kavor không có quyền mặc định vào dữ liệu công ty. Mỗi yêu cầu nêu mã phiếu hỗ trợ, lý do, phạm vi và thời hạn; quyền tự hết hạn.</p></div></div>
+        <div className="card-head"><div><h3>Yêu cầu hỗ trợ từ Kavor<Hint text="Nhân viên Kavor không có quyền mặc định vào dữ liệu công ty. Mỗi yêu cầu nêu mã phiếu hỗ trợ, lý do, phạm vi và thời hạn; quyền tự hết hạn." /></h3></div></div>
         {data && !data.length ? <Empty title="Chưa có yêu cầu nào" text="Khi bạn liên hệ Kavor hỗ trợ, kỹ sư sẽ gửi yêu cầu truy cập để bạn duyệt tại đây." /> : (
           <div className="table-wrap"><table className="data-table" style={{ minWidth: 900 }}><thead><tr><th>Kỹ sư Kavor</th><th>Phiếu hỗ trợ · lý do</th><th>Phạm vi (chỉ đọc)</th><th>Thời hạn</th><th>Trạng thái</th><th /></tr></thead><tbody>
             {!data && !error ? <SkeletonRows cols={6} rows={3} /> : null}
             {(data ?? []).map((s) => (
               <tr key={s.id}>
-                <td><b>{s.operator}</b><div className="muted" style={{ fontSize: 10.5 }}>gửi {fmtDateTime(s.requestedAt, tz)}</div></td>
+                <td><b>{s.operator}</b><div className="muted" style={{ fontSize: 12 }}>gửi {fmtDateTime(s.requestedAt, tz)}</div></td>
                 <td style={{ whiteSpace: "normal", maxWidth: 280 }}><b>{s.ticket}</b> · {s.reason}</td>
                 <td style={{ whiteSpace: "normal" }}>{scopeText(s.scopes)}</td>
-                <td className="nowrap">{s.startsAt ? `${fmtTime(s.startsAt, tz)}–${fmtTime(s.endedAt ?? s.expiresAt, tz)}` : `${s.minutes} phút`}{s.decidedBy ? <div className="muted" style={{ fontSize: 10.5 }}>{s.decidedBy}</div> : null}</td>
+                <td className="nowrap">{s.startsAt ? `${fmtTime(s.startsAt, tz)}–${fmtTime(s.endedAt ?? s.expiresAt, tz)}` : `${s.minutes} phút`}{s.decidedBy ? <div className="muted" style={{ fontSize: 12 }}>{s.decidedBy}</div> : null}</td>
                 <td><Status v={SSTATUS[s.status]} /></td>
                 <td><span className="row-actions">
                   {canApprove && s.status === "pending" ? <><button className="btn small primary" onClick={() => setDeciding({ s, action: "approve" })}>Duyệt</button><button className="btn small" onClick={() => setDeciding({ s, action: "reject" })}>Từ chối</button></> : null}

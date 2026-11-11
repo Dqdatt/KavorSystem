@@ -6,7 +6,7 @@ import { useState } from "react";
 import type { OrgOptions, RoleAssignmentRow, RoleInfo, RolesBoard, ScopeType } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
 import { ACCOUNT, Drawer, Empty, ErrorLine, Field, Icon, LoadError, Modal, Person, Status, fmtDate, num, useAction, useMe } from "../../_ui/kit";
-import { Select, SkeletonRows } from "@kavor/web-ui";
+import { Hint, Select, SkeletonRows } from "@kavor/web-ui";
 
 const SCOPE: Record<string, string> = { tenant: "Toàn công ty", legal_entity: "Pháp nhân", branch: "Chi nhánh", department: "Phòng ban", direct_reports: "Nhân viên trực tiếp", self: "Bản thân" };
 const STATE: Record<RoleAssignmentRow["state"], [string, string]> = { active: ["Đang hiệu lực", ""], future: ["Sắp hiệu lực", "info"], ended: ["Đã kết thúc", "muted"] };
@@ -20,6 +20,7 @@ export default function RolesPage() {
   return (
     <section className="page active">
       <div className="page-head">
+        <div><p>Một người giữ được nhiều vai trò, quyền cộng dồn<Hint text={`Ví dụ Quản trị viên công ty kiêm Nhân sự vận hành: gán vai trò mới không thay vai trò đang có. Vai trò Nhân viên được gán tự động khi kích hoạt tài khoản. Quyền thay đổi có hiệu lực ngay ở thao tác kế tiếp của người đó.${me.permissions.includes("role.assign") ? "" : " Chỉ quản trị viên công ty được gán hoặc thu hồi vai trò."}`} /></p></div>
         <div className="head-actions">{b?.canAssign ? <button className="btn primary" onClick={() => setAssign("any")}><Icon name="plus" /> Gán vai trò</button> : null}</div></div>
       <LoadError error={error} retry={reload} />
       <article className="card">
@@ -28,7 +29,7 @@ export default function RolesPage() {
             {!b && !error ? <SkeletonRows cols={6} rows={5} /> : null}
             {(b?.roles ?? []).map((r) => (
               <tr key={r.code} className="clickable" onClick={() => setOpen(r.code)}>
-                <td><b>{r.name}</b><div className="muted" style={{ fontSize: 10.5 }}>{r.description}</div></td>
+                <td><b>{r.name}</b><div className="muted" style={{ fontSize: 12 }}>{r.description}</div></td>
                 <td className="num">{num(r.members)}</td><td>{r.defaultScope}</td><td>{r.payrollData}</td>
                 <td>{r.updatedAt ? fmtDate(r.updatedAt) : "—"}</td>
                 <td><Status v={r.sensitive ? ["Nhạy cảm", "warn"] : r.code === "auditor" ? ["Giới hạn", "info"] : ["Hệ thống", ""]} /></td>
@@ -37,7 +38,6 @@ export default function RolesPage() {
           </tbody></table></div>
         )}
       </article>
-      <p className="muted" style={{ fontSize: 11.5, marginTop: 10 }}>Một người có thể giữ nhiều vai trò cùng lúc, quyền được cộng dồn (ví dụ Quản trị viên công ty kiêm Nhân sự vận hành): gán vai trò mới không thay vai trò đang có. Vai trò Nhân viên được gán tự động khi kích hoạt tài khoản. Quyền thay đổi có hiệu lực ngay ở thao tác kế tiếp của người đó. {me.permissions.includes("role.assign") ? "" : "Chỉ quản trị viên công ty được gán hoặc thu hồi vai trò."}</p>
       {role && b ? <RoleDrawer r={role} canAssign={b.canAssign} onClose={() => setOpen(null)} onAssign={() => setAssign(role.code)} onDone={setData} /> : null}
       {assign && b ? <AssignModal board={b} roleCode={assign === "any" ? null : assign} onClose={() => setAssign(null)} onDone={setData} /> : null}
     </section>
@@ -49,14 +49,14 @@ function RoleDrawer({ r, canAssign, onClose, onAssign, onDone }: { r: RoleInfo; 
   const [ended, setEnded] = useState(false);
   const rows = r.assignments.filter((a) => ended || a.state !== "ended");
   return (
-    <Drawer onClose={onClose} head={<><div><b>{r.name}</b><div className="muted" style={{ fontSize: 10 }}>{r.code}</div></div>{canAssign ? <button className="btn small primary" style={{ marginLeft: "auto" }} onClick={onAssign}><Icon name="plus" /> Gán vai trò này</button> : null}</>}>
+    <Drawer onClose={onClose} head={<><div><b>{r.name}</b><div className="muted" style={{ fontSize: 12 }}>{r.code}</div></div>{canAssign ? <button className="btn small primary" style={{ marginLeft: "auto" }} onClick={onAssign}><Icon name="plus" /> Gán vai trò này</button> : null}</>}>
       <div className="card detail-list">
         <div className="detail-row"><span>Mô tả</span><b style={{ whiteSpace: "normal" }}>{r.description}</b></div>
         <div className="detail-row"><span>Phạm vi được gán</span><b>{r.allowedScopes.map((s) => SCOPE[s]).join(", ")}</b></div>
         <div className="detail-row"><span>Dữ liệu lương</span><b>{r.payrollData}</b></div>
       </div>
       <div className="drawer-section"><h4>Người được gán</h4>
-        <label className="check-row" style={{ fontSize: 11.5, marginBottom: 8 }}><input type="checkbox" checked={ended} onChange={(e) => setEnded(e.target.checked)} /> Hiện cả bản gán đã kết thúc</label>
+        <label className="check-row" style={{ fontSize: 12.5, marginBottom: 8 }}><input type="checkbox" checked={ended} onChange={(e) => setEnded(e.target.checked)} /> Hiện cả bản gán đã kết thúc</label>
         {rows.length ? <div className="card detail-list">
           {rows.map((a) => (
             <div key={a.id} className="detail-row" style={{ gridTemplateColumns: "1fr auto", minHeight: 56 }}>
@@ -68,7 +68,7 @@ function RoleDrawer({ r, canAssign, onClose, onAssign, onDone }: { r: RoleInfo; 
         </div> : <p className="muted" style={{ fontSize: 12 }}>Chưa có ai.</p>}
       </div>
       <div className="drawer-section"><h4>Quyền ({r.permissions.length})</h4>
-        <div className="card detail-list">{r.permissions.map((p) => <div key={p.code} className="detail-row"><span style={{ fontFamily: "ui-monospace, monospace", fontSize: 11 }}>{p.code}</span><b style={{ whiteSpace: "normal", fontWeight: 500 }}>{p.description}</b></div>)}</div>
+        <div className="card detail-list">{r.permissions.map((p) => <div key={p.code} className="detail-row"><span style={{ fontFamily: "ui-monospace, monospace", fontSize: 12 }}>{p.code}</span><b style={{ whiteSpace: "normal", fontWeight: 500 }}>{p.description}</b></div>)}</div>
       </div>
       {revoking ? <RevokeModal r={r} a={revoking} onClose={() => setRevoking(null)} onDone={onDone} /> : null}
     </Drawer>

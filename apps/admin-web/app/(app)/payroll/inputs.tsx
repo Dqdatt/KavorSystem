@@ -7,7 +7,7 @@ import type { PayrollInputRow, PayrollInputSheet } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
 import { EMPLOYMENT, Empty, ErrorLine, Field, Icon, LoadError, Modal, Person, Status, fmtDate, fmtDateTime, num, useAction, useMe } from "../../_ui/kit";
 import { money } from "../../_ui/request";
-import { Select, SkeletonRows } from "@kavor/web-ui";
+import { Hint, Select, SkeletonRows } from "@kavor/web-ui";
 
 const monthLabel = (m: string) => `Tháng ${Number(m.slice(5))}/${m.slice(0, 4)}`;
 const shiftMonth = (m: string, n: number) => { const [y, mo] = m.split("-").map(Number) as [number, number]; const d = new Date(Date.UTC(y, mo - 1 + n, 1)); return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`; };
@@ -68,9 +68,9 @@ export function Inputs({ tabs }: { tabs: ReactNode }) {
           <button className={`filter-chip ${warnOnly ? "active" : ""}`} onClick={() => setWarnOnly(true)}>Cần rà soát {s?.totals.warnings ?? 0}</button>
         </div>
         {s && !rows.length ? <Empty title="Không có nhân viên phù hợp" /> : (
-          <div className="table-wrap"><table className="data-table" style={{ minWidth: 1180 }}><thead><tr>
-            <th>Nhân viên</th><th>Tình trạng</th><th>Lương cứng</th><th>Lương cơ bản</th><th>Đóng BH</th>{cols.map((c) => <th key={c.id}>{c.name}</th>)}{lumpSum ? <th>Phụ cấp</th> : null}<th>Công</th><th>Phép có lương</th><th>Không lương</th>
-            {rates.map((r) => <th key={r}>OT {r}%</th>)}<th>NPT</th><th>Tạm ứng</th><th>Cần rà soát</th>
+          <div className="table-wrap"><table className="data-table sticky-first" style={{ minWidth: 1180 }}><thead><tr>
+            <th>Nhân viên</th><th>Rà soát</th><th>Tình trạng</th><th>Lương cứng</th><th>Lương cơ bản</th><th>Đóng BH</th>{cols.map((c) => <th key={c.id}>{c.name}</th>)}{lumpSum ? <th>Phụ cấp</th> : null}<th>Công</th><th>Phép có lương</th><th>Không lương</th>
+            {rates.map((r) => <th key={r}>OT {r}%</th>)}<th>NPT</th><th>Tạm ứng</th>
           </tr></thead><tbody>
             {!s && !error ? <SkeletonRows cols={12} rows={8} person /> : null}
             {rows.map((r) => <Row key={r.employee.id} r={r} rates={rates} cols={cols} lumpSum={lumpSum} />)}
@@ -86,9 +86,11 @@ function Row({ r, rates, cols, lumpSum }: { r: PayrollInputRow; rates: string[];
   return (
     <tr>
       <td><Person name={r.employee.fullName} seed={r.employee.code} sub={[r.employee.code, r.employee.department].filter(Boolean).join(" · ")} /></td>
+      <td>{r.warnings.length ? <span className="warn-cell"><Status v={[r.warnings.length > 1 ? `${r.warnings.length} cảnh báo` : r.warnings[0]!, "warn"]} />
+        {r.warnings.length > 1 ? <Hint label="Xem cảnh báo" text={<>{r.warnings.map((w) => <div key={w}>• {w}</div>)}</>} /> : null}</span> : <Status v={["Đủ", ""]} />}</td>
       <td>{EMPLOYMENT[r.employmentType]}</td>
       <td className="num">{r.baseSalary !== null ? <b>{money(r.baseSalary + r.allowance)}</b> : <span className="text-red">Chưa nhập</span>}
-        {r.segments.length > 1 ? r.segments.map((g) => <div key={g.from} className="muted nowrap" style={{ fontSize: 10.5 }}>
+        {r.segments.length > 1 ? r.segments.map((g) => <div key={g.from} className="muted nowrap" style={{ fontSize: 12 }}>
           {fmtDate(g.from).slice(0, 5)}–{fmtDate(g.to).slice(0, 5)}: {g.baseSalary !== null ? money(g.baseSalary + g.allowance) : "—"} · {EMPLOYMENT[g.employmentType]} · {num(g.credited)} công</div>) : null}</td>
       <td className="num">{r.baseSalary !== null ? money(r.baseSalary) : "—"}</td>
       <td className="num">{r.insuranceSalary !== null ? money(r.insuranceSalary) : <span className="muted">= lương CB</span>}</td>
@@ -100,7 +102,6 @@ function Row({ r, rates, cols, lumpSum }: { r: PayrollInputRow; rates: string[];
       {rates.map((x) => <td key={x} className="num">{r.overtime[x] ? `${hours(r.overtime[x]!)} giờ` : "—"}</td>)}
       <td className="num">{num(r.dependents)}</td>
       <td className="num">{r.advance ? money(r.advance) : "—"}</td>
-      <td style={{ whiteSpace: "normal", fontSize: 11, minWidth: 160 }}>{r.warnings.length ? r.warnings.map((w) => <div key={w}><Status v={[w, "warn"]} /></div>) : <span className="text-green">Đủ</span>}</td>
     </tr>
   );
 }

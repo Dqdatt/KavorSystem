@@ -44,7 +44,7 @@ export function NotificationBell() {
           <div className="card-head"><div><h3>Thông báo</h3><p>{unread ? `${unread} chưa đọc` : "Đã đọc hết"}</p></div>
             {unread ? <button className="btn small" onClick={() => void read()}>Đánh dấu đã đọc</button> : null}</div>
           <div className="notification-list">
-            {!data?.items.length ? <p className="muted" style={{ padding: "8px 2px", fontSize: 11 }}>Chưa có thông báo. Đơn cần bạn duyệt và đơn sắp quá hạn sẽ hiện ở đây.</p>
+            {!data?.items.length ? <p className="muted" style={{ padding: "8px 2px", fontSize: 12 }}>Chưa có thông báo. Đơn cần bạn duyệt và đơn sắp quá hạn sẽ hiện ở đây.</p>
               : data.items.slice(0, 20).map((n) => {
                 const [icon, tone] = ICON[n.kind];
                 return (

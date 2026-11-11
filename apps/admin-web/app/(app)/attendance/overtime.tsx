@@ -6,7 +6,7 @@ import { overtimeAttendanceShort, overtimeAttendanceText, type OvertimeBoard, ty
 import { useApi } from "../../_lib/client";
 import { Empty, Icon, LoadError, Person, Status, fmtDateTime, useMe } from "../../_ui/kit";
 import { REQUEST_STATUS, RequestModal, requestSummary } from "../../_ui/request";
-import { Select, SkeletonRows } from "@kavor/web-ui";
+import { Select, SkeletonRows, Hint } from "@kavor/web-ui";
 
 const h = (n: number) => n.toLocaleString("vi-VN", { maximumFractionDigits: 1 });
 const shift = (m: string, n: number) => { const [y, mo] = m.split("-").map(Number) as [number, number]; const d = new Date(Date.UTC(y, mo - 1 + n, 1)); return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`; };
@@ -56,7 +56,7 @@ export function OvertimeTab() {
         )}
       </article>
       <article className="card" style={{ marginTop: 14 }}>
-        <div className="card-head"><div><h3>Đơn làm thêm trong tháng</h3><p>Hệ số chụp lại theo quy định lúc gửi; OT đã duyệt là đầu vào bảng lương.</p></div></div>
+        <div className="card-head"><div><h3>Đơn làm thêm trong tháng<Hint text="Hệ số chụp lại theo quy định lúc gửi; OT đã duyệt là đầu vào bảng lương." /></h3></div></div>
         {b && !b.requests.length ? <Empty title="Không có đơn nào" /> : (
           <div className="table-wrap"><table className="data-table"><thead><tr><th>Mã đơn</th><th>Người gửi</th><th>Nội dung</th><th>Chấm công</th><th>Gửi lúc</th><th>Trạng thái</th><th /></tr></thead><tbody>
             {!b && !error ? <SkeletonRows cols={7} rows={4} /> : null}

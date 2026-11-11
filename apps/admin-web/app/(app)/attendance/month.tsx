@@ -112,18 +112,18 @@ function EmployeeMonth({ id, month, onClose, onChanged }: { id: string; month: s
   const tz = me.tenant.timezone;
   const days = (e?.days ?? []).filter((d) => d.kind !== "future" && d.kind !== "not_employed").slice().reverse();
   return (
-    <Drawer onClose={onClose} head={<div><b>{e?.employee.fullName ?? "…"}</b><div className="muted" style={{ fontSize: 10 }}>{e ? `${e.employee.code} · ${monthLabel(month)}` : ""}</div></div>}>
+    <Drawer onClose={onClose} head={<div><b>{e?.employee.fullName ?? "…"}</b><div className="muted" style={{ fontSize: 12 }}>{e ? `${e.employee.code} · ${monthLabel(month)}` : ""}</div></div>}>
       <LoadError error={error} retry={reload} />
       {e ? <>
         <div className="grid three" style={{ gridTemplateColumns: "repeat(3,1fr)" }}>
-          <div className="card card-body"><b>{num(e.summary.credited)}/{num(e.summary.standard)}</b><div className="muted" style={{ fontSize: 10 }}>Ngày công</div></div>
-          <div className="card card-body"><b>{num(e.summary.lateDays)} · {dur(e.summary.lateMinutes)}</b><div className="muted" style={{ fontSize: 10 }}>Đi muộn</div></div>
-          <div className="card card-body"><b className={e.summary.missingDays ? "text-red" : ""}>{num(e.summary.missingDays)}</b><div className="muted" style={{ fontSize: 10 }}>Thiếu chưa giải trình</div></div>
+          <div className="card card-body"><b>{num(e.summary.credited)}/{num(e.summary.standard)}</b><div className="muted" style={{ fontSize: 12 }}>Ngày công</div></div>
+          <div className="card card-body"><b>{num(e.summary.lateDays)} · {dur(e.summary.lateMinutes)}</b><div className="muted" style={{ fontSize: 12 }}>Đi muộn</div></div>
+          <div className="card card-body"><b className={e.summary.missingDays ? "text-red" : ""}>{num(e.summary.missingDays)}</b><div className="muted" style={{ fontSize: 12 }}>Thiếu chưa giải trình</div></div>
         </div>
         {e.summary.overtimeApprovedMinutes ? <div className="card card-body" style={{ marginTop: 10, fontSize: 12 }}>
           Làm thêm được tính <b className={e.summary.overtimeShortDays ? "text-red" : ""}>{hrs(e.summary.overtimeMinutes)}/{hrs(e.summary.overtimeApprovedMinutes)} giờ</b> đã duyệt
           {e.summary.overtimeShortDays ? <b className="text-red"> · {num(e.summary.overtimeShortDays)} ngày giờ chấm công không phủ hết giờ làm thêm</b> : null}
-          <div className="muted" style={{ fontSize: 10 }}>Chỉ tính phần trùng với giờ vào → ra đã ghi nhận; ngày chưa qua chưa tính.</div>
+          <div className="muted" style={{ fontSize: 12 }}>Chỉ tính phần trùng với giờ vào → ra đã ghi nhận; ngày chưa qua chưa tính.</div>
         </div> : null}
         <div className="drawer-section"><h4>Từng ngày</h4>
           <div className="card"><div className="table-wrap"><table className="data-table compact"><thead><tr><th>Ngày</th><th>Vào</th><th>Ra</th><th>Giờ làm</th><th>Ghi chú</th></tr></thead><tbody>

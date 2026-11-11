@@ -8,7 +8,7 @@ import { call, useApi } from "../../_lib/client";
 import { Empty, ErrorLine, Field, Icon, LoadError, Modal, Person, Status, can, fmtDate, fmtDateTime, num, tenantToday, useAction, useMe, useToast } from "../../_ui/kit";
 import { ReasonModal } from "../../_ui/reason-modal";
 import { money } from "../../_ui/request";
-import { Select } from "@kavor/web-ui";
+import { Select, Hint } from "@kavor/web-ui";
 
 const ORDER: PayrollStatus[] = ["open", "prepared", "under_review", "approved", "published", "paid", "closed"];
 const STATUS: Record<PayrollStatus, [string, string]> = {
@@ -112,7 +112,7 @@ function Detail({ d, onTemplate }: { d: PayrollDetail; onTemplate: () => void })
 
   return (
     <>
-      <div className="banner"><span className="banner-icon"><Icon name="pay" /></span>
+      <div className="banner soft"><span className="banner-icon"><Icon name="pay" /></span>
         <span className="banner-copy"><b>Lương được cấu hình riêng cho {me.tenant.name}</b><span>Kỳ này lấy công từ Kavor và kết quả lương từ file CSV xuất từ Google Sheets (khóa employee_code, cột theo mã thành phần).</span></span>
         <button className="btn" onClick={onTemplate}><Icon name="download" /> Tải file mẫu</button>
       </div>
@@ -144,7 +144,7 @@ function Detail({ d, onTemplate }: { d: PayrollDetail; onTemplate: () => void })
             <div className="detail-row"><span>5. Trả lương</span>{step(5, doneAt(c.paidAt), doing(`Dự kiến ${fmtDate(c.payDate)}`), <b className="muted">{fmtDate(c.payDate)}</b>)}</div>
             <div className="detail-row"><span>6. Đóng kỳ</span>{step(6, doneAt(c.closedAt), doing("Chờ đóng kỳ"))}</div>
           </div>
-          {waitingOther ? <p className="muted" style={{ margin: "10px 0 0", fontSize: 11 }}>Bạn là người nhập kết quả lần cuối nên không tự duyệt được kỳ này.</p> : null}
+          {waitingOther ? <p className="muted" style={{ margin: "10px 0 0", fontSize: 12 }}>Bạn là người nhập kết quả lần cuối nên không tự duyệt được kỳ này.</p> : null}
           {d.events.length ? (
             <>
               <div className="card-head no-line" style={{ marginTop: 10 }}><h3>Nhật ký</h3></div>
@@ -165,7 +165,7 @@ function Detail({ d, onTemplate }: { d: PayrollDetail; onTemplate: () => void })
       <article className="card">
         <div className="toolbar">
           <b style={{ fontSize: 12 }}>Kết quả lương</b>
-          {applied ? <span className="muted" style={{ fontSize: 11 }}>Lần nhập {fmtDateTime(applied.createdAt, tz)} · {applied.fileName}</span> : null}
+          {applied ? <span className="muted" style={{ fontSize: 12 }}>Lần nhập {fmtDateTime(applied.createdAt, tz)} · {applied.fileName}</span> : null}
           <span className="toolbar-spacer" />
           <label className="search"><Icon name="search" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Tìm nhân viên…" /></label>
         </div>
@@ -178,7 +178,7 @@ function Detail({ d, onTemplate }: { d: PayrollDetail; onTemplate: () => void })
                 <td className="num">{money(r.gross)}</td>
                 <td className="num">{money(r.deduction)}</td>
                 <td className="num"><b>{money(r.net)}</b></td>
-                <td className="muted" style={{ whiteSpace: "normal", fontSize: 11 }}>{r.note ?? "—"}</td>
+                <td className="muted" style={{ whiteSpace: "normal", fontSize: 12 }}>{r.note ?? "—"}</td>
               </tr>
             ))}
           </tbody></table></div>
@@ -187,7 +187,7 @@ function Detail({ d, onTemplate }: { d: PayrollDetail; onTemplate: () => void })
 
       {d.batches.length ? (
         <article className="card" style={{ marginTop: 14 }}>
-          <div className="card-head"><div><h3>Lịch sử nhập file</h3><p>Mọi lần nhập đều được lưu, kể cả file lỗi; chỉ file không lỗi mới được áp.</p></div></div>
+          <div className="card-head"><div><h3>Lịch sử nhập file<Hint text="Mọi lần nhập đều được lưu, kể cả file lỗi; chỉ file không lỗi mới được áp." /></h3></div></div>
           <div className="table-wrap"><table className="data-table"><thead><tr><th>Thời gian</th><th>File</th><th>Số dòng</th><th>Dòng lỗi</th><th>Cảnh báo</th><th>Kết quả</th></tr></thead><tbody>
             {d.batches.map((b) => (
               <tr key={b.id}>
@@ -355,12 +355,12 @@ function ComputeModal({ month, onClose, onDone }: { month: string; onClose: () =
           <thead><tr><th>Nhân viên</th><th className="num">Công</th><th className="num">Thu nhập</th><th className="num">Khấu trừ</th><th className="num">Thực nhận</th></tr></thead><tbody>
           {r.rows.map((x) => (<Fragment key={x.employee.id}>
             <tr className="clickable" onClick={() => setOpen(open === x.employee.id ? null : x.employee.id)}>
-              <td><b>{x.employee.fullName}</b> <span className="muted" style={{ fontSize: 11 }}>{x.employee.code}{x.warnings.length ? ` · ${x.warnings.length} lưu ý` : ""}</span></td>
+              <td><b>{x.employee.fullName}</b> <span className="muted" style={{ fontSize: 12 }}>{x.employee.code}{x.warnings.length ? ` · ${x.warnings.length} lưu ý` : ""}</span></td>
               <td className="num">{num(x.workDays)}</td><td className="num">{money(x.gross)}</td><td className="num">{money(x.deduction)}</td><td className="num"><b>{money(x.net)}</b></td>
             </tr>
             {open === x.employee.id ? <tr><td colSpan={5} style={{ whiteSpace: "normal", background: "var(--surface-2)" }}>
-              {x.lines.map((l) => <div key={l.code} className="detail-row"><span>{l.kind === "deduction" ? "− " : ""}{l.name}<div className="muted" style={{ fontSize: 11 }}>{l.formula}</div></span><b>{money(l.amount)}</b></div>)}
-              {x.warnings.length ? <p className="text-amber" style={{ fontSize: 11.5, margin: "6px 0 0" }}>{x.warnings.join(" · ")}</p> : null}
+              {x.lines.map((l) => <div key={l.code} className="detail-row"><span>{l.kind === "deduction" ? "− " : ""}{l.name}<div className="muted" style={{ fontSize: 12 }}>{l.formula}</div></span><b>{money(l.amount)}</b></div>)}
+              {x.warnings.length ? <p className="text-amber" style={{ fontSize: 12.5, margin: "6px 0 0" }}>{x.warnings.join(" · ")}</p> : null}
             </td></tr> : null}
           </Fragment>))}
         </tbody></table></div>

@@ -68,7 +68,7 @@ function DocumentsPage() {
             {!b && !error ? <SkeletonRows cols={6} rows={6} /> : null}
             {rows.map((d) => (
               <tr key={d.id} className="clickable" onClick={() => open(d.id)}>
-                <td style={{ whiteSpace: "normal" }}><b>{d.title}</b><div className="muted" style={{ fontSize: 10.5 }}>{d.current.fileName}{d.docNo ? ` · ${d.docNo}` : ""}{d.archivedAt ? " · Đã gỡ" : ""}</div></td>
+                <td style={{ whiteSpace: "normal" }}><b>{d.title}</b><div className="muted" style={{ fontSize: 12 }}>{d.current.fileName}{d.docNo ? ` · ${d.docNo}` : ""}{d.archivedAt ? " · Đã gỡ" : ""}</div></td>
                 <td><Person name={d.employee.fullName} seed={d.employee.code} sub={[d.employee.code, d.employee.department].filter(Boolean).join(" · ")} /></td>
                 <td>{DOCUMENT_CATEGORIES[d.category]}</td>
                 <td>v{d.current.versionNo}</td>
@@ -95,7 +95,7 @@ function DetailDrawer({ id, onClose, onChanged }: { id: string; onClose: () => v
   const done = (x: DocumentDetail) => { setData(x); onChanged(); };
   const a = d?.item;
   return (
-    <Drawer onClose={onClose} head={<><div><b>Chi tiết tài liệu</b><div className="muted" style={{ fontSize: 10 }}>{a ? `${DOCUMENT_CATEGORIES[a.category]} · v${a.current.versionNo}` : "Đang tải…"}</div></div>
+    <Drawer onClose={onClose} head={<><div><b>Chi tiết tài liệu</b><div className="muted" style={{ fontSize: 12 }}>{a ? `${DOCUMENT_CATEGORIES[a.category]} · v${a.current.versionNo}` : "Đang tải…"}</div></div>
       {a ? <span style={{ marginLeft: "auto" }}><Status v={a.archivedAt ? ["Đã gỡ", "muted"] : VIS[a.visibility]} /></span> : null}</>}>
       <LoadError error={error} retry={reload} />
       {!a || !d ? (error ? null : <SkeletonLines lines={6} />) : (
@@ -121,12 +121,11 @@ function DetailDrawer({ id, onClose, onChanged }: { id: string; onClose: () => v
             <div className="table-wrap"><table className="data-table compact"><tbody>
               {d.versions.map((v) => (
                 <tr key={v.id}>
-                  <td style={{ whiteSpace: "normal" }}><b>v{v.versionNo}</b> · {v.fileName}<div className="muted" style={{ fontSize: 10.5 }}>{fmtDateTime(v.createdAt, tz)} · {kb(v.size)}{v.note ? ` · ${v.note}` : ""}</div></td>
+                  <td style={{ whiteSpace: "normal" }}><b>v{v.versionNo}</b> · {v.fileName}<div className="muted" style={{ fontSize: 12 }}>{fmtDateTime(v.createdAt, tz)} · {kb(v.size)}{v.note ? ` · ${v.note}` : ""}</div></td>
                   <td style={{ textAlign: "right" }}><a className="btn small" href={`/api/documents/${a.id}/file?version=${v.id}`} target="_blank" rel="noreferrer">Mở</a></td>
                 </tr>
               ))}
             </tbody></table></div>
-            <p className="muted" style={{ fontSize: 11, margin: "8px 0 0" }}>Phiên bản cũ được giữ nguyên; mỗi lần mở file đều ghi nhật ký hoạt động.</p>
           </div>
         </>
       )}

@@ -50,6 +50,23 @@ const ICON: Record<ThemeChoice, React.ReactNode> = {
   dark: <path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5Z" />,
 };
 
+/** Ba lựa chọn giao diện cạnh nhau (dùng trong menu tài khoản). */
+export function ThemeSwitch() {
+  const [theme, setTheme] = useState<ThemeChoice>("system");
+  useEffect(() => setTheme(read()), []);
+  return (
+    <div className="segmented theme-switch" role="radiogroup" aria-label="Giao diện">
+      {(["light", "dark", "system"] as ThemeChoice[]).map((t) => (
+        <button key={t} type="button" role="radio" aria-checked={theme === t} className={theme === t ? "active" : ""} title={LABEL[t]}
+          onClick={() => { apply(t); setTheme(t); }}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{ICON[t]}</svg>
+          {t === "system" ? "Tự động" : LABEL[t]}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 /** Nút trên topbar: bấm để đổi Theo hệ thống → Sáng → Tối. */
 export function ThemeToggle() {
   const [theme, setTheme] = useState<ThemeChoice>("system");

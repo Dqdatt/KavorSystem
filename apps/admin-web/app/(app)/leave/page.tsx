@@ -7,7 +7,7 @@ import { LEAVE_TX_KINDS, type EmployeeLeave, type LeaveBalance, type LeaveBoard,
 import { call, useApi } from "../../_lib/client";
 import { Drawer, Empty, ErrorLine, Field, Icon, LoadError, Person, Status, fmtDate, fmtDateTime, useAction, useMe } from "../../_ui/kit";
 import { REQUEST_STATUS, RequestModal, requestSummary } from "../../_ui/request";
-import { Select, SkeletonLines, SkeletonRows } from "@kavor/web-ui";
+import { Select, SkeletonLines, SkeletonRows, Hint } from "@kavor/web-ui";
 
 const d1 = (n: number) => n.toLocaleString("vi-VN", { maximumFractionDigits: 2 });
 const signed = (n: number) => `${n > 0 ? "+" : ""}${d1(n)}`;
@@ -60,7 +60,7 @@ export default function LeavePage() {
         )}
       </article>
       <article className="card" style={{ marginTop: 14 }}>
-        <div className="card-head"><div><h3>Loại nghỉ đang áp dụng</h3><p>Nhân viên chọn khi tạo đơn trên app. Mẫu theo Bộ luật Lao động — cần chuyên gia xác nhận trước khi dùng chính thức.</p></div></div>
+        <div className="card-head"><div><h3>Loại nghỉ đang áp dụng<Hint text="Nhân viên chọn khi tạo đơn trên app. Mẫu theo Bộ luật Lao động — cần chuyên gia xác nhận trước khi dùng chính thức." /></h3></div></div>
         <div className="table-wrap"><table className="data-table"><thead><tr><th>Mã</th><th>Loại nghỉ</th><th>Hưởng lương</th><th>Trừ phép năm</th><th>Tối đa mỗi đơn</th><th>Ghi chú</th></tr></thead><tbody>
           {!b && !error ? <SkeletonRows cols={6} rows={4} /> : null}
           {(b?.types ?? []).map((t) => (
@@ -80,13 +80,13 @@ function LeaveDrawer({ id, year, canManage, onClose, onChanged }: { id: string; 
   const [req, setReq] = useState<RequestItem | null>(null);
   const tz = me.tenant.timezone;
   return (
-    <Drawer onClose={onClose} head={<div><b>{e?.employee.fullName ?? "…"}</b><div className="muted" style={{ fontSize: 10 }}>{e ? `${e.employee.code} · vào làm ${fmtDate(e.employee.hireDate)} · sổ phép ${year}` : ""}</div></div>}>
+    <Drawer onClose={onClose} head={<div><b>{e?.employee.fullName ?? "…"}</b><div className="muted" style={{ fontSize: 12 }}>{e ? `${e.employee.code} · vào làm ${fmtDate(e.employee.hireDate)} · sổ phép ${year}` : ""}</div></div>}>
       <LoadError error={error} retry={reload} />
       {e ? (!e.balance ? <Empty title="Chưa có sổ phép" text="Nhân viên chưa được áp dụng quy định phép năm, hoặc chưa vào làm trong năm này." /> : <>
         <div className="grid three" style={{ gridTemplateColumns: "repeat(3,1fr)" }}>
-          <div className="card card-body"><b className={e.balance.available < 0 ? "text-red" : ""}>{d1(e.balance.available)} ngày</b><div className="muted" style={{ fontSize: 10 }}>Còn lại</div></div>
-          <div className="card card-body"><b>{d1(e.balance.used)} ngày</b><div className="muted" style={{ fontSize: 10 }}>Đã nghỉ</div></div>
-          <div className="card card-body"><b>{d1(e.balance.pending)} ngày</b><div className="muted" style={{ fontSize: 10 }}>Đang chờ duyệt</div></div>
+          <div className="card card-body"><b className={e.balance.available < 0 ? "text-red" : ""}>{d1(e.balance.available)} ngày</b><div className="muted" style={{ fontSize: 12 }}>Còn lại</div></div>
+          <div className="card card-body"><b>{d1(e.balance.used)} ngày</b><div className="muted" style={{ fontSize: 12 }}>Đã nghỉ</div></div>
+          <div className="card card-body"><b>{d1(e.balance.pending)} ngày</b><div className="muted" style={{ fontSize: 12 }}>Đang chờ duyệt</div></div>
         </div>
         <BalanceDetail b={e.balance} />
         {canManage ? <AdjustForm id={id} year={year} onDone={(x) => { setData(x); onChanged(); }} /> : null}

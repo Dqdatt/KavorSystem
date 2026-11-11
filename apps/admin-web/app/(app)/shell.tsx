@@ -3,9 +3,9 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
 import type { AdminMe } from "@kavor/contracts";
-import { ThemeToggle } from "@kavor/web-ui";
 import { useRealtimeStatus } from "../_lib/client";
-import { Icon, MeContext, ToastProvider, can, initials, longDate } from "../_ui/kit";
+import { AccountMenu } from "../_ui/account-menu";
+import { Icon, MeContext, ToastProvider, can, longDate } from "../_ui/kit";
 import { NotificationBell } from "../_ui/notifications";
 import { SupportBanner } from "../_ui/support";
 
@@ -42,13 +42,6 @@ export function Shell({ me, children }: { me: AdminMe; children: ReactNode }) {
   const [q, setQ] = useState("");
   const live = useRealtimeStatus(me.tenant.id);
   const active = (href: string) => (href === "/" ? path === "/" : path.startsWith(href));
-  const role = me.roles[0];
-
-  async function logout() {
-    if (!confirm("Đăng xuất khỏi Kavor HR?")) return;
-    await fetch("/api/auth/logout", { method: "POST" }).catch(() => null);
-    window.location.href = "/login";
-  }
 
   return (
     <MeContext.Provider value={me}>
@@ -57,7 +50,7 @@ export function Shell({ me, children }: { me: AdminMe; children: ReactNode }) {
           <aside className="sidebar" aria-label="Điều hướng HR">
             <div className="brand">
               <img src="/kavor-logo.svg" alt="Kavor" />
-              <span className="brand-copy"><b>Kavor</b><small>HR Workspace</small></span>
+              <span className="brand-copy"><b>Kavor</b><small>Quản trị nhân sự</small></span>
               <button className="collapse-btn" onClick={() => setMenu(false)} aria-label="Đóng menu">‹</button>
             </div>
             {NAV.map((g, i) => {
@@ -74,18 +67,6 @@ export function Shell({ me, children }: { me: AdminMe; children: ReactNode }) {
                 </div>
               );
             })}
-            <div className="sidebar-spacer" />
-            <div className="nav-sep" />
-            {can(me, "policy.read") || can(me, "tenant.settings.manage") ? (
-              <Link href="/settings" className={`nav-item ${active("/settings") ? "active" : ""}`} onClick={() => setMenu(false)}>
-                <span className="nav-icon"><Icon name="settings" /></span><span className="nav-text">Cài đặt doanh nghiệp</span>
-              </Link>
-            ) : null}
-            <button className="nav-item" onClick={logout}><span className="nav-icon"><Icon name="logout" /></span><span className="nav-text">Đăng xuất</span></button>
-            <div className="sidebar-user" title={me.roles.map((r) => `${r.name} · ${r.scopeName}`).join("\n")}>
-              <span className="avatar">{initials(me.fullName)}</span>
-              <span className="user-copy"><b>{me.fullName}</b><span>{role ? `${role.name}${me.roles.length > 1 ? ` +${me.roles.length - 1}` : ""}` : "—"}</span></span>
-            </div>
           </aside>
 
           <section className="app-main">
@@ -97,10 +78,8 @@ export function Shell({ me, children }: { me: AdminMe; children: ReactNode }) {
                   onKeyDown={(e) => { if (e.key === "Enter" && q.trim()) router.push(`/employees?q=${encodeURIComponent(q.trim())}`); }} /></label>
               ) : <span />}
               <div className="top-actions">
-                <span className={`realtime-dot ${live ? "on" : ""}`} title={live ? "Đang nhận cập nhật trực tiếp" : "Cập nhật mỗi 30 giây"}><i />{live ? "Trực tiếp" : "30 giây"}</span>
-                <ThemeToggle />
                 <NotificationBell />
-                <span className="account-chip" title={`Mã công ty ${me.tenant.code}`}><span className="avatar">{initials(me.fullName)}</span><span>{me.tenant.name}</span></span>
+                <AccountMenu live={live} />
               </div>
             </header>
             <div className="workspace"><SupportBanner />{children}</div>

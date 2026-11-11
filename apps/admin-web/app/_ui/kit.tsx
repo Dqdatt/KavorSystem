@@ -3,6 +3,7 @@
 import { Fragment, createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import type { AccountStatus, AdminMe, DeviceStatus, EmployeeStatus, EmploymentType } from "@kavor/contracts";
+import { Hint } from "@kavor/web-ui";
 import { ICONS } from "./icons";
 
 export function Icon({ name, size, className }: { name: string; size?: number; className?: string }) {
@@ -61,7 +62,7 @@ export const REJECT_REASON: Record<string, string> = {
   out_of_range: "Ngoài vùng chấm công", low_accuracy: "GPS kém chính xác", device_not_registered: "Thiết bị chưa đăng ký", invalid_sequence: "Sai trình tự", clock_skew: "Giờ máy không đúng",
 };
 /* "Phòng ban: Marketing"; tầng công ty chỉ ghi "Toàn công ty" */
-export const scopeText = (s: { scopeType: string; scopeName: string }) => (s.scopeType === "tenant" ? "Toàn công ty" : `${SCOPE[s.scopeType] ?? s.scopeType}: ${s.scopeName}`);
+export const scopeText = (s: { scopeType: string; scopeName: string }) => (s.scopeType === "tenant" ? "Toàn công ty" : s.scopeType === "self" ? s.scopeName : `${SCOPE[s.scopeType] ?? s.scopeType}: ${s.scopeName}`);
 export const SCOPE: Record<string, string> = { tenant: "Toàn công ty", legal_entity: "Pháp nhân", branch: "Chi nhánh", department: "Phòng ban", employee: "Cá nhân" };
 export function Status({ v }: { v: [string, string] }) { return <span className={`status ${v[1]}`}>{v[0]}</span>; }
 
@@ -137,8 +138,9 @@ export function Drawer({ onClose, head, children, wide }: { onClose: () => void;
   );
 }
 
-export function Field({ label, full, hint, children }: { label: string; full?: boolean; hint?: string; children: ReactNode }) {
-  return <div className={`field ${full ? "full" : ""}`}><label>{label}</label>{children}{hint ? <small>{hint}</small> : null}</div>;
+/* hint: giải thích → biểu tượng ⓘ cạnh nhãn (chỉ hiện khi di chuột/chạm); note: dòng ngắn luôn hiện (cảnh báo, kết quả tính) */
+export function Field({ label, full, hint, note, children }: { label: string; full?: boolean; hint?: ReactNode; note?: ReactNode; children: ReactNode }) {
+  return <div className={`field ${full ? "full" : ""}`}><label>{label}{hint ? <Hint text={hint} /> : null}</label>{children}{note ? <small>{note}</small> : null}</div>;
 }
 export function ErrorLine({ text }: { text: string | null }) { return text ? <p className="text-red" style={{ margin: "10px 0 0", fontSize: 12.5 }}>{text}</p> : null; }
 
