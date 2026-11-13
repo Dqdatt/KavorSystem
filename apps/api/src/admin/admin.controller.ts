@@ -264,6 +264,9 @@ export class AdminController {
   /* Nghỉ phép: bảng số dư theo phạm vi, sổ phép từng người, HR điều chỉnh / nhập phép tồn */
   @Get("leave")
   leaveBoard(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Query("year") year?: string) { return this.run(r, a, (s, c) => s.leave.board(c, year)); }
+  /* Phải đứng trước leave/:employeeId */
+  @Get("leave/calendar")
+  leaveCalendar(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Query("month") month?: string) { return this.run(r, a, (s, c) => s.leave.monthCalendar(c, month)); }
   @Get("leave/:employeeId")
   leaveEmployee(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("employeeId") id: string, @Query("year") year?: string) { return this.run(r, a, (s, c) => s.leave.employee(c, id, year)); }
   @Post("leave/:employeeId/adjust") @HttpCode(200)

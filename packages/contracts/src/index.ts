@@ -1338,6 +1338,12 @@ export type LeaveBoard = {
   metrics: { available: number; used: number; pending: number; expiringCarry: number; expiringOn: string | null };
   canManage: boolean;
 };
+/* Lịch nghỉ theo tháng: mỗi dòng là một buổi/ngày nghỉ của một nhân viên (đơn đã duyệt hoặc đang chờ), trong phạm vi quyền xem phép */
+export type LeaveMonthEntry = {
+  date: string; employee: { id: string; code: string; fullName: string; department: string | null };
+  half: LeaveHalf; portion: number; status: "approved" | "pending"; typeName: string; requestId: string; requestNo: string; reason: string | null;
+};
+export type LeaveMonth = { month: string; today: string; entries: LeaveMonthEntry[] };
 export type EmployeeLeave = { employee: LeaveRow["employee"]; year: number; balance: LeaveBalance | null; ledger: LeaveLedgerEntry[]; requests: RequestItem[] };
 /* HR điều chỉnh sổ phép: số ngày (+/−, bước 0,5) + lý do; carry = nhập phép tồn năm trước kèm hạn dùng */
 export type LeaveAdjustInput = { year: number; amount: number; reason: string; carry?: boolean; expiresOn?: string | null };

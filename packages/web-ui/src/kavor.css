@@ -1114,3 +1114,105 @@ button.metric-btn:hover { border-color: var(--accent-line); }
 .metric-copy strong.tone-warn { color: var(--amber); } .metric-copy strong.tone-danger { color: var(--red); } .metric-copy strong.tone-ok { color: var(--ok); }
 .segmented .n.hot { background: var(--red); color: #fff; }
 .toolbar .segmented .active .n { background: var(--brand-soft); color: var(--brand-ink); }
+
+/* ---------- Ca & địa điểm (v2): thanh giờ, ngày trong tuần, thẻ bản đồ, nhãn mã ---------- */
+.tag { display: inline-block; font-size: 12px; font-weight: 700; padding: 2px 7px; border-radius: 6px; background: var(--surface-3); color: var(--ink-2); vertical-align: 1px; }
+.vs { display: inline-block; width: 1px; height: .95em; margin: 0 .7em; background: currentColor; opacity: .28; vertical-align: -.14em; font-style: normal; }
+.spread { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-width: 0; }
+.card-body.col { display: flex; flex-direction: column; gap: 12px; }
+.shift-time { font-size: 22px; font-weight: 800; }
+.hours { display: grid; grid-template-columns: repeat(14, 1fr); gap: 4px; }
+.hours i { height: 34px; border-radius: 8px; background: var(--surface-3); }
+.hours i.w { background: var(--accent); }
+.hours i.b { background: repeating-linear-gradient(135deg, var(--mint-soft) 0 4px, var(--surface) 4px 8px); }
+.hours span { font-size: 12px; color: var(--muted); font-weight: 600; text-align: left; font-variant-numeric: tabular-nums; }
+.week { display: flex; gap: 6px; }
+.week span { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; font-size: 12px; font-weight: 800; background: var(--surface-3); color: var(--muted); }
+.week span.on { background: var(--primary); color: var(--on-primary); }
+.location-map-canvas.mini { height: 190px; border: 0; border-radius: 16px; }
+.data-table tr.past { opacity: .65; }
+@media (max-width: 860px) { .card-head { flex-wrap: wrap; } .card-body .spread { flex-wrap: wrap; gap: 8px; } }
+.param b a { color: inherit; text-decoration: none; } .param b a:hover { text-decoration: underline; }
+
+/* ---------- Nghỉ phép (v2): lịch tháng, biểu đồ cột, lịch nhỏ, vòng phép năm, phân trang ---------- */
+.data-table th.r, .data-table td.r { text-align: right; }
+.trunc { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.iconbtn.bare { width: 34px; height: 34px; border: 0; border-radius: 10px; background: none; color: var(--ink-2); display: grid; place-items: center; cursor: pointer; }
+.iconbtn.bare:hover { background: var(--surface-2); color: var(--ink); }
+.card.tint { background: var(--brand-soft); }
+.card-head .legend { flex-wrap: nowrap; }
+.card-head .rw { flex-wrap: wrap; }
+.day-count { font-size: 32px; font-weight: 800; }
+.person-btn { width: 100%; text-align: left; background: none; border: 0; padding: 0; cursor: pointer; color: inherit; font: inherit; }
+.grid.lgrid { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1fr); align-items: stretch; margin-bottom: 16px; }
+.lcal { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+.lcal > b { font-size: 12px; font-weight: 700; color: var(--muted); padding: 0 8px 4px; letter-spacing: .04em; }
+.lday { min-height: 104px; border: 0; border-radius: 14px; background: var(--surface-2); padding: 8px; display: flex; flex-direction: column; gap: 4px; text-align: left; min-width: 0; font: inherit; color: inherit; }
+button.lday { cursor: pointer; }
+button.lday:hover { box-shadow: inset 0 0 0 2px var(--mint-soft); }
+.lday.we { background: transparent; min-height: 0; }
+.lday.x { background: transparent; opacity: .35; min-height: 0; }
+.lday.sel { box-shadow: inset 0 0 0 2px var(--primary); }
+.lday .dn { font-weight: 800; font-size: 13px; width: 26px; height: 26px; border-radius: 9px; display: grid; place-items: center; font-variant-numeric: tabular-nums; }
+.lday.today .dn { background: var(--primary); color: var(--on-primary); }
+.lday.we .dn { color: var(--muted); }
+.lv { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; border-radius: 8px; padding: 3px 6px 3px 3px; background: var(--t-np-bg); color: var(--t-np); min-width: 0; }
+.lv .avatar { width: 20px; height: 20px; font-size: 12px; letter-spacing: -.04em; }
+.lv.p { background: transparent; box-shadow: inset 0 0 0 1.5px var(--t-np-fill); }
+.lv.past { background: var(--surface-3); color: var(--ink-2); }
+.lv.more { padding: 3px 8px; background: transparent; color: var(--muted); }
+@media (max-width: 1100px) { .lday { min-height: 84px; } .lv .nm { display: none; } }
+@media (max-width: 640px) { .lday { min-height: 64px; padding: 5px; } .lv { padding: 2px; } .lcal { gap: 3px; } }
+.lgd { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 12.5px; color: var(--ink-2); font-weight: 500; margin-top: 12px; }
+.lgd span { display: inline-flex; align-items: center; gap: 7px; }
+.lgd i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+.lbars { display: grid; grid-template-columns: 24px 1fr; gap: 8px; height: 230px; }
+.lbars .yax { display: flex; flex-direction: column; justify-content: space-between; font-size: 12px; color: var(--muted); text-align: right; padding-bottom: 26px; }
+.lbars .cols { position: relative; display: flex; align-items: stretch; gap: 5px; min-width: 0; }
+.lbars .cols:before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: calc(100% - 26px); pointer-events: none;
+  background: linear-gradient(var(--line), var(--line)) top/100% 1px no-repeat, linear-gradient(var(--line), var(--line)) center/100% 1px no-repeat, linear-gradient(var(--line-strong), var(--line-strong)) bottom/100% 1px no-repeat; }
+.lbc { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 6px; position: relative; padding: 0; border: 0; background: none; cursor: pointer; }
+.lbc .bar { display: block; width: 100%; max-width: 18px; border-radius: 5px 5px 2px 2px; background: var(--brand-soft); transition: filter .15s; }
+.lbc.we .bar { opacity: .5; } .lbc.now .bar { background: var(--primary); } .lbc.soon .bar { background: var(--accent); } .lbc.pend .bar { background: var(--warn-fill); }
+.lbc:hover .bar { filter: brightness(.92); }
+.lbc .dl { font-size: 12px; color: var(--muted); height: 20px; line-height: 20px; }
+.lbc .dl.h { visibility: hidden; }
+.lbc.now .dl { color: var(--brand-ink); font-weight: 700; }
+.mcal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; text-align: center; }
+.mcal > b { font-size: 12px; color: var(--muted); font-weight: 600; padding: 4px 0; }
+.mc { position: relative; height: 34px; border: 0; background: none; border-radius: 10px; font: inherit; font-size: 13px; font-weight: 500; color: var(--ink); display: grid; place-items: center; cursor: pointer; transition: background .12s; }
+.mc.we { color: var(--muted); } .mc:hover { background: var(--surface-3); }
+.mc.has { background: var(--brand-soft); color: var(--brand-ink); font-weight: 700; }
+.mc.pend { background: var(--amber-soft); color: var(--amber); }
+.mc.today { background: var(--primary); color: var(--on-primary); font-weight: 700; }
+.mc.sel { box-shadow: 0 0 0 2px var(--accent); }
+.mc i { position: absolute; top: -3px; right: -1px; min-width: 15px; height: 15px; border-radius: 8px; background: var(--ink); color: var(--surface); font-size: 12px; font-weight: 700; line-height: 15px; font-style: normal; padding: 0 3px; }
+.mday { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.mnames { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.mnames button { display: inline-flex; align-items: center; gap: 6px; font: inherit; font-size: 12.5px; font-weight: 600; padding: 3px 9px 3px 3px; border: 0; border-radius: 999px; background: var(--surface-2); color: inherit; cursor: pointer; }
+.mnames .avatar { width: 24px; height: 24px; font-size: 12px; letter-spacing: -.04em; }
+.mnames .more { font-size: 12.5px; font-weight: 700; color: var(--muted); }
+.dn-w { position: relative; display: grid; place-items: center; margin: 4px 0 18px; }
+.dn-w .dn-c { position: absolute; text-align: center; line-height: 1.1; }
+.dn-w .dn-c b { display: block; font-size: 28px; font-weight: 800; line-height: 1; }
+.dn-w .dn-c span { font-size: 12.5px; color: var(--muted); }
+.dleg { display: flex; flex-direction: column; gap: 12px; text-align: left; }
+.dleg > div { display: grid; grid-template-columns: 12px 1fr auto 52px; align-items: center; gap: 8px; font-size: 13.5px; }
+.dleg .sq { width: 10px; height: 10px; border-radius: 3px; }
+.dleg .lb { color: var(--ink-2); }
+.dleg .pc { text-align: right; color: var(--muted); font-size: 12.5px; }
+.pager { display: inline-flex; gap: 6px; }
+.pager button { min-width: 32px; height: 32px; padding: 0 8px; border: 0; border-radius: 9px; background: none; font: inherit; font-weight: 600; font-size: 13px; color: var(--ink-2); display: grid; place-items: center; box-shadow: inset 0 0 0 1px var(--line); cursor: pointer; }
+.pager button.on { background: var(--primary); color: var(--on-primary); box-shadow: none; }
+.pager button:disabled { opacity: .4; cursor: default; }
+.pager button:not(.on):not(:disabled):hover { background: var(--surface-3); }
+@media (max-width: 1280px) { .grid.lgrid { grid-template-columns: 1fr 1fr; } .grid.lgrid > :first-child { grid-column: 1 / -1; } }
+@media (max-width: 700px) { .grid.lgrid { grid-template-columns: 1fr; } .lbars { height: 200px; } }
+.grid.cal-grid { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); margin-bottom: 16px; }
+@media (max-width: 1100px) { .grid.cal-grid { grid-template-columns: 1fr; } }
+.iconbtn.bare svg { width: 18px; height: 18px; }
+.day-count .sub { font-size: 13px; font-weight: 600; }
+.check-list > button { display: flex; align-items: center; gap: 14px; padding: 13px 22px; border: 0; border-top: 1px solid var(--line); background: none; width: 100%; text-align: left; font: inherit; color: inherit; cursor: pointer; }
+.check-list > button:first-child { border-top: 0; }
+.check-list > button:hover { background: var(--surface-2); }
+.check-list > .sub { padding: 13px 22px; }

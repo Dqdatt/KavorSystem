@@ -22,7 +22,7 @@ const TILE_ATTRIBUTION = process.env.NEXT_PUBLIC_MAP_ATTRIBUTION
 const VN_BBOX = "102.1,8.2,109.5,23.4";
 const PIN = L.divIcon({ className: "map-pin", html: "<span></span>", iconSize: [28, 38], iconAnchor: [14, 36] });
 
-export default function LocationMap({ value, radius, onPick }: { value: Point | null; radius: number; onPick: (p: Point) => void }) {
+export default function LocationMap({ value, radius, onPick, readOnly }: { value: Point | null; radius: number; onPick: (p: Point) => void; readOnly?: boolean }) {
   const box = useRef<HTMLDivElement>(null);
   const map = useRef<L.Map | null>(null);
   const marker = useRef<L.Marker | null>(null);
@@ -37,22 +37,25 @@ export default function LocationMap({ value, radius, onPick }: { value: Point | 
   useEffect(() => {
     if (!box.current || map.current) return;
     const at = value ?? START;
-    const m = L.map(box.current, { zoomControl: true, attributionControl: true, scrollWheelZoom: false }).setView([at.lat, at.lng], value ? 17 : 12);
+    /* readOnly: bản đồ xem trên thẻ địa điểm — không kéo/phóng/ghim, vừa khung vòng bán kính */
+    const m = L.map(box.current, { zoomControl: !readOnly, attributionControl: true, scrollWheelZoom: false, ...(readOnly ? { dragging: false, touchZoom: false, doubleClickZoom: false, boxZoom: false, keyboard: false } : {}) }).setView([at.lat, at.lng], value ? 17 : 12);
     L.tileLayer(TILE_URL, { maxZoom: 19, attribution: TILE_ATTRIBUTION }).addTo(m);
     m.attributionControl.setPrefix(false);
-    const mk = L.marker([at.lat, at.lng], { draggable: true, icon: PIN, opacity: value ? 1 : 0 }).addTo(m);
+    const mk = L.marker([at.lat, at.lng], { draggable: !readOnly, icon: PIN, opacity: value ? 1 : 0 }).addTo(m);
     const accent = getComputedStyle(box.current).getPropertyValue("--accent").trim() || "green";
     const c = L.circle([at.lat, at.lng], { radius, color: accent, fillColor: accent, weight: 2, fillOpacity: 0.12, opacity: value ? 1 : 0 }).addTo(m);
     const move = (p: L.LatLng) => pick.current({ lat: Number(p.lat.toFixed(6)), lng: Number(p.lng.toFixed(6)) });
-    mk.on("drag", () => c.setLatLng(mk.getLatLng()));
-    mk.on("dragend", () => move(mk.getLatLng()));
-    m.on("click", (e: L.LeafletMouseEvent) => move(e.latlng));
-    /* Trong modal: con lăn chuột cuộn form, chỉ phóng/thu bản đồ sau khi bấm vào bản đồ */
-    m.on("focus click", () => m.scrollWheelZoom.enable());
-    m.on("blur mouseout", () => m.scrollWheelZoom.disable());
+    if (!readOnly) {
+      mk.on("drag", () => c.setLatLng(mk.getLatLng()));
+      mk.on("dragend", () => move(mk.getLatLng()));
+      m.on("click", (e: L.LeafletMouseEvent) => move(e.latlng));
+      /* Trong modal: con lăn chuột cuộn form, chỉ phóng/thu bản đồ sau khi bấm vào bản đồ */
+      m.on("focus click", () => m.scrollWheelZoom.enable());
+      m.on("blur mouseout", () => m.scrollWheelZoom.disable());
+    }
     map.current = m; marker.current = mk; circle.current = c;
     // Modal vừa mở: kích thước khung chưa ổn định lúc Leaflet đo
-    const t = setTimeout(() => m.invalidateSize(), 120);
+    const t = setTimeout(() => { m.invalidateSize(); if (readOnly && value && radius > 0) m.fitBounds(c.getBounds().pad(0.4)); }, 120);
     return () => { clearTimeout(t); m.remove(); map.current = null; };
   }, []);
 
@@ -97,6 +100,7 @@ export default function LocationMap({ value, radius, onPick }: { value: Point | 
     onPick(p);
   }
 
+  if (readOnly) return <div ref={box} className="location-map-canvas mini" />;
   return (
     <div className="location-map">
       <div className="location-map-search">

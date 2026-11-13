@@ -19,6 +19,8 @@ export const ICONS: Record<string, string> = {
   "help": `<circle cx="12" cy="12" r="9"/><path d="M9.8 9a2.3 2.3 0 1 1 3.4 2c-.8.5-1.2 1-1.2 2M12 17h.01"/>`,
   "menu": `<path d="M4 7h16M4 12h16M4 17h16"/>`,
   "panel": `<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/>`,
+  "chevL": `<path d="m15 18-6-6 6-6"/>`,
+  "chevR": `<path d="m9 18 6-6-6-6"/>`,
   "plus": `<path d="M12 5v14M5 12h14"/>`,
   "upload": `<path d="M12 16V4M7 9l5-5 5 5M4 20h16"/>`,
   "filter": `<path d="M3 5h18M6 12h12M10 19h4"/>`,

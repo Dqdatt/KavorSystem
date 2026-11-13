@@ -5,7 +5,7 @@
    - Đơn nghỉ trên ngưỡng ngày (daysOver của luồng) hoặc dùng phép âm thì cần thêm bước HR. */
 import { randomUUID } from "node:crypto";
 import type {
-  EmployeeLeave, LeaveBalance, LeaveBoard, LeaveCalendarDay, LeaveHalf, LeaveLedgerEntry, LeaveRow, LeaveTxKind, LeaveType, MyLeave, RequestItem, ResolvedRule,
+  EmployeeLeave, LeaveBalance, LeaveBoard, LeaveCalendarDay, LeaveHalf, LeaveLedgerEntry, LeaveMonth, LeaveMonthEntry, LeaveRow, LeaveTxKind, LeaveType, MyLeave, RequestItem, ResolvedRule,
 } from "@kavor/contracts";
 import type { EmployeeRow } from "../auth/auth.service.js";
 import type { SupabaseGateway } from "../auth/supabase.js";
@@ -279,6 +279,44 @@ export class LeaveService {
         expiringCarry: r2(expiring.reduce((n, x) => n + Math.max(0, Math.min(x.carry - x.used, x.available)), 0)), expiringOn,
       },
     };
+  }
+
+  /* Lịch nghỉ tháng `YYYY-MM` (mặc định tháng hiện tại theo múi giờ công ty): ngày nghỉ của đơn đã duyệt + đang chờ trong phạm vi quyền xem phép */
+  async monthCalendar(ctx: AdminContext, monthRaw?: string): Promise<LeaveMonth> {
+    ctx.require("leave.read");
+    const db = ctx.db;
+    const clock = await this.timesheets.tenantClock(db, ctx.tenantId);
+    if (monthRaw && !/^\d{4}-(0[1-9]|1[0-2])$/.test(monthRaw)) throw invalid("Tháng không hợp lệ (YYYY-MM).");
+    const month = monthRaw ?? clock.today.slice(0, 7);
+    const from = `${month}-01`, to = lastDayOfMonth(Number(month.slice(0, 4)), Number(month.slice(5, 7)));
+    const ids = [...await ctx.scopedEmployeeIds("leave.read")];
+    if (!ids.length) return { month, today: clock.today, entries: [] };
+    const [{ data, error }, emps, deps] = await Promise.all([
+      db.from("leave_days").select("employee_id, leave_date, half, portion, leave_types(name), requests!inner(id, status, request_no, current_version)").eq("tenant_id", ctx.tenantId)
+        .gte("leave_date", from).lte("leave_date", to).in("employee_id", ids).in("requests.status", ["pending", "approved"]).order("leave_date"),
+      db.from("employees").select("id, employee_code, full_name").eq("tenant_id", ctx.tenantId).in("id", ids),
+      this.departments(db, ctx.tenantId, ids),
+    ]);
+    if (error) throw error;
+    /* Lý do nghỉ có thể nhạy cảm: chỉ người xem được đơn mới thấy (lấy từ phiên bản hiện tại của đơn) */
+    const rows0 = (data ?? []) as unknown as Array<{ requests: { id: string; current_version: number } }>;
+    const reasons = new Map<string, string>();
+    if (ctx.can("request.read") && rows0.length) {
+      const { data: vs, error: ve } = await db.from("request_versions").select("request_id, version_no, payload").in("request_id", [...new Set(rows0.map((d) => d.requests.id))]);
+      if (ve) throw ve;
+      const cur = new Map(rows0.map((d) => [d.requests.id, d.requests.current_version]));
+      for (const v of (vs ?? []) as Array<{ request_id: string; version_no: number; payload: { reason?: unknown } | null }>)
+        if (v.version_no === cur.get(v.request_id) && typeof v.payload?.reason === "string") reasons.set(v.request_id, v.payload.reason);
+    }
+    const who = new Map(((emps.data ?? []) as Array<{ id: string; employee_code: string; full_name: string }>).map((e) => [e.id, e]));
+    const entries = ((data ?? []) as unknown as Array<{ employee_id: string; leave_date: string; half: LeaveHalf; portion: number; leave_types: { name: string } | null; requests: { id: string; status: "pending" | "approved"; request_no: string } }>)
+      .filter((d) => who.has(d.employee_id))
+      .map((d): LeaveMonthEntry => {
+        const e = who.get(d.employee_id)!;
+        return { date: d.leave_date, employee: { id: e.id, code: e.employee_code, fullName: e.full_name, department: deps.get(e.id) ?? null }, half: d.half, portion: Number(d.portion),
+          status: d.requests.status, typeName: d.leave_types?.name ?? "Nghỉ phép", requestId: d.requests.id, requestNo: d.requests.request_no, reason: reasons.get(d.requests.id) ?? null };
+      });
+    return { month, today: clock.today, entries };
   }
 
   private async departments(db: Db, tenantId: string, ids: string[]) {

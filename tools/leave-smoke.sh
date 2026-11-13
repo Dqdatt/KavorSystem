@@ -89,6 +89,8 @@ echo "— Web HR"
 r=$(call GET admin/leave "$HR")
 check "HR thấy sổ phép cả công ty" "$(echo "$r" | py "('HD0142' in [x['employee']['code'] for x in d['rows']], d['canManage'], len(d['types']))")" "(True, True, 5)"
 check "Quản lý chỉ thấy phòng mình, không điều chỉnh" "$(call GET admin/leave "$MGRW" | py "(sorted(x['employee']['code'] for x in d['rows']), d['canManage'])")" "(['HD0142', 'HDG0003'], False)"
+check "Lịch nghỉ tháng: ngày nghỉ bù đã duyệt của HD0142, chỉ trong phạm vi quyền" "$(call GET "admin/leave/calendar?month=${PAST:0:7}" "$HR" | py "[(x['date'], x['status'], x['half']) for x in d['entries'] if x['employee']['code']=='HD0142' and x['date']=='$PAST']")" "[('$PAST', 'approved', 'full')]"
+check "Lịch nghỉ: quản lý không thấy người ngoài phòng; tháng sai → 400" "$(call GET "admin/leave/calendar?month=${PAST:0:7}" "$MGRW" | py "sorted({x['employee']['code'] for x in d['entries']} - {'HD0142', 'HDG0003'})")_$(status GET "admin/leave/calendar?month=2026-13" "$HR")" "[]_400"
 r=$(call GET admin/leave/$HA "$HR")
 check "Sổ phép chi tiết: tích lũy, điều chỉnh, giữ chỗ, đã nghỉ; kèm đơn" "$(echo "$r" | py "(sorted({x['kind'] for x in d['ledger']}), len(d['requests']))")" "(['accrual', 'adjust', 'consume', 'hold', 'release'], 5)"
 check "Quản lý không điều chỉnh được → 403" "$(status POST admin/leave/$HA/adjust "$MGRW" '{"amount":1,"reason":"Thưởng phép"}')" 403
