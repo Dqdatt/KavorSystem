@@ -1366,16 +1366,17 @@ export type TimesheetBoard = {
 export type EmployeeTimesheet = { period: TimesheetPeriod; timezone: string; employee: TimesheetRow["employee"]; days: TimesheetDay[]; summary: TimesheetSummary; requests: RequestItem[] };
 /* Danh sách đơn web HR: lọc + phân trang ở máy chủ. Ngày áp dụng: giải trình/OT = ngày công, nghỉ phép = từ–đến, tạm ứng = tháng khấu trừ,
    sửa hồ sơ = không có (lọc theo ngày gửi). status "closed" = từ chối + đã hủy. */
-export type RequestQueueStatus = "pending" | "approved" | "closed" | "all";
+/* done = đã xử lý (duyệt + từ chối/hủy) */
+export type RequestQueueStatus = "pending" | "approved" | "closed" | "done" | "all";
 export type RequestQueueFilter = {
   status?: RequestQueueStatus; type?: RequestType; departmentId?: string; employeeId?: string;
-  from?: string; to?: string; dateBy?: "applied" | "submitted"; only?: "mine" | "overdue"; q?: string; page?: number; pageSize?: number;
+  from?: string; to?: string; dateBy?: "applied" | "submitted"; only?: "mine" | "others" | "overdue"; q?: string; page?: number; pageSize?: number;
 };
 export type RequestQueueItem = RequestItem & { dueAt: string | null; overdue: boolean; applied: { from: string; to: string } | null };
 export type RequestQueue = {
   items: RequestQueueItem[];
   /* Đếm theo bộ lọc hiện tại (trừ trạng thái) để hiện trên tab; mine/overdue trong các đơn đang chờ */
-  counts: { pending: number; approved: number; closed: number; all: number; mine: number; overdue: number };
+  counts: { pending: number; approved: number; closed: number; done: number; all: number; mine: number; overdue: number };
   total: number; page: number; pageSize: number;
 };
 /* daysOver: bước chỉ áp dụng khi đơn nghỉ dài hơn số ngày này (null/không có: luôn áp dụng) */

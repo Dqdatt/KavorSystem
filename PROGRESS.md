@@ -10,6 +10,11 @@ simulator hay iPhone** vì phiên cloud không có Mac). Người dùng giao "c�
 ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AGENT_PLAYBOOK.md`; kiểm tra toàn bộ bằng `bash tools/verify-all.sh`.
 
 ## Đã xong
+- Web HR v2 — P2 Đơn & phê duyệt (13/11, Claude Desktop): **hộp thư 2 cột** (danh sách trái, chi tiết phải, Duyệt/Từ chối ở thanh đáy);
+  tab Cần tôi duyệt · Đang chờ người khác · Đã xử lý — API `GET admin/requests` thêm `only=others`, `status=done`, `counts.done` (CSV xuất theo
+  `done`); smoke requests thêm 2 kiểm (đạt). Chi tiết đơn tách `RequestDetail` (`_ui/request.tsx`) dùng chung với `RequestModal` ở các trang khác:
+  badge loại đơn có màu, thẻ người gửi → hồ sơ, luồng duyệt dạng timeline, lý do không duyệt được + nút Gán vai trò. Đã xem trên trình duyệt
+  (3 tab, modal ở hồ sơ, 390 px). Chưa bấm Duyệt/Từ chối trên giao diện (HR mẫu không có đơn chờ mình; logic duyệt giữ nguyên).
 - Web HR v2 — P2 Nhân viên + Hồ sơ (13/11, Claude Desktop): hồ sơ thành **trang riêng `/employees/[id]`** (thẻ đầu avatar lớn + meta + hàng
   "Cần bổ sung", tab như cũ; Tổng quan có thẻ Kỳ công hiện tại + Phép năm từ `timesheets/:id`, `leave/:id`; tab Lương = thẻ Lương hiện tại / Thuế
   và bảo hiểm / Lịch sử lương; tab Giấy tờ dạng danh sách có vạch tiến độ). Link cũ `/employees?id=` tự chuyển. Danh sách: chip lọc nhanh có số

@@ -44,11 +44,11 @@ export function parseQueueFilter(q: Record<string, string | undefined>): Request
   const id = (v: string | undefined, what: string) => { if (!v) return undefined; if (!UUIDV.test(v)) throw invalid(`${what} không hợp lệ.`); return v; };
   const int = (v: string | undefined) => (v && /^\d{1,4}$/.test(v) ? Number(v) : undefined);
   const f: RequestQueueFilter = {
-    status: pick(q.status === "rejected" || q.status === "cancelled" ? "closed" : q.status, ["pending", "approved", "closed", "all"] as const, "Trạng thái"),
+    status: pick(q.status === "rejected" || q.status === "cancelled" ? "closed" : q.status, ["pending", "approved", "closed", "done", "all"] as const, "Trạng thái"),
     type: pick(q.type, Object.keys(REQUEST_TYPES) as RequestItem["type"][], "Loại đơn"),
     departmentId: id(q.departmentId, "Phòng ban"), employeeId: id(q.employeeId, "Nhân viên"),
     from: day(q.from, "Từ ngày"), to: day(q.to, "Đến ngày"), dateBy: pick(q.dateBy, ["applied", "submitted"] as const, "Kiểu ngày"),
-    only: pick(q.only, ["mine", "overdue"] as const, "Bộ lọc"), q: q.q?.slice(0, 100), page: int(q.page), pageSize: int(q.pageSize),
+    only: pick(q.only, ["mine", "others", "overdue"] as const, "Bộ lọc"), q: q.q?.slice(0, 100), page: int(q.page), pageSize: int(q.pageSize),
   };
   if (f.from && f.to && f.from > f.to) throw invalid("Từ ngày phải trước đến ngày.");
   return f;
@@ -411,17 +411,17 @@ export class RequestsService {
     const pending = await this.queueItems(db, v, list.filter((r) => r.status === "pending"), applied, sc);
     const counts = {
       pending: pending.length, approved: list.filter((r) => r.status === "approved").length, closed: list.filter((r) => bucket(r.status) === "closed").length,
-      all: list.length, mine: pending.filter((i) => i.myTaskId).length, overdue: pending.filter((i) => i.overdue).length,
+      all: list.length, done: list.length - pending.length, mine: pending.filter((i) => i.myTaskId).length, overdue: pending.filter((i) => i.overdue).length,
     };
     const status = f.status ?? "pending", pageSize = Math.min(200, Math.max(1, f.pageSize ?? 50)), page = Math.max(1, f.page ?? 1);
     let items: RequestQueueItem[];
     let total: number;
     if (status === "pending") {
-      const sorted = pending.filter((i) => !f.only || (f.only === "mine" ? !!i.myTaskId : i.overdue))
+      const sorted = pending.filter((i) => !f.only || (f.only === "mine" ? !!i.myTaskId : f.only === "others" ? !i.myTaskId : i.overdue))
         .sort((a, b) => Number(!!b.myTaskId) - Number(!!a.myTaskId) || (a.dueAt ?? "9").localeCompare(b.dueAt ?? "9") || b.submittedAt.localeCompare(a.submittedAt));
       total = sorted.length; items = sorted.slice((page - 1) * pageSize, page * pageSize);
     } else {
-      const rows = list.filter((r) => status === "all" || bucket(r.status) === status);
+      const rows = list.filter((r) => status === "all" || (status === "done" ? r.status !== "pending" : bucket(r.status) === status));
       total = rows.length;
       items = await this.queueItems(db, v, rows.slice((page - 1) * pageSize, page * pageSize), applied, sc);
     }
@@ -432,7 +432,7 @@ export class RequestsService {
   async exportCsv(ctx: AdminContext, f: RequestQueueFilter): Promise<{ filename: string; body: string }> {
     const { list, applied, clock } = await this.filtered(ctx, f);
     const status = f.status ?? "all";
-    const rows = list.filter((r) => status === "all" || (status === "closed" ? r.status === "rejected" || r.status === "cancelled" : r.status === status));
+    const rows = list.filter((r) => status === "all" || (status === "done" ? r.status !== "pending" : status === "closed" ? r.status === "rejected" || r.status === "cancelled" : r.status === status));
     const items = await this.queueItems(ctx.db, viewerOf(ctx), rows, applied);
     const esc = (x: unknown) => { const t = String(x ?? ""); return /[",\n;]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t; };
     const at = (iso: string | null) => (iso ? `${localParts(iso, clock.timezone).date} ${String(Math.floor(localParts(iso, clock.timezone).minutes / 60)).padStart(2, "0")}:${String(localParts(iso, clock.timezone).minutes % 60).padStart(2, "0")}` : "");

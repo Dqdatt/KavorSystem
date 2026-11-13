@@ -32,6 +32,9 @@ r=$(q "status=pending")
 check "Duyệt xong: rời tab Chờ duyệt, sang Đã duyệt" "$(echo "$r" | py "(d['counts']['pending'], d['counts']['approved'])")" "(2, 1)"
 check "Tab Đã duyệt có đơn vừa duyệt" "$(q "status=approved" | py "[i['no'] for i in d['items']]")" "['$HS']"
 check "Tham số cũ status=rejected vẫn nhận (gộp Từ chối/Hủy)" "$(q "status=rejected" | py "d['total']")" 0
+check "Tab Đã xử lý (duyệt + từ chối/hủy)" "$(q "status=done" | py "(d['counts']['done'], [i['no'] for i in d['items']])")" "(1, ['$HS'])"
+_s1=$(q "status=pending&only=others") || :
+check "Đang chờ người khác = chờ duyệt trừ đơn của tôi" "$(echo "$_s1" | py "(d['total']==d['counts']['pending']-d['counts']['mine'], all(i['myTaskId'] is None for i in d['items']))")" "(True, True)"
 
 echo "— Lọc"
 check "Theo loại đơn" "$(q "status=all&type=leave" | py "d['total']")" 2
