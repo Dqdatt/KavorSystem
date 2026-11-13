@@ -81,6 +81,8 @@ echo "— Nghỉ bù ngày đã qua → bảng công"
 r=$(call POST me/requests/leave "$EMP" "{\"leaveType\":\"AL\",\"from\":\"$PAST\",\"reason\":\"Nghỉ ốm nhẹ, quên xin\"}")
 call POST me/approvals/$(echo "$r" | field data.steps.0.taskId)/approve "$MGR" '{}' >/dev/null
 check "Bảng công: ngày nghỉ phép cả ngày, có lương = 1 công" "$(call GET "me/timesheet?month=$PAST_MONTH" "$EMP" | py "[(x['kind'], x['credit'], x['leave']['typeName'], x['issue']) for x in d['days'] if x['date']=='$PAST'][0]")" "('leave', 1, 'Phép năm', None)"
+check "Bảng công HR: ô lưới ngày nghỉ phép = leave" "$(call GET "admin/timesheets?month=$PAST_MONTH" "$HR" | py "[c['s'] for x in d['rows'] if x['employee']['code']=='HD0142' for c in x['cells'] if c['date']=='$PAST']")" "['leave']"
+check "Bảng hôm nay có trạng thái nghỉ phép của ngày đó" "$(call GET "admin/attendance/board?date=$PAST" "$HR" | py "[(x['leave']['typeName'], x['leave']['half']) for x in d['rows'] if x['employee']['code']=='HD0142']")" "[('Phép năm', 'full')]"
 check "Tổng kỳ có ngày nghỉ phép, công chuẩn không tính ngày nghỉ" "$(call GET "me/timesheet?month=$PAST_MONTH" "$EMP" | py "(d['summary']['leaveDays']>=1, d['summary']['standard']==len([x for x in d['days'] if x['workday']]))")" "(True, True)"
 
 echo "— Web HR"

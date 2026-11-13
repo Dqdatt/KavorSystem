@@ -2,7 +2,7 @@
    đi muộn/về sớm theo ân hạn của ca, thiếu giờ, ngày công, hạn giải trình. Event gốc không bị sửa: điều chỉnh đã duyệt
    ghi đè giờ vào/ra khi hiển thị và tính công. OT đã duyệt chỉ được tính phần trùng với giờ có mặt (vào → ra) của ngày đã qua.
    Ca qua đêm chưa hỗ trợ (giống module ca). */
-import type { DayIssue, LeaveHalf, OvertimeAttendance, RequestStatus, ShiftInfo, TimesheetDay, TimesheetPeriod, TimesheetSummary } from "@kavor/contracts";
+import type { DayIssue, GridCell, LeaveHalf, OvertimeAttendance, RequestStatus, ShiftInfo, TimesheetDay, TimesheetPeriod, TimesheetSummary } from "@kavor/contracts";
 import { addDays } from "../admin/validate.js";
 import { minutesOf } from "../attendance/policy.js";
 
@@ -138,6 +138,16 @@ export function computeDay(i: DayInput): Omit<TimesheetDay, "canExplain" | "expl
   /* Nghỉ nửa ngày: nửa nghỉ có lương 0,5 công, nửa còn lại phải chấm đủ vào/ra */
   const credit = leave ? (leave.paid ? 0.5 : 0) + (inMin != null && outMin != null ? 0.5 : 0) : inMin != null && outMin != null ? 1 : 0;
   return { ...base, kind: "work", lateMinutes: late, earlyMinutes: early, workedMinutes: worked, credit, issue, workday, leave };
+}
+
+/* Trạng thái ô của ngày trên lưới bảng công (cùng quy tắc "chưa giải trình" với summarize) */
+export function gridCell(d: TimesheetDay): GridCell {
+  if (d.kind === "off" || d.kind === "holiday") return "off";
+  if (d.kind === "leave") return "leave";
+  if (d.kind === "future" || d.kind === "not_employed" || (d.kind === "today" && !d.clockIn)) return "fut";
+  if (d.issue === "missing_in" || d.issue === "missing_out" || d.issue === "absent") return d.request && d.request.status !== "rejected" && d.request.status !== "cancelled" ? "exp" : "miss";
+  if (d.issue) return "late";
+  return d.leave ? "leave" : d.adjusted ? "exp" : "ok";
 }
 
 /* Hạn giải trình: ngày làm việc thứ N sau ngày phát sinh (bỏ ngày nghỉ theo ca và ngày lễ) */

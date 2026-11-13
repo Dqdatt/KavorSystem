@@ -1084,3 +1084,33 @@ button.metric-btn:hover { border-color: var(--accent-line); }
   .inbox .det { overflow: visible; }
 }
 @media (max-width: 800px) { .rd-grid { grid-template-columns: minmax(0, 1fr); } .inbox .det .sc { padding: 18px 16px; } .actbar { padding: 14px 16px 16px; } }
+
+/* ---------- Chấm công (v2): lưới ngày × người, chú giải, OT 2 cột ---------- */
+.mx { border-collapse: separate; border-spacing: 0; font-size: 12px; width: 100%; }
+.mx th, .mx td { padding: 0; text-align: center; }
+.mx thead th { font-weight: 700; color: var(--muted); padding: 8px 0; font-size: 12px; min-width: 27px; }
+.mx thead th.we { color: var(--line-strong); } .mx thead th.today { color: var(--brand-ink); }
+.mx td.n, .mx th.n { position: sticky; left: 0; background: var(--surface); text-align: left; padding: 7px 12px; min-width: 220px; z-index: 1; }
+.mx tbody td { border-top: 1px solid var(--line); padding: 6px 2px; }
+.mx tbody tr { cursor: pointer; }
+.mx tbody tr:hover td { background: var(--surface-2); }
+.mx td.s, .mx th.s { position: sticky; right: 0; background: var(--surface); padding: 6px 14px; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; z-index: 1; }
+.cell { width: 21px; height: 21px; border-radius: 7px; margin: 0 auto; display: block; }
+.cell.ok { background: var(--mint-soft); } .cell.late { background: var(--warn-fill); } .cell.miss { background: var(--red); } .cell.leave { background: var(--info-fill); }
+.cell.exp { background: var(--violet); opacity: .55; } .cell.we { background: transparent; } .cell.fut { background: var(--surface-2); }
+.cell.today { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--primary); }
+.legend .cell { display: inline-block; width: 12px; height: 12px; vertical-align: -2px; margin-right: 6px; }
+.toolbar .legend { order: 4; margin-left: auto; }
+.grid.one-two { grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); }
+@media (max-width: 1100px) { .grid.one-two { grid-template-columns: minmax(0, 1fr); } }
+.lock-list { margin: 0 0 4px; }
+.lock-list p { margin: 2px 0 8px; font-size: 13px; color: var(--ink-2); }
+.metric-copy strong small { display: inline; margin: 0; font-size: 15px; font-weight: 600; color: var(--muted); letter-spacing: 0; -webkit-line-clamp: unset; }
+.grid.metrics.sm .metric-copy strong { font-size: 22px; margin-top: 6px; line-height: 1.2; }
+.grid.metrics.sm .metric-copy strong small { font-size: 12.5px; }
+.grid.metrics.sm .metric-card { min-height: 0; }
+/* Thẻ số liệu như .kpi của prototype v2: biểu tượng xám (chỉ thẻ đầu nền thương hiệu), tông màu đặt ở chữ số */
+.grid.metrics > .metric-card:not(:first-child) .metric-icon { color: var(--ink-2); background: var(--surface-2); }
+.metric-copy strong.tone-warn { color: var(--amber); } .metric-copy strong.tone-danger { color: var(--red); } .metric-copy strong.tone-ok { color: var(--ok); }
+.segmented .n.hot { background: var(--red); color: #fff; }
+.toolbar .segmented .active .n { background: var(--brand-soft); color: var(--brand-ink); }

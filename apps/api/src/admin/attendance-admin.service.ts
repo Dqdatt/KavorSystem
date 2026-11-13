@@ -1,5 +1,5 @@
 /* Chấm công phía HR: bảng hôm nay, bản ghi bị từ chối, thiết bị (duyệt/từ chối/thu hồi). */
-import type { AdminAttendanceEvent, AdminDevice, AttendanceBoard, OverviewDay, TodayRow } from "@kavor/contracts";
+import type { AdminAttendanceEvent, AdminDevice, AttendanceBoard, LeaveHalf, OverviewDay, TodayRow } from "@kavor/contracts";
 import type { SupabaseGateway } from "../auth/supabase.js";
 import { EVENT_COLS, localParts, tenantSettings, toAttendanceEvent, type EventRow } from "../attendance/attendance.service.js";
 import { PolicyIndex, loadPlacements, minutesOf } from "../attendance/policy.js";
@@ -74,19 +74,22 @@ export class AttendanceAdmin {
     if (error) throw error;
     const emps = ((data ?? []) as unknown as Emp[]).filter((e) => e.status !== "terminated");
     const ids = emps.map((e) => e.id);
-    const [index, placements, events, pending, depts] = await Promise.all([
+    const [index, placements, events, pending, depts, leaves] = await Promise.all([
       PolicyIndex.load(ctx.db, ctx.tenantId),
       loadPlacements(ctx.db, ctx.tenantId, date, ids),
       this.rawEvents(ctx, ids, date, date, s.timezone),
       ctx.db.from("employee_devices").select("employee_id").eq("tenant_id", ctx.tenantId).eq("status", "pending"),
       ctx.db.from("departments").select("id, name").eq("tenant_id", ctx.tenantId),
+      ids.length ? ctx.db.from("leave_days").select("employee_id, half, requests!inner(status), leave_types(name)").eq("tenant_id", ctx.tenantId).eq("leave_date", date).eq("requests.status", "approved").in("employee_id", ids) : { data: [], error: null },
     ]);
+    if (leaves.error) throw leaves.error;
+    const leaveOf = new Map(((leaves.data ?? []) as unknown as Array<{ employee_id: string; half: LeaveHalf; leave_types: { name: string } | null }>).map((l) => [l.employee_id, { typeName: l.leave_types?.name ?? "Nghỉ phép", half: l.half }]));
     const deptName = new Map(((depts.data ?? []) as Array<{ id: string; name: string }>).map((d) => [d.id, d.name]));
     const byEmp = groupBy(events, (e) => e.employee_id);
     const rows: TodayRow[] = emps.map((e) => {
       const p = placements.get(e.id) ?? null;
       const shift = index.resolve(e.id, p, date).shift;
-      return boardRow(e, p ? deptName.get(p.department_id) ?? null : null, shift, byEmp.get(e.id) ?? [], index, s.timezone, date, now);
+      return { ...boardRow(e, p ? deptName.get(p.department_id) ?? null : null, shift, byEmp.get(e.id) ?? [], index, s.timezone, date, now), leave: leaveOf.get(e.id) ?? null };
     });
     const idSet = new Set(ids);
     return {
@@ -95,7 +98,8 @@ export class AttendanceAdmin {
         inScope: rows.length,
         present: rows.filter((r) => r.clockIn).length,
         late: rows.filter((r) => r.late).length,
-        notYet: rows.filter((r) => r.state === "not_started").length,
+        notYet: rows.filter((r) => r.state === "not_started" && r.leave?.half !== "full").length,
+        onLeave: rows.filter((r) => r.leave?.half === "full").length,
         rejected: events.filter((e) => e.status === "rejected").length,
         devicesPending: ((pending.data ?? []) as Array<{ employee_id: string }>).filter((d) => idSet.has(d.employee_id)).length,
       },
@@ -217,7 +221,7 @@ export function boardRow(e: Emp, department: string | null, shift: ReturnType<Po
     shift: shift ? { name: shift.name, start: shift.start, end: shift.end } : null,
     clockIn: i ? { at: i.occurredAt, lateMinutes: i.deviationMinutes, offline: i.offline, location: i.locationName } : null,
     clockOut: o ? { at: o.occurredAt, earlyMinutes: o.deviationMinutes, offline: o.offline, location: o.locationName } : null,
-    state, late, early, rejectedCount: events.filter((x) => x.status === "rejected").length,
+    state, late, early, rejectedCount: events.filter((x) => x.status === "rejected").length, leave: null,
   };
 }
 

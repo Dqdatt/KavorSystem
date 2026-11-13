@@ -1,18 +1,25 @@
 "use client";
-/* Bảng công tháng: bám page-attendance của Kavor HR Admin Prototype.html (chỉ số, bảng theo nhân viên, Xuất Excel,
-   modal "Khóa kỳ công"). Drawer chi tiết từng ngày + mở lại kỳ là thiết kế bổ sung. */
+/* Bảng công tháng: bám PAGES['cham-cong'] tab month của Kavor HR Admin Prototype v2.html (lưới ngày × người, chú giải, hộp "Khóa kỳ công"
+   có danh sách điều kiện, chi tiết từng ngày). Mở lại kỳ là thiết kế bổ sung. */
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import type { EmployeeTimesheet, RequestItem, TimesheetBoard, TimesheetDay, TimesheetRow } from "@kavor/contracts";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import type { AdminDevice, EmployeeTimesheet, RequestItem, TimesheetBoard, TimesheetDay } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
 import { Drawer, Empty, Field, Icon, LoadError, Modal, Person, Status, dur, fmtDate, fmtDateTime, num, tenantToday, useAction, useMe } from "../../_ui/kit";
 import { ReasonModal } from "../../_ui/reason-modal";
 import { REQUEST_STATUS, RequestModal, requestSummary } from "../../_ui/request";
 import { Select, SkeletonLines, SkeletonRows } from "@kavor/web-ui";
 
-const ROW: Record<TimesheetRow["status"], [string, string]> = { ok: ["Đủ dữ liệu", ""], needs_action: ["Cần xử lý", "warn"], short: ["Thiếu công", "bad"] };
 const ISSUE: Record<string, [string, string]> = {
   missing_in: ["Thiếu vào", "bad"], missing_out: ["Thiếu ra", "bad"], absent: ["Vắng", "bad"], late: ["Đi muộn", "warn"], early: ["Về sớm", "warn"], late_early: ["Muộn, về sớm", "warn"],
 };
+/* Các ngày start..end (YYYY-MM-DD) kèm thứ ISO 1–7; chỉ cộng ngày trên lịch, không phụ thuộc múi giờ máy */
+function gridDates(start: string, end: string) {
+  const out: Array<{ date: string; weekday: number }> = [];
+  for (let t = Date.parse(`${start}T00:00:00Z`); t <= Date.parse(`${end}T00:00:00Z`) && out.length < 62; t += 86400_000) { const d = new Date(t); out.push({ date: d.toISOString().slice(0, 10), weekday: d.getUTCDay() || 7 }); }
+  return out;
+}
 const WD = ["", "T2", "T3", "T4", "T5", "T6", "T7", "CN"];
 /* "2026-10" → "Tháng 10/2026"; danh sách 6 kỳ gần nhất để chọn */
 const monthLabel = (m: string) => `Tháng ${Number(m.slice(5))}/${m.slice(0, 4)}`;
@@ -23,7 +30,6 @@ export function MonthTab({ setAction }: { setAction: (n: ReactNode) => void }) {
   const [month, setMonth] = useState<string | null>(null);
   const { data: b, error, reload, setData } = useApi<TimesheetBoard>(`timesheets${month ? `?month=${month}` : ""}`, { tables: ["attendance_events", "requests", "approval_tasks"], tenantId: me.tenant.id });
   const [filter, setFilter] = useState<"all" | "short" | "late">("all");
-  const [q, setQ] = useState("");
   const [open, setOpen] = useState<string | null>(null);
   const [locking, setLocking] = useState(false);
   const [unlocking, setUnlocking] = useState(false);
@@ -37,94 +43,111 @@ export function MonthTab({ setAction }: { setAction: (n: ReactNode) => void }) {
     </>);
     return () => setAction(null);
   }, [b, setAction]);
-  const rows = useMemo(() => (b?.rows ?? []).filter((r) => (filter === "all" || (filter === "short" ? r.status === "short" : r.summary.lateDays > 0))
-    && (!q.trim() || `${r.employee.fullName} ${r.employee.code}`.toLowerCase().includes(q.trim().toLowerCase()))), [b, filter, q]);
+  const rows = useMemo(() => (b?.rows ?? []).filter((r) => filter === "all" || (filter === "short" ? r.status === "short" : r.summary.lateDays > 0)), [b, filter]);
   const m = b?.metrics;
-  const months = cur ? [0, -1, -2, -3, -4, -5].map((n) => shiftMonth(cur === b?.period.month && !month ? cur : cur, n)) : [];
+  const months = cur ? [0, -1, -2, -3, -4, -5].map((n) => shiftMonth(cur, n)) : [];
+  const today = tenantToday(me.tenant.timezone);
+  /* Các ngày của kỳ (đủ cho cả khi chưa có nhân viên nào) */
+  const dates = b ? gridDates(b.period.start, b.period.end) : [];
+  const all = b?.rows ?? [];
+  const credited = all.reduce((n, r) => n + r.summary.credited, 0), standard = all.reduce((n, r) => n + r.summary.standard, 0);
+  const leaveDays = all.reduce((n, r) => n + r.summary.leaveDays, 0);
   return (
     <>
       <LoadError error={error} retry={reload} />
-      <div className="grid metrics">
-        <article className="card metric-card"><span className="metric-icon"><Icon name="users" /></span><span className="metric-copy"><span>Đủ công</span><strong>{m ? num(m.full) : "—"}</strong><small>{m && m.employees ? `${((m.full / m.employees) * 100).toLocaleString("vi-VN", { maximumFractionDigits: 1 })}% nhân sự` : " "}</small></span></article>
-        <article className="card metric-card"><span className="metric-icon red"><Icon name="alert" /></span><span className="metric-copy"><span>Thiếu công</span><strong>{m ? num(m.short) : "—"}</strong><small>{m ? `${num(m.unexplained)} ngày chưa giải trình` : " "}</small></span></article>
-        <article className="card metric-card"><span className="metric-icon amber"><Icon name="clock" /></span><span className="metric-copy"><span>Đi muộn</span><strong>{m ? num(m.lateEmployees) : "—"}</strong><small>{m ? `${num(m.lateTimes)} lượt trong kỳ` : " "}</small></span></article>
-        <article className="card metric-card"><span className="metric-icon violet"><Icon name="checks" /></span><span className="metric-copy"><span>Chờ điều chỉnh</span><strong>{m ? num(m.pendingRequests) : "—"}</strong><small>Giải trình chờ duyệt</small></span></article>
+      <div className="grid metrics sm">
+        <article className="card metric-card"><span className="metric-icon"><Icon name="clock" /></span><span className="metric-copy"><span>Công đã ghi nhận</span><strong>{b ? num(credited) : "—"}<small> ngày công</small></strong><small>{b && standard ? `${Math.round((credited / standard) * 100)}% công chuẩn · ${num(all.length)} người` : " "}</small></span></article>
+        <article className="card metric-card"><span className="metric-icon amber"><Icon name="clock" /></span><span className="metric-copy"><span>Đi muộn</span><strong className={m?.lateTimes ? "tone-warn" : ""}>{m ? num(m.lateTimes) : "—"}<small> lượt</small></strong><small>{m ? `${num(m.lateEmployees)} nhân viên` : " "}</small></span></article>
+        <article className="card metric-card"><span className="metric-icon red"><Icon name="alert" /></span><span className="metric-copy"><span>Thiếu công</span><strong className={m?.unexplained ? "tone-danger" : ""}>{m ? num(m.unexplained) : "—"}<small> ngày</small></strong><small>{m ? `${num(m.short)} nhân viên chưa giải trình` : " "}</small></span></article>
+        <article className="card metric-card"><span className="metric-icon blue"><Icon name="calendar" /></span><span className="metric-copy"><span>Nghỉ phép</span><strong>{b ? num(leaveDays) : "—"}<small> ngày</small></strong><small>Đã duyệt trong kỳ</small></span></article>
       </div>
       <article className="card">
         <div className="toolbar">
-          <label className="search"><Icon name="search" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Tìm nhân viên…" /></label>
-          <button className={`filter-chip ${filter === "all" ? "active" : ""}`} onClick={() => setFilter("all")}>Tất cả {b?.rows.length ?? 0}</button>
-          <button className={`filter-chip ${filter === "short" ? "active" : ""}`} onClick={() => setFilter("short")}>Thiếu công {m?.short ?? 0}</button>
-          <button className={`filter-chip ${filter === "late" ? "active" : ""}`} onClick={() => setFilter("late")}>Đi muộn {m?.lateEmployees ?? 0}</button>
+          <div className="segmented">{([["all", "Tất cả"], ["short", "Có thiếu công"], ["late", "Có đi muộn"]] as const).map(([k, l]) => <button key={k} className={filter === k ? "active" : ""} onClick={() => setFilter(k)}>{l}</button>)}</div>
           <span className="toolbar-spacer" />
+          <div className="legend">{([["ok", "Đủ công"], ["late", "Đi muộn"], ["miss", "Thiếu công"], ["leave", "Nghỉ phép"], ["exp", "Đã giải trình"]] as const).map(([k, l]) => <span key={k}><i className={`cell ${k}`} />{l}</span>)}</div>
           {b ? <span className={`status ${b.period.locked ? "" : "warn"}`} title={b.period.locked && b.lock ? `Khóa lúc ${fmtDateTime(b.lock.lockedAt, b.timezone)}${b.lock.lockedBy ? ` bởi ${b.lock.lockedBy}` : ""}` : undefined}>{fmtDate(b.period.start).slice(0, 5)}–{fmtDate(b.period.end)} · {b.period.locked ? "đã khóa" : "chưa khóa"}</span> : null}
           <Select className="select" value={cur ?? ""} onChange={(e) => setMonth(e.target.value)} aria-label="Kỳ công">{months.map((x) => <option key={x} value={x}>{monthLabel(x)}</option>)}</Select>
         </div>
         {b && !rows.length ? <Empty title="Không có nhân viên phù hợp" /> : (
-          <div className="table-wrap"><table className="data-table" style={{ minWidth: 960 }}><thead><tr><th>Nhân viên</th><th>Phòng ban</th><th>Ngày công</th><th>Đi muộn</th><th>Thiếu bản ghi</th><th>Giải trình chờ</th><th>Trạng thái kỳ</th><th /></tr></thead><tbody>
-            {!b && !error ? <SkeletonRows cols={8} rows={8} person /> : null}
+          <div className="table-wrap"><table className="mx"><thead><tr><th className="n">Nhân viên</th>
+            {dates.map((d) => <th key={d.date} className={`${d.weekday >= 6 ? "we" : ""} ${d.date === today ? "today" : ""}`}>{d.date.slice(8)}<br /><span style={{ fontWeight: 400 }}>{WD[d.weekday]}</span></th>)}
+            <th className="s">Công / Thiếu</th></tr></thead><tbody>
+            {!b && !error ? <SkeletonRows cols={3} rows={8} person /> : null}
             {rows.map((r) => (
-              <tr key={r.employee.id} className="clickable" onClick={() => setOpen(r.employee.id)}>
-                <td><Person name={r.employee.fullName} seed={r.employee.code} sub={r.employee.code} /></td>
-                <td>{r.employee.department ?? "—"}</td>
-                <td className="num">{num(r.summary.credited)}/{num(r.summary.standard)}</td>
-                <td className="num">{num(r.summary.lateDays)}</td>
-                <td className={`num ${r.summary.missingDays ? "text-red" : ""}`}>{num(r.summary.missingDays)}</td>
-                <td className="num">{num(r.summary.pendingRequests)}</td>
-                <td><Status v={ROW[r.status]} /></td>
-                <td><button className="btn small" onClick={(e) => { e.stopPropagation(); setOpen(r.employee.id); }}>Chi tiết</button></td>
+              <tr key={r.employee.id} onClick={() => setOpen(r.employee.id)}>
+                <td className="n"><Person name={r.employee.fullName} seed={r.employee.code} sub={r.employee.department ?? r.employee.code} /></td>
+                {r.cells.map((c) => <td key={c.date}><i className={`cell ${c.s === "off" ? "we" : c.s}${c.date === today ? " today" : ""}`} title={fmtDate(c.date).slice(0, 5)} /></td>)}
+                <td className="s"><b>{num(r.summary.credited)}</b><span className="muted">/{num(r.summary.standard)}</span>{r.summary.missingDays ? <> · <b className="text-red">{num(r.summary.missingDays)}</b></> : null}</td>
               </tr>
             ))}
           </tbody></table></div>
         )}
+        <div className="tfoot"><span>Bấm vào một dòng để xem từng ngày và giải trình</span><span>Ô có viền xanh là hôm nay</span></div>
       </article>
       {open && b ? <EmployeeMonth id={open} month={b.period.month} onClose={() => setOpen(null)} onChanged={() => void reload()} /> : null}
-      {locking && b ? <LockModal b={b} onClose={() => setLocking(false)} onDone={setData} /> : null}
+      {locking && b ? <LockModal b={b} onClose={() => setLocking(false)} onDone={setData} onShowMissing={() => { setFilter("short"); setLocking(false); }} /> : null}
       {unlocking && b ? <ReasonModal title={`Mở lại kỳ công ${monthLabel(b.period.month)}?`} label="Lý do mở lại" ok="Đã mở lại kỳ công — nhân viên gửi được giải trình trong hạn"
         go={(reason) => call<TimesheetBoard>("POST", "timesheets/unlock", { month: b.period.month, reason }).then(setData)} onClose={() => setUnlocking(false)} onDone={() => {}} /> : null}
     </>
   );
 }
 
-function LockModal({ b, onClose, onDone }: { b: TimesheetBoard; onClose: () => void; onDone: (b: TimesheetBoard) => void }) {
+/* Điều kiện khóa kỳ: kỳ đã kết thúc, hết ngày thiếu công, hết giải trình chờ duyệt, hết thiết bị chờ duyệt (OT chờ duyệt: cần API) */
+function LockModal({ b, onClose, onDone, onShowMissing }: { b: TimesheetBoard; onClose: () => void; onDone: (b: TimesheetBoard) => void; onShowMissing: () => void }) {
   const [note, setNote] = useState("");
   const { busy, run } = useAction();
+  const router = useRouter();
   const m = b.metrics;
   const me = useMe();
+  const { data: devs } = useApi<AdminDevice[]>("devices?status=pending", { tables: ["employee_devices"], tenantId: me.tenant.id });
   /* Theo ngày giờ công ty (không theo UTC của trình duyệt) */
-  const ended = b.period.end < tenantToday(me.tenant.timezone);
+  const today = tenantToday(me.tenant.timezone);
+  const ended = b.period.end < today;
+  const missEmps = b.rows.filter((r) => r.summary.missingDays > 0).length;
+  const pend = devs?.length ?? null;
+  const ok = ended && !m.unexplained && !m.pendingRequests && pend === 0;
+  const Pt = ({ s }: { s: "done" | "now" | "bad" }) => <span className={`pt ${s}`}>{s === "done" ? <Icon name="check" size={12} /> : s === "bad" ? <Icon name="x" size={12} /> : null}</span>;
   return (
-    <Modal title={`Khóa kỳ công ${monthLabel(b.period.month).toLowerCase()}?`} sub="Nhân viên và quản lý sẽ không thể gửi thêm điều chỉnh." onClose={onClose}
-      foot={<><button className="btn" onClick={onClose}>Để sau</button><button className="btn danger" disabled={!!busy} onClick={() => run("lock", async () => { onDone(await call<TimesheetBoard>("POST", "timesheets/lock", { month: b.period.month, reason: note || null })); onClose(); }, "Kỳ công đã khóa")}>{busy ? "Đang khóa…" : "Vẫn khóa kỳ"}</button></>}>
-      {m.unexplained || m.pendingRequests ? (
-        <div className="notification"><span className="metric-icon red"><Icon name="alert" /></span><span className="notification-copy"><b>Còn {num(m.unexplained)} ngày thiếu công và {num(m.pendingRequests)} giải trình chờ duyệt</b><span>Bạn nên xử lý trước khi khóa kỳ.</span></span></div>
-      ) : null}
-      {!ended ? <p className="text-red" style={{ fontSize: 12 }}>Kỳ công chưa kết thúc (tới {fmtDate(b.period.end)}): chỉ khóa được sau ngày cuối kỳ.</p> : null}
+    <Modal title={`Khóa kỳ công ${monthLabel(b.period.month).toLowerCase()}?`} sub="Sau khi khóa, bảng công không sửa được và chuyển sang bước tính lương." onClose={onClose}
+      foot={<><button className="btn" onClick={onClose}>Đóng</button><button className={`btn ${ok ? "primary" : "danger"}`} disabled={!!busy || !ended} onClick={() => run("lock", async () => { onDone(await call<TimesheetBoard>("POST", "timesheets/lock", { month: b.period.month, reason: note || null })); onClose(); }, "Kỳ công đã khóa")}><Icon name="lock" />{busy ? "Đang khóa…" : ok ? "Khóa kỳ công" : "Vẫn khóa kỳ"}</button></>}>
+      <div className="tl lock-list">
+        <div><Pt s={ended ? "done" : "now"} /><div><b>Kỳ đã kết thúc</b><p>Kỳ {fmtDate(b.period.start).slice(0, 5)} – {fmtDate(b.period.end).slice(0, 5)}.{ended ? "" : ` Hôm nay mới ${fmtDate(today).slice(0, 5)}, bạn chỉ khóa được sau ngày ${fmtDate(b.period.end).slice(0, 5)}.`}</p></div></div>
+        <div><Pt s={m.unexplained ? "bad" : "done"} /><div><b>Không còn ngày thiếu công chưa giải trình</b>{m.unexplained ? <><p>Còn {num(m.unexplained)} ngày của {num(missEmps)} nhân viên.</p><button className="btn small" onClick={onShowMissing}>Xem các ngày thiếu</button></> : null}</div></div>
+        <div><Pt s={m.pendingRequests ? "now" : "done"} /><div><b>Không còn đơn giải trình chờ duyệt</b>{m.pendingRequests ? <><p>Còn {num(m.pendingRequests)} đơn.</p><button className="btn small" onClick={() => router.push("/requests")}>Mở hộp duyệt</button></> : null}</div></div>
+        <div><Pt s={pend ? "now" : pend === 0 ? "done" : "now"} /><div><b>Không có thiết bị chờ duyệt</b>{pend ? <><p>Còn {num(pend)} thiết bị.</p><button className="btn small" onClick={() => router.push("/attendance?tab=devices")}>Xem thiết bị</button></> : null}</div></div>
+      </div>
       <Field label="Ghi chú khóa kỳ" full><textarea rows={3} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Ví dụ: Đã đối soát với quản lý các phòng ban" /></Field>
     </Modal>
   );
 }
 
-function EmployeeMonth({ id, month, onClose, onChanged }: { id: string; month: string; onClose: () => void; onChanged: () => void }) {
+export function EmployeeMonth({ id, month, onClose, onChanged }: { id: string; month?: string; onClose: () => void; onChanged: () => void }) {
   const me = useMe();
-  const { data: e, error, reload } = useApi<EmployeeTimesheet>(`timesheets/${id}?month=${month}`);
+  const { data: e, error, reload } = useApi<EmployeeTimesheet>(`timesheets/${id}${month ? `?month=${month}` : ""}`);
   const [req, setReq] = useState<RequestItem | null>(null);
   const tz = me.tenant.timezone;
+  const missing = (e?.days ?? []).filter((d) => (d.issue === "missing_in" || d.issue === "missing_out" || d.issue === "absent") && (!d.request || d.request.status === "rejected" || d.request.status === "cancelled"));
   const days = (e?.days ?? []).filter((d) => d.kind !== "future" && d.kind !== "not_employed").slice().reverse();
   return (
-    <Drawer onClose={onClose} head={<div><b>{e?.employee.fullName ?? "…"}</b><div className="muted" style={{ fontSize: 12 }}>{e ? `${e.employee.code} · ${monthLabel(month)}` : ""}</div></div>}>
+    <Drawer onClose={onClose} head={<div><b>{e?.employee.fullName ?? "…"}</b><div className="muted" style={{ fontSize: 12 }}>{e ? `${e.employee.code}${e.employee.department ? ` · ${e.employee.department}` : ""} · ${monthLabel(e.period.month)}` : ""}</div></div>}>
       <LoadError error={error} retry={reload} />
       {e ? <>
-        <div className="grid three" style={{ gridTemplateColumns: "repeat(3,1fr)" }}>
-          <div className="card card-body"><b>{num(e.summary.credited)}/{num(e.summary.standard)}</b><div className="muted" style={{ fontSize: 12 }}>Ngày công</div></div>
-          <div className="card card-body"><b>{num(e.summary.lateDays)} · {dur(e.summary.lateMinutes)}</b><div className="muted" style={{ fontSize: 12 }}>Đi muộn</div></div>
-          <div className="card card-body"><b className={e.summary.missingDays ? "text-red" : ""}>{num(e.summary.missingDays)}</b><div className="muted" style={{ fontSize: 12 }}>Thiếu chưa giải trình</div></div>
+        <div className="params">
+          <div className="param"><b>{num(e.summary.credited)}/{num(e.summary.standard)}</b><span>Ngày công</span></div>
+          <div className="param"><b style={e.summary.lateDays ? { color: "var(--amber)" } : undefined}>{num(e.summary.lateDays)}</b><span>Lần đi muộn{e.summary.lateMinutes ? ` · ${dur(e.summary.lateMinutes)}` : ""}</span></div>
+          <div className="param"><b className={e.summary.missingDays ? "text-red" : ""}>{num(e.summary.missingDays)}</b><span>Thiếu công chưa giải trình</span></div>
         </div>
         {e.summary.overtimeApprovedMinutes ? <div className="card card-body" style={{ marginTop: 10, fontSize: 12 }}>
           Làm thêm được tính <b className={e.summary.overtimeShortDays ? "text-red" : ""}>{hrs(e.summary.overtimeMinutes)}/{hrs(e.summary.overtimeApprovedMinutes)} giờ</b> đã duyệt
           {e.summary.overtimeShortDays ? <b className="text-red"> · {num(e.summary.overtimeShortDays)} ngày giờ chấm công không phủ hết giờ làm thêm</b> : null}
           <div className="muted" style={{ fontSize: 12 }}>Chỉ tính phần trùng với giờ vào → ra đã ghi nhận; ngày chưa qua chưa tính.</div>
         </div> : null}
+        <div className="drawer-section"><h4>Ngày cần xử lý</h4>
+          {missing.length ? <div className="card detail-list">{missing.map((d) => (
+            <div key={d.date} className="detail-row"><span><b>{WD[d.weekday]} {fmtDate(d.date).slice(0, 5)}</b><small style={{ display: "block" }}>{ISSUE[d.issue!]?.[0]}</small></span><b><Status v={["Chưa giải trình", "bad"]} /></b></div>
+          ))}</div> : <p className="muted" style={{ fontSize: 13 }}>Không có ngày thiếu công. Bảng công của {e.employee.fullName} sẵn sàng để khóa kỳ.</p>}
+        </div>
         <div className="drawer-section"><h4>Từng ngày</h4>
           <div className="card"><div className="table-wrap"><table className="data-table compact"><thead><tr><th>Ngày</th><th>Vào</th><th>Ra</th><th>Giờ làm</th><th>Ghi chú</th></tr></thead><tbody>
             {days.map((d) => <DayRow key={d.date} d={d} onRequest={() => { const r = e.requests.find((x) => x.id === d.request?.id); if (r) setReq(r); }} />)}
@@ -136,6 +159,7 @@ function EmployeeMonth({ id, month, onClose, onChanged }: { id: string; month: s
           ))}</div> : <p className="muted" style={{ fontSize: 12 }}>Chưa có giải trình nào.</p>}
         </div>
       </> : (error ? null : <SkeletonLines lines={6} avatar />)}
+      {e ? <div className="drawer-section"><Link className="btn" href={`/employees/${id}`}>Mở hồ sơ</Link></div> : null}
       {req ? <RequestModal r={req} onClose={() => setReq(null)} onDone={() => { void reload(); onChanged(); }} /> : null}
     </Drawer>
   );

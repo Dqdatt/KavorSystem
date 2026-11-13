@@ -477,12 +477,15 @@ export type TodayRow = {
   late: boolean;
   early: boolean;
   rejectedCount: number;
+  /* Nghỉ phép đã duyệt của ngày (cả ngày hoặc nửa ngày) */
+  leave: { typeName: string; half: LeaveHalf } | null;
 };
 export type AttendanceBoard = {
   date: string;
   timezone: string;
   rows: TodayRow[];
-  summary: { inScope: number; present: number; late: number; notYet: number; rejected: number; devicesPending: number };
+  /* notYet không gồm người nghỉ phép cả ngày (onLeave) */
+  summary: { inScope: number; present: number; late: number; notYet: number; onLeave: number; rejected: number; devicesPending: number };
 };
 
 export type OverviewDay = { date: string; present: number; late: number; rejected: number };
@@ -1351,9 +1354,12 @@ export type NotificationFeed = { items: AppNotification[]; unread: number };
 /* ids rỗng/không có: đánh dấu tất cả đã đọc */
 export type NotificationRead = { ids?: string[] };
 
+/* Ô lưới ngày × người: off = ngày nghỉ/lễ, exp = đã có giải trình/điều chỉnh, fut = chưa tới/chưa có dữ liệu */
+export type GridCell = "ok" | "late" | "miss" | "leave" | "exp" | "off" | "fut";
 export type TimesheetRow = {
   employee: { id: string; code: string; fullName: string; department: string | null };
   summary: TimesheetSummary;
+  cells: Array<{ date: string; s: GridCell }>;
   status: "ok" | "needs_action" | "short";
 };
 export type TimesheetBoard = {

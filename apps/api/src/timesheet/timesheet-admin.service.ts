@@ -5,7 +5,7 @@ import { conflict, invalid, notFound, type AdminContext } from "../admin/context
 import { nullableText, type Body } from "../admin/validate.js";
 import { MONTH, EMP_LITE, type EmployeeLite, type Sheets, type TimesheetService } from "./timesheet.service.js";
 import { viewerOf, type RequestsService } from "./requests.service.js";
-import { periodOf } from "./compute.js";
+import { gridCell, periodOf } from "./compute.js";
 
 const rowStatus = (s: TimesheetSummary): TimesheetRow["status"] => (s.missingDays > 0 ? "short" : s.pendingRequests > 0 ? "needs_action" : "ok");
 
@@ -25,7 +25,7 @@ export class TimesheetAdmin {
   private rows(sheets: Sheets): TimesheetRow[] {
     return [...sheets.sheets.values()].map((s) => ({
       employee: { id: s.employee.id, code: s.employee.employee_code, fullName: s.employee.full_name, department: s.placement ? sheets.index.scopeName("department", s.placement.department_id) : null },
-      summary: s.summary, status: rowStatus(s.summary),
+      summary: s.summary, status: rowStatus(s.summary), cells: s.days.map((d) => ({ date: d.date, s: gridCell(d) })),
     })).sort((a, b) => a.employee.code.localeCompare(b.employee.code));
   }
 
