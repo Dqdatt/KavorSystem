@@ -14,7 +14,7 @@ function Lines({ title, lines }: { title: string; lines: PayCalcLine[] }) {
       <b style={{ fontSize: 12.5 }}>{title}</b>
       <div className="card detail-list" style={{ marginTop: 6 }}>
         {lines.map((l) => (
-          <div key={l.key} className="detail-row"><span>{l.label}<div className="muted" style={{ fontSize: 11, marginTop: 2 }}>{l.formula}</div></span><b>{vnd(l.amount)}</b></div>
+          <div key={l.key} className="detail-row"><span>{l.label}<div className="muted" style={{ fontSize: 12, marginTop: 2 }}>{l.formula}</div></span><b>{vnd(l.amount)}</b></div>
         ))}
       </div>
     </div>
@@ -57,18 +57,20 @@ export function PayCalc({ onCalc, defaultDate }: { onCalc: (input: PayCalcInput)
       </div>
       <div>
         {r ? <>
-          <div className="card detail-list">
-            <div className="detail-row"><span>Tổng thu nhập</span><b>{vnd(r.totals.gross)}</b></div>
-            <div className="detail-row"><span>Bảo hiểm + đoàn phí</span><b>− {vnd(r.totals.insurance + r.totals.union)}</b></div>
-            <div className="detail-row"><span>Thuế TNCN</span><b>− {vnd(r.totals.pit)}</b></div>
-            {r.totals.advance ? <div className="detail-row"><span>Tạm ứng</span><b>− {vnd(r.totals.advance)}</b></div> : null}
-            <div className="detail-row"><span>Thực nhận</span><b style={{ fontSize: 16 }}>{vnd(r.totals.net)}</b></div>
-            <div className="detail-row"><span>Chi phí công ty</span><b>{vnd(r.totals.employerCost)}</b></div>
-          </div>
-          <p className="muted" style={{ fontSize: 11.5, margin: "8px 0 0" }}>Theo tham số luật hiệu lực từ {r.lawFrom.split("-").reverse().join("/")}.</p>
+          <section className="card"><div className="card-head"><h3>Kết quả</h3></div><div className="card-body">
+            <div className="receipt">
+              <div className="ln"><b>Tổng thu nhập</b><b className="num">{vnd(r.totals.gross)}</b></div>
+              <div className="ln"><span>Bảo hiểm + đoàn phí</span><span className="num">− {vnd(r.totals.insurance + r.totals.union)}</span></div>
+              <div className="ln"><span>Thuế TNCN</span><span className="num">− {vnd(r.totals.pit)}</span></div>
+              {r.totals.advance ? <div className="ln"><span>Tạm ứng</span><span className="num">− {vnd(r.totals.advance)}</span></div> : null}
+              <div className="ln total"><span>Thực nhận</span><span className="num">{vnd(r.totals.net)}</span></div>
+              <div className="ln"><span>Chi phí công ty</span><span className="num">{vnd(r.totals.employerCost)}</span></div>
+            </div>
+          </div></section>
+          <p className="muted" style={{ fontSize: 12, margin: "8px 0 0" }}>Theo tham số luật hiệu lực từ {r.lawFrom.split("-").reverse().join("/")}.</p>
           {r.unverified.length ? <div className="card" style={{ marginTop: 10, padding: 10, borderColor: "var(--amber)" }}>
             <b className="text-amber" style={{ fontSize: 12 }}>Cần đối chiếu</b>
-            <ul style={{ margin: "4px 0 0", paddingLeft: 18, fontSize: 11.5 }}>{r.unverified.map((u) => <li key={u}>{u}</li>)}</ul>
+            <ul style={{ margin: "4px 0 0", paddingLeft: 18, fontSize: 12 }}>{r.unverified.map((u) => <li key={u}>{u}</li>)}</ul>
           </div> : null}
           <Lines title="Người lao động bị trừ" lines={r.employee} />
           {r.employer.length ? <Lines title="Công ty đóng thêm" lines={r.employer} /> : null}

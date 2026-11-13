@@ -1,34 +1,33 @@
-# HANDOFF — 13/11/2026
+# HANDOFF — 14/11/2026
 
-**Mục tiêu phiên vừa rồi:** làm gọn UI/UX web HR (bớt rối, bớt chữ giải thích, không rớt chữ, cài đặt/đăng xuất vào menu góc phải, bỏ hàng nút để trống).
+**Mục tiêu phiên:** áp thiết kế mới web HR (`Kavor HR Admin Prototype v2.html`) lên hệ thống, giống prototype 100% (người dùng yêu cầu).
+Kế hoạch: `docs/plans/web-hr-v2.md`; quy trình giao agent port từng trang: `docs/plans/web-hr-v2-port.md`.
 
-## Đã xong (đã push nhánh `claude/ecstatic-pascal-dblg7v` → Render/Vercel tự deploy)
-- `946adae` Menu tài khoản góc phải (`apps/admin-web/app/_ui/account-menu.tsx`): người dùng + vai trò, doanh nghiệp, Cài đặt, Thiết lập ban đầu,
-  Hỗ trợ Kavor, giao diện Sáng/Tối/Tự động, trạng thái cập nhật, Đăng xuất. `Hint` (ⓘ tooltip) ở `@kavor/web-ui`; `Field hint` = ⓘ,
-  `Field note` = dòng luôn hiện. Chữ tối thiểu 12px. Cài đặt tách tab "Kỳ công & lương". Lương đầu vào: cột Rà soát lên trước, cột người cố định.
-- `63c7102` `PageActions` (kit.tsx) đưa nút của trang lên topbar ở 12 trang; Bản tin bỏ khối trùng → 4 thẻ số liệu bấm lọc; công tắc sát phải;
-  chip "Thiếu N giấy tờ" xếp dọc; kỳ công thành nhãn cạnh ô tháng; thẻ số liệu 2 cột trên điện thoại.
-- Cả hai lần: `bash tools/verify-all.sh` đầy đủ TẤT CẢ ĐẠT (pgTAP 586, 28 smoke, build, lint DB). Đã chụp mọi trang bằng Claude in Chrome (1664px) + khung 390px.
+## Đã xong (nhánh `claude/ecstatic-pascal-dblg7v`, **chưa push** — push = Render/Vercel deploy)
+- `6e50bea` nền chung (font Plus Jakarta Sans tự host, token, khung trang) + Nhân viên + hồ sơ trang riêng `/employees/[id]`
+- `4a3ded7` Đơn & phê duyệt hộp thư 2 cột (API `only=others`, `status=done`)
+- `0e7400c` Chấm công · `d0be6e5` Ca & địa điểm + Nghỉ phép (API `leave/calendar`) · `8f4db46` Cơ cấu + Tài liệu + Bản tin
+- `e5188ed` Tổng quan + Cài đặt + Đăng nhập + thẻ số liệu/thanh bên · commit cuối: Vai trò + Lương (chỉ giao diện)
+- Mỗi commit qua `verify-all --quick`; smoke requests/timesheet/leave có kiểm mới và đạt.
 
-## Đang dở
-- Không có code dở. `docs/plans/roadmap-competitive.md` chưa theo dõi — có từ trước phiên, không phải của phiên này (hỏi người dùng).
-- Chưa xem bản online sau deploy. Chưa đăng nhập Kavor Console để xem (Console dùng chung `kavor.css`, chỉ xem trang đăng nhập).
-- DB local đã reset bởi verify-all: muốn thử web phải kích hoạt lại HD0007 (OTP Mailpit) + liên kết TOTP.
-- Cổng 3000 đang do dev server của phiên khác giữ (`next dev --port 3000` cố định cổng) nên `preview_start admin-web` báo bận.
+## Còn lệch / cần API (P3)
+- Việc chỉ là nút giả trong prototype, chưa có API: "Nhắc" (chấm công, giấy tờ, bản tin), "Giải trình hộ", xuất danh sách hôm nay, xuất Excel OT.
+- Lương: biểu đồ quỹ lương theo tháng + cơ cấu quỹ (cần tổng tiền nhiều kỳ). Tab Bảng lương kỳ này/Tạm ứng/Khoản phụ cấp chưa đối chiếu ảnh;
+  thanh 4 bước + "Cần rà soát" chưa xem bằng mắt (HD0007 không có `payroll.read` — dùng Kế toán HD0215).
+- Vai trò: ma trận chỉ đọc (sửa quyền cần vai trò tùy chỉnh). Tìm nhanh Ctrl K chưa làm. Tổng quan: khối "Sắp tới" thay bằng Nhân viên mới.
+- Tài liệu: tiến độ giấy tờ theo người; Cơ cấu: chức danh trưởng đơn vị (`OrgUnit.head`).
+- Lịch nghỉ gọi `leave/calendar` lặp 4 lần khi mở trang; Tổng quan gọi `settings/checklist` 2 lần.
 
-## Quyết định đã chốt
-- Cài đặt doanh nghiệp, giao diện, Đăng xuất chỉ ở menu tài khoản; thanh bên chỉ điều hướng.
-- Giải thích dạng ⓘ; cảnh báo cần thấy ngay dùng `note`. Nút hành động trang lên topbar (`PageActions`); bộ lọc (chọn kỳ/tháng) giữ cạnh tab.
-- Đã ghi vào AGENTS.md mục "Quy ước và tiêu chí UI".
+## Chưa kiểm
+- Theme tối các trang mới; bên trong Console (dùng chung `.metric-card`, `pay-calc`); Duyệt/Từ chối trên hộp thư (HR mẫu không có đơn chờ mình).
+- Bản online sau deploy.
 
-## Nợ Ponytail
-- Không có `shortcut:` mới.
+## Trạng thái máy
+- Docker + Supabase local + API (`tools/dev-backend.sh`) + dev server 3000/3001 đang chạy; server tĩnh prototype cổng 8765 (preview `proto-v2`, file ở scratchpad — đã gỡ khỏi launch.json).
+- DB local bị reset nhiều lần; HD0007 đăng nhập bằng mật khẩu smoke + TOTP mới (xóa `auth.mfa_factors` của user rồi đăng nhập lại để lấy khóa).
+- `docs/plans/roadmap-competitive.md` chưa theo dõi, có từ trước — hỏi người dùng.
 
 ## Việc tiếp theo
-1. Xem bản online (Vercel) + đăng nhập Console xem các trang trong có lệch do CSS chung không. `[sonnet]`
-2. Áp `PageActions`/ⓘ cho Kavor Console nếu người dùng muốn đồng bộ. `[opus high]`
-3. Sơ đồ tổ chức: đường nối hàng con chưa chuẩn; biểu đồ Tổng quan chưa lấp ngang. `[sonnet]`
-
-## File cần đọc đầu tiên
-- `apps/admin-web/app/(app)/shell.tsx`, `apps/admin-web/app/_ui/kit.tsx`, `apps/admin-web/app/_ui/account-menu.tsx`
-- `packages/web-ui/src/kavor.css` (phần cuối: topbar, ⓘ, menu), `PROGRESS.md` (2 mục đầu "Đã xong")
+1. Người dùng xem từng trang, chỉ chỗ lệch. `[sonnet laptrinh]`
+2. P3: API cho các mục "cần API" ở trên (tiền lương → Opus xhigh tự làm). 
+3. Push lên nhánh deploy khi người dùng bảo (chạy `verify-all` đầy đủ trước).

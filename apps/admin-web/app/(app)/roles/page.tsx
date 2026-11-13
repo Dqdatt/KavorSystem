@@ -5,58 +5,93 @@
 import { useState } from "react";
 import type { OrgOptions, RoleAssignmentRow, RoleInfo, RolesBoard, ScopeType } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
-import { PageActions, ACCOUNT, Drawer, Empty, ErrorLine, Field, Icon, LoadError, Modal, Person, Status, fmtDate, num, useAction, useMe } from "../../_ui/kit";
+import { PageActions, ACCOUNT, Empty, ErrorLine, Field, Icon, LoadError, Modal, Person, Status, fmtDate, num, useAction, useMe } from "../../_ui/kit";
 import { Hint, Select, SkeletonRows } from "@kavor/web-ui";
 
 const SCOPE: Record<string, string> = { tenant: "Toàn công ty", legal_entity: "Pháp nhân", branch: "Chi nhánh", department: "Phòng ban", direct_reports: "Nhân viên trực tiếp", self: "Bản thân" };
 const STATE: Record<RoleAssignmentRow["state"], [string, string]> = { active: ["Đang hiệu lực", ""], future: ["Sắp hiệu lực", "info"], ended: ["Đã kết thúc", "muted"] };
+
+/* Mã quyền -> (phân hệ, mức) cho ma trận; mã chưa map rơi vào "Khác". v = Xem, s = Tạo/sửa, a = Duyệt/khóa. Chỉ để hiển thị, không quyết định quyền. */
+const PMODS: Array<[string, string]> = [["nv", "Nhân viên & hồ sơ"], ["cc", "Chấm công & thiết bị"], ["np", "Nghỉ phép"], ["don", "Đơn từ"], ["luong", "Lương & tạm ứng"], ["tl", "Tài liệu"], ["bt", "Bản tin"], ["ch", "Cấu hình doanh nghiệp"], ["nk", "Nhật ký hệ thống"]];
+const PERM_MAP: Record<string, string> = {
+  "employee.read": "nv.v", "employee.self.read": "nv.v", "employee.sensitive.read": "nv.v", "employee.create": "nv.s", "employee.update": "nv.s",
+  "attendance.read": "cc.v", "schedule.read": "cc.v", "overtime.read": "cc.v", "attendance.self.clock": "cc.s", "attendance.device.manage": "cc.s", "schedule.manage": "cc.s", "timesheet.lock": "cc.a", "timesheet.unlock": "cc.a",
+  "leave.read": "np.v", "leave.manage": "np.s",
+  "request.read": "don.v", "request.self.create": "don.s", "request.hr_review": "don.a", "approval.pending": "don.v",
+  "compensation.read": "luong.v", "payroll.read": "luong.v", "payroll.self.read": "luong.v", "compensation.manage": "luong.s", "payroll.import": "luong.s", "payroll.config.manage": "luong.s",
+  "payroll.approve": "luong.a", "payroll.publish": "luong.a", "payroll.cycle.reopen": "luong.a", "salary_advance.process": "luong.a",
+  "document.read": "tl.v", "document.self.read": "tl.v", "document.upload": "tl.s", "document.manage": "tl.s",
+  "announcement.read": "bt.v", "announcement.publish": "bt.s",
+  "tenant.read": "ch.v", "organization.read": "ch.v", "policy.read": "ch.v", "role.read": "ch.v", "privacy.read": "ch.v",
+  "tenant.settings.manage": "ch.s", "organization.manage": "ch.s", "policy.manage": "ch.s", "role.assign": "ch.s", "membership.invite": "ch.s", "membership.disable": "ch.s", "workflow.manage": "ch.s", "support_access.approve": "ch.a",
+  "audit.read": "nk.v",
+};
+const LEVELS: Array<[string, string]> = [["v", "Xem"], ["s", "Tạo, sửa"], ["a", "Duyệt, khóa"]];
 
 export default function RolesPage() {
   const me = useMe();
   const { data: b, error, reload, setData } = useApi<RolesBoard>("roles");
   const [open, setOpen] = useState<string | null>(null);
   const [assign, setAssign] = useState<string | "any" | null>(null);
-  const role = b?.roles.find((r) => r.code === open) ?? null;
+  const role = b?.roles.find((r) => r.code === open) ?? b?.roles[0] ?? null;
+  const idle = (b?.roles ?? []).filter((r) => !r.members).map((r) => r.name);
   return (
     <section className="page active">
       <PageActions>{b?.canAssign ? <button className="btn primary" onClick={() => setAssign("any")}><Icon name="plus" /> Gán vai trò</button> : null}</PageActions>
       <LoadError error={error} retry={reload} />
-      <article className="card">
-        <div className="card-head"><h3>Vai trò mẫu<Hint text={`Một người giữ được nhiều vai trò, quyền cộng dồn (ví dụ Quản trị viên công ty kiêm Nhân sự vận hành): gán vai trò mới không thay vai trò đang có. Vai trò Nhân viên được gán tự động khi kích hoạt tài khoản. Quyền thay đổi có hiệu lực ngay ở thao tác kế tiếp của người đó.${me.permissions.includes("role.assign") ? "" : " Chỉ quản trị viên công ty được gán hoặc thu hồi vai trò."}`} /></h3></div>
-        {b && !b.roles.length ? <Empty title="Chưa có vai trò" /> : (
-          <div className="table-wrap"><table className="data-table"><thead><tr><th>Vai trò</th><th>Người dùng</th><th>Phạm vi mặc định</th><th>Dữ liệu lương</th><th>Lần cập nhật</th><th>Trạng thái</th></tr></thead><tbody>
-            {!b && !error ? <SkeletonRows cols={6} rows={5} /> : null}
+      {idle.length ? <div className="note-amber" style={{ marginBottom: 16 }}><b>{idle.length} vai trò chưa có ai giữ:</b> {idle.join(", ")}. Đơn đến bước duyệt của các vai trò này sẽ dừng lại.</div> : null}
+      {b && !b.roles.length ? <article className="card"><Empty title="Chưa có vai trò" /></article> : (
+        <div className="grid roles-grid">
+          <section className="card roles-list">
+            {!b && !error ? <SkeletonRows cols={1} rows={5} /> : null}
             {(b?.roles ?? []).map((r) => (
-              <tr key={r.code} className="clickable" onClick={() => setOpen(r.code)}>
-                <td><b>{r.name}</b><div className="muted" style={{ fontSize: 12 }}>{r.description}</div></td>
-                <td className="num">{num(r.members)}</td><td>{r.defaultScope}</td><td>{r.payrollData}</td>
-                <td>{r.updatedAt ? fmtDate(r.updatedAt) : "—"}</td>
-                <td><Status v={r.sensitive ? ["Nhạy cảm", "warn"] : r.code === "auditor" ? ["Giới hạn", "info"] : ["Hệ thống", ""]} /></td>
-              </tr>
+              <button key={r.code} type="button" className={`rolebtn ${r.code === role?.code ? "on" : ""}`} onClick={() => setOpen(r.code)}>
+                <span className="rl-spread"><b>{r.name}</b><Status v={r.sensitive ? ["Nhạy cảm", "warn"] : r.code === "auditor" ? ["Giới hạn", "info"] : ["Hệ thống", ""]} /></span>
+                <span className="muted rb-desc">{r.description}</span>
+                <span className="rl-spread"><span className="muted">{r.defaultScope}</span>{r.members ? <b>{num(r.members)} người</b> : <b className="rb-idle">Chưa gán cho ai</b>}</span>
+              </button>
             ))}
-          </tbody></table></div>
-        )}
-      </article>
-      {role && b ? <RoleDrawer r={role} canAssign={b.canAssign} onClose={() => setOpen(null)} onAssign={() => setAssign(role.code)} onDone={setData} /> : null}
+          </section>
+          {role && b ? <RoleDetail r={role} canAssign={b.canAssign} hint={me.permissions.includes("role.assign")} onAssign={() => setAssign(role.code)} onDone={setData} /> : null}
+        </div>
+      )}
       {assign && b ? <AssignModal board={b} roleCode={assign === "any" ? null : assign} onClose={() => setAssign(null)} onDone={setData} /> : null}
     </section>
   );
 }
 
-function RoleDrawer({ r, canAssign, onClose, onAssign, onDone }: { r: RoleInfo; canAssign: boolean; onClose: () => void; onAssign: () => void; onDone: (b: RolesBoard) => void }) {
+function RoleDetail({ r, canAssign, hint, onAssign, onDone }: { r: RoleInfo; canAssign: boolean; hint: boolean; onAssign: () => void; onDone: (b: RolesBoard) => void }) {
   const [revoking, setRevoking] = useState<RoleAssignmentRow | null>(null);
   const [ended, setEnded] = useState(false);
   const rows = r.assignments.filter((a) => ended || a.state !== "ended");
+  const cells = new Map<string, string[]>();
+  const other: Array<{ code: string; description: string }> = [];
+  for (const p of r.permissions) {
+    const m = PERM_MAP[p.code];
+    if (m) cells.set(m, [...(cells.get(m) ?? []), p.code]); else other.push(p);
+  }
   return (
-    <Drawer onClose={onClose} head={<><div><b>{r.name}</b><div className="muted" style={{ fontSize: 12 }}>{r.code}</div></div>{canAssign ? <button className="btn small primary" style={{ marginLeft: "auto" }} onClick={onAssign}><Icon name="plus" /> Gán vai trò này</button> : null}</>}>
-      <div className="card detail-list">
-        <div className="detail-row"><span>Mô tả</span><b style={{ whiteSpace: "normal" }}>{r.description}</b></div>
-        <div className="detail-row"><span>Phạm vi được gán</span><b>{r.allowedScopes.map((s) => SCOPE[s]).join(", ")}</b></div>
-        <div className="detail-row"><span>Dữ liệu lương</span><b>{r.payrollData}</b></div>
-      </div>
-      <div className="drawer-section"><h4>Người được gán</h4>
-        <label className="check-row" style={{ fontSize: 12.5, marginBottom: 8 }}><input type="checkbox" checked={ended} onChange={(e) => setEnded(e.target.checked)} /> Hiện cả bản gán đã kết thúc</label>
-        {rows.length ? <div className="card detail-list">
+    <div className="rl-stack">
+      <section className="card">
+        <div className="card-head"><div style={{ minWidth: 0 }}><h3>{r.name}<Hint text={`Một người giữ được nhiều vai trò, quyền cộng dồn (ví dụ Quản trị viên công ty kiêm Nhân sự vận hành): gán vai trò mới không thay vai trò đang có. Vai trò Nhân viên được gán tự động khi kích hoạt tài khoản. Quyền thay đổi có hiệu lực ngay ở thao tác kế tiếp của người đó.${hint ? "" : " Chỉ quản trị viên công ty được gán hoặc thu hồi vai trò."}`} /></h3>
+          <span className="muted" style={{ display: "block", fontSize: 12 }}>Phạm vi mặc định: {r.defaultScope} · Dữ liệu lương: {r.payrollData} · Gán theo: {r.allowedScopes.map((s) => SCOPE[s]).join(", ")}</span></div>
+          {canAssign ? <button className="btn small" onClick={onAssign}><Icon name="plus" /> Gán cho nhân viên</button> : null}</div>
+        <div className="card-body">
+          <div className="table-wrap"><table className="pm"><thead><tr><th>Phân hệ</th>{LEVELS.map(([, l]) => <th key={l}>{l}</th>)}</tr></thead><tbody>
+            {PMODS.map(([k, l]) => { const any = LEVELS.some(([c]) => cells.has(`${k}.${c}`)); return (
+              <tr key={k}><td className={any ? "rl-strong" : "muted"}>{l}</td>{LEVELS.map(([c, cl]) => { const codes = cells.get(`${k}.${c}`); return (
+                <td key={c}><span className={`pcb ${codes ? "on" : ""}`} title={codes?.join(", ")} role="img" aria-label={`${l}: ${cl}: ${codes ? "có" : "không"}`}>{codes ? <Icon name="check" size={16} /> : null}</span></td>); })}</tr>); })}
+            {other.length ? <tr><td className="rl-strong">Khác</td><td colSpan={3} style={{ textAlign: "left" }}>{other.map((p) => <span key={p.code} className="tag" title={p.description} style={{ marginRight: 6 }}>{p.code}</span>)}</td></tr> : null}
+          </tbody></table></div>
+          <details style={{ marginTop: 12 }}><summary className="muted" style={{ cursor: "pointer", fontSize: 12.5 }}>Danh sách mã quyền ({r.permissions.length})</summary>
+            <div className="card detail-list" style={{ marginTop: 8 }}>{r.permissions.map((p) => <div key={p.code} className="detail-row"><span style={{ fontFamily: "ui-monospace, monospace", fontSize: 12 }}>{p.code}</span><b style={{ whiteSpace: "normal", fontWeight: 500 }}>{p.description}</b></div>)}</div>
+          </details>
+        </div>
+      </section>
+      <section className="card">
+        <div className="card-head"><h3>Người đang giữ vai trò</h3>
+          <label className="check-row" style={{ fontSize: 12.5, margin: 0 }}><input type="checkbox" checked={ended} onChange={(e) => setEnded(e.target.checked)} /> Hiện cả bản gán đã kết thúc</label></div>
+        {rows.length ? <div className="card-body"><div className="card detail-list">
           {rows.map((a) => (
             <div key={a.id} className="detail-row" style={{ gridTemplateColumns: "1fr auto", minHeight: 56 }}>
               <span style={{ color: "var(--ink)" }}><Person name={a.employee.fullName} seed={a.employee.code} sub={`${a.employee.code} · ${a.scopeName} · từ ${fmtDate(a.effectiveFrom)}${a.effectiveTo ? ` đến ${fmtDate(a.effectiveTo)}` : ""}`} /></span>
@@ -64,13 +99,10 @@ function RoleDrawer({ r, canAssign, onClose, onAssign, onDone }: { r: RoleInfo; 
                 {canAssign && a.state !== "ended" ? <button className="btn small danger" onClick={() => setRevoking(a)}>Thu hồi</button> : null}</span>
             </div>
           ))}
-        </div> : <p className="muted" style={{ fontSize: 12 }}>Chưa có ai.</p>}
-      </div>
-      <div className="drawer-section"><h4>Quyền ({r.permissions.length})</h4>
-        <div className="card detail-list">{r.permissions.map((p) => <div key={p.code} className="detail-row"><span style={{ fontFamily: "ui-monospace, monospace", fontSize: 12 }}>{p.code}</span><b style={{ whiteSpace: "normal", fontWeight: 500 }}>{p.description}</b></div>)}</div>
-      </div>
+        </div></div> : <Empty title="Chưa ai giữ vai trò này" text={r.code === "auditor" ? "Gán khi cần người chỉ xem dữ liệu, ví dụ kiểm toán nội bộ." : "Gán cho ít nhất một người để luồng duyệt không bị dừng."} />}
+      </section>
       {revoking ? <RevokeModal r={r} a={revoking} onClose={() => setRevoking(null)} onDone={onDone} /> : null}
-    </Drawer>
+    </div>
   );
 }
 

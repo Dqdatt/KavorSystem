@@ -100,23 +100,34 @@ function Detail({ d, onTemplate }: { d: PayrollDetail; onTemplate: () => void })
   const idx = ORDER.indexOf(c.status);
   const [open, setOpen] = useState<PayrollResult | null>(null);
   const [q, setQ] = useState("");
+  const [only, setOnly] = useState<"all" | "need">("all");
   const names = new Map(d.results.map((r) => [r.employee.code, r.employee.fullName]));
   const byId = new Map(d.results.map((r) => [r.employee.id, r.employee]));
   const issues = [...d.errors, ...d.warnings];
   const latest = d.batches.find((b) => b.id === c.latestBatchId) ?? null;
   const applied = d.batches.find((b) => b.id === d.results[0]?.batchId) ?? null;
   const net = d.results.reduce((n, r) => n + r.net, 0);
-  const rows = d.results.filter((r) => !q.trim() || `${r.employee.fullName} ${r.employee.code}`.toLowerCase().includes(q.trim().toLowerCase()));
+  /* "Cần rà soát": nhân viên có lỗi/cảnh báo đối chiếu trong lần nhập đang áp */
+  const flagged = new Set(issues.flatMap((i) => (i.employeeCode ? [i.employeeCode] : [])));
+  const rows = d.results.filter((r) => (only === "all" || flagged.has(r.employee.code)) && (!q.trim() || `${r.employee.fullName} ${r.employee.code}`.toLowerCase().includes(q.trim().toLowerCase())));
   const waitingOther = c.status === "under_review" && !d.actions.includes("approve") && c.importedBy === me.userId && can(me, "payroll.approve");
-  const step = (i: number, done: ReactNode, current: ReactNode, later: ReactNode = <b className="muted">Chưa bắt đầu</b>) => idx >= i ? done : idx === i - 1 ? current : later;
-  const doing = (text: string) => <b style={{ color: "var(--amber)" }}>{text}</b>;
-  const doneAt = (iso: string | null) => <b className="text-green">{iso ? fmtDate(iso.slice(0, 10)) : "Hoàn tất"}</b>;
 
   return (
     <>
       <div className="banner soft"><span className="banner-icon"><Icon name="pay" /></span>
         <span className="banner-copy"><b>Lương được cấu hình riêng cho {me.tenant.name}</b><span>Kỳ này lấy công từ Kavor và kết quả lương từ file CSV xuất từ Google Sheets (khóa employee_code, cột theo mã thành phần).</span></span>
         <button className="btn" onClick={onTemplate}><Icon name="download" /> Tải file mẫu</button>
+      </div>
+      <div className="steps" aria-label="Quy trình kỳ lương">
+        {([
+          ["Nhập & kiểm tra", idx >= 2, idx < 1 ? "Chưa nhập kết quả" : d.errors.length ? `Còn ${num(d.errors.length)} lỗi` : "Sẵn sàng gửi kiểm tra", c.importedAt],
+          ["Kế toán duyệt", idx >= 3, waitingOther ? "Chờ Kế toán khác duyệt" : "Chờ duyệt", c.approvedAt],
+          ["Công bố phiếu lương", idx >= 4, "Chờ công bố", c.publishedAt],
+          ["Trả lương & đóng kỳ", idx >= 6, idx >= 5 ? "Chờ đóng kỳ" : `Dự kiến trả ${fmtDate(c.payDate)}`, c.closedAt ?? c.paidAt],
+        ] as Array<[string, boolean, string, string | null]>).map(([title, done, doing, at], i, all) => {
+          const now = !done && all.slice(0, i).every((x) => x[1]);
+          return <div key={title} className={`step ${done ? "done" : now ? "now" : ""}`}><span className="no">{done ? <Icon name="check" size={16} /> : i + 1}</span><div><b>{title}</b><span>{done ? (at ? fmtDate(at.slice(0, 10)) : "Hoàn tất") : now ? doing : "Chưa bắt đầu"}</span></div></div>;
+        })}
       </div>
       <div className="grid metrics">
         <article className="card metric-card"><span className="metric-icon"><Icon name="users" /></span><span className="metric-copy"><span>Nhân viên</span><strong>{num(d.results.length)}</strong><small>{latest ? `${num(latest.totalRows - latest.errorRows)}/${num(latest.totalRows)} dòng hợp lệ` : "Chưa nhập kết quả"}</small></span></article>
@@ -137,19 +148,10 @@ function Detail({ d, onTemplate }: { d: PayrollDetail; onTemplate: () => void })
           )}
         </article>
         <article className="card">
-          <div className="card-head"><h3>Quy trình kỳ lương</h3></div>
-          <div className="detail-list">
-            <div className="detail-row"><span>1. Nhập kết quả</span>{step(1, doneAt(c.importedAt), doing("Đang thực hiện"))}</div>
-            <div className="detail-row"><span>2. Kiểm tra dữ liệu</span>{step(2, doneAt(null), d.errors.length ? <b className="text-red">Còn {num(d.errors.length)} lỗi</b> : doing("Đang thực hiện"))}</div>
-            <div className="detail-row"><span>3. Kế toán duyệt</span>{step(3, doneAt(c.approvedAt), doing(waitingOther ? "Chờ Kế toán khác duyệt" : "Đang thực hiện"))}</div>
-            <div className="detail-row"><span>4. Công bố phiếu lương</span>{step(4, doneAt(c.publishedAt), doing("Chờ công bố"))}</div>
-            <div className="detail-row"><span>5. Trả lương</span>{step(5, doneAt(c.paidAt), doing(`Dự kiến ${fmtDate(c.payDate)}`), <b className="muted">{fmtDate(c.payDate)}</b>)}</div>
-            <div className="detail-row"><span>6. Đóng kỳ</span>{step(6, doneAt(c.closedAt), doing("Chờ đóng kỳ"))}</div>
-          </div>
+          <div className="card-head"><h3>Nhật ký kỳ lương</h3></div>
           {waitingOther ? <p className="muted" style={{ margin: "10px 0 0", fontSize: 12 }}>Bạn là người nhập kết quả lần cuối nên không tự duyệt được kỳ này.</p> : null}
           {d.events.length ? (
             <>
-              <div className="card-head no-line" style={{ marginTop: 10 }}><h3>Nhật ký</h3></div>
               <div className="detail-list" style={{ maxHeight: 220, overflow: "auto" }}>
                 {[...d.events].reverse().map((e) => (
                   <div key={e.id} className="detail-row" style={{ gridTemplateColumns: "1fr auto" }}>
@@ -166,7 +168,7 @@ function Detail({ d, onTemplate }: { d: PayrollDetail; onTemplate: () => void })
 
       <article className="card">
         <div className="toolbar">
-          <b style={{ fontSize: 12 }}>Kết quả lương</b>
+          <div className="segmented" role="tablist">{([["all", `Tất cả (${num(d.results.length)})`], ["need", `Cần rà soát (${num(d.results.filter((r) => flagged.has(r.employee.code)).length)})`]] as const).map(([k, l]) => <button key={k} role="tab" aria-selected={only === k} className={only === k ? "active" : ""} onClick={() => setOnly(k)}>{l}</button>)}</div>
           {applied ? <span className="muted" style={{ fontSize: 12 }}>Lần nhập {fmtDateTime(applied.createdAt, tz)} · {applied.fileName}</span> : null}
           <span className="toolbar-spacer" />
           <label className="search"><Icon name="search" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Tìm nhân viên…" /></label>

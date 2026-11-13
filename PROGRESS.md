@@ -10,6 +10,11 @@ simulator hay iPhone** vì phiên cloud không có Mac). Người dùng giao "c�
 ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AGENT_PLAYBOOK.md`; kiểm tra toàn bộ bằng `bash tools/verify-all.sh`.
 
 ## Đã xong
+- Web HR v2 — P2 các trang còn lại (13–14/11, Claude Desktop, agent laptrinh theo `docs/plans/web-hr-v2-port.md`, tự chụp đối chiếu
+  prototype 1440 px + đo 390 px): Chấm công (`0e7400c`: Hôm nay đầu, lưới ngày × người — API `cells`, board `leave/onLeave`), Ca & địa điểm +
+  Nghỉ phép (`d0be6e5`: một trang; 3 tab + API `GET admin/leave/calendar`), Cơ cấu + Tài liệu + Bản tin (`8f4db46`), Tổng quan + Cài đặt
+  (menu dọc) + Đăng nhập + thẻ số liệu/thanh bên (`e5188ed`), Vai trò (ma trận Xem/Sửa/Duyệt chỉ đọc) + Lương (thanh 4 bước, lọc Cần rà soát,
+  phiếu tính thử) — chỉ giao diện, không đổi logic. Còn lệch/cần API: xem `docs/plans/web-hr-v2.md` mục P3 và HANDOFF.md.
 - Web HR v2 — P2 Đơn & phê duyệt (13/11, Claude Desktop): **hộp thư 2 cột** (danh sách trái, chi tiết phải, Duyệt/Từ chối ở thanh đáy);
   tab Cần tôi duyệt · Đang chờ người khác · Đã xử lý — API `GET admin/requests` thêm `only=others`, `status=done`, `counts.done` (CSV xuất theo
   `done`); smoke requests thêm 2 kiểm (đạt). Chi tiết đơn tách `RequestDetail` (`_ui/request.tsx`) dùng chung với `RequestModal` ở các trang khác:

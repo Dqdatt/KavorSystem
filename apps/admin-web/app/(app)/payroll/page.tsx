@@ -13,7 +13,7 @@ import { Inputs } from "./inputs";
 import { PayItems } from "./pay-items";
 
 type Tab = "cycles" | "inputs" | "advances" | "salary" | "items" | "calc";
-const TABS: Array<[Tab, string, string]> = [["inputs", "Bảng lương đầu vào", "compensation.read"], ["cycles", "Kỳ lương", "payroll.read"], ["advances", "Tạm ứng", "salary_advance.process"], ["salary", "Mức lương", "compensation.read"], ["items", "Khoản phụ cấp", "compensation.read"], ["calc", "Tính thử lương", "compensation.read"]];
+const TABS: Array<[Tab, string, string]> = [["inputs", "Bảng lương kỳ này", "compensation.read"], ["cycles", "Kỳ lương", "payroll.read"], ["salary", "Mức lương", "compensation.read"], ["items", "Khoản phụ cấp", "compensation.read"], ["calc", "Tính thử lương", "compensation.read"], ["advances", "Tạm ứng", "salary_advance.process"]];
 
 function PayrollPage() {
   const me = useMe();
