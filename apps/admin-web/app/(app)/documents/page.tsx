@@ -5,9 +5,10 @@
 import { Suspense, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { DOCUMENT_CATEGORIES, type DocumentBoard, type DocumentCategory, type DocumentDetail, type DocumentExpiry, type DocumentMeta,
-  type DocumentVisibility, type EmployeeDocument, type EmployeeListItem } from "@kavor/contracts";
+  type DocumentVisibility, type ChecklistGaps, type EmployeeDocument, type EmployeeListItem } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
-import { PageActions, Drawer, Empty, ErrorLine, Field, Icon, LoadError, Modal, Person, Status, fmtDate, fmtDateTime, num, useAction, useMe } from "../../_ui/kit";
+import { PageActions, Drawer, Empty, ErrorLine, Field, Icon, LoadError, Modal, MoreMenu, Person, Status, fmtDate, fmtDateTime, num, useAction, useMe } from "../../_ui/kit";
+import Link from "next/link";
 import { ReasonModal } from "../../_ui/reason-modal";
 import { ChecklistCatalog } from "./checklist";
 import { Select, SkeletonLines, SkeletonRows } from "@kavor/web-ui";
@@ -23,27 +24,41 @@ function Expiry({ d }: { d: Pick<EmployeeDocument, "expiresOn" | "expiry"> }) {
 }
 const toBase64 = (file: File) => new Promise<string>((ok, bad) => { const r = new FileReader(); r.onload = () => ok(String(r.result)); r.onerror = () => bad(r.error); r.readAsDataURL(file); });
 
+type Tab = "docs" | "miss" | "cat";
+
 function DocumentsPage() {
   const router = useRouter();
   const params = useSearchParams();
+  const tab = (params.get("tab") as Tab | null) ?? "docs";
   const { data: b, error, reload } = useApi<DocumentBoard>("documents");
+  const gaps = useApi<ChecklistGaps>("checklist/gaps");
   const [q, setQ] = useState("");
   const [cat, setCat] = useState<DocumentCategory | "all">("all");
   const [state, setState] = useState<keyof typeof STATE>("live");
   const [uploading, setUploading] = useState(false);
-  const [catalog, setCatalog] = useState(false);
   const openId = params.get("open");
   const open = (id: string | null) => router.replace(id ? `/documents?open=${id}` : "/documents", { scroll: false });
+  const go = (t: Tab) => router.replace(t === "docs" ? "/documents" : `/documents?tab=${t}`, { scroll: false });
   const m = b?.metrics;
   const used = new Set((b?.items ?? []).filter((d) => !d.archivedAt).map((d) => d.category)).size;
+  const live = (b?.items ?? []).filter((d) => !d.archivedAt);
+  const missing = gaps.data?.rows.length;
   const rows = (b?.items ?? []).filter((d) =>
     (cat === "all" || d.category === cat)
     && (state === "all" || (state === "archived" ? !!d.archivedAt : !d.archivedAt && (state === "live" || d.expiry === state)))
     && (!q.trim() || `${d.title} ${d.current.fileName} ${d.employee.fullName} ${d.employee.code}`.toLowerCase().includes(q.trim().toLowerCase())));
+  const chips: Array<[string, string, number, boolean, () => void]> = [
+    ["all", "Tất cả", live.length, cat === "all" && state === "live", () => { setCat("all"); setState("live"); }],
+    ["contract", "Hợp đồng", live.filter((d) => d.category === "contract").length, cat === "contract" && state === "live", () => { setCat("contract"); setState("live"); }],
+    ["decision", "Quyết định", live.filter((d) => d.category === "decision").length, cat === "decision" && state === "live", () => { setCat("decision"); setState("live"); }],
+    ["soon", "Sắp hết hạn", live.filter((d) => d.expiry === "soon").length, cat === "all" && state === "soon", () => { setCat("all"); setState("soon"); }],
+  ];
+  const tabs: Array<[Tab, string, number | undefined]> = [["docs", "Tài liệu", m?.total], ["miss", "Thiếu hồ sơ", missing], ["cat", "Danh mục giấy tờ", undefined]];
 
   return (
     <section className="page active">
-      <PageActions><button className="btn" onClick={() => setCatalog(true)}><Icon name="checks" /> Danh mục giấy tờ</button>{b?.canUpload ? <button className="btn primary" onClick={() => setUploading(true)}><Icon name="upload" /> Tải tài liệu</button> : null}</PageActions>
+      <PageActions>{b?.canUpload ? <button className="btn primary" onClick={() => setUploading(true)}><Icon name="upload" /> Tải tài liệu</button> : null}</PageActions>
+      <div className="page-head"><div><div className="segmented" role="tablist">{tabs.map(([k, l, n]) => <button key={k} role="tab" aria-selected={tab === k} className={tab === k ? "active" : ""} onClick={() => go(k)}>{l}{n != null ? <span className={`n ${k === "miss" && n ? "hot" : ""}`}>{n}</span> : null}</button>)}</div></div></div>
       <LoadError error={error} retry={reload} />
       <div className="grid metrics">
         <article className="card metric-card"><span className="metric-icon"><Icon name="file" /></span><span className="metric-copy"><span>Tổng tài liệu</span><strong>{m ? num(m.total) : "—"}</strong><small>{num(used)} danh mục</small></span></article>
@@ -51,40 +66,73 @@ function DocumentsPage() {
         <article className="card metric-card"><span className="metric-icon red"><Icon name="alert" /></span><span className="metric-copy"><span>Thiếu hồ sơ</span><strong>{m ? num(m.missingContract) : "—"}</strong><small>nhân viên chưa có hợp đồng</small></span></article>
         <article className="card metric-card"><span className="metric-icon blue"><Icon name="lock" /></span><span className="metric-copy"><span>Truy cập tuần này</span><strong>{m ? num(m.downloadsWeek) : "—"}</strong><small>Đã ghi nhật ký</small></span></article>
       </div>
+      {tab === "miss" ? <Missing gaps={gaps} /> : tab === "cat" ? <ChecklistCatalog /> : (
       <article className="card">
         <div className="toolbar">
           <label className="search"><Icon name="search" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Tên tài liệu hoặc nhân viên…" /></label>
-          <Select className="select" value={cat} onChange={(e) => setCat(e.target.value as DocumentCategory | "all")} aria-label="Danh mục">
-            <option value="all">Tất cả danh mục</option>{(Object.keys(DOCUMENT_CATEGORIES) as DocumentCategory[]).map((k) => <option key={k} value={k}>{DOCUMENT_CATEGORIES[k]}</option>)}
-          </Select>
+          {chips.map(([k, l, n, on, fn]) => <button key={k} className={`filter-chip ${on ? "active" : ""}`} onClick={fn}>{l}<span className="n">{n}</span></button>)}
           <span className="toolbar-spacer" />
+          <Select className="select" value={cat} onChange={(e) => setCat(e.target.value as DocumentCategory | "all")} aria-label="Danh mục">
+            <option value="all">Mọi danh mục</option>{(Object.keys(DOCUMENT_CATEGORIES) as DocumentCategory[]).map((k) => <option key={k} value={k}>{DOCUMENT_CATEGORIES[k]}</option>)}
+          </Select>
           <Select className="select" value={state} onChange={(e) => setState(e.target.value as keyof typeof STATE)} aria-label="Trạng thái">
             {(Object.keys(STATE) as Array<keyof typeof STATE>).map((k) => <option key={k} value={k}>{STATE[k]}</option>)}
           </Select>
         </div>
         {b && !rows.length ? <Empty title={b.items.length ? "Không có tài liệu phù hợp" : "Chưa có tài liệu nào"} text={b.items.length ? undefined : "Bấm “Tải tài liệu” để lưu hợp đồng, quyết định hoặc hồ sơ của nhân viên."} /> : (
-          <div className="table-wrap"><table className="data-table" style={{ minWidth: 900 }}><thead><tr><th>Tài liệu</th><th>Nhân viên</th><th>Danh mục</th><th>Version</th><th>Hết hạn</th><th>Quyền</th></tr></thead><tbody>
+          <div className="table-wrap"><table className="data-table" style={{ minWidth: 900 }}><thead><tr><th>Tài liệu</th><th>Nhân viên</th><th>Hiệu lực</th><th>Hết hạn</th><th>Quyền xem</th><th /></tr></thead><tbody>
             {!b && !error ? <SkeletonRows cols={6} rows={6} /> : null}
             {rows.map((d) => (
               <tr key={d.id} className="clickable" onClick={() => open(d.id)}>
-                <td style={{ whiteSpace: "normal" }}><b>{d.title}</b><div className="muted" style={{ fontSize: 12 }}>{d.current.fileName}{d.docNo ? ` · ${d.docNo}` : ""}{d.archivedAt ? " · Đã gỡ" : ""}</div></td>
+                <td style={{ whiteSpace: "normal" }}><span className="row" style={{ display: "flex", alignItems: "center", gap: 12 }}><span className="tile brand"><Icon name="file" /></span>
+                  <span><b style={{ fontWeight: 600, display: "block" }}>{d.title}</b><span className="muted" style={{ fontSize: 12.5 }}>{[DOCUMENT_CATEGORIES[d.category], `v${d.current.versionNo}`, d.current.fileName, d.docNo].filter(Boolean).join(" · ")}{d.archivedAt ? " · Đã gỡ" : ""}</span></span></span></td>
                 <td><Person name={d.employee.fullName} seed={d.employee.code} sub={[d.employee.code, d.employee.department].filter(Boolean).join(" · ")} /></td>
-                <td>{DOCUMENT_CATEGORIES[d.category]}</td>
-                <td>v{d.current.versionNo}</td>
+                <td className="num nowrap">{fmtDate(d.issuedOn)}</td>
                 <td className="nowrap"><Expiry d={d} /></td>
                 <td><Status v={d.archivedAt ? ["Đã gỡ", "muted"] : VIS[d.visibility]} /></td>
+                <td className="act" onClick={(e) => e.stopPropagation()}><MoreMenu bare items={[
+                  { label: "Xem chi tiết", icon: "eye", onClick: () => open(d.id) },
+                  { label: "Mở bản hiện hành", icon: "download", onClick: () => { window.open(`/api/documents/${d.id}/file`, "_blank", "noreferrer"); } },
+                ]} /></td>
               </tr>
             ))}
           </tbody></table></div>
         )}
-      </article>
+        <div className="tfoot"><span>Mỗi lần thay file tạo phiên bản mới, bản cũ vẫn được giữ. Mọi lượt tải đều ghi nhật ký.</span></div>
+      </article>)}
       {openId ? <DetailDrawer id={openId} onClose={() => open(null)} onChanged={() => void reload()} /> : null}
-      {catalog ? <ChecklistCatalog onClose={() => setCatalog(false)} /> : null}
       {uploading ? <UploadModal onClose={() => setUploading(false)} onDone={(d) => { void reload(); open(d.item.id); }} /> : null}
     </section>
   );
 }
 export default function Page() { return <Suspense><DocumentsPage /></Suspense>; }
+
+/* Tab "Thiếu hồ sơ": ai thiếu giấy tờ bắt buộc nào (từ checklist/gaps). Chưa có API "Nhắc" nên không có nút nhắc. */
+function Missing({ gaps }: { gaps: ReturnType<typeof useApi<ChecklistGaps>> }) {
+  const me = useMe();
+  const router = useRouter();
+  const emps = useApi<EmployeeListItem[]>("employees?status=working&account=all", { tables: ["employees"], tenantId: me.tenant.id });
+  const by = new Map((emps.data ?? []).map((e) => [e.id, e]));
+  const rows = (gaps.data?.rows ?? []).map((r) => ({ ...r, e: by.get(r.employeeId) })).sort((a, b) => b.missing.length - a.missing.length || (a.e?.fullName ?? "").localeCompare(b.e?.fullName ?? "", "vi"));
+  return (
+    <section className="card">
+      <div className="toolbar"><span className="muted" style={{ fontSize: 13 }}>{gaps.data ? `${num(rows.length)} nhân viên còn thiếu giấy tờ bắt buộc` : "Đang tải…"}</span></div>
+      <LoadError error={gaps.error ?? emps.error} retry={() => { void gaps.reload(); void emps.reload(); }} />
+      {gaps.data && !rows.length ? <Empty title="Không ai thiếu giấy tờ bắt buộc" text={gaps.data.itemCount ? undefined : "Công ty chưa khai danh mục giấy tờ (tab Danh mục giấy tờ)."} /> : (
+        <div className="table-wrap"><table className="data-table" style={{ minWidth: 640 }}><thead><tr><th>Nhân viên</th><th>Còn thiếu</th><th /></tr></thead><tbody>
+          {!gaps.data && !gaps.error ? <SkeletonRows cols={3} rows={5} /> : null}
+          {rows.map((r) => (
+            <tr key={r.employeeId} className="clickable" onClick={() => router.push(`/employees/${r.employeeId}`)}>
+              <td>{r.e ? <Person name={r.e.fullName} seed={r.e.id} sub={[r.e.code, r.e.department?.name].filter(Boolean).join(" · ")} /> : <span className="muted">—</span>}</td>
+              <td style={{ whiteSpace: "normal" }}><span style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>{r.missing.map((x) => <span key={x} className="tag">{x}</span>)}</span></td>
+              <td className="act">{r.e ? <Link className="btn small" href={`/employees/${r.employeeId}`} onClick={(e) => e.stopPropagation()}>Mở hồ sơ</Link> : null}</td>
+            </tr>
+          ))}
+        </tbody></table></div>
+      )}
+    </section>
+  );
+}
 
 function DetailDrawer({ id, onClose, onChanged }: { id: string; onClose: () => void; onChanged: () => void }) {
   const me = useMe();

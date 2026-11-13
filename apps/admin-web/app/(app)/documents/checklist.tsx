@@ -4,50 +4,51 @@
 import { useState } from "react";
 import type { ChecklistEntry, ChecklistEntryInput, ChecklistForm, ChecklistItem, ChecklistItemInput, ChecklistItemList, EmployeeChecklist, EmploymentType } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
-import { EMPLOYMENT, Empty, ErrorLine, Field, Icon, LoadError, Modal, Status, fmtDate, tenantToday, useAction, useMe } from "../../_ui/kit";
+import { EMPLOYMENT, Empty, ErrorLine, Field, Icon, LoadError, Modal, MoreMenu, Status, fmtDate, tenantToday, useAction, useMe } from "../../_ui/kit";
 import { Select, SkeletonLines, SkeletonRows } from "@kavor/web-ui";
 
 const FORM: Record<ChecklistForm, string> = { copy: "Nộp bản sao", original_checked: "Đã đối chiếu bản chính" };
 const TYPES = Object.keys(EMPLOYMENT) as EmploymentType[];
 const typesText = (t: EmploymentType[] | null) => (t ? t.map((x) => EMPLOYMENT[x]).join(", ") : "Mọi người");
 
-/* ---------- Danh mục của công ty (mở từ trang Tài liệu) ---------- */
-export function ChecklistCatalog({ onClose }: { onClose: () => void }) {
+/* ---------- Danh mục của công ty (tab "Danh mục giấy tờ" của trang Tài liệu) ---------- */
+export function ChecklistCatalog() {
   const { data: l, error, reload, setData } = useApi<ChecklistItemList>("checklist/items");
   const [edit, setEdit] = useState<ChecklistItem | "new" | null>(null);
   const { busy, run } = useAction();
   return (
-    <Modal wide title="Danh mục giấy tờ hồ sơ" sub="Công ty tự quyết cần những giấy tờ gì. HR tích từng người ở hồ sơ nhân viên → tab Giấy tờ. Không giữ bản chính của người lao động (Bộ luật Lao động, Điều 17)."
-      onClose={onClose} foot={<>
+    <section className="card">
+      <div className="toolbar">
+        <span className="muted" style={{ fontSize: 13, flex: "1 1 320px" }}>Công ty quyết định cần những giấy tờ gì. HR tích từng người ở hồ sơ nhân viên, tab Giấy tờ. Không giữ bản chính của người lao động (Bộ luật Lao động, Điều 17).</span>
         {l?.canManage ? <>
-          <button className="btn" disabled={!!busy} onClick={() => void run("tpl", async () => setData(await call<ChecklistItemList>("POST", "checklist/items/templates", {})), "Đã thêm giấy tờ mẫu")}><Icon name="plus" /> Thêm mẫu phổ biến</button>
-          <button className="btn primary" onClick={() => setEdit("new")}><Icon name="plus" /> Thêm giấy tờ</button>
+          <button className="btn small" disabled={!!busy} onClick={() => void run("tpl", async () => setData(await call<ChecklistItemList>("POST", "checklist/items/templates", {})), "Đã thêm giấy tờ mẫu")}><Icon name="plus" /> Thêm mẫu phổ biến</button>
+          <button className="btn small primary" onClick={() => setEdit("new")}><Icon name="plus" /> Thêm giấy tờ</button>
         </> : null}
-        <button className="btn" onClick={onClose}>Đóng</button>
-      </>}>
+      </div>
       <LoadError error={error} retry={reload} />
       {l && !l.items.length ? (
         <Empty title="Chưa có giấy tờ nào" text={l.canManage ? "Bấm “Thêm mẫu phổ biến” để có sẵn CCCD, sơ yếu lý lịch, giấy khám sức khỏe… rồi sửa theo công ty." : "Quản trị viên công ty hoặc HCNS khai danh mục này."} />
       ) : (
-        <div className="table-wrap"><table className="data-table compact"><thead><tr><th>Giấy tờ</th><th>Bắt buộc</th><th>Áp dụng cho</th><th>Trạng thái</th><th /></tr></thead><tbody>
-          {!l && !error ? <SkeletonRows cols={5} rows={6} /> : null}
+        <div className="table-wrap"><table className="data-table" style={{ minWidth: 720 }}><thead><tr><th>Giấy tờ</th><th>Mục đích</th><th>Bắt buộc</th><th>Áp dụng cho</th><th>Trạng thái</th><th /></tr></thead><tbody>
+          {!l && !error ? <SkeletonRows cols={6} rows={6} /> : null}
           {(l?.items ?? []).map((x) => (
             <tr key={x.id} className={x.archived ? "muted" : undefined}>
-              <td className="wrap"><b>{x.name}</b>{x.purpose ? <div className="muted" style={{ fontSize: 12 }}>Mục đích: {x.purpose}</div> : null}</td>
-              <td>{x.required ? "Bắt buộc" : "Không bắt buộc"}</td>
+              <td className="wrap"><b style={{ fontWeight: 600 }}>{x.name}</b></td>
+              <td className="wrap muted">{x.purpose ?? "—"}</td>
+              <td>{x.required ? <Status v={["Bắt buộc", "info"]} /> : <span className="muted">Không</span>}</td>
               <td className="wrap">{typesText(x.employmentTypes)}</td>
-              <td><Status v={x.archived ? ["Ngừng dùng", "muted"] : ["Đang dùng", ""]} /></td>
-              <td className="nowrap" style={{ textAlign: "right" }}>{l?.canManage ? <>
-                {!x.archived ? <button className="btn small" onClick={() => setEdit(x)}>Sửa</button> : null}{" "}
-                <button className="btn small" disabled={!!busy} onClick={() => void run(x.id, async () => setData(await call<ChecklistItemList>("POST", `checklist/items/${x.id}/archive`, { archived: !x.archived })),
-                  x.archived ? "Đã dùng lại giấy tờ" : "Đã ngừng dùng giấy tờ")}>{x.archived ? "Dùng lại" : "Ngừng dùng"}</button>
-              </> : null}</td>
+              <td><Status v={x.archived ? ["Ngừng dùng", "muted"] : ["Đang dùng", "ok"]} /></td>
+              <td className="act">{l?.canManage ? <MoreMenu bare items={[
+                ...(!x.archived ? [{ label: "Sửa giấy tờ", icon: "edit", onClick: () => setEdit(x) }] : []),
+                { label: x.archived ? "Dùng lại" : "Ngừng dùng", icon: x.archived ? "check" : "x", danger: !x.archived, onClick: () => void run(x.id, async () => setData(await call<ChecklistItemList>("POST", `checklist/items/${x.id}/archive`, { archived: !x.archived })),
+                  x.archived ? "Đã dùng lại giấy tờ" : "Đã ngừng dùng giấy tờ") },
+              ]} /> : null}</td>
             </tr>
           ))}
         </tbody></table></div>
       )}
       {edit ? <ItemForm item={edit === "new" ? null : edit} onClose={() => setEdit(null)} onSaved={setData} /> : null}
-    </Modal>
+    </section>
   );
 }
 

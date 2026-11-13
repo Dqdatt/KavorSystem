@@ -2,7 +2,7 @@
 /* Bản tin nội bộ — bám page-announcements của prototype HR ("Bài đang xuất bản", "Lịch xuất bản", nút "Tạo bài viết").
    Thiết kế bổ sung: bảng tất cả bài, soạn/sửa bài, xuất bản/hẹn giờ, chi tiết + danh sách đã đọc. Mở bài trên app = đã đọc
    (không có nút xác nhận). Nội dung có định dạng (đậm, nghiêng, danh sách, thụt lề…) soạn bằng _ui/rich-text.tsx, lưu chữ có ký hiệu. */
-import { Suspense, useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ANNOUNCEMENT_CATEGORIES, ANNOUNCEMENT_MAX_BYTES, type AnnouncementAdmin, type AnnouncementBoard, type AnnouncementCategory,
   type AnnouncementDetail, type AnnouncementInput, type AnnouncementStatus, type AnnouncementUnit } from "@kavor/contracts";
@@ -12,7 +12,15 @@ import { Select, SkeletonLines, SkeletonRows } from "@kavor/web-ui";
 import { RichText, RichTextEditor } from "../../_ui/rich-text";
 
 const STATUS: Record<AnnouncementStatus, [string, string]> = { draft: ["Nháp", "muted"], scheduled: ["Hẹn giờ", "info"], published: ["Đang hiện", ""], expired: ["Hết hạn", "warn"], archived: ["Đã gỡ", "muted"] };
-const FILTERS: Array<[AnnouncementStatus | "all", string]> = [["all", "Tất cả"], ["published", "Đang hiện"], ["scheduled", "Hẹn giờ"], ["draft", "Nháp"], ["expired", "Hết hạn"], ["archived", "Đã gỡ"]];
+type Filter = "all" | "published" | "scheduled" | "draft" | "old";
+const inFilter = (a: AnnouncementAdmin, f: Filter) => f === "all" || (f === "old" ? a.status === "expired" || a.status === "archived" : a.status === f);
+/* Chữ thuần để xem trước: bỏ ký hiệu định dạng của nội dung bài */
+const excerpt = (body: string) => body.replace(/^\s*(#{1,6}|[-•*+]|\d{1,3}[.)])\s+/gm, "").replace(/\\(.)/g, "$1").replace(/\*\*|\+\+|\*/g, "").replace(/\s+/g, " ").trim();
+/* Thanh vạch tỷ lệ đã đọc: tối đa 30 vạch, mỗi vạch ≈ một nhóm người nhận */
+function ReadTicks({ reads, total, lg }: { reads: number; total: number; lg?: boolean }) {
+  const n = Math.min(Math.max(total, 1), 30), on = total ? Math.round((reads / total) * n) : 0;
+  return <span className={`ticks ${lg ? "lg" : ""}`} aria-hidden="true">{Array.from({ length: n }, (_, i) => <i key={i} className={i < on ? "m" : ""} />)}</span>;
+}
 const ICON: Record<AnnouncementCategory, [string, string]> = { notice: ["news", ""], policy: ["file", "blue"], event: ["calendar", "violet"] };
 const kb = (n: number) => (n >= 1024 * 1024 ? `${(n / 1024 / 1024).toLocaleString("vi-VN", { maximumFractionDigits: 1 })} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
 const pct = (a: AnnouncementAdmin) => (a.recipients ? Math.round((a.reads / a.recipients) * 100) : 0);
@@ -38,53 +46,57 @@ function AnnouncementsPage() {
   const router = useRouter();
   const params = useSearchParams();
   const { data: b, error, reload } = useApi<AnnouncementBoard>("announcements");
-  const [filter, setFilter] = useState<AnnouncementStatus | "all">("all");
+  const [filter, setFilter] = useState<Filter>("all");
   const [q, setQ] = useState("");
   const [editing, setEditing] = useState<AnnouncementAdmin | "new" | null>(null);
   const [publishing, setPublishing] = useState<AnnouncementAdmin | null>(null);
-  const all = useRef<HTMLElement>(null);
   const openId = params.get("open");
   const open = (id: string | null) => router.replace(id ? `/announcements?open=${id}` : "/announcements", { scroll: false });
   const items = b?.items ?? [];
   const live = items.filter((a) => a.status === "published");
   const scheduled = items.filter((a) => a.status === "scheduled").sort((x, y) => (x.publishAt ?? "").localeCompare(y.publishAt ?? ""));
-  const rows = items.filter((a) => (filter === "all" || a.status === filter) && (!q.trim() || a.title.toLowerCase().includes(q.trim().toLowerCase())));
+  const rows = items.filter((a) => inFilter(a, filter) && (!q.trim() || a.title.toLowerCase().includes(q.trim().toLowerCase())));
   const tz = me.tenant.timezone;
   const saved = (a: AnnouncementAdmin, publish: boolean) => { void reload(); if (publish) setPublishing(a); else open(a.id); };
+
+  const count = (f: Filter) => items.filter((a) => inFilter(a, f)).length;
+  const tabs: Array<[Filter, string]> = [["all", "Tất cả"], ["published", "Đang hiện"], ["scheduled", "Hẹn giờ"], ["draft", "Nháp"], ["old", "Hết hạn, đã gỡ"]];
+  const waiting = live.filter((a) => a.important).reduce((t, a) => t + Math.max(a.recipients - a.reads, 0), 0);
 
   return (
     <section className="page active">
       <PageActions><button className="btn primary" onClick={() => setEditing("new")}><Icon name="plus" /> Tạo bài viết</button></PageActions>
+      <div className="page-head"><div><div className="segmented" role="tablist">{tabs.map(([k, l]) => <button key={k} role="tab" aria-selected={filter === k} className={filter === k ? "active" : ""} onClick={() => setFilter(k)}>{l}{b ? <span className="n">{count(k)}</span> : null}</button>)}</div></div>
+        <label className="search" style={{ width: "min(300px, 100%)" }}><Icon name="search" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Tìm theo tiêu đề…" aria-label="Tìm bài viết" /></label></div>
       <LoadError error={error} retry={reload} />
       <div className="grid metrics">
-        <MetricBtn icon="news" tone="" label="Đang hiện" value={b ? num(live.length) : "—"} sub={live.length ? `Đọc trung bình ${Math.round(live.reduce((t, a) => t + pct(a), 0) / live.length)}%` : "Chưa có bài đang hiện"} onClick={() => setFilter("published")} />
+        <MetricBtn icon="news" tone="" label="Đang hiện" value={b ? num(live.length) : "—"} sub={live.length ? `Tỷ lệ đọc trung bình ${Math.round(live.reduce((t, a) => t + pct(a), 0) / live.length)}%` : "Chưa có bài đang hiện"} onClick={() => setFilter("published")} />
         <MetricBtn icon="clock" tone="blue" label="Hẹn giờ" value={b ? num(scheduled.length) : "—"} sub={scheduled[0] ? `Gần nhất ${fmtDateTime(scheduled[0].publishAt, tz)}` : "Không có bài hẹn giờ"} onClick={() => setFilter("scheduled")} />
         <MetricBtn icon="file" tone="amber" label="Nháp" value={b ? num(items.filter((a) => a.status === "draft").length) : "—"} sub="Chưa gửi tới nhân viên" onClick={() => setFilter("draft")} />
-        <MetricBtn icon="alert" tone="red" label="Quan trọng đang hiện" value={b ? num(live.filter((a) => a.important).length) : "—"} sub="Cần nhân viên xác nhận đã đọc" onClick={() => setFilter("published")} />
+        <MetricBtn icon="alert" tone="red" label="Chờ xác nhận đã đọc" value={b ? <>{num(waiting)}<small> người</small></> : "—"} sub={`${num(live.filter((a) => a.important).length)} bài quan trọng đang hiện`} onClick={() => setFilter("published")} />
       </div>
 
-      <article className="card" ref={all}>
-        <div className="toolbar">
-          <div className="segmented" role="tablist">{FILTERS.map(([k, label]) => <button key={k} role="tab" aria-selected={filter === k} className={filter === k ? "active" : ""} onClick={() => setFilter(k)}>{label}</button>)}</div>
-          <span className="toolbar-spacer" />
-          <label className="search"><Icon name="search" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Tìm theo tiêu đề…" /></label>
-        </div>
-        {b && !rows.length ? <Empty title="Không có bài phù hợp" /> : (
-          <div className="table-wrap"><table className="data-table" style={{ minWidth: 900 }}><thead><tr><th>Bài viết</th><th>Danh mục</th><th>Người nhận</th><th>Trạng thái</th><th>Xuất bản</th><th>Đã đọc</th></tr></thead><tbody>
-            {!b && !error ? <SkeletonRows cols={6} rows={6} /> : null}
-            {rows.map((a) => (
-              <tr key={a.id} className="clickable" onClick={() => open(a.id)}>
-                <td style={{ whiteSpace: "normal" }}><b>{a.title}</b><div className="muted" style={{ fontSize: 12 }}>{[a.authorLabel, a.important ? "Quan trọng" : null, a.pinned ? "Đã ghim" : null, a.attachment ? "Có file đính kèm" : null].filter(Boolean).join(" · ")}</div></td>
-                <td>{ANNOUNCEMENT_CATEGORIES[a.category]}</td>
-                <td style={{ whiteSpace: "normal" }}>{audienceText(a)}</td>
-                <td><Status v={STATUS[a.status]} /></td>
-                <td className="nowrap">{a.publishAt ? fmtDateTime(a.publishAt, tz) : "—"}{a.visibleUntil ? <div className="muted" style={{ fontSize: 12 }}>đến {fmtDateTime(a.visibleUntil, tz)}</div> : null}</td>
-                <td className="num">{a.status === "draft" || a.status === "scheduled" ? <span className="muted">{num(a.recipients)} người nhận</span> : `${num(a.reads)}/${num(a.recipients)} · ${pct(a)}%`}</td>
-              </tr>
-            ))}
-          </tbody></table></div>
-        )}
-      </article>
+      {!b && !error ? <article className="card"><SkeletonLines lines={5} /></article> : b && !rows.length ? (
+        <article className="card"><Empty title={items.length ? "Không có bài phù hợp" : "Chưa có bài nào ở mục này"} text={items.length ? undefined : "Bài nháp và bài hẹn giờ sẽ hiện ở đây trước khi gửi tới nhân viên."} /></article>
+      ) : (
+        <div className="stack">{rows.map((a) => {
+          const sent = a.status !== "draft" && a.status !== "scheduled";
+          return (
+            <button key={a.id} className={`card postcard ${a.status === "published" || a.status === "draft" || a.status === "scheduled" ? "" : "dim"}`} onClick={() => open(a.id)}>
+              <span>
+                <span style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, marginBottom: 6 }}><Status v={STATUS[a.status]} />{a.important ? <Status v={["Quan trọng", "bad"]} /> : null}
+                  <span className="muted" style={{ fontSize: 12.5 }}>{[ANNOUNCEMENT_CATEGORIES[a.category], a.authorLabel, a.publishAt ? fmtDateTime(a.publishAt, tz) : null].filter(Boolean).join(" · ")}</span></span>
+                <b className="ttl">{a.title}</b>
+                {excerpt(a.body) ? <span className="exc">{excerpt(a.body)}</span> : null}
+              </span>
+              <span>
+                {sent ? <><span className="spread" style={{ marginBottom: 6, fontSize: 12.5 }}><span style={{ color: "var(--ink-2)" }}>Đã đọc</span><b className="num">{num(a.reads)}/{num(a.recipients)} · {pct(a)}%</b></span><ReadTicks reads={a.reads} total={a.recipients} /></>
+                  : <span className="muted" style={{ fontSize: 12.5 }}>{num(a.recipients)} người nhận · {audienceText(a)}</span>}
+              </span>
+            </button>
+          );
+        })}</div>
+      )}
 
       {openId ? <DetailDrawer id={openId} onClose={() => open(null)} onEdit={setEditing} onPublish={setPublishing} onChanged={() => void reload()} /> : null}
       {editing && b ? <Editor a={editing === "new" ? null : editing} units={b.units} onClose={() => setEditing(null)} onSaved={saved} /> : null}
@@ -101,9 +113,14 @@ function DetailDrawer({ id, onClose, onEdit, onPublish, onChanged }: { id: strin
   const { busy, run } = useAction();
   const [confirm, setConfirm] = useState<"archive" | "remove" | null>(null);
   const [rq, setRq] = useState("");
-  const [onlyUnread, setOnlyUnread] = useState(false);
+  const [allReaders, setAllReaders] = useState(false);
   const a = d?.item;
-  const readers = (d?.readers ?? []).filter((r) => (!onlyUnread || !r.readAt) && (!rq.trim() || `${r.fullName} ${r.code}`.toLowerCase().includes(rq.trim().toLowerCase())));
+  const sent = !!a && a.status !== "draft" && a.status !== "scheduled";
+  /* Chưa đọc xếp theo phòng ban; bài chưa gửi chưa có ai đọc nên hiện cả danh sách */
+  const showAll = allReaders || !sent;
+  const unread = (d?.readers ?? []).filter((r) => !r.readAt).length;
+  const readers = (d?.readers ?? []).filter((r) => (showAll || !r.readAt) && (!rq.trim() || `${r.fullName} ${r.code}`.toLowerCase().includes(rq.trim().toLowerCase())))
+    .sort((x, y) => (x.department ?? "").localeCompare(y.department ?? "", "vi") || x.fullName.localeCompare(y.fullName, "vi"));
   const act = (key: string, path: string, ok: string, after?: () => void) =>
     run(key, async () => { await call("POST", `announcements/${id}/${path}`, {}); onChanged(); if (after) after(); else void reload(); }, ok);
 
@@ -121,32 +138,38 @@ function DetailDrawer({ id, onClose, onEdit, onPublish, onChanged }: { id: strin
             {a.status === "published" || a.status === "expired" ? <button className="btn small danger" onClick={() => setConfirm("archive")}>Gỡ bài</button> : null}
             {a.status === "draft" || a.status === "scheduled" ? <button className="btn small danger" onClick={() => setConfirm("remove")}>Xóa</button> : null}
           </div>
-          <article className="card" style={{ padding: 16 }}>
-            <div className="muted" style={{ fontSize: 12 }}>{a.publishAt ? `${a.status === "scheduled" ? "Hẹn xuất bản" : "Xuất bản"} ${fmtDateTime(a.publishAt, tz)}` : "Chưa xuất bản"}{a.important ? " · Quan trọng" : ""}{a.pinned ? " · Đã ghim" : ""}</div>
+          <div className="inset" style={{ marginBottom: 12 }}>
+            <div className="muted" style={{ fontSize: 12.5 }}>{a.publishAt ? `${a.status === "scheduled" ? "Hẹn xuất bản" : "Xuất bản"} ${fmtDateTime(a.publishAt, tz)}` : "Chưa xuất bản"}{a.important ? " · Quan trọng" : ""}{a.pinned ? " · Đã ghim" : ""}</div>
             <h3 style={{ margin: "6px 0 12px", fontSize: 16 }}>{a.title}</h3>
-            <div style={{ fontSize: 12.5, lineHeight: 1.6 }}><RichText body={a.body} /></div>
-            {a.attachment ? <a className="btn small" href={`/api/announcements/${a.id}/attachment`} target="_blank" rel="noreferrer"><Icon name="file" /> {a.attachment.name} · {kb(a.attachment.size)}</a> : null}
-          </article>
-          <div className="card detail-list" style={{ marginTop: 12 }}>
+            <div style={{ fontSize: 13, lineHeight: 1.6 }}><RichText body={a.body} /></div>
+            {a.attachment ? <a className="btn small" style={{ marginTop: 12 }} href={`/api/announcements/${a.id}/attachment`} target="_blank" rel="noreferrer"><Icon name="file" /> {a.attachment.name} · {kb(a.attachment.size)}</a> : null}
+          </div>
+          {sent ? (
+            <div className="inset" style={{ marginBottom: 12, display: "grid", gap: 8 }}>
+              <div className="spread"><b>Đã đọc {num(a.reads)}/{num(a.recipients)}</b><span className="num muted">{pct(a)}%</span></div>
+              <ReadTicks reads={a.reads} total={a.recipients} lg />
+              <span className="muted" style={{ fontSize: 12.5 }}>Mỗi vạch là một nhóm người nhận · mở bài trên app được tính là đã đọc</span>
+            </div>
+          ) : null}
+          <div className="detail-list card" style={{ marginBottom: 14 }}>
             <div className="detail-row"><span>Người nhận</span><b>{audienceText(a)} · {num(a.recipients)} người</b></div>
-            <div className="detail-row"><span>Đã đọc</span><b>{a.status === "draft" || a.status === "scheduled" ? "—" : `${num(a.reads)}/${num(a.recipients)} (${pct(a)}%)`}</b></div>
             <div className="detail-row"><span>Hiển thị đến</span><b>{a.visibleUntil ? `${fmtDateTime(a.visibleUntil, tz)}${a.status === "expired" ? " · đã hết hạn, app không còn hiện" : ""}` : "Tới khi gỡ bài"}</b></div>
             <div className="detail-row"><span>Thông báo trong app</span><b>{!a.notify ? "Không gửi" : a.notifiedAt ? `Đã gửi ${fmtDateTime(a.notifiedAt, tz)}` : "Gửi khi xuất bản"}</b></div>
             {a.archivedAt ? <div className="detail-row"><span>Đã gỡ</span><b>{fmtDateTime(a.archivedAt, tz)}</b></div> : null}
           </div>
-          <div className="drawer-section">
-            <h4>Người nhận ({num(d.readers.length)})</h4>
-            <div className="toolbar" style={{ padding: "0 0 8px" }}>
+          <div>
+            <div className="spread" style={{ marginBottom: 8 }}><span className="cap">{showAll ? `Người nhận (${num(d.readers.length)})` : `Chưa đọc (${num(unread)})`}</span><span className="muted" style={{ fontSize: 12.5 }}>Xếp theo phòng ban</span></div>
+            <div className="toolbar" style={{ padding: "0 0 8px", border: 0, minHeight: 0 }}>
               <label className="search" style={{ flex: 1 }}><Icon name="search" /><input value={rq} onChange={(e) => setRq(e.target.value)} placeholder="Tìm người nhận…" /></label>
-              <label className="check-row"><input type="checkbox" checked={onlyUnread} onChange={(e) => setOnlyUnread(e.target.checked)} /> Chỉ người chưa đọc</label>
+              <label className="check-row"><input type="checkbox" checked={allReaders} onChange={(e) => setAllReaders(e.target.checked)} /> Hiện cả người đã đọc</label>
             </div>
-            {!readers.length ? <Empty title={onlyUnread ? "Mọi người đã đọc" : "Không có người nhận phù hợp"} /> : (
-              <div className="table-wrap" style={{ maxHeight: 360 }}><table className="data-table compact"><tbody>
+            {!readers.length ? <Empty title={showAll ? "Không có người nhận phù hợp" : "Mọi người đã đọc"} /> : (
+              <div className="inset" style={{ padding: 0 }}><div className="table-wrap" style={{ maxHeight: 360 }}><table className="data-table compact"><tbody>
                 {readers.map((r) => (
                   <tr key={r.id}><td><Person name={r.fullName} seed={r.code} sub={[r.code, r.department].filter(Boolean).join(" · ")} /></td>
                     <td className="nowrap" style={{ textAlign: "right" }}>{r.readAt ? <span className="muted">{fmtDateTime(r.readAt, tz)}</span> : <Status v={["Chưa đọc", "warn"]} />}</td></tr>
                 ))}
-              </tbody></table></div>
+              </tbody></table></div></div>
             )}
           </div>
         </>
@@ -244,7 +267,8 @@ function Editor({ a, units, onClose, onSaved }: { a: AnnouncementAdmin | null; u
             {until ? <button type="button" className="btn small" onClick={() => setUntil("")}>Bỏ hạn</button> : null}
           </div>
         </Field>
-        <div className="field full" style={{ display: "flex", gap: 18, flexWrap: "wrap" }}>
+        <div className="field full inset" style={{ display: "grid", gap: 10 }}>
+          <b style={{ fontSize: 13, color: "var(--ink-2)" }}>Khi xuất bản</b>
           <label className="check-row"><input type="checkbox" checked={f.important} onChange={(e) => setF({ ...f, important: e.target.checked })} /> Đánh dấu quan trọng</label>
           <label className="check-row"><input type="checkbox" checked={f.pinned} onChange={(e) => setF({ ...f, pinned: e.target.checked })} /> Ghim lên đầu bản tin</label>
           <label className="check-row" title={a?.notifiedAt ? "Thông báo đã gửi khi xuất bản" : undefined}><input type="checkbox" checked={f.notify} disabled={!!a?.notifiedAt} onChange={(e) => setF({ ...f, notify: e.target.checked })} /> Gửi thông báo trong app khi xuất bản</label>
@@ -287,7 +311,7 @@ function PublishModal({ a, onClose, onDone }: { a: AnnouncementAdmin; onClose: (
 }
 
 /* Thẻ số liệu bấm được: lọc bảng bên dưới theo trạng thái */
-function MetricBtn({ icon, tone, label, value, sub, onClick }: { icon: string; tone: string; label: string; value: string; sub: string; onClick: () => void }) {
+function MetricBtn({ icon, tone, label, value, sub, onClick }: { icon: string; tone: string; label: string; value: ReactNode; sub: string; onClick: () => void }) {
   return (
     <button className="card metric-card metric-btn" onClick={onClick}>
       <span className={`metric-icon ${tone}`}><Icon name={icon} /></span>

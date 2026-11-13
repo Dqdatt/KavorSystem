@@ -196,3 +196,25 @@ export function Dl({ rows }: { rows: Array<[string, ReactNode]> }) {
 export function Section({ title, action, children }: { title: string; action?: ReactNode; children: ReactNode }) {
   return <section className="card"><div className="card-head"><h3>{title}</h3>{action}</div><div className="card-body">{children}</div></section>;
 }
+
+/* Menu "⋯": hành động phụ của hồ sơ */
+export function MoreMenu({ items, bare }: { items: Array<{ label: string; icon: string; danger?: boolean; onClick: () => void }>; bare?: boolean }) {
+  const [open, setOpen] = useState(false);
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent) => { if (!box.current?.contains(e.target as Node)) setOpen(false); };
+    const esc = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    document.addEventListener("mousedown", close);
+    document.addEventListener("keydown", esc);
+    return () => { document.removeEventListener("mousedown", close); document.removeEventListener("keydown", esc); };
+  }, [open]);
+  return (
+    <div ref={box} className="menu-wrap">
+      <button className={bare ? "iconbtn bare" : "btn"} aria-haspopup="menu" aria-expanded={open} aria-label="Thêm hành động" onClick={() => setOpen(!open)}><Icon name="more" /></button>
+      {open ? <div className="kv-menu" role="menu">{items.map((it) => (
+        <button key={it.label} role="menuitem" className={`kv-option ${it.danger ? "danger" : ""}`} onClick={() => { setOpen(false); it.onClick(); }}><Icon name={it.icon} />{it.label}</button>
+      ))}</div> : null}
+    </div>
+  );
+}

@@ -7,7 +7,7 @@ import { call, useApi } from "../../_lib/client";
 import { EmployeePaySection } from "./pay";
 import { EmployeeChecklistSection } from "../documents/checklist";
 import {
-  ACCOUNT, Avatar, DEVICE, Dl, EMP_STATUS, EMPLOYMENT, ErrorLine, Field, Icon, LoadError, Modal, Phrases, REJECT_REASON, Section, Status, scopeText,
+  ACCOUNT, Avatar, DEVICE, Dl, EMP_STATUS, EMPLOYMENT, ErrorLine, Field, Icon, LoadError, Modal, MoreMenu, Phrases, REJECT_REASON, Section, Status, scopeText,
   ago, can, fmtDate, fmtDateTime, tenantToday, tenure, useAction, useMe,
 } from "../../_ui/kit";
 import { ReasonModal } from "../../_ui/reason-modal";
@@ -35,28 +35,6 @@ const TABS: Array<{ id: ProfileTab; label: string; show: (me: AdminMe) => boolea
   { id: "requests", label: "Đơn từ", show: (me) => can(me, "request.read") },
   { id: "history", label: "Lịch sử", show: (me) => can(me, "audit.read") },
 ];
-
-/* Menu "⋯": hành động phụ của hồ sơ */
-function MoreMenu({ items }: { items: Array<{ label: string; icon: string; danger?: boolean; onClick: () => void }> }) {
-  const [open, setOpen] = useState(false);
-  const box = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!open) return;
-    const close = (e: MouseEvent) => { if (!box.current?.contains(e.target as Node)) setOpen(false); };
-    const esc = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
-    document.addEventListener("mousedown", close);
-    document.addEventListener("keydown", esc);
-    return () => { document.removeEventListener("mousedown", close); document.removeEventListener("keydown", esc); };
-  }, [open]);
-  return (
-    <div ref={box} className="menu-wrap">
-      <button className="btn" aria-haspopup="menu" aria-expanded={open} aria-label="Thêm hành động" onClick={() => setOpen(!open)}><Icon name="more" /></button>
-      {open ? <div className="kv-menu" role="menu">{items.map((it) => (
-        <button key={it.label} role="menuitem" className={`kv-option ${it.danger ? "danger" : ""}`} onClick={() => { setOpen(false); it.onClick(); }}><Icon name={it.icon} />{it.label}</button>
-      ))}</div> : null}
-    </div>
-  );
-}
 
 export function EmployeeProfile({ id }: { id: string }) {
   const me = useMe();
