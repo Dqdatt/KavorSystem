@@ -1,47 +1,82 @@
 "use client";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import type { AdminOverview, OverviewDay, SetupChecklist } from "@kavor/contracts";
+import type { AdminOverview, AttendanceBoard, ChecklistGaps, OverviewDay, RequestQueue, SetupChecklist, TimesheetBoard, TodayRow } from "@kavor/contracts";
 import { useApi } from "../_lib/client";
-import { ACCOUNT, Empty, Icon, LoadError, Person, Status, can, fmtDate, num, useMe } from "../_ui/kit";
-import { Skeleton, SkeletonRows } from "@kavor/web-ui";
+import { Empty, Icon, LoadError, Person, Status, can, dur, fmtDate, num, useMe } from "../_ui/kit";
+import { Skeleton } from "@kavor/web-ui";
 
 const WD = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
 
-/* Biểu đồ cột có mặt + đường đi muộn 7 ngày, cùng kiểu vẽ với prototype (viewBox 720×240) */
+/* Cột chồng đúng giờ + đi muộn 7 ngày như prototype (viewBox 560×190); hôm nay tô đậm. API: present gồm cả người đi muộn */
 function PresenceChart({ days }: { days: OverviewDay[] }) {
-  /* Trục số nguyên: đỉnh là bội của 4 để 5 vạch chia đều */
+  const W = 560, bw = 38, x0 = 34;
   const top = Math.max(4, Math.ceil(Math.max(...days.map((d) => d.present), 1) / 4) * 4);
-  const y = (v: number) => 198 - (v / top) * 168;
-  const step = 650 / Math.max(1, days.length);
-  const cx = (i: number) => 42 + step * i + step / 2;
+  const y = (v: number) => 150 - (v / top) * 130;
+  const gap = (W - x0 - 34 - bw * days.length) / Math.max(1, days.length - 1);
   const ticks = [0, 1, 2, 3, 4].map((k) => (top / 4) * k);
   return (
-    <svg className="chart-svg" viewBox="0 0 720 240" role="img" aria-label="Biểu đồ có mặt và đi muộn 7 ngày">
-      <defs><pattern id="dotsHR" width="16" height="16" patternUnits="userSpaceOnUse"><circle className="dots" cx="1" cy="1" r="1" /></pattern></defs>
-      <rect x="42" y="12" width="650" height="186" fill="url(#dotsHR)" />
-      <g className="grid">{ticks.map((t) => <path key={t} d={`M42 ${y(t)}h650`} />)}</g>
-      <g className="bars">{days.map((d, i) => <rect key={d.date} x={cx(i) - 23} y={y(d.present)} width="46" height={Math.max(0, 198 - y(d.present))} rx="5"><title>{`${fmtDate(d.date)}: có mặt ${d.present}, đi muộn ${d.late}, bị từ chối ${d.rejected}`}</title></rect>)}</g>
-      <path d={days.map((d, i) => `${i ? "L" : "M"}${cx(i)} ${y(d.late)}`).join(" ")} className="line" strokeWidth="2.2" />
-      <g className="points" strokeWidth="2">{days.map((d, i) => <circle key={d.date} cx={cx(i)} cy={y(d.late)} r="4" />)}</g>
-      <g>
-        {ticks.map((t) => <text key={t} x="10" y={y(t) + 4}>{t}</text>)}
-        {days.map((d, i) => { const dt = new Date(`${d.date}T12:00:00Z`); return <text key={d.date} x={cx(i) - 16} y="222">{`${WD[dt.getUTCDay()]} ${dt.getUTCDate()}`}</text>; })}
-      </g>
+    <svg className="chart-svg flow" viewBox={`0 0 ${W} 190`} role="img" aria-label="Số người có mặt và đi muộn 7 ngày gần nhất">
+      {ticks.map((t) => <g key={t}><line x1={x0} x2={W - 6} y1={y(t)} y2={y(t)} stroke="var(--line)" strokeDasharray={t ? "3 4" : undefined} /><text x={x0 - 8} y={y(t) + 4} textAnchor="end">{t}</text></g>)}
+      {days.map((d, i) => {
+        const x = x0 + 8 + i * (bw + gap), dt = new Date(`${d.date}T12:00:00Z`), last = i === days.length - 1;
+        const ok = Math.max(0, d.present - d.late), weekend = [0, 6].includes(dt.getUTCDay());
+        return (
+          <g key={d.date}>
+            <title>{`${fmtDate(d.date)}: có mặt ${d.present}, đi muộn ${d.late}, bị từ chối ${d.rejected}`}</title>
+            {d.present ? <>
+              <rect x={x} y={y(ok)} width={bw} height={150 - y(ok)} rx="6" fill={last ? "var(--primary)" : "var(--accent)"} />
+              {d.late ? <rect x={x} y={y(d.present)} width={bw} height={Math.max(0, y(ok) - y(d.present) - 2)} rx="4" fill="var(--warn-fill)" /> : null}
+              <text x={x + bw / 2} y={y(d.present) - 6} textAnchor="middle" style={{ fill: "var(--ink)", fontWeight: 600 }}>{d.present}</text>
+            </> : weekend ? <text x={x + bw / 2} y="142" textAnchor="middle">nghỉ</text> : null}
+            <text x={x + bw / 2} y="168" textAnchor="middle" style={last ? { fill: "var(--brand-ink)", fontWeight: 700 } : undefined}>{WD[dt.getUTCDay()]}</text>
+            <text x={x + bw / 2} y="182" textAnchor="middle">{last ? "Hôm nay" : `${dt.getUTCDate()}/${dt.getUTCMonth() + 1}`}</text>
+          </g>
+        );
+      })}
     </svg>
   );
 }
 
+/* Nhóm trạng thái hôm nay giống tab Hôm nay của Chấm công */
+type Kind = "ok" | "late" | "leave" | "none" | "other";
+const kindOf = (r: TodayRow): Kind => r.leave?.half === "full" ? "leave" : r.clockIn ? (r.late ? "late" : "ok") : r.state === "not_started" || r.state === "absent" ? "none" : "other";
+const KIND_ORDER: Record<Kind, number> = { ok: 0, late: 1, leave: 2, none: 3, other: 4 };
+const KINDS: Array<[Kind, string]> = [["ok", "Đúng giờ"], ["late", "Đi muộn"], ["leave", "Nghỉ phép"], ["none", "Chưa vào ca"]];
+
+type Todo = { tone: "danger" | "warn" | "info"; icon: string; title: string; text: string; cta: string; href: string };
+
 export default function Overview() {
   const me = useMe();
-  const router = useRouter();
-  const { data: o, error, reload } = useApi<AdminOverview>("overview", { tables: ["attendance_events", "employee_devices", "employees"], tenantId: me.tenant.id });
+  const t = { tenantId: me.tenant.id };
+  const { data: o, error, reload } = useApi<AdminOverview>("overview", { tables: ["attendance_events", "employee_devices", "employees"], ...t });
   const att = can(me, "attendance.read");
-  /* Checklist thiết lập ban đầu chỉ nhắc người cấu hình được công ty */
-  const setup = useApi<SetupChecklist>(can(me, "tenant.settings.manage") ? "settings/checklist" : null).data;
-  const pct = o && o.activeEmployees ? `${((o.presentToday / o.activeEmployees) * 100).toLocaleString("vi-VN", { maximumFractionDigits: 1 })}%` : "—";
-  /* Đang tải: khung chờ thay cho "—" ở thẻ số liệu */
+  const { data: bd } = useApi<AttendanceBoard>(att ? "attendance/board" : null, { tables: ["attendance_events", "employee_devices"], ...t });
+  const { data: ts } = useApi<TimesheetBoard>(att ? "timesheets" : null);
+  const { data: rq } = useApi<RequestQueue>(can(me, "request.read") ? "requests?status=pending&pageSize=1" : null, { tables: ["requests", "approval_tasks"], ...t });
+  const { data: gaps } = useApi<ChecklistGaps>(can(me, "document.read") ? "checklist/gaps" : null);
+  const { data: setup } = useApi<SetupChecklist>(can(me, "tenant.settings.manage") ? "settings/checklist" : null);
   const wait = !o && !error ? <Skeleton w={56} h={24} /> : "—";
+  const s = bd?.summary;
+
+  /* Việc cần xử lý: chỉ việc có số > 0 và người xem có quyền; dữ liệu từ các endpoint sẵn có, xếp theo mức gấp */
+  const overdue = rq?.counts.overdue ?? 0, mine = rq?.counts.mine ?? 0, unexplained = ts?.metrics.unexplained ?? 0;
+  const all: Array<Todo | false | null | undefined> = [
+    overdue > 0 && { tone: "danger", icon: "checks", title: `${overdue} đơn quá hạn duyệt`, text: "Đã quá thời hạn xử lý của bước duyệt, nhân viên đang chờ.", cta: "Xem và duyệt", href: "/requests" },
+    mine > 0 && { tone: "warn", icon: "checks", title: `${mine} đơn đang chờ bạn duyệt`, text: "Nghỉ phép, làm thêm giờ, giải trình và các đơn khác.", cta: "Mở hộp duyệt", href: "/requests" },
+    (s?.notYet ?? 0) > 0 && { tone: "warn", icon: "clock", title: `${s!.notYet} người chưa vào ca hôm nay`, text: "Chưa có giờ vào và chưa có đơn nghỉ được duyệt.", cta: "Xem danh sách", href: "/attendance?tab=today&filter=none" },
+    unexplained > 0 && ts && { tone: "warn", icon: "calendar", title: `${num(unexplained)} ngày thiếu công chưa giải trình`, text: `Kỳ công ${ts.period.month.slice(5)}/${ts.period.month.slice(0, 4)} cần xử lý hết trước khi khóa kỳ.`, cta: "Mở bảng công", href: "/attendance?tab=month" },
+    (o?.devicesPending ?? 0) > 0 && att && { tone: "warn", icon: "phone", title: `${o!.devicesPending} thiết bị đang chờ duyệt`, text: "Nhân viên chưa chấm công được trên máy mới cho tới khi HR duyệt.", cta: "Duyệt thiết bị", href: "/attendance?tab=devices" },
+    (o?.notActivated ?? 0) > 0 && can(me, "employee.read") && { tone: "info", icon: "mail", title: `${o!.notActivated} nhân viên chưa kích hoạt tài khoản`, text: "Chưa kích hoạt thì chưa chấm công và gửi đơn trên điện thoại được.", cta: "Gửi lời mời", href: "/employees?account=pending" },
+    (gaps?.rows.length ?? 0) > 0 && { tone: "info", icon: "file", title: `${gaps!.rows.length} hồ sơ thiếu giấy tờ bắt buộc`, text: "Theo danh mục giấy tờ của công ty.", cta: "Xem hồ sơ thiếu", href: "/documents?tab=miss" },
+    setup && setup.done < setup.total && { tone: "info", icon: "settings", title: `Thiết lập ban đầu còn ${setup.total - setup.done} bước`, text: setup.steps.filter((x) => x.state === "todo" || x.state === "warn").map((x) => x.title.toLowerCase()).slice(0, 3).join(", ") + ".", cta: "Xem các bước", href: "/settings?tab=setup" },
+  ];
+  const todos = all.filter((x): x is Todo => !!x);
+  const todoLoading = !error && (!o || (att && (!bd || !ts)) || (can(me, "request.read") && !rq));
+
+  const rows = [...(bd?.rows ?? [])].sort((a, b) => KIND_ORDER[kindOf(a)] - KIND_ORDER[kindOf(b)]);
+  const count = (k: Kind) => rows.filter((r) => kindOf(r) === k).length;
+  const attn = rows.filter((r) => ["late", "none"].includes(kindOf(r))).sort((a, b) => (kindOf(a) === "none" ? -1 : 1) - (kindOf(b) === "none" ? -1 : 1));
+  const DOT: Record<Kind, string> = { ok: "var(--accent)", late: "var(--warn-fill)", leave: "var(--t-np-fill)", none: "var(--red)", other: "var(--track)" };
 
   return (
     <section className="page active">
@@ -51,56 +86,72 @@ export default function Overview() {
           <span className="banner-icon"><Icon name="shield" /></span>
           <span className="banner-copy"><b>Công ty chỉ có {me.tenantAdminCount} quản trị viên</b><span>Nên có ít nhất 2 quản trị viên công ty để không mất quyền quản trị khi một người nghỉ hoặc mất tài khoản.</span></span>
         </div>
-      ) : setup && setup.done < setup.total ? (
-        <div className="banner">
-          <span className="banner-icon"><Icon name="checks" /></span>
-          <span className="banner-copy"><b>Thiết lập ban đầu: đã xong {setup.done}/{setup.total} bước</b><span>Còn: {setup.steps.filter((s) => s.state === "todo" || s.state === "warn").map((s) => s.title.toLowerCase()).slice(0, 3).join(", ")}.</span></span>
-          <Link className="btn" href="/settings?tab=setup">Xem checklist <Icon name="arrow" /></Link>
-        </div>
-      ) : o && o.devicesPending > 0 ? (
-        <div className="banner soft-warn">
-          <span className="banner-icon"><Icon name="phone" /></span>
-          <span className="banner-copy"><b>{o.devicesPending} thiết bị đang chờ duyệt</b><span>Nhân viên chưa chấm công được trên máy mới cho tới khi HR duyệt.</span></span>
-          <Link className="btn" href="/attendance?tab=devices">Duyệt thiết bị <Icon name="arrow" /></Link>
-        </div>
       ) : null}
 
       <div className="grid metrics">
-        <article className="card metric-card"><span className="metric-icon"><Icon name="users" /></span><span className="metric-copy"><span>Nhân sự hoạt động</span><strong className="num">{o ? num(o.activeEmployees) : wait}</strong><small>{o ? <><b className="delta down">{o.notActivated}</b> chưa kích hoạt</> : " "}</small></span></article>
-        <article className="card metric-card"><span className="metric-icon blue"><Icon name="clock" /></span><span className="metric-copy"><span>Có mặt hôm nay</span><strong className="num">{o && att ? num(o.presentToday) : wait}</strong><small>{att ? <><b className="delta">{pct}</b> tổng nhân sự</> : "Không có quyền xem chấm công"}</small></span></article>
-        <article className="card metric-card"><span className="metric-icon amber"><Icon name="alert" /></span><span className="metric-copy"><span>Đi muộn hôm nay</span><strong className="num">{o && att ? num(o.lateToday) : wait}</strong><small>Theo ca, đã trừ ân hạn</small></span></article>
-        <article className="card metric-card"><span className="metric-icon violet"><Icon name="pin" /></span><span className="metric-copy"><span>Bị từ chối hôm nay</span><strong className="num">{o && att ? num(o.rejectedToday) : wait}</strong><small>Ngoài vùng, GPS kém</small></span></article>
+        <Link href="/employees" className="card metric-card"><span className="metric-icon"><Icon name="users" /></span><span className="metric-copy"><span>Nhân sự đang làm việc</span><strong className="num">{o ? num(o.activeEmployees) : wait}</strong><small>{o ? `${num(o.notActivated)} chưa kích hoạt app` : " "}</small></span></Link>
+        {att ? <Link href="/attendance?tab=today" className="card metric-card"><span className="metric-icon"><Icon name="clock" /></span><span className="metric-copy"><span>Có mặt hôm nay</span><strong className="num">{s ? <>{num(s.present)}<small>/{num(s.inScope)}</small></> : wait}</strong><small>{s ? <>{num(s.onLeave)} nghỉ phép<i className="vs" />{num(s.notYet)} chưa vào ca</> : " "}</small></span></Link> : null}
+        {att ? <Link href="/attendance?tab=today&filter=late" className="card metric-card"><span className="metric-icon"><Icon name="alert" /></span><span className="metric-copy"><span>Đi muộn hôm nay</span><strong className={`num ${o?.lateToday ? "tone-warn" : ""}`}>{o ? num(o.lateToday) : wait}</strong><small>Sau giờ vào ca + ân hạn</small></span></Link> : null}
+        {rq ? <Link href="/requests" className="card metric-card"><span className="metric-icon"><Icon name="checks" /></span><span className="metric-copy"><span>Đơn chờ bạn duyệt</span><strong className={`num ${overdue ? "tone-danger" : ""}`}>{num(mine)}</strong><small>{overdue ? `${num(overdue)} đơn đã quá hạn` : "Không có đơn quá hạn"}</small></span></Link> : null}
       </div>
 
-      {att ? (
-        <div className="grid two-one">
-          <article className="card chart-card">
-            <div className="card-head no-line"><div><h3>Có mặt & đi muộn</h3><p>7 ngày gần nhất · trong phạm vi của bạn</p></div><div className="card-actions"><span className="chart-legend"><span><i className="green" />Có mặt</span><span><i className="dark" />Đi muộn</span></span></div></div>
-            <div className="chart-wrap">{o ? <PresenceChart days={o.days} /> : !error ? <Skeleton w="100%" h={220} /> : null}</div>
-          </article>
-          <div className="mini-stack">
-            <Link href="/attendance?tab=devices" className="card mini-stat" style={{ textDecoration: "none", color: "inherit" }}><span className="metric-icon amber"><Icon name="phone" /></span><span className="metric-copy"><span>Thiết bị chờ duyệt</span><strong className="num">{o?.devicesPending ?? wait}</strong><small>Cần HR duyệt</small></span></Link>
-            <Link href="/attendance?tab=rejected" className="card mini-stat" style={{ textDecoration: "none", color: "inherit" }}><span className="metric-icon red"><Icon name="alert" /></span><span className="metric-copy"><span>Bản ghi bị từ chối</span><strong className="num">{o?.rejectedToday ?? wait}</strong><small>Hôm nay</small></span></Link>
-            <Link href="/employees?account=pending" className="card mini-stat" style={{ textDecoration: "none", color: "inherit" }}><span className="metric-icon"><Icon name="mail" /></span><span className="metric-copy"><span>Chưa kích hoạt</span><strong className="num">{o?.notActivated ?? wait}</strong><small>Gửi lại lời mời</small></span></Link>
-          </div>
-        </div>
-      ) : null}
-
-      {can(me, "employee.read") ? (
+      <div className="grid two-one">
         <article className="card">
-          <div className="card-head"><div><h3>Nhân viên mới thêm</h3><p>5 hồ sơ gần nhất trong phạm vi của bạn</p></div><Link className="btn small" href="/employees">Xem tất cả</Link></div>
-          {o && !o.recentEmployees.length ? <Empty title="Chưa có nhân viên" /> : (
-            <div className="table-wrap"><table className="data-table"><thead><tr><th>Nhân viên</th><th>Phòng ban</th><th>Ngày vào làm</th><th>Tài khoản</th></tr></thead><tbody>
-              {!o && !error ? <SkeletonRows cols={4} rows={5} person /> : null}
-              {(o?.recentEmployees ?? []).map((e) => (
-                <tr key={e.id} className="clickable" onClick={() => router.push(`/employees/${e.id}`)}>
-                  <td><Person name={e.fullName} sub={e.code} /></td><td>{e.department?.name ?? "—"}</td><td>{fmtDate(e.hireDate)}</td><td><Status v={ACCOUNT[e.account]} /></td>
-                </tr>
-              ))}
-            </tbody></table></div>
-          )}
+          <div className="card-head"><h3>Việc cần xử lý</h3><span className="muted small-note">Sắp theo mức độ gấp</span></div>
+          {todoLoading ? <div className="card-body"><Skeleton w="100%" h={140} /></div>
+            : todos.length ? <div className="todo-list">{todos.map((x) => (
+              <Link key={x.title} href={x.href} className="todo-row">
+                <span className={`tile ${x.tone}`}><Icon name={x.icon} /></span>
+                <span className="todo-text"><b>{x.title}</b><span>{x.text}</span></span>
+                <span className={`btn small ${x.tone === "danger" ? "primary" : ""}`}>{x.cta}</span>
+              </Link>
+            ))}</div>
+              : <Empty title="Không có việc cần xử lý" text="Mọi thứ trong phạm vi của bạn đều ổn." />}
         </article>
-      ) : null}
+        {att ? (
+          <article className="card">
+            <div className="card-head"><h3>Chấm công hôm nay</h3><span className="muted small-note">{bd ? fmtDate(bd.date) : ""}</span></div>
+            <div className="card-body att-today">
+              {bd ? <>
+                <div className="att-dots" role="img" aria-label="Mỗi ô là một nhân viên">{rows.map((r) => <i key={r.employee.id} title={r.employee.fullName} style={{ background: DOT[kindOf(r)] }} />)}</div>
+                <div className="att-legend">{KINDS.map(([k, label]) => <div key={k} className="spread"><span className="att-key"><i style={{ background: DOT[k] }} />{label}</span><b className="num">{count(k)}</b></div>)}</div>
+                <div className="att-attn">
+                  <span className="cap">Cần chú ý</span>
+                  {attn.length ? attn.slice(0, 6).map((r) => (
+                    <Link key={r.employee.id} href={`/employees/${r.employee.id}`} className="spread att-person">
+                      <Person name={r.employee.fullName} sub={r.employee.department ?? r.employee.code} seed={r.employee.code} />
+                      {kindOf(r) === "late" ? <Status v={[`Đi muộn ${dur(r.clockIn!.lateMinutes)}`, "warn"]} /> : <Status v={["Chưa vào ca", "bad"]} />}
+                    </Link>
+                  )) : <span className="muted small-note">Không có ai cần chú ý.</span>}
+                  {attn.length > 6 ? <Link className="btn small" href="/attendance?tab=today">Xem tất cả {attn.length} người</Link> : null}
+                </div>
+              </> : <Skeleton w="100%" h={220} />}
+            </div>
+          </article>
+        ) : null}
+      </div>
+
+      <div className="grid two-one">
+        {att ? (
+          <article className="card">
+            <div className="card-head"><div><h3>Có mặt và đi muộn</h3><p>7 ngày gần nhất<i className="vs" />trong phạm vi của bạn</p></div>
+              <span className="legend"><span><i style={{ background: "var(--accent)" }} />Đúng giờ</span><span><i style={{ background: "var(--warn-fill)" }} />Đi muộn</span></span></div>
+            <div className="card-body">{o ? <PresenceChart days={o.days} /> : !error ? <Skeleton w="100%" h={190} /> : null}</div>
+          </article>
+        ) : null}
+        {can(me, "employee.read") ? (
+          <article className="card">
+            <div className="card-head"><div><h3>Nhân viên mới thêm</h3><p>5 hồ sơ gần nhất</p></div><Link className="btn small" href="/employees">Xem tất cả</Link></div>
+            {o && !o.recentEmployees.length ? <Empty title="Chưa có nhân viên" /> : (
+              <div className="todo-list">{!o && !error ? <div className="card-body"><Skeleton w="100%" h={160} /></div> : null}
+                {(o?.recentEmployees ?? []).map((e) => (
+                  <Link key={e.id} href={`/employees/${e.id}`} className="todo-row"><Person name={e.fullName} sub={e.department?.name ?? e.code} seed={e.code} /><span className="grow" /><span className="muted small-note">{fmtDate(e.hireDate)}</span></Link>
+                ))}
+              </div>
+            )}
+          </article>
+        ) : null}
+      </div>
     </section>
   );
 }

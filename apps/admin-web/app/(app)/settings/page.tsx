@@ -11,29 +11,47 @@ import {
 } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
 import { SupportPanel } from "../../_ui/support";
-import { PageActions, Empty, ErrorLine, Field, Icon, LoadError, Modal, SCOPE, Status, can, fmtDate, fmtDateTime, num, tenantToday, useAction, useMe } from "../../_ui/kit";
+import { PageActions, Empty, ErrorLine, Field, Icon, LoadError, Modal, MoreMenu, SCOPE, Status, can, fmtDate, fmtDateTime, num, tenantToday, useAction, useMe } from "../../_ui/kit";
 import { ReasonModal } from "../../_ui/reason-modal";
 import { Hint, Select, SkeletonRows } from "@kavor/web-ui";
 
 type Tab = "company" | "payroll" | "setup" | "rules" | "holidays" | "privacy" | "support";
-const TABS: Array<[Tab, string, string | null]> = [
-  ["company", "Doanh nghiệp", null], ["payroll", "Kỳ công & lương", null], ["setup", "Thiết lập ban đầu", null], ["rules", "Quy định", "policy.read"], ["holidays", "Ngày lễ", "policy.read"], ["privacy", "Dữ liệu cá nhân", "privacy.read"], ["support", "Hỗ trợ Kavor", "support_access.approve"],
+/* Menu dọc có nhóm như prototype v2 (PAGES['cai-dat']); perm null = ai vào trang cũng thấy */
+const MENU: Array<[string, Array<[Tab, string, string, string | null]>]> = [
+  ["Công ty", [["company", "Doanh nghiệp", "brief", null], ["setup", "Thiết lập ban đầu", "checks", null]]],
+  ["Chính sách", [["payroll", "Kỳ công & lương", "calendar", null], ["rules", "Quy định", "file", "policy.read"], ["holidays", "Ngày lễ", "plane", "policy.read"]]],
+  ["Khác", [["privacy", "Dữ liệu cá nhân", "lock", "privacy.read"], ["support", "Hỗ trợ Kavor", "help", "support_access.approve"]]],
 ];
 
 function SettingsPage() {
   const me = useMe();
   const router = useRouter();
   const params = useSearchParams();
-  const tabs = TABS.filter(([, , perm]) => !perm || can(me, perm));
-  const tab = tabs.find(([k]) => k === params.get("tab"))?.[0] ?? "company";
+  const menu = MENU.map(([g, items]) => [g, items.filter(([, , , perm]) => !perm || can(me, perm))] as const).filter(([, items]) => items.length);
+  const tab = menu.flatMap(([, items]) => items).find(([k]) => k === params.get("tab"))?.[0] ?? "company";
   const [action, setAction] = useState<ReactNode>(null);
+  const setupApi = useApi<SetupChecklist>("settings/checklist");
+  const setup = setupApi.data;
   return (
     <section className="page active">
-      <div className="page-head">
-        <div><div className="segmented" role="tablist">{tabs.map(([k, l]) => <button key={k} role="tab" aria-selected={tab === k} className={tab === k ? "active" : ""} onClick={() => { setAction(null); router.replace(`/settings?tab=${k}`, { scroll: false }); }}>{l}</button>)}</div></div>
-      </div>
       <PageActions>{action}</PageActions>
-      {tab === "company" || tab === "payroll" ? <Company key={tab} part={tab} setAction={setAction} /> : tab === "setup" ? <Setup /> : tab === "rules" ? <Rules setAction={setAction} /> : tab === "holidays" ? <Holidays setAction={setAction} /> : tab === "support" ? <SupportPanel /> : <Privacy setAction={setAction} />}
+      <div className="settings-layout">
+        <nav className="card setnav" aria-label="Mục cài đặt">
+          {menu.map(([g, items]) => (
+            <div key={g} className="setnav-group">
+              <div className="cap">{g}</div>
+              {items.map(([k, l, icon]) => (
+                <button key={k} className={tab === k ? "on" : ""} aria-current={tab === k ? "page" : undefined} onClick={() => { setAction(null); router.replace(`/settings?tab=${k}`, { scroll: false }); }}>
+                  <Icon name={icon} size={16} /><span className="grow">{l}</span>{k === "setup" && setup ? <span className="small-note num">{setup.done}/{setup.total}</span> : null}
+                </button>
+              ))}
+            </div>
+          ))}
+        </nav>
+        <div className="settings-body">
+          {tab === "company" || tab === "payroll" ? <Company key={tab} part={tab} setAction={setAction} /> : tab === "setup" ? <Setup api={setupApi} /> : tab === "rules" ? <Rules setAction={setAction} /> : tab === "holidays" ? <Holidays setAction={setAction} /> : tab === "support" ? <SupportPanel /> : <Privacy setAction={setAction} />}
+        </div>
+      </div>
     </section>
   );
 }
@@ -92,41 +110,41 @@ function Company({ setAction, part }: { setAction: SetAction; part: "company" | 
   return (
     <>
       {err ? <ErrorLine text={err} /> : null}
-      {part === "company" ? <>
-      <div className="split-panel">
+      {part === "company" ? <div className="settings-stack">
         <article className="card"><div className="card-head"><h3>Thông tin công ty</h3></div><div className="card-body"><div className="form-grid">
           <Field label="Tên hiển thị"><input value={f.displayName} onChange={set("displayName")} disabled={!manage} /></Field>
-          <Field label="Mã công ty"><input value={data.tenant.code} disabled /></Field>
+          <Field label="Mã công ty" note="Không đổi được"><input value={data.tenant.code} disabled /></Field>
           <Field label="Tên pháp lý"><input value={f.legalName} onChange={set("legalName")} disabled={!manage} placeholder="Công ty Cổ phần …" /></Field>
           <Field label="Mã số thuế"><input value={f.taxCode} onChange={set("taxCode")} disabled={!manage} inputMode="numeric" placeholder="10 chữ số" /></Field>
           <Field label="Múi giờ"><Select disabled value={data.tenant.timezone}><option>{data.tenant.timezone}</option></Select></Field>
           <Field label="Tiền tệ"><Select disabled value={data.tenant.currency}><option value={data.tenant.currency}>{data.tenant.currency === "VND" ? "VND — Việt Nam đồng" : data.tenant.currency}</option></Select></Field>
-          {/* Gói do Kavor gán (Kavor Console); nhân sự = hồ sơ chưa nghỉ việc */}
-          <Field label="Gói dịch vụ" hint="Do Kavor cấu hình theo hợp đồng" note={data.tenant.plan.employees >= data.tenant.plan.employeeLimit * NEAR_LIMIT_RATIO ? <span className="text-amber">Sắp hết chỗ — liên hệ Kavor để nâng gói</span> : undefined}>
-            <input disabled value={`${data.tenant.plan.name} · ${data.tenant.plan.employees.toLocaleString("vi-VN")}/${data.tenant.plan.employeeLimit.toLocaleString("vi-VN")} nhân sự`} /></Field>
         </div></div></article>
+        {/* Gói do Kavor gán (Kavor Console); nhân sự = hồ sơ chưa nghỉ việc */}
+        <article className="card"><div className="card-head"><h3>Gói dịch vụ<Hint text="Do Kavor cấu hình theo hợp đồng" /></h3></div><div className="card-body">
+          {(() => { const pl = data.tenant.plan, pct = Math.min(100, Math.round((pl.employees / Math.max(1, pl.employeeLimit)) * 100)), near = pl.employees >= pl.employeeLimit * NEAR_LIMIT_RATIO; return (
+            <div className="spread"><span><b>{pl.name}</b><span className="muted small-note" style={{ display: "block" }}>Đang dùng {pl.employees.toLocaleString("vi-VN")} trên {pl.employeeLimit.toLocaleString("vi-VN")} nhân sự{near ? <span className="text-amber"> · Sắp hết chỗ, liên hệ Kavor để nâng gói</span> : null}</span></span>
+              <span className={`progress ${near ? "amber" : ""}`} style={{ width: 200, ["--value" as string]: `${pct}%` }}><i /></span></div>
+          ); })()}
+        </div></article>
         <article className="card"><div className="card-head"><h3>Chính sách nền tảng</h3></div><div className="detail-list">
           <SwitchRow label="Web cho nhân viên" note="Theo gói dịch vụ · chưa mở" checked={p.employeeWeb} locked />
           <SwitchRow label="Bắt buộc xác thực hai lớp" note="Luôn bật với mọi tài khoản dùng web HR" checked={p.mfaRequired} locked />
           <SwitchRow label="Tự đồng bộ Google Sheets" note="Có khi bật module Tích hợp dữ liệu" checked={p.sheetsAutoSync} locked />
           <SwitchRow label="Xác nhận đã đọc bản tin quan trọng" note="Áp dụng khi bật module Bản tin" checked={f.newsReadReceipt} locked={!manage} onChange={(v) => setF({ ...f, newsReadReceipt: v })} />
         </div></article>
-      </div>
-      <div className="split-panel" style={{ marginTop: 16 }}>
         <article className="card"><div className="card-head"><h3>Thương hiệu<Hint text="Hiển thị trên app nhân viên. PNG, JPEG hoặc WebP, tối đa 2 MB." /></h3></div><div className="card-body">
           <div style={{ display: "grid", gridTemplateColumns: "120px 1fr", gap: 16, alignItems: "start" }}>
             <BrandImage kind="logo" version={data.branding.logoVersion} manage={manage} onSaved={setData} />
             <BrandImage kind="cover" version={data.branding.coverVersion} manage={manage} onSaved={setData} />
           </div>
         </div></article>
-        <article className="card"><div className="card-head"><h3>Liên hệ phòng Nhân sự<Hint text="Nhân viên thấy khi cần hỗ trợ (tài khoản bị khóa, lỗi hệ thống)." /></h3></div><div className="card-body"><div className="form-grid">
+        <article className="card"><div className="card-head"><h3>Liên hệ phòng Nhân sự<Hint text="Nhân viên thấy khi cần hỗ trợ (tài khoản bị khóa, lỗi hệ thống)." /></h3><span className="muted small-note">Hiện trên app của nhân viên</span></div><div className="card-body"><div className="form-grid">
           <Field label="Điện thoại"><input value={f.phone} onChange={set("phone")} disabled={!manage} inputMode="tel" placeholder="028 …" /></Field>
           <Field label="Email"><input type="email" value={f.email} onChange={set("email")} disabled={!manage} placeholder="hr@congty.vn" /></Field>
           <Field label="Giờ hỗ trợ" full><input value={f.hours} onChange={set("hours")} disabled={!manage} placeholder="8:00–17:00, thứ Hai – thứ Sáu" /></Field>
           <Field label="Ghi chú" full><input value={f.note} onChange={set("note")} disabled={!manage} placeholder="Ví dụ: ngoài giờ gọi trưởng ca" /></Field>
         </div></div></article>
-      </div>
-      </> : <div className="settings-stack">
+      </div> : <div className="settings-stack">
         <article className="card"><div className="card-head"><h3>Kỳ công</h3></div>
         <div className="card-body form-grid three"><Field label="Kỳ công bắt đầu ngày" note={(() => { const d = Number(f.periodStartDay); return d > 1 && d <= 28 ? `Ví dụ kỳ tháng 10: ${d}/09 – ${d - 1}/10. Kỳ đã khóa giữ nguyên.` : d === 1 ? "Theo tháng dương lịch." : "Từ 1 đến 28."; })()}>
           <input type="number" min={1} max={28} value={f.periodStartDay} onChange={set("periodStartDay")} disabled={!manage} />
@@ -206,34 +224,38 @@ function BrandImage({ kind, version, manage, onSaved }: { kind: BrandingKind; ve
 
 /* ---------- Thiết lập ban đầu ---------- */
 const STEP: Record<SetupStepState, [string, string]> = { done: ["Đã xong", ""], todo: ["Chưa xong", "warn"], warn: ["Nên xử lý", "bad"], unavailable: ["Sắp có", "muted"] };
-function Setup() {
-  const { data, error, reload } = useApi<SetupChecklist>("settings/checklist");
+function Setup({ api }: { api: ReturnType<typeof useApi<SetupChecklist>> }) {
+  const { data, error, reload } = api;
   if (error) return <LoadError error={error} retry={reload} />;
   if (!data) return null;
   const pct = Math.round((data.done / Math.max(1, data.total)) * 100);
+  const rows = data.steps.map((s, i) => ({ ...s, n: i + 1 }));
+  const left = rows.filter((s) => s.state !== "done"), ok = rows.filter((s) => s.state === "done");
+  const row = (s: (typeof rows)[number]) => {
+    const inner = <>
+      <span className={`tile s ${s.state === "done" ? "ok" : s.state === "warn" ? "warn" : ""}`}>{s.state === "done" ? <Icon name="check" /> : <b className="num small-note">{s.n}</b>}</span>
+      <span className="todo-text"><b>{s.title}</b><span>{s.detail}</span></span>
+      <Status v={STEP[s.state]} />{s.href ? <Icon name="chevR" size={16} /> : null}
+    </>;
+    return s.href ? <Link key={s.key} href={s.href} className="todo-row">{inner}</Link> : <div key={s.key} className="todo-row">{inner}</div>;
+  };
   return (
-    <article className="card">
-      <div className="card-head"><h3>Đã xong {data.done}/{data.total} bước</h3><b className="num">{pct}%</b></div>
-      <div className="card-body" style={{ paddingTop: 0 }}><span className="progress" style={{ display: "block", ["--value" as string]: `${pct}%` }}><i /></span></div>
-      <div className="detail-list">
-        {data.steps.map((s, i) => (
-          <div key={s.key} className="detail-row" style={{ gridTemplateColumns: "24px 1fr auto auto", minHeight: 52 }}>
-            <span className="num" style={{ fontSize: 12 }}>{i + 1}</span>
-            <span className="switch-copy"><b>{s.title}</b><small>{s.detail}</small></span>
-            <Status v={STEP[s.state]} />
-            {s.href ? <Link className="btn small" href={s.href}>Mở <Icon name="arrow" /></Link> : <span />}
-          </div>
-        ))}
-      </div>
-    </article>
+    <div className="settings-stack">
+      <article className="card tint setup-sum"><div className="spread"><b>Đã xong {data.done}/{data.total} bước</b><b className="num" style={{ color: "var(--brand-ink)" }}>{pct}%</b></div>
+        <span className="progress" style={{ display: "block", marginTop: 12, ["--value" as string]: `${pct}%` }}><i /></span></article>
+      {left.length ? <article className="card"><div className="card-head"><h3>Còn lại {left.length} bước</h3></div><div className="todo-list">{left.map(row)}</div></article> : null}
+      {ok.length ? <article className="card"><details className="done-steps"><summary className="spread"><h3>Đã hoàn tất {ok.length} bước</h3><Icon name="chevR" size={16} /></summary><div className="todo-list">{ok.map(row)}</div></details></article> : null}
+    </div>
   );
 }
 
 /* ---------- Quy định ---------- */
-const fieldText = (kind: RuleKind, config: RuleConfig) => RULE_KINDS[kind].fields.map((f) => {
+/* Tham số quy định hiển thị dạng thẻ số: nhãn bên trái, giá trị đậm bên phải */
+const fieldRows = (kind: RuleKind, config: RuleConfig): Array<[string, string]> => RULE_KINDS[kind].fields.map((f) => {
   const v = config[f.key] ?? f.default;
-  return f.type === "bool" ? `${f.label}: ${v ? "có" : "không"}` : `${f.label}: ${v} ${f.unit ?? ""}`.trim();
+  return [f.label, f.type === "bool" ? (v ? "Có" : "Không") : `${typeof v === "number" ? num(v) : v} ${f.unit ?? ""}`.trim()];
 });
+const Kv = ({ rows }: { rows: Array<[string, string]> }) => <div className="kv">{rows.map(([l, v]) => <div key={l}><span>{l}</span><b className="num">{v}</b></div>)}</div>;
 const ASSIGN_STATE: Record<PolicyAssignment["state"], [string, string]> = { active: ["Đang áp dụng", ""], scheduled: ["Sắp áp dụng", "info"], ended: ["Đã kết thúc", "muted"], cancelled: ["Đã hủy", "muted"] };
 
 function Rules({ setAction }: { setAction: SetAction }) {
@@ -252,16 +274,21 @@ function Rules({ setAction }: { setAction: SetAction }) {
   if (data && !data.length) return <Empty title="Chưa có quy định" text="Kavor tạo sẵn bộ mẫu khi tạo công ty." />;
   return (
     <>
-      <div className="grid two">
+      <div className="rules-grid">
         {(data ?? []).map((r) => {
           const live = r.assignments.filter((a) => a.state === "active" || a.state === "scheduled");
           return (
             <article key={r.id} className="card">
-              <div className="card-head"><div><h3>{RULE_KINDS[r.kind].label} · {r.name}<Hint text={RULE_KINDS[r.kind].description} /></h3><p>{r.code}</p></div>
-                <span className="row-actions">{r.active ? <Status v={["Đang dùng", ""]} /> : <Status v={["Ngừng dùng", "muted"]} />}</span></div>
+              <div className="card-head"><div><h3>{RULE_KINDS[r.kind].label} · {r.name}<Hint text={RULE_KINDS[r.kind].description} /></h3>
+                <div className="rule-meta">{r.active ? <Status v={["Đang dùng", ""]} /> : <Status v={["Ngừng dùng", "muted"]} />}<span className="tag">{r.code}</span>{r.current ? <span className="muted small-note">Phiên bản {r.current.versionNo}<i className="vs" />từ {fmtDate(r.current.effectiveFrom)}</span> : null}</div></div>
+                {manage ? <MoreMenu bare items={[
+                  { label: "Tạo phiên bản mới", icon: "plus", onClick: () => setForm({ rule: r, kind: r.kind }) },
+                  { label: "Áp dụng cho nhóm", icon: "users", onClick: () => setAssign(r) },
+                  { label: r.active ? "Ngừng dùng" : "Dùng lại", icon: r.active ? "x" : "refresh", danger: r.active, onClick: () => void run(r.id, () => call("PATCH", `rules/${r.id}`, { active: !r.active }), r.active ? "Đã ngừng dùng quy định" : "Đã dùng lại quy định").then(() => reload()) },
+                ]} /> : null}</div>
               <div className="card-body">
-                {r.current ? <ul className="version-list" style={{ marginTop: 0, color: "var(--ink)" }}>{fieldText(r.kind, r.current.config).map((t) => <li key={t}>{t}</li>)}</ul> : <p className="text-red" style={{ fontSize: 12 }}>Chưa có phiên bản hiệu lực hôm nay.</p>}
-                {r.next ? <p style={{ margin: "8px 0", fontSize: 12.5 }}><span className="status info">Từ {fmtDate(r.next.effectiveFrom)}</span> {fieldText(r.kind, r.next.config).join(" · ")}</p> : null}
+                {r.current ? <Kv rows={fieldRows(r.kind, r.current.config)} /> : <p className="text-red" style={{ fontSize: 12 }}>Chưa có phiên bản hiệu lực hôm nay.</p>}
+                {r.next ? <div style={{ margin: "10px 0 0" }}><p style={{ margin: "0 0 4px", fontSize: 12.5 }}><span className="status info">Từ {fmtDate(r.next.effectiveFrom)}</span></p><Kv rows={fieldRows(r.kind, r.next.config)} /></div> : null}
                 <ul className="version-list">{r.versions.map((v) => <li key={v.id}>v{v.versionNo} · từ {fmtDate(v.effectiveFrom)}{v.note ? ` — ${v.note}` : ""}</li>)}</ul>
                 <div style={{ marginTop: 10, fontSize: 12 }}>
                   <b style={{ fontSize: 12, color: "var(--muted)", textTransform: "uppercase", letterSpacing: ".04em" }}>Áp dụng</b>
@@ -273,11 +300,6 @@ function Rules({ setAction }: { setAction: SetAction }) {
                     </div>
                   )) : <p className="muted" style={{ margin: "4px 0 0" }}>Chưa áp dụng cho ai.</p>}
                 </div>
-                {manage ? <div className="row-actions" style={{ justifyContent: "flex-start", marginTop: 10 }}>
-                  <button className="btn small" onClick={() => setForm({ rule: r, kind: r.kind })}>Phiên bản mới</button>
-                  <button className="btn small" onClick={() => setAssign(r)}>Áp dụng cho nhóm</button>
-                  <button className="btn small" onClick={() => run(r.id, () => call("PATCH", `rules/${r.id}`, { active: !r.active }), r.active ? "Đã ngừng dùng quy định" : "Đã dùng lại quy định").then(() => reload())}>{r.active ? "Ngừng dùng" : "Dùng lại"}</button>
-                </div> : null}
               </div>
             </article>
           );
@@ -389,7 +411,7 @@ function Holidays({ setAction }: { setAction: SetAction }) {
       ) : null}
       <article className="card">
         <div className="toolbar">
-          {[thisYear, thisYear + 1].map((y) => <button key={y} className={`filter-chip ${year === y ? "active" : ""}`} onClick={() => setYear(y)}>Năm {y}</button>)}
+          <div className="segmented">{[thisYear, thisYear + 1].map((y) => <button key={y} className={year === y ? "active" : ""} onClick={() => setYear(y)}>Năm {y}</button>)}</div>
           <span className="toolbar-spacer" />
           <span className="muted" style={{ fontSize: 12.5 }}>{data ? `${num(data.holidays.length)} ngày nghỉ · ${num(paidDays)} ngày hưởng lương` : ""}</span>
         </div>

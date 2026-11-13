@@ -1,9 +1,9 @@
 "use client";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState, type ReactNode } from "react";
-import type { AdminMe } from "@kavor/contracts";
-import { useRealtimeStatus } from "../_lib/client";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import type { AdminMe, RequestQueue, SetupChecklist } from "@kavor/contracts";
+import { useApi, useRealtimeStatus } from "../_lib/client";
 import { AccountMenu } from "../_ui/account-menu";
 import { Icon, MeContext, ToastProvider, can, longDate } from "../_ui/kit";
 import { NotificationBell } from "../_ui/notifications";
@@ -47,6 +47,13 @@ export function Shell({ me, children }: { me: AdminMe; children: ReactNode }) {
   useEffect(() => { try { setMini(localStorage.getItem("kavor.sidebarMini") === "1"); } catch { /* chặn lưu trữ: giữ mặc định */ } }, []);
   const toggleMini = () => { const v = !mini; setMini(v); try { localStorage.setItem("kavor.sidebarMini", v ? "1" : "0"); } catch { /* không nhớ được cũng không sao */ } };
   const live = useRealtimeStatus(me.tenant.id);
+  /* Số đơn chờ tôi duyệt (đếm đỏ ở mục Đơn & phê duyệt): chỉ lấy 1 dòng, cập nhật theo Realtime như trang đơn */
+  const mine = useApi<RequestQueue>(can(me, "request.read") ? "requests?status=pending&only=mine&pageSize=1" : null, { tables: ["requests", "approval_tasks"], tenantId: me.tenant.id }).data?.counts.mine ?? 0;
+  /* Tiến độ thiết lập ban đầu: chỉ người cấu hình được công ty; tải lại khi đổi trang (vừa lưu cài đặt xong) */
+  const setupApi = useApi<SetupChecklist>(can(me, "tenant.settings.manage") ? "settings/checklist" : null);
+  const setup = setupApi.data;
+  const lastPath = useRef(path);
+  useEffect(() => { if (lastPath.current !== path) { lastPath.current = path; void setupApi.reload(); } }, [path, setupApi]);
   const profile = path.startsWith("/employees/");
   const active = (href: string) => (href === "/" ? path === "/" : path.startsWith(href));
 
@@ -70,11 +77,21 @@ export function Shell({ me, children }: { me: AdminMe; children: ReactNode }) {
                   {items.map((it) => (
                     <Link key={it.href} href={it.href} title={it.label} className={`nav-item ${active(it.href) ? "active" : ""}`} onClick={() => setMenu(false)}>
                       <span className="nav-icon"><Icon name={it.icon} /></span><span className="nav-text">{it.label}</span>
+                      {it.href === "/requests" && mine > 0 ? <span className="nav-count" aria-label={`${mine} đơn chờ bạn duyệt`}>{mine}</span> : null}
                     </Link>
                   ))}
                 </div>
               );
             })}
+            {setup && setup.done < setup.total ? (
+              <div className="promo">
+                <div className="promo-top">
+                  <span className="promo-ring"><svg viewBox="0 0 44 44" aria-hidden="true"><circle cx="22" cy="22" r="18" /><circle className="val" cx="22" cy="22" r="18" strokeDasharray={`${((setup.done / setup.total) * 113.1).toFixed(1)} 113.1`} transform="rotate(-90 22 22)" /></svg><b>{setup.done}/{setup.total}</b></span>
+                  <span className="promo-text"><small>Thiết lập hệ thống</small><b>Còn {setup.total - setup.done} bước</b></span>
+                </div>
+                <Link className="promo-btn" href="/settings?tab=setup" onClick={() => setMenu(false)}>Xem các bước<Icon name="chevR" /></Link>
+              </div>
+            ) : null}
           </aside>
 
           <section className="app-main">

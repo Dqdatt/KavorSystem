@@ -2,9 +2,10 @@
 /* Đăng nhập web HR/Admin (thiết kế bổ sung theo phong cách prototype — prototype HR không có màn đăng nhập).
    Quản trị viên được mời lần đầu kích hoạt tài khoản ngay tại đây: mã nhân viên + email công ty → OTP → đặt mật khẩu.
    Sau mật khẩu luôn có bước xác thực hai lớp (TOTP): lần đầu quét mã QR bằng ứng dụng xác thực, các lần sau chỉ nhập mã. */
-import { Suspense, useCallback, useEffect, useState, type FormEvent } from "react";
+import { Suspense, useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { PasswordInput } from "@kavor/web-ui";
+import { Icon } from "../_ui/kit";
 import { ADMIN_ERRORS, passwordProblems, type ApiEnvelope, type MfaEnrollment, type MfaStatus } from "@kavor/contracts";
 
 class Failure extends Error { constructor(readonly code: string, message: string) { super(message); } }
@@ -60,63 +61,57 @@ function LoginForm() {
   }, []);
   useEffect(() => { if (mode === "mfa") void startMfa(); }, [mode, startMfa]);
 
+  const err = error ? <p className="lg-err" role="alert"><Icon name="alert" size={14} />{error}</p> : null;
+  const back = (to: "login") => <button type="button" className="lg-back" onClick={() => { setMode(to); setError(null); }}><Icon name="chevL" size={16} />Đăng nhập</button>;
   return (
-    <div className="login-wrap">
-      <div className="card login-card">
-        <div className="card-body" style={{ padding: 26 }}>
-          <div className="brand"><img src="/kavor-logo.svg" alt="Kavor" /><span className="brand-copy"><b>Kavor</b><small>Quản trị nhân sự</small></span></div>
+    <div className="lg-page">
+      {["a", "b", "c", "d", "e", "f"].map((k) => <i key={k} className={`lg-orb ${k}`} aria-hidden="true" />)}
+      <div className="lg-card">
+        <aside className="lg-side"><h2>Quản lý nhân sự gọn hơn</h2><p>Chấm công, nghỉ phép và lương trong một nơi.</p><img src="/login-art.svg" alt="" /></aside>
+        <section className="lg-fm">
+          <div className="lg-bd"><img src="/kavor-logo.svg" alt="" /><b>Kavor</b></div>
+          <div className="lg-box">
           {mode === "login" ? (
             <form onSubmit={(e) => run(e, async () => { await post("/api/auth/login", { identifier, password }); done(); })}>
-              <h2 style={{ margin: "0 0 4px", fontSize: 20 }}>Đăng nhập</h2>
-              <p className="muted" style={{ margin: "0 0 18px", fontSize: 13 }}>Dành cho quản trị viên, HR và quản lý của doanh nghiệp.</p>
-              <div className="form-grid" style={{ gridTemplateColumns: "1fr" }}>
-                <div className="field"><label htmlFor="id">Mã nhân viên hoặc email công ty</label><input id="id" autoComplete="username" value={identifier} onChange={(e) => setIdentifier(e.target.value)} required /></div>
-                <div className="field"><label htmlFor="pw">Mật khẩu</label><PasswordInput id="pw" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required /></div>
-              </div>
-              {error ? <p className="text-red" style={{ fontSize: 12.5 }}>{error}</p> : null}
-              <button className="btn primary block" style={{ marginTop: 16 }} disabled={busy}>{busy ? "Đang đăng nhập…" : "Đăng nhập"}</button>
-              <p className="muted" style={{ fontSize: 12.5, marginTop: 16, textAlign: "center" }}>
-                Được mời lần đầu? <a href="#" onClick={(e) => { e.preventDefault(); setMode("activate"); setError(null); }}>Kích hoạt tài khoản</a>
-              </p>
+              <h1>Chào mừng trở lại</h1>
+              <p className="lg-sub">Đăng nhập vào tài khoản của bạn</p>
+              <Fld id="id" label="Mã nhân viên hoặc email công ty" icon="user"><input id="id" placeholder="Mã nhân viên hoặc email" autoComplete="username" value={identifier} onChange={(e) => setIdentifier(e.target.value)} required /></Fld>
+              <Fld id="pw" label="Mật khẩu" icon="lock"><PasswordInput id="pw" placeholder="Mật khẩu" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required /></Fld>
+              <div className="lg-opt"><button type="button" className="lg-link" onClick={() => { setMode("activate"); setError(null); }}>Quên mật khẩu?</button></div>
+              {err}
+              <button className="btn primary lg-btn" disabled={busy}>{busy ? "Đang đăng nhập…" : "Đăng nhập"}</button>
+              <p className="lg-alt">Được mời lần đầu? <button type="button" className="lg-link strong" onClick={() => { setMode("activate"); setError(null); }}>Kích hoạt tài khoản</button></p>
             </form>
           ) : mode === "activate" ? (
             <form onSubmit={(e) => run(e, async () => {
               const r = await post<{ destination: string | null; email: string | null }>("/api/auth/activate/start", { employeeCode: code, email });
               setEmail(r.email ?? email); setInfo(`Đã gửi mã OTP tới ${r.destination ?? email}. Mã có hiệu lực 5 phút.`); setMode("otp");
             })}>
-              <h2 style={{ margin: "0 0 4px", fontSize: 20 }}>Kích hoạt tài khoản</h2>
-              <p className="muted" style={{ margin: "0 0 18px", fontSize: 13 }}>Nhập mã nhân viên và email công ty trong thư mời.</p>
-              <div className="form-grid" style={{ gridTemplateColumns: "1fr" }}>
-                <div className="field"><label htmlFor="code">Mã nhân viên</label><input id="code" value={code} onChange={(e) => setCode(e.target.value)} required /></div>
-                <div className="field"><label htmlFor="email">Email công ty</label><input id="email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required /></div>
-              </div>
-              {error ? <p className="text-red" style={{ fontSize: 12.5 }}>{error}</p> : null}
-              <button className="btn primary block" style={{ marginTop: 16 }} disabled={busy}>{busy ? "Đang gửi mã…" : "Gửi mã OTP"}</button>
-              <p className="muted" style={{ fontSize: 12.5, marginTop: 16, textAlign: "center" }}><a href="#" onClick={(e) => { e.preventDefault(); setMode("login"); setError(null); }}>Quay lại đăng nhập</a></p>
+              {back("login")}
+              <h1>Kích hoạt tài khoản</h1>
+              <p className="lg-sub">Nhập mã nhân viên và email công ty trong thư mời. Cũng dùng khi quên mật khẩu: Kavor gửi mã OTP để đặt mật khẩu mới.</p>
+              <Fld id="code" label="Mã nhân viên" icon="user"><input id="code" placeholder="Mã nhân viên" value={code} onChange={(e) => setCode(e.target.value)} required /></Fld>
+              <Fld id="email" label="Email công ty" icon="mail"><input id="email" type="email" placeholder="Email công ty" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required /></Fld>
+              {err}
+              <button className="btn primary lg-btn" disabled={busy}>{busy ? "Đang gửi mã…" : "Gửi mã OTP"}</button>
             </form>
           ) : mode === "mfa" ? (
             <form onSubmit={(e) => run(e, async () => {
               if (!mfa) return;
               await post("/api/auth/mfa/verify", { factorId: mfa.factorId, code: totp }); done();
             })}>
-              <h2 style={{ margin: "0 0 4px", fontSize: 20 }}>Xác thực hai lớp</h2>
+              <h1>Xác thực hai lớp</h1>
               {mfa?.enroll ? (
                 <>
-                  <p className="muted" style={{ margin: "0 0 14px", fontSize: 13 }}>Tài khoản quản trị bắt buộc dùng ứng dụng xác thực (Google Authenticator, Microsoft Authenticator, 1Password…). Quét mã dưới đây, rồi nhập mã 6 số ứng dụng hiển thị.</p>
-                  <div style={{ display: "grid", placeItems: "center", padding: 12, border: "1px solid var(--line)", borderRadius: 12, background: "#fff" /* QR luôn nền trắng để quét được cả ở theme tối */ }}>
-                    <img src={mfa.enroll.qrCode} alt="Mã QR liên kết ứng dụng xác thực" width={180} height={180} />
-                  </div>
-                  <p className="muted" style={{ fontSize: 12, margin: "10px 0 14px", wordBreak: "break-all" }}>Không quét được? Nhập khóa thủ công: <b style={{ color: "var(--ink)", fontFamily: "ui-monospace, monospace" }}>{mfa.enroll.secret}</b></p>
+                  <p className="lg-sub">Tài khoản quản trị bắt buộc dùng ứng dụng xác thực (Google Authenticator, Microsoft Authenticator, 1Password…). Quét mã dưới đây, rồi nhập mã 6 số ứng dụng hiển thị.</p>
+                  <div className="lg-qr"><img src={mfa.enroll.qrCode} alt="Mã QR liên kết ứng dụng xác thực" width={180} height={180} /></div>
+                  <p className="lg-hint">Không quét được? Nhập khóa thủ công: <b>{mfa.enroll.secret}</b></p>
                 </>
-              ) : <p className="muted" style={{ margin: "0 0 18px", fontSize: 13 }}>{mfa ? "Mở ứng dụng xác thực trên điện thoại và nhập mã 6 số của Kavor." : error ? "" : "Đang chuẩn bị…"}</p>}
-              <div className="form-grid" style={{ gridTemplateColumns: "1fr" }}>
-                <div className="field"><label htmlFor="totp">Mã xác thực (6 số)</label><input id="totp" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={totp} onChange={(e) => setTotp(e.target.value.replace(/\D/g, ""))} disabled={!mfa} autoFocus required /></div>
-              </div>
-              {error ? <p className="text-red" style={{ fontSize: 12.5 }}>{error}</p> : null}
-              <button className="btn primary block" style={{ marginTop: 16 }} disabled={busy || !mfa || totp.length !== 6}>{busy ? "Đang kiểm tra…" : "Xác nhận"}</button>
-              <p className="muted" style={{ fontSize: 12.5, marginTop: 16, textAlign: "center" }}>
-                Mất điện thoại? Nhờ quản trị viên khác đặt lại xác thực hai lớp. · <a href="/login?switch=1">Đăng nhập tài khoản khác</a>
-              </p>
+              ) : <p className="lg-sub">{mfa ? "Mở ứng dụng xác thực trên điện thoại và nhập mã 6 số của Kavor." : error ? "" : "Đang chuẩn bị…"}</p>}
+              <Fld id="totp" label="Mã xác thực (6 số)" icon="lock"><input id="totp" placeholder="Mã xác thực 6 số" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={totp} onChange={(e) => setTotp(e.target.value.replace(/\D/g, ""))} disabled={!mfa} autoFocus required /></Fld>
+              {err}
+              <button className="btn primary lg-btn" disabled={busy || !mfa || totp.length !== 6}>{busy ? "Đang kiểm tra…" : "Xác nhận"}</button>
+              <p className="lg-alt">Mất điện thoại? Nhờ quản trị viên khác đặt lại xác thực hai lớp. <a className="lg-link strong" href="/login?switch=1">Đăng nhập tài khoản khác</a></p>
             </form>
           ) : (
             <form onSubmit={(e) => run(e, async () => {
@@ -124,21 +119,26 @@ function LoginForm() {
               if (p.length) throw new Error(p.join(" "));
               await post("/api/auth/activate/verify", { email, code: otp.trim(), password: newPw }); done();
             })}>
-              <h2 style={{ margin: "0 0 4px", fontSize: 20 }}>Nhập mã và đặt mật khẩu</h2>
-              <p className="muted" style={{ margin: "0 0 18px", fontSize: 13 }}>{info}</p>
-              <div className="form-grid" style={{ gridTemplateColumns: "1fr" }}>
-                <div className="field"><label htmlFor="otp">Mã OTP (6 số)</label><input id="otp" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={otp} onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))} required /></div>
-                <div className="field"><label htmlFor="npw">Mật khẩu mới</label><PasswordInput id="npw" autoComplete="new-password" value={newPw} onChange={(e) => setNewPw(e.target.value)} required />
-                  <small>Ít nhất 8 ký tự, có chữ hoa và số, không chứa mã nhân viên.</small></div>
-              </div>
-              {error ? <p className="text-red" style={{ fontSize: 12.5 }}>{error}</p> : null}
-              <button className="btn primary block" style={{ marginTop: 16 }} disabled={busy}>{busy ? "Đang kích hoạt…" : "Kích hoạt và đăng nhập"}</button>
+              <h1>Nhập mã và đặt mật khẩu</h1>
+              <p className="lg-sub">{info}</p>
+              <Fld id="otp" label="Mã OTP (6 số)" icon="mail"><input id="otp" placeholder="Mã OTP 6 số" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={otp} onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))} required /></Fld>
+              <Fld id="npw" label="Mật khẩu mới" icon="lock"><PasswordInput id="npw" placeholder="Mật khẩu mới" autoComplete="new-password" value={newPw} onChange={(e) => setNewPw(e.target.value)} required /></Fld>
+              <p className="lg-hint">Ít nhất 8 ký tự, có chữ hoa và số, không chứa mã nhân viên.</p>
+              {err}
+              <button className="btn primary lg-btn" disabled={busy}>{busy ? "Đang kích hoạt…" : "Kích hoạt và đăng nhập"}</button>
             </form>
           )}
-        </div>
+          </div>
+        </section>
       </div>
+      <footer className="lg-legal"><span>© {new Date().getFullYear()} Kavor</span></footer>
     </div>
   );
+}
+
+/* Ô nhập có biểu tượng bên trái (như prototype v2); nhãn ẩn về mặt hiển thị nhưng vẫn cho trình đọc màn hình */
+function Fld({ id, label, icon, children }: { id: string; label: string; icon: string; children: ReactNode }) {
+  return <div className="lgf"><label htmlFor={id}>{label}</label><div className="lgi"><Icon name={icon} size={18} />{children}</div></div>;
 }
 
 export default function LoginPage() {

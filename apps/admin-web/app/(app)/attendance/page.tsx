@@ -47,7 +47,9 @@ const stateOf = (r: TodayRow): [string, string] => {
 
 function Today({ tz, tenantId }: { tz: string; tenantId: string }) {
   const [date, setDate] = useState(tenantToday(tz));
-  const [filter, setFilter] = useState<"all" | Key>("all");
+  /* ?filter= từ Tổng quan (việc cần xử lý) */
+  const initial = useSearchParams().get("filter");
+  const [filter, setFilter] = useState<"all" | Key>(initial && initial in ORDER ? (initial as Key) : "all");
   const [q, setQ] = useState("");
   const [open, setOpen] = useState<string | null>(null);
   const { data: b, error, reload } = useApi<AttendanceBoard>(`attendance/board?date=${date}`, { tables: ["attendance_events", "employee_devices", "leave_days"], tenantId });
