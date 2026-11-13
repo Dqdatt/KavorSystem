@@ -3,10 +3,10 @@
    Chỉ người có compensation.read thấy (Nhân sự vận hành, Quản trị viên công ty, Kế toán); quản lý trực tiếp không thấy.
    Mức lương là phiên bản theo ngày hiệu lực (không sửa bản cũ); người phụ thuộc tính giảm trừ theo tháng bắt đầu/kết thúc.
    Lương cứng (thỏa thuận lúc phỏng vấn) = lương cơ bản (đóng BH) + các khoản phụ cấp/thưởng trong danh mục của công ty. */
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import type { CompensationInput, CompensationVersion, DependentInput, EmployeeDependent, EmployeePay, EmploymentType, PayItemList, ProbationContract, TaxProfileInput } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
-import { EMPLOYMENT, ErrorLine, Field, Modal, fmtDate, fmtDateTime, tenantToday, useAction, useMe } from "../../_ui/kit";
+import { Dl, EMPLOYMENT, ErrorLine, Field, Icon, Modal, Section, fmtDate, fmtDateTime, tenantToday, useAction, useMe } from "../../_ui/kit";
 import { ReasonModal } from "../../_ui/reason-modal";
 import { money } from "../../_ui/request";
 import { Select, SkeletonLines } from "@kavor/web-ui";
@@ -25,25 +25,32 @@ export function EmployeePaySection({ employeeId, name }: { employeeId: string; n
   const c = p?.current;
   const type = (v: CompensationVersion | null | undefined) => EMPLOYMENT[v?.employmentType ?? p?.employmentType ?? "official"];
   return (
-    <div className="drawer-section">
-      <h4>Lương</h4>
+    <>
       {error ? <p className="text-red" style={{ fontSize: 12.5 }}>{error.message}</p> : !p ? <SkeletonLines lines={4} /> : (
-        <>
-          <div className="card detail-list">
-            <div className="detail-row"><span>Lương cứng</span><b>{c ? <>{money(c.baseSalary + c.allowance)} <span className="muted">· từ {fmtDate(c.effectiveFrom)}</span></> : <span className="text-red">Chưa nhập</span>}</b></div>
-            <div className="detail-row"><span>Lương cơ bản</span><b>{c ? money(c.baseSalary) : "—"}</b></div>
-            {c?.items.map((x) => <div key={x.itemId} className="detail-row"><span>{x.name}</span><b>{money(x.amount)}</b></div>)}
-            {c && !c.items.length && c.allowance ? <div className="detail-row"><span>Phụ cấp</span><b>{money(c.allowance)}</b></div> : null}
-            <div className="detail-row"><span>Lương đóng bảo hiểm</span><b>{c ? (c.insuranceSalary ? money(c.insuranceSalary) : "Lương cơ bản + các khoản có tính BH") : "—"}</b></div>
-            <div className="detail-row"><span>Tình trạng lao động</span><b>{type(c)}</b></div>
-            <div className="detail-row"><span>Mã số thuế cá nhân</span><b>{p.taxCode ?? <span className="muted">Chưa có</span>}</b></div>
-            <div className="detail-row"><span>Đoàn viên công đoàn</span><b>{p.unionMember ? "Có" : "Không"}</b></div>
-            {p.probationContract || type(c) === "Thử việc" ? <div className="detail-row"><span>Hình thức thử việc</span><b>{p.probationContract === "in_contract" ? "Trong HĐLĐ (đóng BH)" : p.probationContract === "separate" ? "Hợp đồng thử việc riêng" : "Theo quy chế công ty"}</b></div> : null}
-            {p.commitment08 || p.withholdingRequested ? <div className="detail-row"><span>Khấu trừ thuế 10%</span><b>{p.commitment08 ? "Có cam kết 08/CK-TNCN — không khấu trừ" : "Khấu trừ cả khi dưới ngưỡng (theo yêu cầu)"}</b></div> : null}
-            <div className="detail-row"><span>Người phụ thuộc</span><b>{p.activeDependents ? `${p.activeDependents} người đang giảm trừ` : "Không"}</b></div>
-          </div>
-          {p.dependents.length ? (
-            <div className="card" style={{ marginTop: 10 }}><div className="table-wrap"><table className="data-table compact"><tbody>
+        <div className="grid two top">
+          <Section title="Lương hiện tại" action={p.canManage ? <button className="btn small" onClick={() => setEdit("salary")}><Icon name="pay" />{c ? "Đổi lương" : "Nhập lương"}</button> : null}>
+            {c ? <>
+              <div className="receipt">
+                <div className="ln"><span>Lương cơ bản</span><b className="num">{money(c.baseSalary)}</b></div>
+                {c.items.map((x) => <div key={x.itemId} className="ln"><span>{x.name}</span><b className="num">{money(x.amount)}</b></div>)}
+                {!c.items.length && c.allowance ? <div className="ln"><span>Phụ cấp</span><b className="num">{money(c.allowance)}</b></div> : null}
+                <div className="ln total"><span>Lương cứng</span><span className="num">{money(c.baseSalary + c.allowance)}</span></div>
+              </div>
+              <p className="muted" style={{ fontSize: 12.5, margin: "10px 0 0" }}>Hiệu lực từ {fmtDate(c.effectiveFrom)}. Lương đóng bảo hiểm {c.insuranceSalary ? money(c.insuranceSalary) : "= lương cơ bản + các khoản có tính BH"}.</p>
+            </> : <p className="text-red" style={{ margin: 0 }}>Chưa nhập lương</p>}
+          </Section>
+          <div className="col-stack">
+            <Section title="Thuế và bảo hiểm" action={p.canManage ? <button className="btn small ghost" onClick={() => setEdit("tax")}>Thuế & công đoàn</button> : null}>
+              <Dl rows={[
+                ["Tình trạng lao động", type(c)],
+                ["Mã số thuế cá nhân", p.taxCode ?? <span className="muted">Chưa có</span>],
+                ["Đoàn viên công đoàn", p.unionMember ? "Có" : "Không"],
+                ...(p.probationContract || type(c) === "Thử việc" ? [["Hình thức thử việc", p.probationContract === "in_contract" ? "Trong HĐLĐ (đóng BH)" : p.probationContract === "separate" ? "Hợp đồng thử việc riêng" : "Theo quy chế công ty"] as [string, ReactNode]] : []),
+                ...(p.commitment08 || p.withholdingRequested ? [["Khấu trừ thuế 10%", p.commitment08 ? "Có cam kết 08/CK-TNCN — không khấu trừ" : "Khấu trừ cả khi dưới ngưỡng (theo yêu cầu)"] as [string, ReactNode]] : []),
+                ["Người phụ thuộc", p.activeDependents ? `${p.activeDependents} người đang giảm trừ` : "Không"],
+              ]} />
+              {p.dependents.length ? (
+            <div className="card" style={{ marginTop: 12 }}><div className="table-wrap"><table className="data-table compact"><tbody>
               {p.dependents.map((d) => (
                 <tr key={d.id}>
                   <td><b>{d.fullName}</b><div className="muted" style={{ fontSize: 12 }}>{d.relation}{d.birthDate ? ` · sinh ${fmtDate(d.birthDate)}` : ""}{d.taxCode ? ` · MST ${d.taxCode}` : ""}</div></td>
@@ -56,23 +63,17 @@ export function EmployeePaySection({ employeeId, name }: { employeeId: string; n
               ))}
             </tbody></table></div></div>
           ) : null}
-          <div className="row-actions" style={{ justifyContent: "flex-start", flexWrap: "wrap", marginTop: 10 }}>
-            {p.canManage ? <>
-              <button className="btn small" onClick={() => setEdit("salary")}>{c ? "Đổi lương" : "Nhập lương"}</button>
-              <button className="btn small" onClick={() => setEdit("tax")}>Thuế & công đoàn</button>
-              <button className="btn small" onClick={() => { setDep(null); setEdit("dep"); }}>Thêm người phụ thuộc</button>
-            </> : null}
-            {p.history.length > 1 ? <button className="btn small" onClick={() => setAll(!all)}>{all ? "Ẩn lịch sử lương" : `Lịch sử lương (${p.history.length} bản)`}</button> : null}
+              {p.canManage ? <button className="btn small ghost" style={{ marginTop: 12 }} onClick={() => { setDep(null); setEdit("dep"); }}><Icon name="plus" />Thêm người phụ thuộc</button> : null}
+            </Section>
+            {p.history.length ? <Section title="Lịch sử lương" action={p.history.length > 3 ? <button className="btn small ghost" onClick={() => setAll(!all)}>{all ? "Thu gọn" : `Xem cả ${p.history.length} bản`}</button> : null}>
+              <div className="tl">{(all ? p.history : p.history.slice(0, 3)).map((h) => (
+                <div key={h.effectiveFrom}><span className={`pt ${h.effectiveFrom === c?.effectiveFrom ? "done" : ""}`}>{h.effectiveFrom === c?.effectiveFrom ? <Icon name="check" size={12} /> : null}</span>
+                  <div style={{ fontSize: 13 }}>Từ {fmtDate(h.effectiveFrom)} · lương cứng {money(h.baseSalary + h.allowance)} (cơ bản {money(h.baseSalary)}{h.items.length ? h.items.map((x) => ` + ${x.name.toLowerCase()} ${money(x.amount)}`).join("") : h.allowance ? ` + phụ cấp ${money(h.allowance)}` : ""}){h.insuranceSalary ? ` · đóng BH ${money(h.insuranceSalary)}` : ""}
+                  {h.employmentType ? ` · ${EMPLOYMENT[h.employmentType]}` : ""}{h.note ? ` — ${h.note}` : ""} <span className="muted">(nhập {fmtDateTime(h.createdAt, me.tenant.timezone)})</span></div></div>
+              ))}</div>
+            </Section> : null}
           </div>
-          {p.history.length > 1 && all ? (
-            <div style={{ marginTop: 10 }}>
-              <ul className="version-list">{p.history.map((h) => (
-                <li key={h.effectiveFrom}>Từ {fmtDate(h.effectiveFrom)} · lương cứng {money(h.baseSalary + h.allowance)} (cơ bản {money(h.baseSalary)}{h.items.length ? h.items.map((x) => ` + ${x.name.toLowerCase()} ${money(x.amount)}`).join("") : h.allowance ? ` + phụ cấp ${money(h.allowance)}` : ""}){h.insuranceSalary ? ` · đóng BH ${money(h.insuranceSalary)}` : ""}
-                  {h.employmentType ? ` · ${EMPLOYMENT[h.employmentType]}` : ""}{h.note ? ` — ${h.note}` : ""} <span className="muted">(nhập {fmtDateTime(h.createdAt, me.tenant.timezone)})</span></li>
-              ))}</ul>
-            </div>
-          ) : null}
-        </>
+        </div>
       )}
       {edit === "salary" && p ? <CompensationModal title={`${c ? "Đổi" : "Nhập"} lương · ${name}`} current={c ?? null} fallbackType={p.employmentType} onClose={() => setEdit(null)}
         save={async (b) => setData(await call<EmployeePay>("POST", `employees/${employeeId}/pay/compensation`, b))} /> : null}
@@ -81,7 +82,7 @@ export function EmployeePaySection({ employeeId, name }: { employeeId: string; n
         save={async (b) => setData(await call<EmployeePay>("POST", `employees/${employeeId}/pay/dependents${dep ? `/${dep.id}` : ""}`, b))} /> : null}
       {remove ? <ReasonModal title={`Xóa người phụ thuộc ${remove.fullName}?`} label="Lý do (chỉ xóa khi nhập nhầm; hết giảm trừ thì sửa tháng kết thúc)" danger ok="Đã xóa người phụ thuộc"
         go={async (reason) => setData(await call<EmployeePay>("POST", `employees/${employeeId}/pay/dependents/${remove.id}/remove`, { reason }))} onClose={() => setRemove(null)} onDone={() => undefined} /> : null}
-    </div>
+    </>
   );
 }
 

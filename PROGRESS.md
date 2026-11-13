@@ -10,6 +10,17 @@ simulator hay iPhone** vì phiên cloud không có Mac). Người dùng giao "c�
 ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AGENT_PLAYBOOK.md`; kiểm tra toàn bộ bằng `bash tools/verify-all.sh`.
 
 ## Đã xong
+- Web HR v2 — P2 Nhân viên + Hồ sơ (13/11, Claude Desktop): hồ sơ thành **trang riêng `/employees/[id]`** (thẻ đầu avatar lớn + meta + hàng
+  "Cần bổ sung", tab như cũ; Tổng quan có thẻ Kỳ công hiện tại + Phép năm từ `timesheets/:id`, `leave/:id`; tab Lương = thẻ Lương hiện tại / Thuế
+  và bảo hiểm / Lịch sử lương; tab Giấy tờ dạng danh sách có vạch tiến độ). Link cũ `/employees?id=` tự chuyển. Danh sách: chip lọc nhanh có số
+  đếm, nhóm theo phòng ban bật/tắt, chọn nhiều để gửi lời mời, cột thâm niên + giấy tờ, chỉ hiện trạng thái ngoại lệ. Đã thử trên trình duyệt
+  (1440 px, 390 px không tràn), đánh dấu giấy tờ đã nộp chạy. verify-all --quick đạt.
+- Web HR v2 — P0 + P1 (13/11, Claude Desktop — người dùng gửi thiết kế mới `Kavor HR Admin Prototype v2.html`): kế hoạch
+  `docs/plans/web-hr-v2.md` (ghép từng trang prototype ↔ route ↔ dữ liệu API, phần cần API mới để P3). Nền chung: font **Plus Jakarta Sans** tự host
+  (latin + vietnamese, thay Montserrat cho web HR và Console), token màu/bo góc/nút/ô nhập/bảng/tab/thẻ/hộp thoại theo prototype (giữ tên class
+  và biến cũ), ngăn kéo thành hộp thoại giữa màn hình; thanh bên trắng có nút thu gọn, thêm "Cài đặt doanh nghiệp"; nút tài khoản = tên + vai trò;
+  chân trang có trạng thái cập nhật trực tiếp. Đã xem trên trình duyệt (1440 px sáng/tối, thu gọn, 390 px: không tràn ngang, không chữ < 12px);
+  Console mới xem trang đăng nhập. Bố cục bên trong từng trang chưa đổi (P2).
 - Bố cục web HR vòng 2 (11/11, Claude Desktop — phản hồi: nhiều trang có hàng chỉ 2 nút bên phải, bên trái trống): nút hành động của trang
   lên **topbar** cạnh tên trang (`PageActions` ở `app/_ui/kit.tsx`, portal vào `#page-actions`; điện thoại xuống hàng 2 của topbar) — áp cho
   Nhân viên, Cơ cấu, Chấm công (Bảng công), Ca & địa điểm, Nghỉ phép, Đơn, Lương (kỳ lương, đầu vào, khoản phụ cấp), Tài liệu, Bản tin, Vai trò,

@@ -18,9 +18,9 @@ export function Icon({ name, size, className }: { name: string; size?: number; c
 export const initials = (name: string) => { const p = name.trim().split(/\s+/); return ((p.length > 1 ? p[0]![0]! : "") + p[p.length - 1]![0]!).toUpperCase(); };
 const TONES = ["", "purple", "gold"] as const;
 export const avatarTone = (seed: string) => TONES[[...seed].reduce((a, c) => a + c.charCodeAt(0), 0) % TONES.length];
-export function Avatar({ name, seed }: { name: string; seed?: string }) { return <span className={`avatar ${avatarTone(seed ?? name)}`}>{initials(name)}</span>; }
-export function Person({ name, sub, seed }: { name: string; sub?: ReactNode; seed?: string }) {
-  return <span className="person"><Avatar name={name} seed={seed} /><span className="person-copy"><b>{name}</b>{sub ? <span>{sub}</span> : null}</span></span>;
+export function Avatar({ name, seed, xl }: { name: string; seed?: string; xl?: boolean }) { return <span className={`avatar ${xl ? "xl " : ""}${avatarTone(seed ?? name)}`}>{initials(name)}</span>; }
+export function Person({ name, sub, seed, badge }: { name: string; sub?: ReactNode; seed?: string; badge?: ReactNode }) {
+  return <span className="person"><Avatar name={name} seed={seed} /><span className="person-copy"><b>{name}{badge ? <> {badge}</> : null}</b>{sub ? <span>{sub}</span> : null}</span></span>;
 }
 
 export const fmtDate = (d: string | null | undefined) => (d ? d.slice(0, 10).split("-").reverse().join("/") : "—");
@@ -41,6 +41,16 @@ export function longDate(date: string) {
   return `${wd}, ${d.getUTCDate()} tháng ${d.getUTCMonth() + 1}, ${d.getUTCFullYear()}`;
 }
 export const tenantToday = (tz: string) => new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+/* Thâm niên từ ngày vào làm tới hôm nay (cả hai dạng YYYY-MM-DD): "x năm y tháng" / "y tháng" / "dưới 1 tháng" */
+export function tenure(hireDate: string, today: string) {
+  const [hy, hm, hd] = hireDate.slice(0, 10).split("-").map(Number) as [number, number, number];
+  const [ty, tm, td] = today.split("-").map(Number) as [number, number, number];
+  const total = (ty - hy) * 12 + (tm - hm) - (td < hd ? 1 : 0);
+  if (total < 0) return "Chưa đến ngày vào làm";
+  if (total < 1) return "dưới 1 tháng";
+  const y = Math.floor(total / 12), m = total % 12;
+  return [y ? `${y} năm` : "", m ? `${m} tháng` : ""].filter(Boolean).join(" ");
+}
 export const ago = (iso: string | null) => {
   if (!iso) return "—";
   const m = Math.round((Date.now() - Date.parse(iso)) / 60000);
@@ -179,3 +189,10 @@ export function Phrases({ text }: { text: string | null | undefined }) {
   return <>{parts.map((t, i) => <Fragment key={i}><span className="phrase">{t.replace(/(\d) (?=[a-zA-Zđ%₫])/g, "$1\u00a0")}</span>{i < parts.length - 1 ? " " : null}</Fragment>)}</>;
 }
 
+/* Khối khóa–giá trị và thẻ có tiêu đề (web HR v2) */
+export function Dl({ rows }: { rows: Array<[string, ReactNode]> }) {
+  return <div className="dl">{rows.map(([k, v], i) => <Fragment key={i}><div className="k">{k}</div><div className="v">{v}</div></Fragment>)}</div>;
+}
+export function Section({ title, action, children }: { title: string; action?: ReactNode; children: ReactNode }) {
+  return <section className="card"><div className="card-head"><h3>{title}</h3>{action}</div><div className="card-body">{children}</div></section>;
+}

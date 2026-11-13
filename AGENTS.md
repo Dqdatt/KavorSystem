@@ -17,7 +17,7 @@
 
 - Monorepo pnpm/Turborepo: `apps/admin-web` và `apps/console-web` là Next.js; `apps/mobile` là Expo/React Native; `apps/api` là backend TypeScript; `packages/contracts` chứa contract dùng chung; `packages/web-ui` chứa UI web dùng chung; `supabase/` chứa cấu hình/migration PostgreSQL.
 - Quyết định kiến trúc ở `docs/adr/`. ADR 0001: Kavor cấp Tenant Admin, chính sách nghiệp vụ có tầng (công ty → nhóm → cá nhân) + phiên bản/ngày hiệu lực, tra theo ngày chứ không sao chép vào nhân viên; luật nhà nước do Kavor duy trì. Không thêm giá trị nghiệp vụ cứng mới vào mobile/web — đọc từ API. Phần HR cần quản lý và thứ tự module: `docs/HR_COVERAGE_AUDIT.md`.
-- Prototype mobile chuẩn để đối chiếu là `Kavor HRM Prototype.html`. Deep link mobile dùng scheme `kavor://`.
+- Prototype mobile chuẩn để đối chiếu là `Kavor HRM Prototype.html`; web HR là `Kavor HR Admin Prototype v2.html` (kế hoạch áp dụng: `docs/plans/web-hr-v2.md`). Deep link mobile dùng scheme `kavor://`.
 - Kavor là SaaS quản trị nhân sự cho doanh nghiệp, không phải dịch vụ đăng ký kinh doanh. Payroll phải cấu hình theo tenant; không phát triển chữ ký số. Supabase/PostgreSQL là nguồn dữ liệu vận hành; Google Sheets chỉ là nguồn import/chuyển đổi.
 
 ## Lệnh chính
@@ -44,9 +44,9 @@ pnpm build
 - Trước khi chốt UI, chụp và đối chiếu từng route/state prototype với native trên kích thước iPhone 11; trạng thái chưa triển khai phải được ghi rõ, không được bỏ khỏi checklist.
 - Web HR/Admin và Kavor Console dùng layout full-page, tránh lặp title/header và tối ưu mật độ thông tin.
 - Web: CSS dùng chung một nguồn `packages/web-ui/src/kavor.css` (màu là biến, theme sáng/tối qua `<html data-theme>`, không có thuộc tính =
-  theo hệ điều hành; Montserrat tự host) — không viết mã màu cứng trong trang, không tạo CSS riêng cho từng web. Dropdown dùng `Select` của
+  theo hệ điều hành; Plus Jakarta Sans tự host ở `packages/web-ui/fonts`, mobile vẫn Montserrat) — không viết mã màu cứng trong trang, không tạo CSS riêng cho từng web. Dropdown dùng `Select` của
   `@kavor/web-ui` (không dùng `<select>` gốc); tên trang chỉ ở topbar (page-head không có h2). Giải thích dùng ⓘ (`Field hint`, `Hint` của `@kavor/web-ui`), `Field note` chỉ cho cảnh báo/kết quả cần luôn thấy; chữ tối thiểu
-  12px. Cài đặt doanh nghiệp, giao diện và Đăng xuất nằm trong menu tài khoản góc trên phải (`app/_ui/account-menu.tsx`), không đặt ở thanh bên. Nút hành động của trang dùng `PageActions` (hiện trên topbar), không tạo page-head chỉ có nút. Chữ hiển thị theo bảng từ Việt hóa trong
+  12px. Giao diện và Đăng xuất nằm trong menu tài khoản góc trên phải (`app/_ui/account-menu.tsx`); Cài đặt doanh nghiệp có cả ở thanh bên (nhóm Hệ thống) lẫn menu tài khoản (thiết kế v2). Nút hành động của trang dùng `PageActions` (hiện trên topbar), không tạo page-head chỉ có nút. Chữ hiển thị theo bảng từ Việt hóa trong
   `docs/plans/web-ui-polish.md` (tenant → công ty/doanh nghiệp, Tenant Admin → quản trị viên công ty…); mã kỹ thuật giữ nguyên.
 
 ## Cạm bẫy

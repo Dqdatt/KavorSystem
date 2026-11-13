@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { AdminOverview, OverviewDay, SetupChecklist } from "@kavor/contracts";
 import { useApi } from "../_lib/client";
 import { ACCOUNT, Empty, Icon, LoadError, Person, Status, can, fmtDate, num, useMe } from "../_ui/kit";
@@ -33,6 +34,7 @@ function PresenceChart({ days }: { days: OverviewDay[] }) {
 
 export default function Overview() {
   const me = useMe();
+  const router = useRouter();
   const { data: o, error, reload } = useApi<AdminOverview>("overview", { tables: ["attendance_events", "employee_devices", "employees"], tenantId: me.tenant.id });
   const att = can(me, "attendance.read");
   /* Checklist thiết lập ban đầu chỉ nhắc người cấu hình được công ty */
@@ -91,7 +93,7 @@ export default function Overview() {
             <div className="table-wrap"><table className="data-table"><thead><tr><th>Nhân viên</th><th>Phòng ban</th><th>Ngày vào làm</th><th>Tài khoản</th></tr></thead><tbody>
               {!o && !error ? <SkeletonRows cols={4} rows={5} person /> : null}
               {(o?.recentEmployees ?? []).map((e) => (
-                <tr key={e.id} className="clickable" onClick={() => { location.href = `/employees?id=${e.id}`; }}>
+                <tr key={e.id} className="clickable" onClick={() => router.push(`/employees/${e.id}`)}>
                   <td><Person name={e.fullName} sub={e.code} /></td><td>{e.department?.name ?? "—"}</td><td>{fmtDate(e.hireDate)}</td><td><Status v={ACCOUNT[e.account]} /></td>
                 </tr>
               ))}

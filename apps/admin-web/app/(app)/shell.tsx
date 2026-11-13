@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import type { AdminMe } from "@kavor/contracts";
 import { useRealtimeStatus } from "../_lib/client";
 import { AccountMenu } from "../_ui/account-menu";
@@ -27,7 +27,10 @@ const NAV: Array<{ label?: string; items: NavItem[] }> = [
     { href: "/documents", label: "Tài liệu", icon: "file", perm: "document.read" },
     { href: "/announcements", label: "Bản tin", icon: "news", perm: "announcement.publish" },
   ] },
-  { label: "Hệ thống", items: [{ href: "/roles", label: "Vai trò & phân quyền", icon: "shield", perm: "role.read" }] },
+  { label: "Hệ thống", items: [
+    { href: "/roles", label: "Vai trò & phân quyền", icon: "shield", perm: "role.read" },
+    { href: "/settings", label: "Cài đặt doanh nghiệp", icon: "settings", perm: ["policy.read", "tenant.settings.manage"] },
+  ] },
 ];
 const TITLES: Record<string, string> = { "/": "Tổng quan", "/employees": "Nhân viên", "/attendance": "Chấm công", "/schedules": "Ca & địa điểm", "/settings": "Cài đặt doanh nghiệp", "/requests": "Đơn & phê duyệt", "/leave": "Nghỉ phép", "/payroll": "Lương & tạm ứng", "/announcements": "Bản tin", "/documents": "Tài liệu", "/organization": "Cơ cấu tổ chức", "/roles": "Vai trò & phân quyền" };
 
@@ -40,17 +43,22 @@ export function Shell({ me, children }: { me: AdminMe; children: ReactNode }) {
   const router = useRouter();
   const [menu, setMenu] = useState(false);
   const [q, setQ] = useState("");
+  const [mini, setMini] = useState(false);
+  useEffect(() => { try { setMini(localStorage.getItem("kavor.sidebarMini") === "1"); } catch { /* chặn lưu trữ: giữ mặc định */ } }, []);
+  const toggleMini = () => { const v = !mini; setMini(v); try { localStorage.setItem("kavor.sidebarMini", v ? "1" : "0"); } catch { /* không nhớ được cũng không sao */ } };
   const live = useRealtimeStatus(me.tenant.id);
+  const profile = path.startsWith("/employees/");
   const active = (href: string) => (href === "/" ? path === "/" : path.startsWith(href));
 
   return (
     <MeContext.Provider value={me}>
-      <main className={`app-shell full ${menu ? "menu-open" : ""}`}>
+      <main className={`app-shell full ${menu ? "menu-open" : ""} ${mini ? "mini" : ""}`}>
         <ToastProvider>
           <aside className="sidebar" aria-label="Điều hướng HR">
             <div className="brand">
               <img src="/kavor-logo.svg" alt="Kavor" />
-              <span className="brand-copy"><b>Kavor</b><small>Quản trị nhân sự</small></span>
+              <span className="brand-copy"><b>Kavor</b></span>
+              <button className="mini-toggle" onClick={toggleMini} aria-label={mini ? "Mở rộng thanh bên" : "Thu gọn thanh bên"} title={mini ? "Mở rộng thanh bên" : "Thu gọn thanh bên"}><Icon name="panel" /></button>
               <button className="collapse-btn" onClick={() => setMenu(false)} aria-label="Đóng menu">‹</button>
             </div>
             {NAV.map((g, i) => {
@@ -60,7 +68,7 @@ export function Shell({ me, children }: { me: AdminMe; children: ReactNode }) {
                 <div key={i}>
                   {g.label ? <div className="nav-label">{g.label}</div> : null}
                   {items.map((it) => (
-                    <Link key={it.href} href={it.href} className={`nav-item ${active(it.href) ? "active" : ""}`} onClick={() => setMenu(false)}>
+                    <Link key={it.href} href={it.href} title={it.label} className={`nav-item ${active(it.href) ? "active" : ""}`} onClick={() => setMenu(false)}>
                       <span className="nav-icon"><Icon name={it.icon} /></span><span className="nav-text">{it.label}</span>
                     </Link>
                   ))}
@@ -72,18 +80,24 @@ export function Shell({ me, children }: { me: AdminMe; children: ReactNode }) {
           <section className="app-main">
             <header className="topbar">
               <button className="icon-btn mobile-menu" onClick={() => setMenu(true)} aria-label="Mở menu"><Icon name="menu" /></button>
-              <div className="title-copy"><h1>{TITLES[path] ?? "Kavor HR"}</h1><span className="topbar-sub">{longDate(today(me.tenant.timezone))}</span></div>
+              <div className="title-copy"><h1>{profile ? "Hồ sơ nhân viên" : TITLES[path] ?? "Kavor HR"}</h1>
+                {profile ? <Link className="topbar-sub" href="/employees">← Nhân viên</Link> : <span className="topbar-sub">{longDate(today(me.tenant.timezone))}</span>}</div>
+              <div id="page-actions" className="page-actions" />
               {can(me, "employee.read") ? (
-                <label className="search"><Icon name="search" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Tìm nhân viên theo tên, mã hoặc email…"
+                <label className="search"><Icon name="search" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Tìm nhân viên…" aria-label="Tìm nhân viên theo tên, mã hoặc email"
                   onKeyDown={(e) => { if (e.key === "Enter" && q.trim()) router.push(`/employees?q=${encodeURIComponent(q.trim())}`); }} /></label>
-              ) : <span />}
+              ) : null}
               <div className="top-actions">
-                <div id="page-actions" className="page-actions" />
                 <NotificationBell />
-                <AccountMenu live={live} />
+                <AccountMenu />
               </div>
             </header>
             <div className="workspace"><SupportBanner />{children}</div>
+            <footer className="foot">
+              <span>© {new Date().getFullYear()} Kavor</span>
+              <span className="grow" />
+              <span className={`realtime-dot ${live ? "on" : ""}`}><i />{live ? "Đang cập nhật trực tiếp" : "Mất kết nối cập nhật"}</span>
+            </footer>
           </section>
         </ToastProvider>
       </main>

@@ -1,12 +1,12 @@
 "use client";
 /* Menu tài khoản ở góc trên phải (bấm tên doanh nghiệp): thông tin người đăng nhập + vai trò, doanh nghiệp, Cài đặt doanh nghiệp,
-   giao diện sáng/tối, trạng thái cập nhật trực tiếp và Đăng xuất. Thay cho khối cuối thanh bên (phản hồi người dùng 11/11). */
+   giao diện sáng/tối và Đăng xuất (trạng thái cập nhật trực tiếp nằm ở chân trang). Thay cho khối cuối thanh bên (phản hồi người dùng 11/11). */
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { ThemeSwitch } from "@kavor/web-ui";
 import { Icon, can, initials, scopeText, useMe } from "./kit";
 
-export function AccountMenu({ live }: { live: boolean }) {
+export function AccountMenu() {
   const me = useMe();
   const [open, setOpen] = useState(false);
   const box = useRef<HTMLDivElement>(null);
@@ -32,8 +32,7 @@ export function AccountMenu({ live }: { live: boolean }) {
     <div ref={box} className="account-wrap">
       <button className={`account-chip ${open ? "open" : ""}`} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(!open)}>
         <span className="avatar">{initials(me.fullName)}</span>
-        <span className="account-name">{me.tenant.name}</span>
-        <svg className="account-caret" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+        <span className="account-name"><b>{me.fullName}</b><small>{me.roles[0]?.name ?? me.tenant.name}</small></span>
       </button>
       {open ? (
         <div className="card account-pop" role="menu" aria-label="Tài khoản">
@@ -56,7 +55,6 @@ export function AccountMenu({ live }: { live: boolean }) {
           {support ? <Link role="menuitem" className="account-item" href="/settings?tab=support" onClick={done}><Icon name="help" />Hỗ trợ Kavor</Link> : null}
           <div className="account-sep" />
           <div className="account-row"><span>Giao diện</span><ThemeSwitch /></div>
-          <div className="account-row"><span>Cập nhật dữ liệu</span><span className={`realtime-dot ${live ? "on" : ""}`}><i />{live ? "Trực tiếp" : "Mỗi 30 giây"}</span></div>
           <div className="account-sep" />
           <button role="menuitem" className="account-item danger" onClick={() => void logout()}><Icon name="logout" />Đăng xuất</button>
         </div>

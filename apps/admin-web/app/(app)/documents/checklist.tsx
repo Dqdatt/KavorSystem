@@ -94,36 +94,37 @@ export function EmployeeChecklistSection({ employeeId }: { employeeId: string })
   const { busy, run } = useAction();
   const shown = (c?.entries ?? []).filter((e) => e.applies || e.status);
   const hidden = (c?.entries.length ?? 0) - shown.length;
+  const required = shown.filter((e) => e.item.required && e.applies).length;
   return (
-    <div className="drawer-section">
-      <h4>Giấy tờ hồ sơ</h4>
-      {error ? <LoadError error={error} retry={reload} /> : !c ? <SkeletonLines lines={5} /> : !c.entries.length ? (
+    <section className="card">
+      {error ? <div className="card-body"><LoadError error={error} retry={reload} /></div> : !c ? <div className="card-body"><SkeletonLines lines={5} /></div> : !c.entries.length ? (
         <Empty title="Công ty chưa khai danh mục giấy tờ" text="Khai ở Tài liệu → Danh mục giấy tờ." />
       ) : (
         <>
-          <p className="muted" style={{ fontSize: 12.5, margin: "0 0 8px" }}>
-            {c.missingRequired ? <span className="text-amber">Còn thiếu {c.missingRequired} giấy tờ bắt buộc.</span> : "Đã đủ giấy tờ bắt buộc."}
-            {hidden ? ` ${hidden} mục không áp dụng cho ${EMPLOYMENT[c.employmentType].toLowerCase()}.` : ""}
-          </p>
-          <div className="card"><div className="table-wrap"><table className="data-table compact"><tbody>
+          <div className="card-head">
+            <div><h3>Giấy tờ hồ sơ</h3>
+              <span style={{ fontSize: 12.5 }} className={c.missingRequired ? "text-amber" : "muted"}>{c.missingRequired ? `Còn thiếu ${c.missingRequired} giấy tờ bắt buộc` : "Đã đủ giấy tờ bắt buộc"}
+                {hidden ? <span className="muted"> · {hidden} mục không áp dụng cho {EMPLOYMENT[c.employmentType].toLowerCase()}</span> : null}</span></div>
+            {required ? <span className="row-actions"><span className="ticks" aria-hidden="true">{Array.from({ length: required }, (_, i) => <i key={i} className={i < required - c.missingRequired ? "a" : ""} />)}</span><b className="num">{required - c.missingRequired}/{required}</b></span> : null}
+          </div>
+          <div className="check-list">
             {shown.map((e) => (
-              <tr key={e.item.id}>
-                <td className="wrap"><b>{e.item.name}</b>{e.item.required && e.applies ? <span className="source-tag">Bắt buộc</span> : null}{e.item.archived ? <span className="source-tag">Ngừng dùng</span> : null}
-                  {e.note ? <div className="muted" style={{ fontSize: 12 }}>{e.note}</div> : null}</td>
-                <td className="wrap">{e.status === "submitted" ? <><Status v={["Đã nộp", ""]} /> <span className="muted" style={{ fontSize: 12 }}>{FORM[e.form!]} · {fmtDate(e.submittedOn)}</span></>
-                  : e.status === "waived" ? <Status v={["Không áp dụng", "muted"]} /> : <Status v={e.item.required ? ["Chưa nộp", "warn"] : ["Chưa nộp", "muted"]} />}</td>
-                <td className="nowrap" style={{ textAlign: "right" }}>{c.canEdit ? <>
+              <div key={e.item.id}>
+                <span className={`tile s ${e.status ? "ok" : e.item.required && e.applies ? "warn" : ""}`}><Icon name={e.status ? "check" : "file"} size={15} /></span>
+                <span className="grow"><b>{e.item.name}</b>{e.item.required && e.applies ? <span className="source-tag">Bắt buộc</span> : null}{e.item.archived ? <span className="source-tag">Ngừng dùng</span> : null}
+                  <span className="muted sub">{e.status === "submitted" ? `Đã nộp · ${FORM[e.form!]} · ${fmtDate(e.submittedOn)}` : e.status === "waived" ? "Không áp dụng" : "Chưa nộp"}{e.note ? ` · ${e.note}` : ""}</span></span>
+                {c.canEdit ? <span className="row-actions">
                   {!e.status ? <button className="btn small" disabled={!!busy} onClick={() => void run(e.item.id, async () =>
-                    setData(await call<EmployeeChecklist>("POST", `employees/${employeeId}/checklist/${e.item.id}`, { status: "submitted", form: "copy" } satisfies ChecklistEntryInput)), `Đã ghi nhận ${e.item.name}`)}>Đã nộp</button> : null}{" "}
-                  <button className="btn small" onClick={() => setEdit(e)}>{e.status ? "Sửa" : "Khác…"}</button>
-                </> : null}</td>
-              </tr>
+                    setData(await call<EmployeeChecklist>("POST", `employees/${employeeId}/checklist/${e.item.id}`, { status: "submitted", form: "copy" } satisfies ChecklistEntryInput)), `Đã ghi nhận ${e.item.name}`)}>Đánh dấu đã nộp</button> : null}
+                  <button className="btn small ghost" onClick={() => setEdit(e)}>{e.status ? "Sửa" : "Khác…"}</button>
+                </span> : null}
+              </div>
             ))}
-          </tbody></table></div></div>
+          </div>
         </>
       )}
       {edit ? <EntryForm employeeId={employeeId} entry={edit} onClose={() => setEdit(null)} onSaved={setData} /> : null}
-    </div>
+    </section>
   );
 }
 

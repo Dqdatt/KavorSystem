@@ -1,332 +1,113 @@
 "use client";
 import { Fragment, Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import type { AdminDevice, BulkInviteResult, ChecklistGaps, EmployeeDetail, EmployeeListItem, EmployeeStatus, EmploymentType, OrgOptions, RequestItem, RequestQueue } from "@kavor/contracts";
-import { MANAGEMENT_TIERS, MANAGEMENT_TIERS_EN, managerTierOk, type AdminMe } from "@kavor/contracts";
+import type { BulkInviteResult, ChecklistGaps, EmployeeListItem, OrgOptions } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
-import { EmployeePaySection } from "./pay";
-import { EmployeeChecklistSection } from "../documents/checklist";
-import { PageActions,
-  ACCOUNT, Avatar, DEVICE, EMP_STATUS, EMPLOYMENT, Drawer, Empty, ErrorLine, Field, Icon, LoadError, Modal, Person, Phrases, REJECT_REASON, Status, scopeText,
-  ago, can, fmtDate, fmtDateTime, tenantToday, useAction, useMe,
-} from "../../_ui/kit";
-import { ReasonModal } from "../../_ui/reason-modal";
+import { PageActions, ACCOUNT, EMP_STATUS, EMPLOYMENT, Empty, Icon, LoadError, Modal, Person, Status, can, fmtDate, tenantToday, tenure, useAction, useMe } from "../../_ui/kit";
 import { ImportModal } from "../../_ui/employee-import";
-import { REQUEST_STATUS, REQUEST_TYPE, RequestModal, requestSummary } from "../../_ui/request";
-import { Select, Skeleton, SkeletonLines, SkeletonRows } from "@kavor/web-ui";
+import { Select, SkeletonRows } from "@kavor/web-ui";
+import { EmployeeForm } from "./profile";
 
-const AUDIT: Record<string, string> = {
-  "employee.created": "Tạo hồ sơ", "employee.updated": "Sửa hồ sơ", "employee.invited": "Gửi lời mời kích hoạt", "account.locked": "Khóa tài khoản", "account.unlocked": "Mở khóa tài khoản",
-  "auth.activated": "Nhân viên kích hoạt tài khoản", "auth.activation.otp_sent": "Gửi OTP kích hoạt", "auth.login": "Đăng nhập", "auth.login_failed": "Đăng nhập sai mật khẩu", "auth.password_reset": "Đặt lại mật khẩu",
-  "auth.mfa_enrolled": "Bật xác thực hai lớp", "auth.mfa_verified": "Xác thực hai lớp khi đăng nhập web", "auth.mfa_reset": "Đặt lại xác thực hai lớp",
-  "privacy.consented": "Đồng ý điều khoản dữ liệu cá nhân",
-  "request.submitted": "Gửi đơn", "request.cancelled": "Hủy đơn", "approval.approved": "Duyệt đơn", "approval.rejected": "Từ chối đơn",
-  "leave.adjusted": "Điều chỉnh sổ phép", "leave.carry_imported": "Nhập phép tồn", "compensation.changed": "Đổi mức lương", "compensation.viewed": "Xem lương", "tax_profile.changed": "Sửa MST/công đoàn", "dependent.added": "Thêm người phụ thuộc", "dependent.changed": "Sửa người phụ thuộc", "dependent.removed": "Xóa người phụ thuộc", "salary_advance.paid": "Chi tạm ứng",
-  "device.registered": "Đăng ký thiết bị", "device.change_requested": "Yêu cầu dùng máy mới", "device.approved": "Duyệt thiết bị", "device.rejected": "Từ chối thiết bị", "device.revoked": "Thu hồi thiết bị",
-};
+/* Chip lọc nhanh có số đếm: trên danh sách đã tải (đã lọc phòng ban/trạng thái), không tính ô tìm */
+type Quick = "all" | "noacct" | "docs" | "probation";
 
 function EmployeesPage() {
   const me = useMe();
+  const today = tenantToday(me.tenant.timezone);
   const router = useRouter();
   const params = useSearchParams();
   const [q, setQ] = useState(params.get("q") ?? "");
   const [dept, setDept] = useState("");
   const [status, setStatus] = useState("working");
-  const [account, setAccount] = useState(params.get("account") ?? "all");
-  const [papers, setPapers] = useState(params.get("papers") ?? "all");
-  const [editing, setEditing] = useState<EmployeeDetail | "new" | null>(null);
+  const [quick, setQuick] = useState<Quick>(params.get("papers") === "missing" ? "docs" : params.get("account") === "pending" ? "noacct" : "all");
+  const [group, setGroup] = useState(true);
+  const [sel, setSel] = useState<Set<string>>(new Set());
+  const [adding, setAdding] = useState(false);
   const [importing, setImporting] = useState(false);
-  const [bulk, setBulk] = useState(false);
+  const [bulk, setBulk] = useState<EmployeeListItem[] | null>(null);
   const openId = params.get("id");
 
   useEffect(() => { setQ(params.get("q") ?? ""); }, [params]);
-  const query = useMemo(() => new URLSearchParams({ status, account, ...(dept ? { departmentId: dept } : {}) }).toString(), [status, account, dept]);
+  /* Link cũ /employees?id=X → trang hồ sơ */
+  useEffect(() => { if (openId) router.replace(`/employees/${openId}`); }, [openId, router]);
+  const query = useMemo(() => new URLSearchParams({ status, account: "all", ...(dept ? { departmentId: dept } : {}) }).toString(), [status, dept]);
   const list = useApi<EmployeeListItem[]>(`employees?${query}`, { tables: ["employees", "employee_devices"], tenantId: me.tenant.id });
   const org = useApi<OrgOptions>("org");
   /* Giấy tờ bắt buộc còn thiếu (danh mục công ty tự khai) — chỉ người xem được tài liệu */
   const gaps = useApi<ChecklistGaps>(can(me, "document.read") ? "checklist/gaps" : null);
   const missing = useMemo(() => new Map((gaps.data?.rows ?? []).map((r) => [r.employeeId, r.missing])), [gaps.data]);
+  const hasDocs = !!gaps.data?.itemCount;
+  const QUICK: Array<[Quick, string, (e: EmployeeListItem) => boolean]> = [
+    ["all", "Tất cả", () => true],
+    ["noacct", "Chưa kích hoạt app", (e) => e.account !== "active"],
+    ...(hasDocs ? [["docs", "Thiếu giấy tờ", (e: EmployeeListItem) => missing.has(e.id)] as [Quick, string, (e: EmployeeListItem) => boolean]] : []),
+    ["probation", "Thử việc", (e) => e.employmentType === "probation"],
+  ];
+  const all = list.data ?? [];
   /* Nhóm theo phòng ban (A–Z), trong phòng theo tên rồi họ — cách đọc danh sách quen thuộc ở VN */
   const rows = useMemo(() => {
-    const k = q.trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/g, "d");
-    const all = list.data ?? [];
-    const base = papers === "missing" ? all.filter((e) => missing.has(e.id)) : all;
-    const hit = k ? base.filter((e) => `${e.fullName} ${e.code} ${e.email ?? ""}`.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/g, "d").includes(k)) : base;
+    const fold = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/g, "d");
+    const k = fold(q.trim());
+    const pass = (QUICK.find((c) => c[0] === quick) ?? QUICK[0]!)[2];
+    const base = (list.data ?? []).filter(pass);
+    const hit = k ? base.filter((e) => fold(`${e.fullName} ${e.code} ${e.email ?? ""}`).includes(k)) : base;
     const given = (n: string) => n.trim().split(/\s+/).at(-1) ?? n;
     return [...hit].sort((a, b) => (a.department ? 0 : 1) - (b.department ? 0 : 1) || (a.department?.name ?? "").localeCompare(b.department?.name ?? "", "vi")
       || given(a.fullName).localeCompare(given(b.fullName), "vi") || a.fullName.localeCompare(b.fullName, "vi"));
-  }, [list.data, q, papers, missing]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [list.data, q, quick, missing, hasDocs]);
+  const grouped = group && !q.trim();
   const groupSize = useMemo(() => { const m = new Map<string, number>(); for (const e of rows) m.set(e.department?.name ?? "", (m.get(e.department?.name ?? "") ?? 0) + 1); return m; }, [rows]);
-  const uninvited = rows.filter((e) => e.account === "not_invited" && e.email && e.status !== "terminated");
-  const open = (id: string | null) => { const p = new URLSearchParams(params.toString()); if (id) p.set("id", id); else p.delete("id"); router.replace(`/employees?${p.toString()}`, { scroll: false }); };
+  const picked = rows.filter((e) => sel.has(e.id));
+  const allPicked = rows.length > 0 && picked.length === rows.length;
+  const toggle = (id: string) => setSel((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
 
   return (
     <section className="page active">
-      <PageActions>{can(me, "employee.create") ? <><button className="btn" onClick={() => setImporting(true)}><Icon name="upload" /> Nhập từ file</button><button className="btn primary" onClick={() => setEditing("new")}><Icon name="plus" /> Thêm nhân viên</button></> : null}</PageActions>
+      <PageActions>{can(me, "employee.create") ? <><button className="btn" onClick={() => setImporting(true)}><Icon name="upload" /> Nhập từ file</button><button className="btn primary" onClick={() => setAdding(true)}><Icon name="plus" /> Thêm nhân viên</button></> : null}</PageActions>
       <LoadError error={list.error} retry={list.reload} />
       <article className="card">
         <div className="toolbar">
-          <label className="search"><Icon name="search" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Tên, mã hoặc email…" /></label>
+          <label className="search"><Icon name="search" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Tìm theo tên, mã hoặc email…" aria-label="Tìm nhân viên" /></label>
+          {QUICK.map(([id, label, f]) => <button key={id} className={`filter-chip ${quick === id ? "active" : ""}`} onClick={() => setQuick(id)}>{label}<span className="n">{all.filter(f).length}</span></button>)}
+          <span className="toolbar-spacer" />
           <Select className="select" value={dept} onChange={(e) => setDept(e.target.value)} aria-label="Phòng ban">
             <option value="">Tất cả phòng ban</option>{org.data?.departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
           </Select>
           <Select className="select" value={status} onChange={(e) => setStatus(e.target.value)} aria-label="Trạng thái"><option value="working">Đang làm việc</option><option value="terminated">Đã nghỉ việc</option><option value="all">Tất cả trạng thái</option></Select>
-          <Select className="select" value={account} onChange={(e) => setAccount(e.target.value)} aria-label="Tài khoản"><option value="all">Mọi tài khoản</option><option value="pending">Chưa kích hoạt</option><option value="active">Đã kích hoạt</option><option value="locked">Đã khóa</option></Select>
-          {gaps.data?.itemCount ? <Select className="select" value={papers} onChange={(e) => setPapers(e.target.value)} aria-label="Giấy tờ"><option value="all">Mọi hồ sơ giấy tờ</option><option value="missing">Thiếu giấy tờ ({missing.size})</option></Select> : null}
-          <span className="toolbar-spacer" />
-          {list.data ? <span className="muted nowrap" style={{ fontSize: 13 }}>{rows.length} hồ sơ</span> : null}
-          {/* Gửi lời mời cho người chưa mời lần nào trong danh sách đang lọc (thường sau khi nhập từ file) */}
-          {can(me, "membership.invite") && uninvited.length ? <button className="btn small" onClick={() => setBulk(true)}><Icon name="mail" /> Gửi lời mời ({uninvited.length})</button> : null}
+          <button className={`tog ${group ? "on" : ""}`} aria-pressed={group} aria-label="Nhóm theo phòng ban" title="Nhóm theo phòng ban" onClick={() => setGroup(!group)}><Icon name="org" /></button>
         </div>
-        {list.data && !rows.length ? <Empty title="Không có nhân viên phù hợp" text="Thử bỏ bớt bộ lọc." /> : (
-          <div className="table-wrap"><table className="data-table" style={{ minWidth: 900 }}><thead><tr><th>Nhân viên</th><th>Phòng ban</th><th>Chức danh</th><th>Ngày vào làm</th><th>Loại HĐ</th><th>Tài khoản</th><th>Trạng thái</th><th /></tr></thead><tbody>
+        {picked.length ? (
+          <div className="bulk"><span>{picked.length} người đã chọn</span><span className="toolbar-spacer" />
+            {can(me, "membership.invite") ? <button className="btn small primary" onClick={() => setBulk(picked)}><Icon name="mail" /> Gửi lời mời</button> : null}
+            <button className="btn small ghost" onClick={() => setSel(new Set())}>Bỏ chọn</button></div>
+        ) : null}
+        {list.data && !rows.length ? <Empty title="Không có nhân viên phù hợp" text="Thử bỏ bớt bộ lọc hoặc tìm theo mã nhân viên." /> : (
+          <div className="table-wrap"><table className="data-table emp-table" style={{ minWidth: 900 }}><thead><tr>
+            <th className="cbx"><input type="checkbox" className="cb" aria-label="Chọn tất cả" checked={allPicked} onChange={() => setSel(allPicked ? new Set() : new Set(rows.map((e) => e.id)))} /></th>
+            <th>Nhân viên</th><th>Chức danh / phòng ban</th><th>Vào làm</th><th>Hợp đồng</th><th>Giấy tờ bắt buộc</th><th>Tài khoản app</th><th /></tr></thead><tbody>
             {!list.data && !list.error ? <SkeletonRows cols={8} rows={8} person /> : null}
             {rows.map((e, i) => (<Fragment key={e.id}>
-              {i === 0 || rows[i - 1]!.department?.name !== e.department?.name ? <tr className="group-row"><td colSpan={8}>{e.department?.name ?? "Chưa có phòng ban"} <span className="muted">· {groupSize.get(e.department?.name ?? "")} người</span></td></tr> : null}
-              <tr className="clickable" onClick={() => open(e.id)}>
-                <td><Person name={e.fullName} sub={`${e.code} · ${e.email ?? "chưa có email"}`} seed={e.code} /></td>
-                <td className="wrap">{e.department?.name ?? "—"}</td><td className="wrap">{e.position?.name ?? "—"}</td><td>{fmtDate(e.hireDate)}</td><td>{EMPLOYMENT[e.employmentType]}</td>
-                <td><span className="cell-stack"><Status v={ACCOUNT[e.account]} />{e.devicePending ? <span className="source-tag" title="Có thiết bị chờ duyệt">Máy chờ duyệt</span> : null}
-                  {missing.get(e.id) ? <span className="source-tag" title={`Thiếu: ${missing.get(e.id)!.join(", ")}`}>Thiếu {missing.get(e.id)!.length} giấy tờ</span> : null}</span></td>
-                <td><Status v={EMP_STATUS[e.status]} /></td>
+              {grouped && (i === 0 || rows[i - 1]!.department?.name !== e.department?.name) ? <tr className="group-row"><td colSpan={8}>{e.department?.name ?? "Chưa có phòng ban"} <span className="muted">· {groupSize.get(e.department?.name ?? "")} người</span></td></tr> : null}
+              <tr className={`clickable ${sel.has(e.id) ? "sel" : ""}`} onClick={() => router.push(`/employees/${e.id}`)}>
+                <td className="cbx" onClick={(ev) => ev.stopPropagation()}><input type="checkbox" className="cb" aria-label={`Chọn ${e.fullName}`} checked={sel.has(e.id)} onChange={() => toggle(e.id)} /></td>
+                <td><Person name={e.fullName} sub={e.code} seed={e.code} badge={e.status !== "active" ? <Status v={EMP_STATUS[e.status]} /> : undefined} /></td>
+                <td className="wrap"><b style={{ fontWeight: 500, display: "block" }}>{e.position?.name ?? "—"}</b><span className="muted" style={{ fontSize: 12 }}>{e.department?.name ?? "—"}</span></td>
+                <td>{fmtDate(e.hireDate)}<span className="muted" style={{ display: "block", fontSize: 12 }}>{tenure(e.hireDate, today)}</span></td>
+                <td>{e.employmentType === "probation" ? <Status v={["Thử việc", "violet"]} /> : <span style={{ color: "var(--ink-2)" }}>{EMPLOYMENT[e.employmentType]}</span>}</td>
+                <td>{!hasDocs ? "—" : missing.get(e.id) ? <b style={{ color: "var(--amber)" }} title={`Thiếu: ${missing.get(e.id)!.join(", ")}`}>Thiếu {missing.get(e.id)!.length}</b> : <b style={{ color: "var(--ok)" }}>Đủ</b>}</td>
+                <td><span className="cell-stack">{e.account === "not_invited" ? <span className="muted">Chưa mời</span> : <Status v={ACCOUNT[e.account]} />}{e.devicePending ? <span className="source-tag" title="Có thiết bị chờ duyệt">Máy chờ duyệt</span> : null}</span></td>
                 <td><Icon name="arrow" size={16} className="icon" /></td>
               </tr>
             </Fragment>))}
           </tbody></table></div>
         )}
+        {list.data ? <div className="tfoot"><span>Hiển thị {rows.length} / {all.length} hồ sơ</span></div> : null}
       </article>
-      {openId ? <EmployeeDrawer id={openId} onClose={() => { open(null); void gaps.reload(); }} onEdit={setEditing} onChanged={list.reload} /> : null}
-      {editing && org.data ? <EmployeeForm org={org.data} employee={editing === "new" ? null : editing} onClose={() => setEditing(null)} onSaved={(id) => { setEditing(null); void list.reload(); open(id); }} /> : null}
-      {bulk ? <BulkInvite rows={uninvited} onClose={() => setBulk(false)} onDone={() => void list.reload()} /> : null}
+      {adding && org.data ? <EmployeeForm org={org.data} employee={null} onClose={() => setAdding(false)} onSaved={(id) => router.push(`/employees/${id}`)} /> : null}
+      {bulk ? <BulkInvite rows={bulk} onClose={() => setBulk(null)} onDone={() => { void list.reload(); setSel(new Set()); }} /> : null}
       {importing ? <ImportModal onClose={() => setImporting(false)} onDone={() => { void list.reload(); void org.reload(); }} /> : null}
     </section>
-  );
-}
-
-/* Hồ sơ chia tab để mỗi phần có bố cục đều, không dồn cột */
-type ProfileTab = "overview" | "personal" | "attendance" | "pay" | "papers" | "requests" | "history";
-const TABS: Array<{ id: ProfileTab; label: string; show: (me: AdminMe) => boolean }> = [
-  { id: "overview", label: "Tổng quan", show: () => true },
-  { id: "personal", label: "Cá nhân", show: () => true },
-  { id: "attendance", label: "Chấm công", show: (me) => can(me, "attendance.read") },
-  { id: "pay", label: "Lương", show: (me) => can(me, "compensation.read") },
-  { id: "papers", label: "Giấy tờ", show: (me) => can(me, "document.read") },
-  { id: "requests", label: "Đơn từ", show: (me) => can(me, "request.read") },
-  { id: "history", label: "Lịch sử", show: (me) => can(me, "audit.read") },
-];
-function EmployeeDrawer({ id, onClose, onEdit, onChanged }: { id: string; onClose: () => void; onEdit: (e: EmployeeDetail) => void; onChanged: () => void }) {
-  const me = useMe();
-  const tz = me.tenant.timezone;
-  const { data: e, error, reload } = useApi<EmployeeDetail>(`employees/${id}`, { tables: ["employees", "employee_devices", "attendance_events"], tenantId: me.tenant.id });
-  const { busy, run } = useAction();
-  const [ask, setAsk] = useState<null | { title: string; label: string; danger?: boolean; go: (reason: string) => Promise<unknown>; ok: string }>(null);
-  const after = () => { void reload(); onChanged(); };
-  const [tab, setTab] = useState<ProfileTab>("overview");
-
-  const deviceAct = (d: AdminDevice, action: "approve" | "reject" | "revoke") =>
-    action === "approve"
-      ? run(`dev-${d.id}`, () => call("POST", `devices/${d.id}/approve`, {}), `Đã duyệt ${d.deviceModel ?? "thiết bị"}`).then(after)
-      : setAsk({ title: action === "reject" ? "Từ chối thiết bị" : "Thu hồi thiết bị", label: "Lý do (nhân viên sẽ thấy)", danger: true, ok: action === "reject" ? "Đã từ chối thiết bị" : "Đã thu hồi thiết bị",
-        go: (reason) => call("POST", `devices/${d.id}/${action}`, { reason }) });
-
-  return (
-    <Drawer wide onClose={onClose} head={<><div><b>Hồ sơ nhân viên</b></div>
-      {e && can(me, "employee.update") ? <button className="btn small" style={{ marginLeft: "auto" }} onClick={() => onEdit(e)}>Sửa hồ sơ</button> : null}</>}>
-      <LoadError error={error} retry={reload} />
-      {!e ? (error ? null : <SkeletonLines lines={6} avatar />) : (
-        <>
-          <div className="profile-hero"><Avatar name={e.fullName} seed={e.code} /><div><h3>{e.fullName}</h3><p>{[e.position?.name, e.department?.name, e.code].filter(Boolean).join(" · ")}</p></div><div style={{ marginLeft: "auto" }}><Status v={EMP_STATUS[e.status]} /></div></div>
-          <div className="segmented profile-tabs" role="tablist">{TABS.filter((t) => t.show(me)).map((t) => <button key={t.id} role="tab" aria-selected={tab === t.id} className={tab === t.id ? "active" : ""} onClick={() => setTab(t.id)}>{t.label}</button>)}</div>
-          {tab === "overview" ? <div className="profile-grid">
-            <div className="drawer-section"><h4>Công việc</h4>
-          <div className="card detail-list">
-            <div className="detail-row"><span>Phòng ban</span><b>{e.department?.name ?? "—"}</b></div>
-            <div className="detail-row"><span>Chức danh</span><b>{e.position?.name ?? "—"}</b></div>
-            <div className="detail-row"><span>Chi nhánh · pháp nhân</span><b><Phrases text={`${e.branch?.name ?? "—"} · ${e.legalEntity?.name ?? "—"}`} /></b></div>
-            <div className="detail-row"><span>Quản lý trực tiếp</span><b>{e.manager?.name ?? "—"}</b></div>
-            <div className="detail-row"><span>Cấp bậc</span><b>{e.tier ? `${MANAGEMENT_TIERS[e.tier]} (${MANAGEMENT_TIERS_EN[e.tier]})` : "Chưa đặt"}{e.directReports ? ` · quản lý ${e.directReports} người` : ""}</b></div>
-            {/* Cấp bậc theo chức danh; quyền xem/duyệt trên web theo vai trò được gán — hai thứ tách nhau */}
-            <div className="detail-row"><span>Quyền trên Kavor</span><b><Phrases text={e.roles.length ? e.roles.map((r) => `${r.name} (${r.scope})`).join(", ") : "Nhân viên (chỉ dùng app)"} /></b></div>
-            {e.directReports && !e.roles.some((r) => ["manager", "tenant_admin", "hr_ops"].includes(r.code)) ? <p className="text-amber" style={{ fontSize: 12, margin: "8px 0 2px" }}>
-              Đang quản lý {e.directReports} người nhưng chưa có quyền duyệt: chưa xem đơn, bảng công của cấp dưới trên web. <a href="/roles">Gán vai trò Quản lý</a> hoặc dùng Sắp xếp tự động ở Cơ cấu tổ chức.</p> : null}
-            <div className="detail-row"><span>Email công ty</span><b>{e.email ?? "—"}</b></div>
-            <div className="detail-row"><span>Điện thoại</span><b>{e.phone ?? "—"}</b></div>
-            <div className="detail-row"><span>Ngày vào làm · loại HĐ</span><b>{fmtDate(e.hireDate)} · {EMPLOYMENT[e.employmentType]}</b></div>
-            {e.terminationDate ? <div className="detail-row"><span>Ngày nghỉ việc</span><b>{fmtDate(e.terminationDate)}</b></div> : null}
-          </div>
-            </div>
-            <div>
-          <div className="drawer-section">
-            <h4>Tài khoản Kavor</h4>
-            <div className="card detail-list">
-              <div className="detail-row"><span>Trạng thái</span><b><Status v={ACCOUNT[e.account]} /></b></div>
-              {e.invitedAt ? <div className="detail-row"><span>Lời mời gần nhất</span><b>{fmtDateTime(e.invitedAt, tz)}</b></div> : null}
-              {e.lastLoginAt ? <div className="detail-row"><span>Đăng nhập gần nhất</span><b>{ago(e.lastLoginAt)}</b></div> : null}
-            </div>
-            <div className="row-actions" style={{ justifyContent: "flex-start", marginTop: 10 }}>
-              {(e.account === "invited" || e.account === "not_invited") && can(me, "membership.invite") ? (
-                <button className="btn small" disabled={!!busy || !e.email} onClick={() => run("invite", () => call("POST", `employees/${e.id}/invite`, {}), `Đã gửi lời mời tới ${e.email}`).then(after)}>
-                  <Icon name="mail" /> {busy === "invite" ? "Đang gửi…" : e.account === "invited" ? "Gửi lại lời mời" : "Gửi lời mời"}
-                </button>
-              ) : null}
-              {e.account === "active" && can(me, "membership.disable") && e.id !== me.employeeId ? (
-                <button className="btn small danger" onClick={() => setAsk({ title: `Khóa tài khoản ${e.fullName}?`, label: "Lý do khóa", danger: true, ok: "Đã khóa tài khoản — mọi phiên đăng nhập bị chặn ngay", go: (reason) => call("POST", `employees/${e.id}/lock`, { reason }) })}>
-                  <Icon name="lock" /> Khóa tài khoản
-                </button>
-              ) : null}
-              {e.account === "active" && can(me, "membership.disable") && e.id !== me.employeeId ? (
-                <button className="btn small" onClick={() => setAsk({ title: `Đặt lại xác thực hai lớp của ${e.fullName}?`, label: "Lý do (ví dụ: mất điện thoại)", ok: "Đã đặt lại — lần đăng nhập web sau phải liên kết lại ứng dụng xác thực", go: (reason) => call("POST", `employees/${e.id}/mfa-reset`, { reason }) })}>
-                  <Icon name="shield" /> Đặt lại xác thực hai lớp
-                </button>
-              ) : null}
-              {e.account === "locked" && can(me, "membership.disable") ? (
-                <button className="btn small" disabled={!!busy} onClick={() => run("unlock", () => call("POST", `employees/${e.id}/unlock`, {}), "Đã mở khóa tài khoản").then(after)}>Mở khóa</button>
-              ) : null}
-            </div>
-          </div>
-          <div className="drawer-section">
-            <h4>Ca và địa điểm đang áp dụng</h4>
-            <div className="card detail-list">
-              <div className="detail-row"><span>Ca làm</span><b>{e.policies.shift ? <>{e.policies.shift.name} · {e.policies.shift.start}–{e.policies.shift.end}<span className="source-tag" title="Tầng áp dụng">{scopeText(e.policies.shift.source)}</span></> : <span className="text-red">Chưa áp dụng ca nào</span>}</b></div>
-              <div className="detail-row"><span>Địa điểm chấm công</span><b>{e.policies.locations.length ? <>{<Phrases text={e.policies.locations.map((l) => `${l.name} (${l.radiusM} m)`).join(", ")} />}{e.policies.locationSource ? <span className="source-tag">{scopeText(e.policies.locationSource)}</span> : null}</> : <span className="text-red">Chưa có địa điểm</span>}</b></div>
-            </div>
-          </div>
-            </div>
-          </div> : null}
-          {tab === "personal" ? <div className="profile-grid one">
-          {/* Thông tin cá nhân do nhân viên đề nghị sửa trên app, HR duyệt (Đơn & phê duyệt); số tài khoản đầy đủ chỉ khi có quyền */}
-          <div className="drawer-section">
-            <h4>Thông tin cá nhân</h4>
-            <div className="card detail-list">
-              <div className="detail-row"><span>Ngày sinh · giới tính</span><b>{e.personal.birthDate ? fmtDate(e.personal.birthDate) : "—"} · {e.personal.gender ? { male: "Nam", female: "Nữ", other: "Khác" }[e.personal.gender] : "—"}</b></div>
-              <div className="detail-row"><span>CCCD/CMND</span><b><Phrases text={e.personal.idNumber ? `${e.personal.idNumber}${e.personal.idIssuedOn ? ` · cấp ${fmtDate(e.personal.idIssuedOn)}` : ""}${e.personal.idIssuedBy ? ` · ${e.personal.idIssuedBy}` : ""}` : null} /></b></div>
-              <div className="detail-row"><span>Số sổ BHXH</span><b>{e.personal.socialInsuranceNo ?? "—"}</b></div>
-              <div className="detail-row"><span>Email cá nhân</span><b>{e.personal.personalEmail ?? "—"}</b></div>
-              <div className="detail-row"><span>Thường trú</span><b><Phrases text={e.personal.permanentAddress} /></b></div>
-              <div className="detail-row"><span>Địa chỉ hiện tại</span><b><Phrases text={e.personal.address} /></b></div>
-              <div className="detail-row"><span>Liên hệ khẩn cấp</span><b>{e.personal.emergency ? `${e.personal.emergency.name} · ${e.personal.emergency.relation} · ${e.personal.emergency.phone}` : "—"}</b></div>
-              <div className="detail-row"><span>Tài khoản ngân hàng</span><b><Phrases text={e.personal.bank ? `${e.personal.bank.bankName} · ${e.personal.bank.accountNo ?? `•••• ${e.personal.bank.last4}`} · ${e.personal.bank.holder}` : null} /></b></div>
-            </div>
-          </div>
-          </div> : null}
-          {tab === "attendance" ? <div className="profile-grid one">
-          {can(me, "attendance.read") ? (
-            <>
-              <div className="drawer-section">
-                <h4>Thiết bị chấm công</h4>
-                {!e.devices.length ? <p className="muted" style={{ fontSize: 12.5 }}>Chưa đăng ký thiết bị.</p> : (
-                  <div className="card detail-list">
-                    {e.devices.map((d) => (
-                      <div key={d.id} className="detail-row" style={{ gridTemplateColumns: "1fr auto" }}>
-                        <span><b style={{ color: "var(--ink)" }}>{d.deviceModel ?? d.platform}</b> · {d.osVersion ?? d.platform}<br /><small className="muted">Đăng ký {fmtDateTime(d.registeredAt, tz)}{d.decisionReason ? ` · ${d.decisionReason}` : ""}</small></span>
-                        <span className="row-actions"><Status v={DEVICE[d.status]} />
-                          {can(me, "attendance.device.manage") && d.status === "pending" ? <><button className="btn small primary" disabled={!!busy} onClick={() => deviceAct(d, "approve")}>Duyệt</button><button className="btn small" onClick={() => deviceAct(d, "reject")}>Từ chối</button></> : null}
-                          {can(me, "attendance.device.manage") && d.status === "active" ? <button className="btn small" onClick={() => deviceAct(d, "revoke")}>Thu hồi</button> : null}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-              <div className="drawer-section">
-                <h4>Chấm công 14 ngày gần nhất</h4>
-                {!e.recentEvents.length ? <p className="muted" style={{ fontSize: 12.5 }}>Chưa có bản ghi.</p> : (
-                  <div className="card detail-list">
-                    {e.recentEvents.slice(0, 12).map((ev) => (
-                      <div key={ev.id} className="detail-row">
-                        <span>{fmtDateTime(ev.occurredAt, tz)} · {ev.kind === "in" ? "Vào ca" : "Ra ca"}{ev.offline ? " · offline" : ""}</span>
-                        <b>{ev.status === "accepted" ? (ev.deviationMinutes > 0 ? <span className="text-red">{ev.kind === "in" ? "Muộn" : "Sớm"} {ev.deviationMinutes} phút</span> : <span className="text-green">Hợp lệ</span>) : <span className="text-red">{REJECT_REASON[ev.rejectReason ?? ""] ?? "Bị từ chối"}</span>}</b>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </>
-          ) : null}
-          </div> : null}
-          {tab === "pay" ? <div className="profile-grid one">
-          {can(me, "compensation.read") ? <EmployeePaySection employeeId={e.id} name={e.fullName} /> : null}
-          </div> : null}
-          {tab === "papers" ? <div className="profile-grid one">
-          {can(me, "document.read") ? <EmployeeChecklistSection employeeId={e.id} /> : null}
-          </div> : null}
-          {tab === "requests" ? <div className="profile-grid one">
-          {can(me, "request.read") ? <EmployeeRequests employeeId={e.id} /> : null}
-          </div> : null}
-          {tab === "history" ? <div className="profile-grid one">
-          {can(me, "audit.read") && e.audit.length ? (
-            <div className="drawer-section">
-              <h4>Lịch sử thay đổi</h4>
-              <ul className="version-list">{e.audit.slice(0, 15).map((a) => <li key={a.id}>{fmtDateTime(a.createdAt, tz)} · {AUDIT[a.action] ?? a.action} · {a.actor}{a.reason ? ` — ${a.reason}` : ""}</li>)}</ul>
-            </div>
-          ) : null}
-            {!e.audit.length ? <p className="muted" style={{ fontSize: 12.5 }}>Chưa có thay đổi.</p> : null}
-          </div> : null}
-        </>
-      )}
-      {ask ? <ReasonModal {...ask} onClose={() => setAsk(null)} onDone={after} /> : null}
-    </Drawer>
-  );
-}
-
-function EmployeeForm({ org, employee, onClose, onSaved }: { org: OrgOptions; employee: EmployeeDetail | null; onClose: () => void; onSaved: (id: string) => void }) {
-  const me = useMe();
-  const today = tenantToday(me.tenant.timezone);
-  const [f, setF] = useState({
-    employeeCode: employee?.code ?? "", fullName: employee?.fullName ?? "", workEmail: employee?.email ?? "", phone: employee?.phone ?? "",
-    hireDate: employee?.hireDate ?? today, employmentType: (employee?.employmentType ?? "probation") as EmploymentType, status: (employee?.status ?? "active") as EmployeeStatus,
-    departmentId: employee?.department?.id ?? "", positionId: employee?.position?.id ?? "", managerEmployeeId: employee?.manager?.id ?? "",
-    effectiveFrom: today, sendInvite: true,
-  });
-  const [err, setErr] = useState<string | null>(null);
-  const { busy, run } = useAction();
-  const set = (k: keyof typeof f) => (e: { target: { value: string } }) => { setF({ ...f, [k]: e.target.value }); setErr(null); };
-  /* Danh sách chọn quản lý trực tiếp: chỉ người có cấp quản lý cao hơn chức danh đang chọn (managerTierOk); giữ người đang được chọn
-     dù sai cấp để không âm thầm đổi dữ liệu cũ — API chặn khi lưu */
-  const posTier = org.positions.find((p) => p.id === f.positionId)?.tier ?? null;
-  const mgrOptions = org.employees.filter((x) => x.id !== employee?.id && (managerTierOk(x.tier, posTier) || x.id === f.managerEmployeeId))
-    .sort((a, b) => (b.tier ?? 0) - (a.tier ?? 0) || a.name.localeCompare(b.name, "vi"));
-  /* Quản lý trực tiếp chưa có vai trò xem dữ liệu nhân viên trên web (Quản lý / Nhân sự vận hành / Quản trị viên): gợi ý gán */
-  const mgrNoRole = ((m) => (m && !m.roles.some((r) => r === "manager" || r === "hr_ops" || r === "tenant_admin") ? m : null))(org.employees.find((x) => x.id === f.managerEmployeeId));
-  const placementChanged = !!employee && (f.departmentId !== (employee.department?.id ?? "") || f.positionId !== (employee.position?.id ?? "") || f.managerEmployeeId !== (employee.manager?.id ?? ""));
-
-  async function save() {
-    if (!f.fullName.trim() || !f.employeeCode.trim() || !f.workEmail.trim() || !f.departmentId || !f.positionId) { setErr("Điền đủ họ tên, mã, email công ty, phòng ban và chức danh."); return; }
-    const body: Record<string, unknown> = { ...f, phone: f.phone || null, managerEmployeeId: f.managerEmployeeId || null };
-    if (employee) { delete body.sendInvite; if (!placementChanged) { delete body.departmentId; delete body.positionId; delete body.managerEmployeeId; delete body.effectiveFrom; } }
-    else delete body.status;
-    let id = employee?.id ?? "";
-    const ok = await run("save", async () => {
-      const r = employee ? await call<EmployeeDetail>("PATCH", `employees/${employee.id}`, body) : await call<EmployeeDetail>("POST", "employees", body);
-      id = r.id;
-    }, employee ? "Đã lưu hồ sơ" : f.sendInvite ? "Đã tạo hồ sơ và gửi lời mời kích hoạt" : "Đã tạo hồ sơ");
-    if (ok) onSaved(id);
-  }
-
-  return (
-    <Modal wide title={employee ? `Sửa hồ sơ ${employee.fullName}` : "Thêm nhân viên"} sub={employee ? "Đổi phòng ban/chức danh/quản lý sẽ tạo phân công mới từ ngày hiệu lực, giữ lịch sử cũ." : undefined} onClose={onClose}
-      foot={<><button className="btn" onClick={onClose}>Hủy</button><button className="btn primary" disabled={!!busy} onClick={save}>{busy ? "Đang lưu…" : employee ? "Lưu thay đổi" : "Tạo hồ sơ"}</button></>}>
-      <div className="form-grid">
-        <Field label="Họ và tên"><input value={f.fullName} onChange={set("fullName")} placeholder="Nguyễn Văn A" /></Field>
-        <Field label="Mã nhân viên"><input value={f.employeeCode} onChange={set("employeeCode")} placeholder="HD0301" /></Field>
-        <Field label="Email công ty" note={employee?.account === "active" || employee?.account === "locked" ? "Đã kích hoạt: không đổi được email đăng nhập" : undefined}>
-          <input type="email" value={f.workEmail} onChange={set("workEmail")} disabled={employee?.account === "active" || employee?.account === "locked"} />
-        </Field>
-        <Field label="Điện thoại"><input value={f.phone} onChange={set("phone")} /></Field>
-        <Field label="Phòng ban"><Select value={f.departmentId} onChange={set("departmentId")}><option value="">Chọn phòng ban</option>{org.departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}</Select></Field>
-        <Field label="Chức danh"><Select value={f.positionId} onChange={set("positionId")}><option value="">Chọn chức danh</option>{org.positions.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</Select></Field>
-        <Field label="Quản lý trực tiếp"><Select value={f.managerEmployeeId} onChange={set("managerEmployeeId")}><option value="">Không có</option>{mgrOptions.map((x) => <option key={x.id} value={x.id}>{x.name} · {x.code}{x.position ? ` · ${x.position}` : ""}{managerTierOk(x.tier, posTier) ? "" : " (sai cấp)"}</option>)}</Select>
-          {f.positionId && !posTier ? <small className="muted" style={{ display: "block", marginTop: 6 }}>Chức danh này chưa đặt cấp quản lý nên đang hiện mọi người. Đặt cấp ở Cơ cấu tổ chức → Chức danh.</small> : null}
-          {mgrNoRole ? <small className="muted" style={{ display: "block", marginTop: 6 }}>{mgrNoRole.name} sẽ duyệt đơn của nhân viên này trên app, nhưng chưa có vai trò Quản lý nên chưa xem được đơn và bảng công trên web. <a href="/roles">Gán vai trò Quản lý</a> (phạm vi Nhân viên trực tiếp).</small> : null}
-        </Field>
-        <Field label="Ngày vào làm"><input type="date" value={f.hireDate} onChange={set("hireDate")} /></Field>
-        <Field label="Loại hợp đồng"><Select value={f.employmentType} onChange={set("employmentType")}>{Object.entries(EMPLOYMENT).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</Select></Field>
-        {employee ? <Field label="Trạng thái làm việc"><Select value={f.status} onChange={set("status")}>{Object.entries(EMP_STATUS).map(([k, v]) => <option key={k} value={k}>{v[0]}</option>)}</Select></Field> : null}
-        {placementChanged ? <Field label="Hiệu lực thay đổi phòng ban/chức danh từ"><input type="date" value={f.effectiveFrom} onChange={set("effectiveFrom")} /></Field> : null}
-        {!employee ? <label className="check-row" style={{ gridColumn: "1 / -1" }}><input type="checkbox" checked={f.sendInvite} onChange={(e) => setF({ ...f, sendInvite: e.target.checked })} /> Gửi email mời kích hoạt ngay</label> : null}
-      </div>
-      <ErrorLine text={err} />
-    </Modal>
   );
 }
 
@@ -346,27 +127,3 @@ function BulkInvite({ rows, onClose, onDone }: { rows: EmployeeListItem[]; onClo
 }
 
 export default function Page() { return <Suspense><EmployeesPage /></Suspense>; }
-
-/* Đơn từ của nhân viên (mới nhất trước, mọi trạng thái): xem lại/đối chiếu ngay trong hồ sơ; danh sách đầy đủ ở Đơn & phê duyệt */
-function EmployeeRequests({ employeeId }: { employeeId: string }) {
-  const me = useMe();
-  const { data, reload } = useApi<RequestQueue>(`requests?status=all&employeeId=${employeeId}&pageSize=10`, { tables: ["requests", "approval_tasks"], tenantId: me.tenant.id });
-  const [open, setOpen] = useState<RequestItem | null>(null);
-  return (
-    <div className="drawer-section">
-      <h4>Đơn từ{data ? ` (${data.total})` : ""}</h4>
-      {!data ? <SkeletonLines lines={3} /> : !data.items.length ? <p className="muted" style={{ fontSize: 12 }}>Chưa có đơn nào.</p> : (
-        <div className="card"><div className="table-wrap"><table className="data-table compact"><tbody>
-          {data.items.map((r) => (
-            <tr key={r.id} className="clickable" onClick={() => setOpen(r)}>
-              <td className="nowrap"><b>{r.no}</b></td><td>{REQUEST_TYPE[r.type]}</td><td>{requestSummary(r)}</td>
-              <td className="nowrap">{fmtDateTime(r.submittedAt, me.tenant.timezone)}</td><td><Status v={REQUEST_STATUS[r.status]} /></td>
-            </tr>
-          ))}
-        </tbody></table></div></div>
-      )}
-      {data && data.total > data.items.length ? <p className="muted" style={{ fontSize: 12.5, marginTop: 8 }}>Đang hiện {data.items.length} đơn mới nhất. Xem đủ ở Đơn & phê duyệt → tab Tất cả, tìm theo mã nhân viên.</p> : null}
-      {open ? <RequestModal r={open} onClose={() => setOpen(null)} onDone={() => void reload()} /> : null}
-    </div>
-  );
-}
