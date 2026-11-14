@@ -5,7 +5,6 @@ import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import type { AdminMe, RequestQueue, SetupChecklist } from "@kavor/contracts";
 import { useApi, useRealtimeStatus } from "../_lib/client";
 import { AccountMenu } from "../_ui/account-menu";
-import pkg from "../../package.json";
 import { Icon, MeContext, SubContext, ToastProvider, can, longDate } from "../_ui/kit";
 import { CmdK } from "../_ui/cmdk";
 import { NotificationBell } from "../_ui/notifications";
@@ -20,7 +19,7 @@ const NAV: Array<{ label?: string; items: NavItem[] }> = [
   { label: "Nhân sự", items: [{ href: "/employees", label: "Nhân viên", icon: "users", perm: "employee.read" }, { href: "/organization", label: "Cơ cấu tổ chức", icon: "org", perm: "organization.read" }] },
   { label: "Thời gian", items: [
     { href: "/attendance", label: "Chấm công", icon: "clock", perm: "attendance.read" },
-    { href: "/schedules", label: "Ca & địa điểm", icon: "calendar", perm: "schedule.read" },
+    { href: "/schedules", label: "Ca & địa điểm", icon: "pin", perm: "schedule.read" },
     { href: "/leave", label: "Nghỉ phép", icon: "plane", perm: "leave.read" },
   ] },
   { label: "Vận hành", items: [
@@ -117,7 +116,7 @@ export function Shell({ me, children }: { me: AdminMe; children: ReactNode }) {
             <header className="topbar">
               <button className="icon-btn mobile-menu" onClick={() => setMenu(true)} aria-label="Mở menu"><Icon name="menu" /></button>
               <div className="title-copy"><h1>{profile ? "Hồ sơ nhân viên" : TITLES[path] ?? "Kavor HR"}</h1>
-                {profile ? <span className="topbar-sub"><Link href="/employees">Nhân viên</Link> / {sub}</span> : <span className="topbar-sub">{sub ? sub.split(" | ").map((x, i) => <Fragment key={i}>{i ? <i className="vs" /> : null}{x}</Fragment>) : SUBS[path] ?? longDate(today(me.tenant.timezone))}</span>}</div>
+                {profile ? <span className="topbar-sub"><Link href="/employees">Nhân viên</Link> /</span> : <span className="topbar-sub">{sub ? sub.split(" | ").map((x, i) => <Fragment key={i}>{i ? <i className="vs" /> : null}{x}</Fragment>) : SUBS[path] ?? longDate(today(me.tenant.timezone))}</span>}</div>
               <div id="page-actions" className="page-actions" />
               <button className="search cmdk-btn" onClick={() => setCmd(true)} aria-label="Tìm kiếm"><Icon name="search" /><span className="grow trunc">Tìm nhanh…</span><span className="kbd">Ctrl K</span></button>
               <div className="top-actions">
@@ -132,7 +131,7 @@ export function Shell({ me, children }: { me: AdminMe; children: ReactNode }) {
               {can(me, "support_access.approve") ? <Link href="/settings?tab=support">Liên hệ hỗ trợ</Link> : null}
               <span className="grow" />
               <span className={`realtime-dot ${live ? "on" : ""}`}><i />{live ? "Đang cập nhật trực tiếp" : "Mất kết nối cập nhật"}</span>
-              <span className="ver">Phiên bản {pkg.version}</span>
+              <span className="ver">Phiên bản {process.env.NEXT_PUBLIC_APP_VERSION}</span>
             </footer>
           </section>
         {cmd ? <CmdK pages={pages} onClose={() => setCmd(false)} /> : null}

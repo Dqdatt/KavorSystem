@@ -58,7 +58,7 @@ function DocumentsPage() {
   return (
     <section className="page active">
       <PageActions>{b?.canUpload ? <button className="btn primary" onClick={() => setUploading(true)}><Icon name="upload" /> Tải tài liệu</button> : null}</PageActions>
-      <div className="page-head"><div><div className="segmented" role="tablist">{tabs.map(([k, l, n]) => <button key={k} role="tab" aria-selected={tab === k} className={tab === k ? "active" : ""} onClick={() => go(k)}>{l}{n != null ? <span className={`n ${k === "miss" && n ? "hot" : ""}`}>{n}</span> : null}</button>)}</div></div></div>
+      <div className="page-head"><div><div className="segmented" role="tablist">{tabs.map(([k, l, n]) => <button key={k} role="tab" aria-selected={tab === k} className={tab === k ? "active" : ""} onClick={() => go(k)}>{l}{n != null ? <span className={`n ${k === "miss" && n ? "hot" : ""}`}>{n}</span> : null}</button>)}</div></div><div id="tab-actions" className="tab-actions" /></div>
       <LoadError error={error} retry={reload} />
       <div className="grid metrics">
         <article className="card metric-card"><span className="metric-icon"><Icon name="file" /></span><span className="metric-copy"><span>Tổng tài liệu</span><strong>{m ? num(m.total) : "—"}</strong><small>{num(used)} danh mục</small></span></article>

@@ -74,12 +74,12 @@ function EmployeesPage() {
         <div className="toolbar">
           {QUICK.map(([id, label, f]) => <button key={id} className={`filter-chip ${quick === id ? "active" : ""}`} onClick={() => setQuick(id)}>{label}<span className="n">{all.filter(f).length}</span></button>)}
           <span className="toolbar-spacer" />
-          <label className="search"><Icon name="search" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Tìm theo tên, mã hoặc email…" aria-label="Tìm nhân viên" /></label>
+          <label className="search" style={{ flex: "0 1 240px", minWidth: 0 }}><Icon name="search" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Tìm theo tên hoặc mã…" aria-label="Tìm nhân viên" /></label>
           <Select className="select" value={dept} onChange={(e) => setDept(e.target.value)} aria-label="Phòng ban">
-            <option value="">Tất cả phòng ban</option>{org.data?.departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+            <option value="">Mọi phòng ban</option>{org.data?.departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
           </Select>
           <Select className="select" value={status} onChange={(e) => setStatus(e.target.value)} aria-label="Trạng thái"><option value="working">Đang làm việc</option><option value="terminated">Đã nghỉ việc</option><option value="all">Tất cả trạng thái</option></Select>
-          <button className={`tog ${group ? "on" : ""}`} aria-pressed={group} aria-label="Nhóm theo phòng ban" title="Nhóm theo phòng ban" onClick={() => setGroup(!group)}><Icon name="org" /></button>
+          <button className={`tog ${group ? "on" : ""}`} aria-pressed={group} aria-label="Nhóm theo phòng ban" title="Nhóm theo phòng ban" onClick={() => setGroup(!group)}><Icon name="list" /></button>
         </div>
         {picked.length ? (
           <div className="bulk"><span>{picked.length} người đã chọn</span><span className="toolbar-spacer" />

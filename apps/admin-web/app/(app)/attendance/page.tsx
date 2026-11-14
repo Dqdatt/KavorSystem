@@ -24,13 +24,20 @@ function AttendancePage() {
   const { data: bd } = useApi<AttendanceBoard>("attendance/board");
   const badge: Partial<Record<Tab, [number | undefined, boolean]>> = { month: [ts?.metrics.short, true], rejected: [bd?.summary.rejected, false], devices: [bd?.summary.devicesPending, false] };
   const go = (t: Tab) => router.replace(`/attendance?tab=${t}`, { scroll: false });
+  /* Dòng phụ chung mọi tab (prototype): ca hôm nay, nơi chấm công (khi mọi lượt cùng một nơi), trạng thái kỳ công */
+  const sh = bd?.rows.find((r) => r.shift)?.shift;
+  const places = new Set((bd?.rows ?? []).map((r) => r.clockIn?.location).filter(Boolean));
+  const loc = places.size === 1 ? [...places][0] : null;
+  const period = ts?.period;
   return (
     <section className="page active">
+      <PageSub text={sh ? `${sh.name} ${sh.start}–${sh.end}${loc ? ` tại ${loc}` : ""}.${period ? ` Kỳ công ${period.month.slice(5)}/${period.month.slice(0, 4)} ${period.locked ? "đã khóa" : "chưa khóa"}.` : ""}` : null} />
       <div className="page-head">
         <div><div className="segmented" role="tablist">{TABS.filter(([, , perm]) => !perm || can(me, perm)).map(([k, label]) => <button key={k} role="tab" aria-selected={tab === k} className={tab === k ? "active" : ""} onClick={() => go(k)}>{label}{badge[k]?.[0] != null && (badge[k]![0]! > 0 || !badge[k]![1]) ? <span className={`n ${badge[k]![1] ? "hot" : ""}`}>{badge[k]![0]}</span> : null}</button>)}</div></div>
+        <div id="tab-actions" className="tab-actions" />
       </div>
       {tab === "month" ? <PageActions>{action}</PageActions> : null}
-      {tab === "month" ? <MonthTab setAction={setAction} /> : tab === "overtime" ? <OvertimeTab /> : tab === "today" ? <Today tz={me.tenant.timezone} tenantId={me.tenant.id} period={ts?.period} /> : tab === "rejected" ? <Rejected tz={me.tenant.timezone} tenantId={me.tenant.id} /> : <Devices tz={me.tenant.timezone} tenantId={me.tenant.id} />}
+      {tab === "month" ? <MonthTab setAction={setAction} /> : tab === "overtime" ? <OvertimeTab /> : tab === "today" ? <Today tz={me.tenant.timezone} tenantId={me.tenant.id} /> : tab === "rejected" ? <Rejected tz={me.tenant.timezone} tenantId={me.tenant.id} /> : <Devices tz={me.tenant.timezone} tenantId={me.tenant.id} />}
     </section>
   );
 }
@@ -45,42 +52,34 @@ const stateOf = (r: TodayRow): [string, string] => {
     : r.state === "absent" ? ["Vắng / thiếu công", "bad"] : r.state === "no_shift" ? ["Chưa có ca", "warn"] : r.state === "off" ? ["Nghỉ", "muted"] : ["Chưa vào ca", "bad"];
 };
 
-function Today({ tz, tenantId, period }: { tz: string; tenantId: string; period?: TimesheetBoard["period"] }) {
+function Today({ tz, tenantId }: { tz: string; tenantId: string }) {
   const [date, setDate] = useState(tenantToday(tz));
   /* ?filter= từ Tổng quan (việc cần xử lý) */
   const initial = useSearchParams().get("filter");
   const [filter, setFilter] = useState<"all" | Key>(initial && initial in ORDER ? (initial as Key) : "all");
-  const [q, setQ] = useState("");
   const [open, setOpen] = useState<string | null>(null);
   const { data: b, error, reload } = useApi<AttendanceBoard>(`attendance/board?date=${date}`, { tables: ["attendance_events", "employee_devices", "leave_days"], tenantId });
   const all = b?.rows ?? [];
-  const sh = all.find((r) => r.shift)?.shift;
-  /* Địa điểm: chỉ nêu khi mọi lượt chấm công hôm nay cùng một nơi (tên địa điểm cấu hình không có trong response bảng) */
-  const places = new Set(all.map((r) => r.clockIn?.location).filter(Boolean));
-  const loc = places.size === 1 ? [...places][0] : null;
   const count = (k: Key) => all.filter((r) => keyOf(r) === k).length;
   const rows = useMemo(() => all.filter((r) =>
-    (filter === "all" || keyOf(r) === filter)
-    && (!q.trim() || `${r.employee.fullName} ${r.employee.code}`.toLowerCase().includes(q.trim().toLowerCase()))).sort((x, y) => ORDER[keyOf(x)] - ORDER[keyOf(y)]), [b, filter, q]);
+    (filter === "all" || keyOf(r) === filter)).sort((x, y) => ORDER[keyOf(x)] - ORDER[keyOf(y)]), [b, filter]);
   const s = b?.summary;
   const updated = useMemo(() => (b ? fmtTime(new Date().toISOString(), tz) : null), [b]);
   const dayLabel = `${longDate(date).split(",")[0]} ${fmtDate(date).slice(0, 5)}`;
   return (
     <>
-      <PageSub text={sh ? `${sh.name} ${sh.start}–${sh.end}${loc ? ` tại ${loc}` : ""}.${period ? ` Kỳ công ${period.month.slice(5)}/${period.month.slice(0, 4)} ${period.locked ? "đã khóa" : "chưa khóa"}.` : ""}` : null} />
       <LoadError error={error} retry={reload} />
       <div className="grid metrics">
-        <article className="card metric-card"><span className="metric-icon"><Icon name="users" /></span><span className="metric-copy"><span>Đã vào ca</span><strong>{s ? <>{s.present}<small>/{s.inScope}</small></> : "—"}</strong><small>{dayLabel}{updated ? <><i className="vs" />cập nhật {updated}</> : null}</small></span></article>
-        <article className="card metric-card"><span className="metric-icon amber"><Icon name="clock" /></span><span className="metric-copy"><span>Đi muộn</span><strong className={s?.late ? "tone-warn" : ""}>{s?.late ?? "—"}</strong><small>Sau giờ vào ca + ân hạn</small></span></article>
-        <article className="card metric-card"><span className="metric-icon blue"><Icon name="calendar" /></span><span className="metric-copy"><span>Nghỉ phép</span><strong>{s?.onLeave ?? "—"}</strong><small>Đã có đơn được duyệt</small></span></article>
-        <article className="card metric-card"><span className="metric-icon red"><Icon name="alert" /></span><span className="metric-copy"><span>Chưa vào ca</span><strong className={s?.notYet ? "tone-danger" : ""}>{s?.notYet ?? "—"}</strong><small>Chưa có giờ vào, chưa có đơn</small></span></article>
+        <article className="card metric-card"><span className="metric-icon"><Icon name="clock" /></span><span className="metric-copy"><span>Đã vào ca</span><strong>{s ? <>{s.present}<small>/{s.inScope}</small></> : "—"}</strong><small>{dayLabel}{updated ? <><i className="vs" />cập nhật {updated}</> : null}</small></span></article>
+        <article className="card metric-card"><span className="metric-icon amber"><Icon name="alert" /></span><span className="metric-copy"><span>Đi muộn</span><strong className={s?.late ? "tone-warn" : ""}>{s?.late ?? "—"}</strong><small>Sau giờ vào ca + ân hạn</small></span></article>
+        <article className="card metric-card"><span className="metric-icon blue"><Icon name="plane" /></span><span className="metric-copy"><span>Nghỉ phép</span><strong>{s?.onLeave ?? "—"}</strong><small>Đã có đơn được duyệt</small></span></article>
+        <article className="card metric-card"><span className="metric-icon red"><Icon name="clock" /></span><span className="metric-copy"><span>Chưa vào ca</span><strong className={s?.notYet ? "tone-danger" : ""}>{s?.notYet ?? "—"}</strong><small>Chưa có giờ vào, chưa có đơn</small></span></article>
       </div>
       <article className="card">
         <div className="toolbar">
           <div className="segmented">{([["all", "Tất cả", all.length], ["none", "Chưa vào ca", count("none")], ["late", "Đi muộn", count("late")], ["leave", "Nghỉ phép", count("leave")], ["ok", "Đúng giờ", count("ok")]] as const).map(([k, l, n]) => (
             <button key={k} className={filter === k ? "active" : ""} onClick={() => setFilter(k)}>{l}<span className="n num">{n}</span></button>
           ))}</div>
-          <label className="search"><Icon name="search" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Tìm nhân viên…" /></label>
           <span className="toolbar-spacer" />
           <input className="select" type="date" value={date} max={tenantToday(tz)} onChange={(e) => e.target.value && setDate(e.target.value)} aria-label="Chọn ngày" />
         </div>

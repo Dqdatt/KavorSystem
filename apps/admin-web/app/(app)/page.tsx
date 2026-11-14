@@ -80,9 +80,9 @@ export default function Overview() {
 
   return (
     <section className="page active">
-      <PageSub text={todoLoading ? null : ["Chào " + (me.fullName.trim().split(/\s+/).at(-1) ?? ""), todos.length ? `${todos.length} việc cần xử lý` : "Không có việc cần xử lý", ts ? `Kỳ công ${ts.period.month.slice(5)}/${ts.period.month.slice(0, 4)} chốt ngày ${fmtDate(ts.period.end).slice(0, 5)}` : ""].filter(Boolean).join(" · ")} />
+      <PageSub text={todoLoading ? null : ["Chào " + (me.fullName.trim().split(/\s+/).at(-1) ?? ""), todos.length ? `${todos.length} việc cần xử lý` : "Không có việc cần xử lý", ts ? `kỳ công ${ts.period.month.slice(5)}/${ts.period.month.slice(0, 4)} chốt ngày ${fmtDate(ts.period.end).slice(0, 5)}` : ""].filter(Boolean).join(" | ")} />
       <PageActions>
-        {can(me, "announcement.publish") ? <Link className="btn" href="/announcements?new=1"><Icon name="plus" /> Tạo bài viết</Link> : null}
+        {can(me, "announcement.publish") ? <Link className="btn" href="/announcements?new=1"><Icon name="news" /> Tạo bài viết</Link> : null}
         {can(me, "employee.create") ? <Link className="btn primary" href="/employees?new=1"><Icon name="plus" /> Thêm nhân viên</Link> : null}
       </PageActions>
       <LoadError error={error} retry={reload} />

@@ -53,7 +53,7 @@ export function EmployeeProfile({ id }: { id: string }) {
   useEffect(() => { if (prevTab.current === "papers" && tab !== "papers") void gaps.reload(); prevTab.current = tab; }, [tab, gaps]);
   const missing = gaps.data?.rows.find((r) => r.employeeId === id)?.missing ?? [];
   /* Số ngày công/phép lấy từ endpoint đã có (cần quyền chấm công/nghỉ phép); lỗi (ngoài phạm vi) thì ẩn thẻ */
-  const ts = useApi<EmployeeTimesheet>(tab === "overview" && can(me, "attendance.read") ? `timesheets/${id}` : null);
+  const ts = useApi<EmployeeTimesheet>((tab === "overview" || tab === "attendance") && can(me, "attendance.read") ? `timesheets/${id}` : null);
   const lv = useApi<EmployeeLeave>(tab === "overview" && can(me, "leave.read") ? `leave/${id}` : null);
 
   /* Hôm nay: lấy từ ngày "today" của kỳ công đã tải */
@@ -131,10 +131,12 @@ export function EmployeeProfile({ id }: { id: string }) {
           </Section>
           <div className="col-stack">
             <Section title="Ca và nơi chấm công">
-              <div className="kv-spread"><span><b>Ca làm</b><small>{e.policies.shift ? vs(`${e.policies.shift.name} | ${e.policies.shift.start}–${e.policies.shift.end}`) : ""}</small></span>
-                {e.policies.shift ? <span className="source-tag" title="Tầng áp dụng">{scopeText(e.policies.shift.source)}</span> : <span className="text-red">Chưa áp dụng ca nào</span>}</div>
-              <div className="kv-spread"><span><b>Địa điểm chấm công</b><small>{e.policies.locations.length ? e.policies.locations.map((l) => `${l.name} (${l.radiusM} m)`).join(", ") : ""}</small></span>
-                {e.policies.locations.length ? (e.policies.locationSource ? <span className="source-tag">{scopeText(e.policies.locationSource)}</span> : null) : <span className="text-red">Chưa có địa điểm</span>}</div>
+              <div className="col">
+                {e.policies.shift ? <div className="spread"><span><b style={{ fontWeight: 600 }}>{e.policies.shift.name}</b><span className="small muted" style={{ display: "block" }}>{vs([dayRange(e.policies.shift.workDays), `${e.policies.shift.start}–${e.policies.shift.end}`, e.policies.shift.breakStart && e.policies.shift.breakEnd ? `nghỉ ${e.policies.shift.breakStart}–${e.policies.shift.breakEnd}` : ""].filter(Boolean).join(" | "))}</span></span>
+                  <span className="tag" title="Tầng áp dụng">{scopeText(e.policies.shift.source)}</span></div> : <div className="spread"><b style={{ fontWeight: 600 }}>Ca làm</b><span className="text-red small">Chưa áp dụng ca nào</span></div>}
+                {e.policies.locations.length ? e.policies.locations.map((l) => <div key={l.id} className="spread"><span><b style={{ fontWeight: 600 }}>{l.name}</b><span className="small muted" style={{ display: "block" }}>Bán kính {l.radiusM} m</span></span>
+                  {e.policies.locationSource ? <span className="tag">{scopeText(e.policies.locationSource)}</span> : null}</div>) : <div className="spread"><b style={{ fontWeight: 600 }}>Địa điểm chấm công</b><span className="text-red small">Chưa có địa điểm</span></div>}
+              </div>
             </Section>
             {/* Quyền xem/duyệt trên web theo vai trò được gán; cấp bậc theo chức danh (tab Cá nhân) — hai thứ tách nhau */}
             <Section title="Tài khoản Kavor">
@@ -142,13 +144,11 @@ export function EmployeeProfile({ id }: { id: string }) {
                 {canInvite ? <button className="btn small accent" disabled={!!busy || !e.email} onClick={() => void invite()}><Icon name="mail" />{busy === "invite" ? "Đang gửi…" : e.account === "invited" ? "Gửi lại lời mời" : "Gửi lời mời"}</button>
                   : <span className="muted" style={{ fontSize: 12.5, textAlign: "right" }}>Quyền: {e.roles.length ? e.roles.map((r) => `${r.name} (${r.scope})`).join(", ") : "Nhân viên (app)"}</span>}</div>
               {e.account !== "active" ? <p className="muted" style={{ fontSize: 12.5, margin: "10px 0 0" }}>Chưa kích hoạt thì chưa chấm công và gửi đơn trên app được.</p> : null}
-              {e.invitedAt || e.lastLoginAt ? <p className="muted" style={{ fontSize: 12.5, margin: "10px 0 0" }}>{[e.invitedAt ? `Lời mời gần nhất ${fmtDateTime(e.invitedAt, tz)}` : null, e.lastLoginAt ? `Đăng nhập gần nhất ${ago(e.lastLoginAt)}` : null].filter(Boolean).join(" · ")}</p> : null}
             </Section>
           </div>
         </div>
         {ts.data || lv.data?.balance ? <div className="grid two top">
-          {ts.data ? <Section title="Kỳ công hiện tại" action={<button className="btn small ghost" onClick={() => setTab("attendance")}>Chi tiết</button>}>
-            <p className="muted" style={{ fontSize: 12.5, margin: "0 0 12px" }}>{fmtDate(ts.data.period.start)} – {fmtDate(ts.data.period.end)}</p>
+          {ts.data ? <Section title={`Tháng ${Number(ts.data.period.month.slice(5))} đến hôm nay`} action={<button className="btn small ghost" onClick={() => setTab("attendance")}>Chi tiết</button>}>
             <div className="params four">
               <div className="param"><b>{ts.data.summary.credited}/{ts.data.summary.standard}</b><span>Ngày công</span></div>
               <div className="param"><b className={ts.data.summary.lateDays ? "text-amber" : ""}>{ts.data.summary.lateDays}</b><span>Đi muộn</span></div>
@@ -156,34 +156,52 @@ export function EmployeeProfile({ id }: { id: string }) {
               <div className="param"><b>{ts.data.summary.leaveDays}</b><span>Nghỉ phép</span></div>
             </div>
             {todayState ? <div className="kv-spread" style={{ marginTop: 14 }}><span className="muted">Hôm nay</span>
-              <Status v={[`${todayState[0]}${td?.clockIn ? ` · vào ${td.clockIn}` : ""}`, todayState[1]]} /></div> : null}
+              <Status v={[`${todayState[0]}${td?.clockIn ? ` | vào ${td.clockIn}` : ""}`, todayState[1]]} /></div> : null}
           </Section> : <div />}
-          {lv.data?.balance ? <LeaveCard b={lv.data.balance} /> : <div />}
+          {lv.data?.balance ? <LeaveCard b={lv.data.balance} id={e.id} /> : <div />}
         </div> : null}
       </> : null}
 
-      {tab === "personal" ? <div className="grid two top">
+      {tab === "personal" ? <><div className="grid two top">
         {/* Thông tin cá nhân do nhân viên đề nghị sửa trên app, HR duyệt (Đơn & phê duyệt); số tài khoản đầy đủ chỉ khi có quyền */}
-        <Section title="Thông tin cá nhân">
+        <Section title="Thông tin cá nhân" action={can(me, "employee.update") ? <button className="btn small ghost" disabled={!org.data} onClick={() => setEditing(true)}><Icon name="edit" />Sửa</button> : undefined}>
           <Dl rows={[
-            ["Ngày sinh / giới tính", `${e.personal.birthDate ? fmtDate(e.personal.birthDate) : "—"} | ${e.personal.gender ? { male: "Nam", female: "Nữ", other: "Khác" }[e.personal.gender] : "—"}`],
-            ["CCCD/CMND", <Phrases key="i" text={e.personal.idNumber ? `${e.personal.idNumber}${e.personal.idIssuedOn ? ` · cấp ${fmtDate(e.personal.idIssuedOn)}` : ""}${e.personal.idIssuedBy ? ` · ${e.personal.idIssuedBy}` : ""}` : null} />],
-            ["Số sổ BHXH", e.personal.socialInsuranceNo ?? "—"],
-            ["Cấp quản lý", `${e.tier ? `${MANAGEMENT_TIERS[e.tier]} (${MANAGEMENT_TIERS_EN[e.tier]})` : "Chưa đặt"}${e.directReports ? ` · quản lý ${e.directReports} người` : ""}`],
-            ["Email cá nhân", e.personal.personalEmail ?? "—"],
+            ["Ngày sinh / giới tính", e.personal.birthDate || e.personal.gender ? `${e.personal.birthDate ? fmtDate(e.personal.birthDate) : "—"} | ${e.personal.gender ? { male: "Nam", female: "Nữ", other: "Khác" }[e.personal.gender] : "—"}` : none],
+            ["CCCD", e.personal.idNumber ? <Phrases key="i" text={`${e.personal.idNumber}${e.personal.idIssuedOn ? ` | cấp ${fmtDate(e.personal.idIssuedOn)}` : ""}${e.personal.idIssuedBy ? ` | ${e.personal.idIssuedBy}` : ""}`} /> : none],
+            ["Số sổ BHXH", e.personal.socialInsuranceNo ?? none],
+            ["Email cá nhân", e.personal.personalEmail ?? none],
           ]} />
         </Section>
         <Section title="Liên hệ và địa chỉ">
           <Dl rows={[
-            ["Thường trú", <Phrases key="p" text={e.personal.permanentAddress} />],
-            ["Địa chỉ hiện tại", <Phrases key="a" text={e.personal.address} />],
-            ["Liên hệ khẩn cấp", e.personal.emergency ? `${e.personal.emergency.name} | ${e.personal.emergency.relation} | ${e.personal.emergency.phone}` : "—"],
-            ["Tài khoản ngân hàng", <Phrases key="k" text={e.personal.bank ? `${e.personal.bank.bankName} · ${e.personal.bank.accountNo ?? `•••• ${e.personal.bank.last4}`} · ${e.personal.bank.holder}` : null} />],
+            ["Điện thoại", e.phone ?? none],
+            ["Thường trú", e.personal.permanentAddress ? <Phrases key="p" text={e.personal.permanentAddress} /> : none],
+            ["Địa chỉ hiện tại", e.personal.address ? <Phrases key="a" text={e.personal.address} /> : none],
+            ["Liên hệ khẩn cấp", e.personal.emergency ? `${e.personal.emergency.name} | ${e.personal.emergency.relation} | ${e.personal.emergency.phone}` : none],
+            ["Tài khoản ngân hàng", e.personal.bank ? <Phrases key="k" text={`${e.personal.bank.bankName} | ${e.personal.bank.accountNo ?? `•••• ${e.personal.bank.last4}`} | ${e.personal.bank.holder}`} /> : none],
           ]} />
         </Section>
-      </div> : null}
+      </div>
+      <div className="note info" style={{ marginTop: 16 }}><Icon name="lock" /><span>CCCD và số tài khoản được che bớt. Chỉ vai trò có quyền dữ liệu nhạy cảm mới xem đầy đủ, mỗi lần xem được ghi vào lịch sử.</span></div></> : null}
 
-      {tab === "attendance" && can(me, "attendance.read") ? <div className="grid two top">
+      {tab === "attendance" && can(me, "attendance.read") ? <>
+        {ts.data ? <div className="grid one-two">
+          <Section title={`Tháng ${Number(ts.data.period.month.slice(5))}/${ts.data.period.month.slice(0, 4)}`}>
+            <MonthMini days={ts.data.days} today={today} />
+            <div className="legend" style={{ marginTop: 14, flexWrap: "wrap" }}><span><i style={{ background: "var(--mint-soft)" }} />Đủ công</span><span><i style={{ background: "var(--amber-soft)" }} />Đi muộn</span><span><i style={{ background: "var(--red-soft)" }} />Thiếu công</span><span><i style={{ background: "var(--blue-soft)" }} />Nghỉ phép</span></div>
+          </Section>
+          <article className="card"><div className="card-head"><h3>Từng ngày</h3><Link className="btn small ghost" href="/attendance?tab=month">Mở bảng công</Link></div>
+            <div className="table-wrap" style={{ marginTop: 10 }}><table className="data-table" style={{ minWidth: 0 }}><thead><tr><th>Ngày</th><th>Vào</th><th>Ra</th><th>Giờ làm</th><th>Kết quả</th></tr></thead><tbody>
+              {ts.data.days.filter((d) => d.date <= today && d.kind !== "not_employed" && (d.workday || d.clockIn)).reverse().map((d) => (
+                <tr key={d.date}><td className="num"><b style={{ fontWeight: 600 }}>{fmtDate(d.date).slice(0, 5)}</b> <span className="muted small">{WD7[d.weekday]}</span></td>
+                  <td className="num">{d.kind === "leave" ? "—" : d.clockIn ?? "--:--"}</td><td className="num">{d.kind === "leave" ? "—" : d.clockOut ?? (d.date === today && d.clockIn ? "—" : "--:--")}</td>
+                  <td className="num">{d.workedMinutes ? (d.workedMinutes / 60).toLocaleString("vi-VN", { maximumFractionDigits: 1, minimumFractionDigits: 1 }) : d.kind === "leave" ? "—" : "0"}</td>
+                  <td><Status v={dayResult(d, today)} /></td></tr>
+              ))}
+            </tbody></table></div>
+          </article>
+        </div> : null}
+        <div style={{ marginTop: 16 }}>
         <Section title="Thiết bị chấm công">
           {!e.devices.length ? <p className="muted" style={{ fontSize: 12.5, margin: 0 }}>Chưa đăng ký thiết bị.</p> : e.devices.map((d) => (
             <div key={d.id} className="kv-spread">
@@ -195,15 +213,8 @@ export function EmployeeProfile({ id }: { id: string }) {
             </div>
           ))}
         </Section>
-        <Section title="Chấm công 14 ngày gần nhất">
-          {!e.recentEvents.length ? <p className="muted" style={{ fontSize: 12.5, margin: 0 }}>Chưa có bản ghi.</p> : (
-            <Dl rows={e.recentEvents.slice(0, 12).map((ev): [string, ReactNode] => [
-              `${fmtDateTime(ev.occurredAt, tz)} · ${ev.kind === "in" ? "Vào ca" : "Ra ca"}${ev.offline ? " · offline" : ""}`,
-              ev.status === "accepted" ? (ev.deviationMinutes > 0 ? <span className="text-red">{ev.kind === "in" ? "Muộn" : "Sớm"} {ev.deviationMinutes} phút</span> : <span className="text-green">Hợp lệ</span>) : <span className="text-red">{REJECT_REASON[ev.rejectReason ?? ""] ?? "Bị từ chối"}</span>,
-            ])} />
-          )}
-        </Section>
-      </div> : null}
+        </div>
+      </> : null}
 
       {tab === "pay" && can(me, "compensation.read") ? <EmployeePaySection employeeId={e.id} name={e.fullName} /> : null}
       {tab === "papers" && can(me, "document.read") ? <EmployeeChecklistSection employeeId={e.id} /> : null}
@@ -229,12 +240,12 @@ export function EmployeeProfile({ id }: { id: string }) {
 }
 
 /* Phép năm: vòng = còn lại / định mức năm; số liệu từ sổ phép (employees leave/:id) */
-function LeaveCard({ b }: { b: NonNullable<EmployeeLeave["balance"]> }) {
+function LeaveCard({ b, id }: { b: NonNullable<EmployeeLeave["balance"]>; id: string }) {
   const total = Math.max(b.available + b.used, 0.0001);
   const R = 42, C = 2 * Math.PI * R;
   const left = Math.max(0, Math.min(1, b.available / total));
   return (
-    <Section title={`Phép năm ${b.year}`}>
+    <Section title={`Phép năm ${b.year}`} action={<Link className="btn small ghost" href={`/leave?tab=bal&open=${id}`}>Sổ phép</Link>}>
       <div className="ring-row">
         <span className="ringw" style={{ width: 96, height: 96 }}>
           <svg width="96" height="96" viewBox="0 0 96 96"><circle cx="48" cy="48" r={R} fill="none" stroke="var(--track)" strokeWidth="12" />
@@ -335,4 +346,36 @@ function EmployeeRequests({ employeeId }: { employeeId: string }) {
       {open ? <RequestModal r={open} onClose={() => setOpen(null)} onDone={() => void reload()} /> : null}
     </section>
   );
+}
+
+/* Ngày làm trong tuần (ISO 1=T2…7=CN) → "T2–T6" khi liên tiếp, không thì liệt kê */
+const none = <span className="muted" style={{ fontWeight: 500 }}>Chưa có</span>;
+const WD7 = ["", "T2", "T3", "T4", "T5", "T6", "T7", "CN"];
+function dayRange(d: number[]) {
+  const x = [...d].sort((a, b) => a - b);
+  if (!x.length) return "";
+  return x.length > 2 && x.every((v, i) => !i || v === x[i - 1]! + 1) ? `${WD7[x[0]!]}–${WD7[x.at(-1)!]}` : x.map((v) => WD7[v]).join(", ");
+}
+
+/* Lịch mini của kỳ công (prototype .calmini): màu theo kết quả ngày */
+function MonthMini({ days, today }: { days: EmployeeTimesheet["days"]; today: string }) {
+  const lead = days.length ? days[0]!.weekday - 1 : 0;
+  const cls = (d: EmployeeTimesheet["days"][number]) => d.kind === "leave" ? "leave" : d.date > today ? (d.workday ? "fut" : "we") : !d.workday && !d.clockIn ? "we"
+    : d.issue === "late" || d.issue === "late_early" || d.issue === "early" ? "late" : d.issue ? (d.request ? "exp" : "miss") : d.clockIn ? "ok" : "fut";
+  return (
+    <div className="calmini">{["T2", "T3", "T4", "T5", "T6", "T7", "CN"].map((w) => <b key={w}>{w}</b>)}
+      {Array.from({ length: lead }, (_, i) => <span key={`x${i}`} className="x" />)}
+      {days.map((d) => <span key={d.date} className={`${cls(d)}${d.date === today ? " today" : ""}`} title={fmtDate(d.date)}>{Number(d.date.slice(8))}</span>)}
+    </div>
+  );
+}
+/* Kết quả một ngày cho bảng "Từng ngày" */
+function dayResult(d: EmployeeTimesheet["days"][number], today: string): [string, string] {
+  if (d.kind === "leave") return ["Nghỉ phép", "info"];
+  if (d.date === today && d.clockIn && !d.clockOut) return d.lateMinutes > 0 ? [`Đi muộn ${d.lateMinutes} phút`, "warn"] : ["Đang làm việc", ""];
+  if (!d.workday && !d.clockIn) return ["Nghỉ", "muted"];
+  if (d.issue === "late" || d.issue === "late_early") return [`Đi muộn ${d.lateMinutes} phút`, "warn"];
+  if (d.issue === "early") return [`Về sớm ${d.earlyMinutes} phút`, "warn"];
+  if (d.issue) return d.request ? ["Đã giải trình", "violet"] : d.date === today ? ["Chưa vào ca", "bad"] : ["Thiếu công, chưa giải trình", "bad"];
+  return ["Đủ công", ""];
 }

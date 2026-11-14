@@ -57,7 +57,8 @@ const PER = 8;
 function LeavePage() {
   const me = useMe();
   const router = useRouter();
-  const tab = (useSearchParams().get("tab") as Tab | null) ?? "ov";
+  const sp = useSearchParams();
+  const tab = (sp.get("tab") as Tab | null) ?? "ov";
   const today = tenantToday(me.tenant.timezone);
   const cur = today.slice(0, 7);
   const thisYear = Number(today.slice(0, 4));
@@ -65,7 +66,8 @@ function LeavePage() {
   const [mo, setMo] = useState(cur);
   const [day, setDay] = useState(today);
   const [dept, setDept] = useState("");
-  const [open, setOpen] = useState<string | null>(null);
+  /* ?open=<id>: mở sổ phép của nhân viên (nút "Sổ phép" ở hồ sơ) */
+  const [open, setOpen] = useState<string | null>(sp.get("open"));
   const live = { tables: ["requests", "approval_tasks"], tenantId: me.tenant.id };
   const board = useApi<LeaveBoard>(`leave?year=${year}`, live);
   const cal = useApi<LeaveMonth>(`leave/calendar?month=${mo}`, live);
@@ -82,9 +84,9 @@ function LeavePage() {
     <section className="page active">
       <PageSub text={bal ? `Phép năm ${b!.year}${bal.accrualMonthly ? " tích lũy theo tháng" : ""}, ${d1(bal.yearEntitlement)} ngày/năm${bal.policy ? ` theo quy định ${bal.policy.name}` : ""}.` : null} />
       <PageActions><Link className="btn" href="/settings?tab=rules"><Icon name="settings" /> Quy định phép năm</Link></PageActions>
-      <div className="page-head"><div><div className="segmented" role="tablist">{tabs.map(([k, l, n]) => <button key={k} role="tab" aria-selected={tab === k} className={tab === k ? "active" : ""} onClick={() => go(k)}>{l}{n != null ? <span className="n">{n}</span> : null}</button>)}</div></div></div>
+      <div className="page-head"><div><div className="segmented" role="tablist">{tabs.map(([k, l, n]) => <button key={k} role="tab" aria-selected={tab === k} className={tab === k ? "active" : ""} onClick={() => go(k)}>{l}{n != null ? <span className="n">{n}</span> : null}</button>)}</div></div><div id="tab-actions" className="tab-actions" /></div>
       <LoadError error={board.error ?? cal.error ?? curCal.error} retry={() => { void board.reload(); void cal.reload(); void curCal.reload(); }} />
-      <Tiles b={b} loaded={!!curEntries} now={(curDays.get(today) ?? []).filter((p) => p.st !== "p")} />
+      <Tiles b={b} loaded={!!curEntries} now={(curDays.get(today) ?? []).filter((p) => p.st !== "p")} plain={tab !== "ov"} />
       {tab === "ov" ? <Overview b={b} entries={curEntries} days={curDays} mo={cur} today={today} day={day} pick={pick} onFull={() => go("cal")} onOpen={setOpen} /> : null}
       {tab === "cal" ? <Calendar entries={entries} days={days} mo={mo} setMo={(v) => { setMo(v); setDay(v === cur ? today : `${v}-01`); }} cur={cur} today={today} day={day} pick={pick} dept={dept} setDept={setDept} onOpen={setOpen} /> : null}
       {tab === "bal" ? <Balances b={b} error={board.error} year={year} setYear={setYear} thisYear={thisYear} onOpen={setOpen} /> : null}
@@ -157,10 +159,19 @@ function Overview({ b, entries, days, mo, today, day, pick, onFull, onOpen }: { 
   );
 }
 
-function Tiles({ b, loaded, now }: { b: LeaveBoard | null; loaded: boolean; now: DayPerson[] }) {
+function Tiles({ b, loaded, now, plain }: { b: LeaveBoard | null; loaded: boolean; now: DayPerson[]; plain?: boolean }) {
   const m = b?.metrics;
   const granted = (b?.rows ?? []).reduce((n, r) => n + (r.balance ? r.balance.granted + r.balance.carry + r.balance.adjusted : 0), 0);
   const expiring = m && m.expiringCarry > 0 && m.expiringOn ? ` · ${d1(m.expiringCarry)} ngày phép tồn đến ${fmtDate(m.expiringOn).slice(0, 5)}` : "";
+  /* Prototype: tab Tổng quan dùng thẻ .thk, tab Lịch nghỉ/Số dư dùng thẻ số liệu thường */
+  if (plain) return (
+    <div className="grid metrics">
+      <article className="card metric-card"><span className="metric-icon"><Icon name="plane" /></span><span className="metric-copy"><span>Đang nghỉ hôm nay</span><strong>{loaded ? now.length : "—"}<small> người</small></strong><small>{loaded ? now.map((p) => given(p.e.fullName)).join(", ") || "Không ai nghỉ" : " "}</small></span></article>
+      <article className="card metric-card"><span className="metric-icon"><Icon name="plane" /></span><span className="metric-copy"><span>Phép còn lại toàn công ty</span><strong>{m ? d1(m.available) : "—"}<small> ngày</small></strong><small>{m ? `Đã cấp ${d1(granted)} ngày cho ${(b?.rows ?? []).filter((r) => r.balance).length} người` : " "}</small></span></article>
+      <article className="card metric-card"><span className="metric-icon"><Icon name="users" /></span><span className="metric-copy"><span>Đã sử dụng</span><strong>{m ? d1(m.used) : "—"}<small> ngày</small></strong><small>{m && granted ? `${((m.used / granted) * 100).toLocaleString("vi-VN", { maximumFractionDigits: 1 })}% số phép đã cấp` : " "}</small></span></article>
+      <article className="card metric-card"><span className="metric-icon"><Icon name="plane" /></span><span className="metric-copy"><span>Đang chờ duyệt</span><strong className={m?.pending ? "tone-warn" : ""}>{m ? d1(m.pending) : "—"}<small> ngày</small></strong><small>đang giữ chỗ phép</small></span></article>
+    </div>
+  );
   return (
       <div className="thks">
         <Thk label="Đang nghỉ hôm nay" tone="mint" icon="plane" value={<>{loaded ? now.length : "—"}<small> người</small></>} chip={loaded ? now.map((p) => given(p.e.fullName)).join(", ") || "Không ai nghỉ" : null} />
@@ -238,7 +249,7 @@ function Balances({ b, error, year, setYear, thisYear, onOpen }: { b: LeaveBoard
         {([["all", "Tất cả"], ["pend", "Có đơn chờ duyệt"], ["zero", "Chưa nghỉ ngày nào"]] as const).map(([k, l]) => <button key={k} className={`filter-chip ${f === k ? "active" : ""}`} onClick={() => setF(k)}>{l}<span className="n">{cnt[k]}</span></button>)}
         <span className="toolbar-spacer" />
         <span className="legend"><span><i style={{ background: "var(--t-np-fill)" }} />Đã nghỉ</span><span><i style={{ background: "var(--warn-fill)" }} />Chờ duyệt</span><span><i style={{ background: "var(--accent)" }} />Còn lại</span></span>
-        <Select className="select" value={year} onChange={(e) => setYear(Number(e.target.value))} aria-label="Năm">{[thisYear, thisYear - 1].map((y) => <option key={y} value={y}>Năm {y}</option>)}</Select>
+        <PageActions><Select className="select" value={year} onChange={(e) => setYear(Number(e.target.value))} aria-label="Năm">{[thisYear, thisYear - 1].map((y) => <option key={y} value={y}>Năm {y}</option>)}</Select></PageActions>
       </div>
       {b && !rows.length ? <Empty title="Không có nhân viên phù hợp" /> : (
         <div className="table-wrap"><table className="data-table" style={{ minWidth: 900 }}><thead><tr><th>Nhân viên</th><th>Phòng ban</th><th>{ent ? `${ent} ngày phép năm ${year}` : `Phép năm ${year}`}</th><th className="r">Còn lại</th><th className="r">Đã nghỉ</th><th className="r">Chờ duyệt</th><th /></tr></thead><tbody>

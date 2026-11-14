@@ -81,9 +81,9 @@ function useRequestDetail(r: RequestItem, onDone: (r: RequestItem) => void, onCl
     ...(r.attendance ? [["Chấm công thực tế", overtimeAttendanceShort(r.attendance) ? <Status v={[overtimeAttendanceText(r.attendance), "bad"]} /> : overtimeAttendanceText(r.attendance)] as [string, ReactNode]] : []),
   ] : r.type === "profile_change" ? r.payload.fields.map((f): [string, ReactNode] => [PROFILE_FIELDS[f],
     <><span className="muted" style={{ textDecoration: "line-through", fontWeight: 500 }}>{profileValue(f, r.payload.before)}</span> → {profileValue(f, r.payload.after)}</>])
-    : [["Nội dung", requestSummary(r)]];
+    : r.workDate ? [["Ngày áp dụng", fmtDate(r.workDate)]] : [];
   if (r.type === "explanation" && r.day) rows.push(["Chấm công gốc", `${r.day.shift ?? "—"} | vào ${r.day.rawIn ?? "--:--"} | ra ${r.day.rawOut ?? "--:--"}`]);
-  rows.push(["Lý do", r.payload.reason || "—"], ["Gửi lúc", fmtDateTime(r.submittedAt, tz)]);
+  rows.push(["Lý do", r.payload.reason || "—"]);
   if (r.attachments.length || r.attachmentRequired) rows.push(["Minh chứng", r.attachments.length ? r.attachments.map((a) => (
     <a key={a.id} className="btn small" style={{ margin: "0 0 4px 6px" }} href={`/api/requests/${r.id}/attachments/${a.id}`} target="_blank" rel="noreferrer"><Icon name="download" /> {a.name} · {kb(a.size)}</a>
   )) : <Status v={["Bắt buộc · nhân viên chưa đính kèm", "bad"]} />]);
@@ -96,20 +96,20 @@ function useRequestDetail(r: RequestItem, onDone: (r: RequestItem) => void, onCl
         </div>
         {pending ? <Status v={sla} /> : <Status v={REQUEST_STATUS[r.status]} />}
       </div>
-      {pending && sla[1] === "bad" ? <div className="banner soft-warn"><span className="banner-icon"><Icon name="alert" /></span><span className="banner-copy"><b>Đơn đã quá hạn xử lý.</b><span>{sla[0]} so với hạn của bước đang chờ. Nhân viên vẫn đang chờ kết quả.</span></span></div> : null}
-      <div className="inset rsp">
+      {pending && sla[1] === "bad" ? <div className="note"><Icon name="alert" /><span><b>Đơn đã quá hạn xử lý {sla[0].replace(/^Quá /, "")}.</b>{cur?.dueAt ? ` Hạn của bước này là ${fmtDateTime(cur.dueAt, tz)}.` : ""} Nhân viên vẫn đang chờ kết quả.</span></div> : null}
+      <Link className="inset rsp" href={`/employees/${r.requester.id}`}>
         <Person name={r.requester.fullName} seed={r.requester.code} sub={`${r.requester.department ?? "—"} | ${r.requester.code}`} />
-        <Link className="small" href={`/employees/${r.requester.id}`} style={{ color: "var(--brand-ink)", fontWeight: 700 }}>Xem hồ sơ →</Link>
-      </div>
+        <span className="rw small sub">Xem hồ sơ<Icon name="chevR" size={14} /></span>
+      </Link>
       <div className="rd-grid">
         <div><div className="cap" style={{ marginBottom: 6 }}>Nội dung đơn</div><Dl rows={rows} /></div>
         <div><div className="cap" style={{ marginBottom: 12 }}>Luồng duyệt</div>
           <div className="tl">{r.steps.map((s) => (
             <div key={s.taskId}>
               <span className={`pt ${s.status === "approved" ? "done" : s.status === "rejected" ? "bad" : s.status === "pending" ? "now" : ""}`}>{s.status === "approved" ? <Icon name="check" size={12} /> : s.status === "rejected" ? <Icon name="x" size={12} /> : null}</span>
-              <div><b style={{ fontWeight: 600 }}>Bước {s.stepNo}: {STEP_RESOLVERS[s.resolver]}{s.assignee && s.resolver === "direct_manager" ? ` · ${s.assignee}` : ""}</b>
+              <div><b style={{ fontWeight: 600 }}>Bước {s.stepNo}: {STEP_RESOLVERS[s.resolver]}</b>
                 <span className={`small ${s.status === "pending" ? "now-t" : "muted"}`} style={{ display: "block" }}>
-                  {s.actedAt ? `${s.actedBy ?? "—"} · ${fmtDateTime(s.actedAt, tz)}${s.comment ? ` · “${s.comment}”` : ""}` : s.status === "pending" && s.dueAt ? `${STEP_STATUS.pending[0]} · Hạn ${fmtDateTime(s.dueAt, tz)}` : s.status === "skipped" ? "Không có người duyệt ở bước này" : STEP_STATUS[s.status][0]}
+                  {vs(s.actedAt ? `${s.actedBy ?? "—"} | ${fmtDateTime(s.actedAt, tz)}${s.comment ? ` | “${s.comment}”` : ""}` : s.status === "pending" ? `${s.assignee ?? "Chưa có người duyệt"}${s.dueAt ? ` | Hạn ${fmtDateTime(s.dueAt, tz)}` : ""}` : s.status === "skipped" ? "Không có người duyệt ở bước này" : s.assignee ?? STEP_STATUS[s.status][0])}
                 </span></div>
             </div>
           ))}</div></div>
@@ -118,14 +118,14 @@ function useRequestDetail(r: RequestItem, onDone: (r: RequestItem) => void, onCl
         Chấm công không phủ hết giờ trên đơn. Duyệt vẫn được (công tác, quên chấm…), nhưng bảng công chỉ tính phần khớp với giờ vào/ra — cần thì điều chỉnh chấm công ngày đó.</div> : null}
       {r.myTaskId && r.attachmentRequired && !r.attachments.length ? <div className="muted small">
         Đơn cần minh chứng: bước duyệt cuối chỉ duyệt được sau khi nhân viên đính kèm trên app. Có thể từ chối nếu không có minh chứng.</div> : null}
-      {r.myTaskId ? <Field label="Ghi chú cho nhân viên (bắt buộc khi từ chối)" full><textarea rows={3} value={note} onChange={(e) => { setNote(e.target.value); setErr(null); }} placeholder="Không bắt buộc khi duyệt" /></Field> : null}
+      {r.myTaskId ? <Field label="Ghi chú cho nhân viên" full><textarea rows={3} style={{ minHeight: 64 }} value={note} onChange={(e) => { setNote(e.target.value); setErr(null); }} placeholder="Không bắt buộc khi duyệt. Bắt buộc khi từ chối." /></Field> : null}
       <ErrorLine text={err} />
     </div>
   );
   const bar = r.myTaskId ? <>
-    <span className="sub small grow">Bạn duyệt ở bước {cur ? STEP_RESOLVERS[cur.resolver] : "này"}. {next ? `Sau bạn là bước ${STEP_RESOLVERS[next.resolver]}.` : "Đây là bước cuối."}</span>
-    <button className="btn danger" disabled={!!busy} onClick={() => void act(false)}>Từ chối</button>
-    <button className="btn primary" disabled={!!busy} onClick={() => void act(true)}>{busy === "ok" ? "Đang duyệt…" : "Duyệt đơn"}</button>
+    <span className="sub small grow">Bạn duyệt ở vai trò {cur ? STEP_RESOLVERS[cur.resolver] : "người duyệt"}. {next ? `Sau bạn là bước ${STEP_RESOLVERS[next.resolver]}.` : "Đây là bước cuối."}</span>
+    <button className="btn danger" disabled={!!busy} onClick={() => void act(false)}><Icon name="x" /> Từ chối</button>
+    <button className="btn primary" disabled={!!busy} onClick={() => void act(true)}><Icon name="check" /> {busy === "ok" ? "Đang duyệt…" : "Duyệt đơn"}</button>
   </> : why ? <>
     <span className="rw sub small grow"><Icon name="help" size={16} />{why.text}</span>
     {why.needRole && can(me, "role.assign") ? <Link className="btn primary" href="/roles">Gán vai trò</Link> : null}

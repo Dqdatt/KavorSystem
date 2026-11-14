@@ -74,8 +74,8 @@ function RoleDetail({ r, canAssign, hint, onAssign, onDone }: { r: RoleInfo; can
     <div className="rl-stack">
       <section className="card">
         <div className="card-head"><div style={{ minWidth: 0 }}><h3>{r.name}<Hint text={`Một người giữ được nhiều vai trò, quyền cộng dồn (ví dụ Quản trị viên công ty kiêm Nhân sự vận hành): gán vai trò mới không thay vai trò đang có. Vai trò Nhân viên được gán tự động khi kích hoạt tài khoản. Quyền thay đổi có hiệu lực ngay ở thao tác kế tiếp của người đó.${hint ? "" : " Chỉ quản trị viên công ty được gán hoặc thu hồi vai trò."}`} /></h3>
-          <span className="muted" style={{ display: "block", fontSize: 12 }}>Phạm vi mặc định: {r.defaultScope}<i className="vs" />Dữ liệu lương: {r.payrollData}<i className="vs" />Gán theo: {r.allowedScopes.map((s) => SCOPE[s]).join(", ")}</span></div>
-          {canAssign ? <button className="btn small" onClick={onAssign}><Icon name="plus" /> Gán cho nhân viên</button> : null}</div>
+          <span className="muted" style={{ display: "block", fontSize: 12.5 }}>Phạm vi mặc định: {r.defaultScope}<i className="vs" />Dữ liệu lương: {r.payrollData}</span></div>
+          {canAssign ? <button className="btn small accent" onClick={onAssign}><Icon name="plus" /> Gán cho nhân viên</button> : null}</div>
         <div className="card-body">
           <div className="table-wrap"><table className="pm"><thead><tr><th>Phân hệ</th>{LEVELS.map(([, l]) => <th key={l}>{l}</th>)}</tr></thead><tbody>
             {PMODS.map(([k, l]) => { const any = LEVELS.some(([c]) => cells.has(`${k}.${c}`)); return (

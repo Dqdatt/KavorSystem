@@ -70,13 +70,13 @@ function AnnouncementsPage() {
     <section className="page active">
       <PageActions><button className="btn primary" onClick={() => setEditing("new")}><Icon name="plus" /> Tạo bài viết</button></PageActions>
       <div className="page-head"><div><div className="segmented" role="tablist">{tabs.map(([k, l]) => <button key={k} role="tab" aria-selected={filter === k} className={filter === k ? "active" : ""} onClick={() => setFilter(k)}>{l}{b ? <span className="n">{count(k)}</span> : null}</button>)}</div></div>
-        <label className="search" style={{ width: "min(300px, 100%)" }}><Icon name="search" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Tìm theo tiêu đề…" aria-label="Tìm bài viết" /></label></div>
+        <label className="search" style={{ width: "min(300px, 100%)" }}><Icon name="search" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Tìm theo tiêu đề…" aria-label="Tìm bài viết" /></label><div id="tab-actions" className="tab-actions" /></div>
       <LoadError error={error} retry={reload} />
       <div className="grid metrics">
-        <MetricBtn icon="news" tone="" label="Đang hiện" value={b ? num(live.length) : "—"} sub={live.length ? `Tỷ lệ đọc trung bình ${Math.round(live.reduce((t, a) => t + pct(a), 0) / live.length)}%` : "Chưa có bài đang hiện"} onClick={() => setFilter("published")} />
+        <MetricBtn icon="eye" tone="" label="Đang hiện" value={b ? num(live.length) : "—"} sub={live.length ? `Tỷ lệ đọc trung bình ${Math.round(live.reduce((t, a) => t + pct(a), 0) / live.length)}%` : "Chưa có bài đang hiện"} onClick={() => setFilter("published")} />
         <MetricBtn icon="clock" tone="blue" label="Hẹn giờ" value={b ? num(scheduled.length) : "—"} sub={scheduled[0] ? `Gần nhất ${fmtDateTime(scheduled[0].publishAt, tz)}` : "Không có bài hẹn giờ"} onClick={() => setFilter("scheduled")} />
         <MetricBtn icon="file" tone="amber" label="Nháp" value={b ? num(items.filter((a) => a.status === "draft").length) : "—"} sub="Chưa gửi tới nhân viên" onClick={() => setFilter("draft")} />
-        <MetricBtn icon="alert" tone="red" label="Chờ xác nhận đã đọc" value={b ? <>{num(waiting)}<small> người</small></> : "—"} sub={`${num(live.filter((a) => a.important).length)} bài quan trọng đang hiện`} onClick={() => setFilter("published")} red={waiting > 0} />
+        <MetricBtn icon="checks" tone="red" label="Chờ xác nhận đã đọc" value={b ? <>{num(waiting)}<small> người</small></> : "—"} sub={`${num(live.filter((a) => a.important).length)} bài quan trọng đang hiện`} onClick={() => setFilter("published")} red={waiting > 0} />
       </div>
 
       {!b && !error ? <article className="card"><SkeletonLines lines={5} /></article> : b && !rows.length ? (

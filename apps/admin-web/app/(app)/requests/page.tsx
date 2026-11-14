@@ -71,21 +71,19 @@ function RequestsPage() {
         <a className="btn" href={exportHref}><Icon name="download" /> Xuất CSV</a>
         {can(me, "request.read") ? <button className="btn" onClick={() => setConfig(true)}><Icon name="settings" /> Cấu hình luồng duyệt</button> : null}</PageActions>
       <LoadError error={error} retry={reload} />
-      <div className="segmented" role="tablist" style={{ marginBottom: 16 }}>{TABS.map(([k, label]) => (
+      <div className="page-head"><div><div className="segmented" role="tablist">{TABS.map(([k, label]) => (
         <button key={k} role="tab" aria-selected={tab === k} className={tab === k ? "active" : ""} onClick={() => pick(k)}>{label}{counts[k] != null ? <span className={`n ${k === "mine" && counts[k]! > 0 ? "hot" : ""}`}>{counts[k]}</span> : null}</button>
-      ))}</div>
+      ))}</div></div><div id="tab-actions" className="tab-actions" /></div>
       <div className="inbox" ref={inbox}>
         <section className="card lst">
           <div className="flt">
             <div className="fr">
-              <label className="search" style={{ flex: 1 }}><Icon name="search" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Mã đơn hoặc người gửi…" /></label>
-              <button className={`tog ${showF ? "on" : ""}`} onClick={() => setShowF(!showF)} aria-label="Lọc" aria-pressed={showF}><Icon name="filter" /></button>
-            </div>
-            <div className="fr">
-              <Select className="select" value={f.type} onChange={set("type")} aria-label="Loại đơn"><option value="">Mọi loại đơn</option>{(Object.keys(REQUEST_TYPE) as RequestType[]).map((t) => <option key={t} value={t}>{REQUEST_TYPE[t]}</option>)}</Select>
-              <span className="small muted" style={{ marginLeft: "auto", whiteSpace: "nowrap" }}>{data ? num(data.total) : "…"} đơn</span>
+              <Select className="select" style={{ flex: 1 }} value={f.type} onChange={set("type")} aria-label="Loại đơn"><option value="">Mọi loại đơn</option>{(Object.keys(REQUEST_TYPE) as RequestType[]).map((t) => <option key={t} value={t}>{REQUEST_TYPE[t]}</option>)}</Select>
+              <span className="small muted num" style={{ whiteSpace: "nowrap" }}>{data ? num(data.total) : "…"} đơn</span>
+              <button className={`tog ${showF || filtered ? "on" : ""}`} onClick={() => setShowF(!showF)} aria-label="Tìm và lọc thêm" aria-pressed={showF}><Icon name="filter" /></button>
             </div>
             {showF ? <div className="fr" style={{ flexWrap: "wrap" }}>
+              <label className="search" style={{ flex: "1 1 100%" }}><Icon name="search" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Mã đơn hoặc người gửi…" /></label>
               <Select className="select" value={f.departmentId} onChange={set("departmentId")} aria-label="Phòng ban"><option value="">Mọi phòng ban</option>{(org?.departments ?? []).map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}</Select>
               <Select className="select" value={f.dateBy} onChange={set("dateBy")} aria-label="Lọc theo ngày"><option value="applied">Ngày áp dụng</option><option value="submitted">Ngày gửi</option></Select>
               <span className="date-range"><input type="date" value={f.from} max={f.to || undefined} onChange={set("from")} aria-label="Từ ngày" /><i>–</i><input type="date" value={f.to} min={f.from || undefined} onChange={set("to")} aria-label="Đến ngày" /></span>

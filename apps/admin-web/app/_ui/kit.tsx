@@ -8,7 +8,7 @@ import { ICONS } from "./icons";
 
 export function Icon({ name, size, className }: { name: string; size?: number; className?: string }) {
   return (
-    <svg className={className} viewBox="0 0 24 24" aria-hidden="true" style={{ fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round", strokeLinejoin: "round", ...(size ? { width: size, height: size } : {}) }}
+    <svg className={className} viewBox="0 0 24 24" aria-hidden="true" style={{ fill: "none", stroke: "currentColor", strokeWidth: 1.75, strokeLinecap: "round", strokeLinejoin: "round", ...(size ? { width: size, height: size } : {}) }}
       dangerouslySetInnerHTML={{ __html: ICONS[name] ?? "" }} />
   );
 }
@@ -16,7 +16,7 @@ export function Icon({ name, size, className }: { name: string; size?: number; c
 /* ---------- Định dạng (giờ theo múi giờ công ty) ---------- */
 /* Như prototype: chữ đầu của họ + chữ đầu của tên ("Mai Phương Thảo" → MT) */
 export const initials = (name: string) => { const p = name.trim().split(/\s+/); return ((p.length > 1 ? p[0]![0]! : "") + p[p.length - 1]![0]!).toUpperCase(); };
-const TONES = ["", "purple", "gold"] as const;
+const TONES = ["t0", "t1", "t2", "t3", "t4", "t5"] as const;
 export const avatarTone = (seed: string) => TONES[[...seed].reduce((a, c) => a + c.charCodeAt(0), 0) % TONES.length];
 export function Avatar({ name, seed, xl }: { name: string; seed?: string; xl?: boolean }) { return <span className={`avatar ${xl ? "xl " : ""}${avatarTone(seed ?? name)}`}>{initials(name)}</span>; }
 /* Dòng meta: " | " → vạch .vs như prototype (chuỗi dữ liệu/CSV/API giữ nguyên) */
@@ -76,7 +76,7 @@ export const REJECT_REASON: Record<string, string> = {
 /* "Phòng ban: Marketing"; tầng công ty chỉ ghi "Toàn công ty" */
 export const scopeText = (s: { scopeType: string; scopeName: string }) => (s.scopeType === "tenant" ? "Toàn công ty" : s.scopeType === "self" ? s.scopeName : `${SCOPE[s.scopeType] ?? s.scopeType}: ${s.scopeName}`);
 export const SCOPE: Record<string, string> = { tenant: "Toàn công ty", legal_entity: "Pháp nhân", branch: "Chi nhánh", department: "Phòng ban", employee: "Cá nhân" };
-export function Status({ v }: { v: [string, string] }) { return <span className={`status ${v[1]}`}>{v[0]}</span>; }
+export function Status({ v }: { v: [string, string] }) { return <span className={`status ${v[1]}`}>{vs(v[0])}</span>; }
 
 /* ---------- Người đang đăng nhập ---------- */
 export const MeContext = createContext<AdminMe | null>(null);
@@ -154,7 +154,8 @@ export function Drawer({ onClose, head, children, wide }: { onClose: () => void;
 /* Nút hành động của trang hiện trên topbar cạnh tên trang (portal vào #page-actions) — không còn hàng nút riêng để trống bên trái */
 export function PageActions({ children }: { children: ReactNode }) {
   const [host, setHost] = useState<Element | null>(null);
-  useEffect(() => { setHost(document.getElementById("page-actions")); }, []);
+  /* Trang có hàng tab: nút nằm bên phải hàng tab (prototype .tabrow .acts); không có thì ở topbar */
+  useEffect(() => { setHost(document.getElementById("tab-actions") ?? document.getElementById("page-actions")); }, []);
   return host ? createPortal(<>{children}</>, host) : null;
 }
 
@@ -171,8 +172,13 @@ export function Field({ label, full, hint, note, children }: { label: string; fu
 }
 export function ErrorLine({ text }: { text: string | null }) { return text ? <p className="text-red" style={{ margin: "10px 0 0", fontSize: 12.5 }}>{text}</p> : null; }
 
-export function Empty({ title, text }: { title: string; text?: string }) {
-  return <div className="empty-state"><b>{title}</b>{text ? <span>{text}</span> : null}</div>;
+/* Icon trạng thái rỗng như prototype empty(icon,…): đoán theo tiêu đề, truyền icon để chỉ định */
+const EMPTY_ICONS: Array<[RegExp, string]> = [[/còn đơn|bị từ chối|việc cần xử lý|thiếu giấy tờ/i, "check"], [/tìm thấy|phù hợp/i, "search"], [/giữ vai trò/i, "shield"],
+  [/đơn|tạm ứng/i, "checks"], [/thiết bị/i, "phone"], [/bài/i, "news"], [/hỗ trợ|yêu cầu/i, "help"], [/nhân viên|nhân sự|ai /i, "users"], [/giấy tờ|tài liệu/i, "file"],
+  [/địa điểm/i, "pin"], [/ca|lịch|phép/i, "calendar"], [/lương|phụ cấp/i, "pay"]];
+export function Empty({ title, text, icon }: { title: string; text?: string; icon?: string }) {
+  const ic = icon ?? EMPTY_ICONS.find(([re]) => re.test(title))?.[1] ?? "info";
+  return <div className="empty-state"><span className="ring"><Icon name={ic} size={24} /></span><b>{title}</b>{text ? <span>{text}</span> : null}</div>;
 }
 export function LoadError({ error, retry }: { error: { message: string } | null; retry: () => void }) {
   if (!error) return null;

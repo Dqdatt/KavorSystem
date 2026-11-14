@@ -26,7 +26,7 @@ export function PayItems({ tabs }: { tabs: ReactNode }) {
   const active = (l?.items ?? []).filter((x) => !x.archived);
   return (
     <>
-      <div className="page-head"><div>{tabs}</div></div>
+      <div className="page-head"><div>{tabs}</div><div id="tab-actions" className="tab-actions" /></div>
       <PageActions>
           {l?.canManage ? <>
             <button className="btn" disabled={!!busy} onClick={() => void run("tpl", async () => setData(await call<PayItemList>("POST", "payroll/pay-items/templates", {})), "Đã thêm các khoản mẫu")}>

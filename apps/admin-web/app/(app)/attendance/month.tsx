@@ -66,7 +66,6 @@ export function MonthTab({ setAction }: { setAction: (n: ReactNode) => void }) {
           <div className="segmented">{([["all", "Tất cả"], ["short", "Có thiếu công"], ["late", "Có đi muộn"]] as const).map(([k, l]) => <button key={k} className={filter === k ? "active" : ""} onClick={() => setFilter(k)}>{l}</button>)}</div>
           <span className="toolbar-spacer" />
           <div className="legend">{([["ok", "Đủ công"], ["late", "Đi muộn"], ["miss", "Thiếu công"], ["leave", "Nghỉ phép"], ["exp", "Đã giải trình"]] as const).map(([k, l]) => <span key={k}><i className={`cell ${k}`} />{l}</span>)}</div>
-          {b ? <span className={`status ${b.period.locked ? "" : "warn"}`} title={b.period.locked && b.lock ? `Khóa lúc ${fmtDateTime(b.lock.lockedAt, b.timezone)}${b.lock.lockedBy ? ` bởi ${b.lock.lockedBy}` : ""}` : undefined}>{fmtDate(b.period.start).slice(0, 5)}–{fmtDate(b.period.end)}<i className="vs" />{b.period.locked ? "đã khóa" : "chưa khóa"}</span> : null}
           <Select className="select" value={cur ?? ""} onChange={(e) => setMonth(e.target.value)} aria-label="Kỳ công">{months.map((x) => <option key={x} value={x}>{monthLabel(x)}</option>)}</Select>
         </div>
         {b && !rows.length ? <Empty title="Không có nhân viên phù hợp" /> : (

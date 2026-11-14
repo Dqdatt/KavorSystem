@@ -29,7 +29,7 @@ function PayrollPage() {
   if (tab === "items") return <section className="page active"><PayItems tabs={switcher} /></section>;
   return (
     <section className="page active">
-      <div className="page-head"><div>{switcher}</div></div>
+      <div className="page-head"><div>{switcher}</div><div id="tab-actions" className="tab-actions" /></div>
       {tab === "salary" ? <Salary /> : tab === "advances" ? <Advances /> : tab === "calc" ? <PayCalc defaultDate={tenantToday(me.tenant.timezone)} onCalc={(i) => call<PayCalcResult>("POST", "payroll/calc-preview", i)} /> : null}
     </section>
   );

@@ -39,7 +39,7 @@ export function Inputs({ tabs }: { tabs: ReactNode }) {
     <>
       <div className="page-head">
         <div>{tabs}</div>
-        <div className="head-actions">
+        <div className="head-actions"><div id="tab-actions" className="tab-actions" />
           <Select className="select" value={cur ?? ""} onChange={(e) => { setMonth(e.target.value); setLive(false); }} aria-label="Kỳ">{months.map((x) => <option key={x} value={x}>{monthLabel(x)}</option>)}</Select>
           {s ? <span className="muted nowrap" style={{ fontSize: 12.5 }}>{fmtDate(s.period.start).slice(0, 5)}–{fmtDate(s.period.end)}</span> : null}
         </div>

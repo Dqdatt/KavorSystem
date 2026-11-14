@@ -18,8 +18,8 @@ import { Hint, Select, SkeletonRows } from "@kavor/web-ui";
 type Tab = "company" | "payroll" | "setup" | "rules" | "holidays" | "privacy" | "support";
 /* Menu dọc có nhóm như prototype v2 (PAGES['cai-dat']); perm null = ai vào trang cũng thấy */
 const MENU: Array<[string, Array<[Tab, string, string, string | null]>]> = [
-  ["Công ty", [["company", "Doanh nghiệp", "brief", null], ["setup", "Thiết lập ban đầu", "checks", null]]],
-  ["Chính sách", [["payroll", "Kỳ công & lương", "calendar", null], ["rules", "Quy định", "file", "policy.read"], ["holidays", "Ngày lễ", "plane", "policy.read"]]],
+  ["Công ty", [["company", "Doanh nghiệp", "bldg", null], ["setup", "Thiết lập ban đầu", "flag", null]]],
+  ["Chính sách", [["payroll", "Kỳ công & lương", "calendar", null], ["rules", "Quy định", "file", "policy.read"], ["holidays", "Ngày lễ", "sun", "policy.read"]]],
   ["Khác", [["privacy", "Dữ liệu cá nhân", "lock", "privacy.read"], ["support", "Hỗ trợ Kavor", "help", "support_access.approve"]]],
 ];
 
@@ -149,12 +149,12 @@ function Company({ setAction, part }: { setAction: SetAction; part: "company" | 
         </div></div></article>
       </div> : <div className="settings-stack">
         <article className="card"><div className="card-head"><h3>Kỳ công</h3></div>
-        <div className="card-body form-grid three"><Field label="Kỳ công bắt đầu ngày" note={(() => { const d = Number(f.periodStartDay); return d > 1 && d <= 28 ? `Ví dụ kỳ tháng 10: ${d}/09 – ${d - 1}/10. Kỳ đã khóa giữ nguyên.` : d === 1 ? "Theo tháng dương lịch." : "Từ 1 đến 28."; })()}>
+        <div className="card-body form-grid"><Field label="Kỳ công bắt đầu ngày" note={(() => { const d = Number(f.periodStartDay); return d > 1 && d <= 28 ? `Ví dụ kỳ tháng 10: ${d}/09 – ${d - 1}/10. Kỳ đã khóa giữ nguyên.` : d === 1 ? "Theo tháng dương lịch." : "Từ 1 đến 28."; })()}>
           <input type="number" min={1} max={28} value={f.periodStartDay} onChange={set("periodStartDay")} disabled={!manage} />
         </Field></div></article>
         {/* Cài đặt lương công ty tự chọn; luật (BH, thuế) do Kavor duy trì; khoản phụ cấp ở Lương & tạm ứng → Khoản phụ cấp */}
         <article className="card"><div className="card-head"><h3>Quy chế lương<Hint text="Dùng khi Kavor tính kỳ lương. Khoản phụ cấp và cách chịu thuế đặt ở Lương & tạm ứng → Khoản phụ cấp." /></h3></div>
-        <div className="card-body form-grid three">
+        <div className="card-body form-grid">
           <Field label="Vùng lương tối thiểu" hint="Theo địa bàn trụ sở làm việc; dùng cho trần BHTN và cảnh báo lương đóng BH thấp hơn mức tối thiểu.">
             <Select value={f.pay.region} onChange={setPay("region")} disabled={!manage}>{["1", "2", "3", "4"].map((v) => <option key={v} value={v}>Vùng {["I", "II", "III", "IV"][Number(v) - 1]}</option>)}</Select>
           </Field>
@@ -245,15 +245,17 @@ function Setup({ api }: { api: ReturnType<typeof useApi<SetupChecklist>> }) {
   return (
     <div className="settings-stack">
       <article className="card tint setup-sum"><div className="spread"><b>Đã xong {data.done}/{data.total} bước</b><b className="num" style={{ color: "var(--brand-ink)" }}>{pct}%</b></div>
-        <span className="progress" style={{ display: "block", marginTop: 12, ["--value" as string]: `${pct}%` }}><i /></span></article>
+        <div style={{ marginTop: 12 }}><span className="ticks lg" aria-hidden="true">{Array.from({ length: data.total }, (_, i) => <i key={i} className={i < data.done ? "a" : ""} />)}</span></div></article>
       {left.length ? <article className="card"><div className="card-head"><h3>Còn lại {left.length} bước</h3></div><div className="todo-list">{left.map(row)}</div></article> : null}
-      {ok.length ? <article className="card"><details className="done-steps"><summary className="spread"><h3>Đã hoàn tất {ok.length} bước</h3><Icon name="chevR" size={16} /></summary><div className="todo-list">{ok.map(row)}</div></details></article> : null}
+      {ok.length ? <article className="card"><details className="done-steps"><summary className="spread"><h3>Đã hoàn tất {ok.length} bước</h3><Icon name="chevD" size={16} /></summary><div className="todo-list">{ok.map(row)}</div></details></article> : null}
     </div>
   );
 }
 
 /* ---------- Quy định ---------- */
 /* Tham số quy định hiển thị dạng thẻ số: nhãn bên trái, giá trị đậm bên phải */
+/* Icon tròn theo loại quy định (prototype .rules .tile) */
+const RULE_TILE: Record<RuleKind, [string, string]> = { explanation: ["calendar", "t-gt"], salary_advance: ["pay", "t-tu"], leave: ["plane", "t-np"], overtime: ["clock", "t-ot"], reminder: ["bell", "brand"] };
 const fieldRows = (kind: RuleKind, config: RuleConfig): Array<[string, string]> => RULE_KINDS[kind].fields.map((f) => {
   const v = config[f.key] ?? f.default;
   return [f.label, f.type === "bool" ? (v ? "Có" : "Không") : `${typeof v === "number" ? num(v) : v} ${f.unit ?? ""}`.trim()];
@@ -282,8 +284,8 @@ function Rules({ setAction }: { setAction: SetAction }) {
           const live = r.assignments.filter((a) => a.state === "active" || a.state === "scheduled");
           return (
             <article key={r.id} className="card">
-              <div className="card-head"><div><h3>{RULE_KINDS[r.kind].label}<i className="vs" />{r.name}<Hint text={RULE_KINDS[r.kind].description} /></h3>
-                <div className="rule-meta">{r.active ? <Status v={["Đang dùng", ""]} /> : <Status v={["Ngừng dùng", "muted"]} />}<span className="tag">{r.code}</span>{r.current ? <span className="muted small-note">Phiên bản {r.current.versionNo}<i className="vs" />từ {fmtDate(r.current.effectiveFrom)}</span> : null}</div></div>
+              <div className="card-head"><div className="row" style={{ alignItems: "flex-start", minWidth: 0 }}><span className={`tile ${RULE_TILE[r.kind][1]}`}><Icon name={RULE_TILE[r.kind][0]} size={20} /></span><div style={{ minWidth: 0 }}><h3>{r.name}<Hint text={`${RULE_KINDS[r.kind].label}: ${RULE_KINDS[r.kind].description}`} /></h3>
+                <div className="rule-meta">{r.active ? <Status v={["Đang áp dụng", ""]} /> : <Status v={["Ngừng dùng", "muted"]} />}<span className="tag">{r.code}</span>{r.current ? <span className="muted small-note">Phiên bản {r.current.versionNo}<i className="vs" />từ {fmtDate(r.current.effectiveFrom)}</span> : null}</div></div></div>
                 {manage ? <MoreMenu bare items={[
                   { label: "Tạo phiên bản mới", icon: "plus", onClick: () => setForm({ rule: r, kind: r.kind }) },
                   { label: "Áp dụng cho nhóm", icon: "users", onClick: () => setAssign(r) },
@@ -425,7 +427,7 @@ function Holidays({ setAction }: { setAction: SetAction }) {
               const d = new Date(`${h.date}T12:00:00Z`);
               return (
                 <tr key={h.id} style={h.date < today ? { opacity: 0.6 } : undefined}>
-                  <td className="nowrap"><b>{fmtDate(h.date)}</b> <span className="muted">· {WD[d.getUTCDay()]}</span></td>
+                  <td className="nowrap num"><b style={{ fontWeight: 600 }}>{fmtDate(h.date)}</b> <span className="muted small">{WD[d.getUTCDay()]}</span></td>
                   <td>{h.name}</td>
                   <td><Status v={HOLIDAY_KIND[h.kind] ?? [h.kind, "muted"]} /></td>
                   <td>{h.paid ? "Có" : "Không"}</td>

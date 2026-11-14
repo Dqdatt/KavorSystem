@@ -38,7 +38,7 @@ export default function OrganizationPage() {
       <PageSub text={m ? `${num(m.legalEntities)} pháp nhân | ${num(m.branches)} chi nhánh | ${num(m.departments)} phòng ban, ${num(m.positions)} chức danh. Hiệu lực tại ${fmtDate(t?.today)}.` : null} />
       <PageActions>{t?.canManage ? <>{can(me, "employee.update") ? <button className="btn" onClick={() => setArranging(true)}><Icon name="org" /> Sắp xếp tự động</button> : null}
           <button className="btn primary" onClick={() => setEdit({ mode: "create", kind: tab === "title" ? "position" : "department" })}><Icon name="plus" /> {tab === "title" ? "Thêm chức danh" : "Thêm đơn vị"}</button></> : null}</PageActions>
-      <div className="page-head"><div><div className="segmented" role="tablist">{tabs.map(([k, l, n]) => <button key={k} role="tab" aria-selected={tab === k} className={tab === k ? "active" : ""} onClick={() => go(k)}>{l}{n != null ? <span className="n">{n}</span> : null}</button>)}</div></div></div>
+      <div className="page-head"><div><div className="segmented" role="tablist">{tabs.map(([k, l, n]) => <button key={k} role="tab" aria-selected={tab === k} className={tab === k ? "active" : ""} onClick={() => go(k)}>{l}{n != null ? <span className="n">{n}</span> : null}</button>)}</div></div><div id="tab-actions" className="tab-actions" /></div>
       <LoadError error={error} retry={reload} />
       {arranging ? <StructureModal onClose={() => setArranging(false)} onDone={() => void reload()} /> : null}
       {!t ? (error ? null : <article className="card"><SkeletonLines lines={5} /></article>) : tab === "tree" ? <Tree t={t} units={units} name={me.tenant.name} total={total} members={members} onOpen={setOpen} />

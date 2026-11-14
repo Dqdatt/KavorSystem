@@ -4,7 +4,7 @@
 import { useState } from "react";
 import { overtimeAttendanceShort, overtimeAttendanceText, type OvertimeBoard, type RequestItem } from "@kavor/contracts";
 import { useApi } from "../../_lib/client";
-import { vs, Empty, Icon, LoadError, Person, Status, fmtDateTime, useMe } from "../../_ui/kit";
+import { vs, PageActions, Empty, Icon, LoadError, Person, Status, fmtDateTime, useMe } from "../../_ui/kit";
 import { REQUEST_STATUS, RequestModal, requestSummary } from "../../_ui/request";
 import { Select, SkeletonRows, Hint } from "@kavor/web-ui";
 
@@ -29,18 +29,17 @@ export function OvertimeTab() {
     <>
       <LoadError error={error} retry={reload} />
       <div className="grid metrics">
-        <article className="card metric-card"><span className="metric-icon"><Icon name="clock" /></span><span className="metric-copy"><span>Giờ OT đã duyệt</span><strong>{m ? h(m.approvedHours) : "—"}<small> giờ</small></strong><small>{cur ? `Trong tháng ${Number(cur.slice(5))}` : " "}</small></span></article>
+        <article className="card metric-card"><span className="metric-icon"><Icon name="checks" /></span><span className="metric-copy"><span>Giờ OT đã duyệt</span><strong>{m ? h(m.approvedHours) : "—"}<small> giờ</small></strong><small>{cur ? `Trong tháng ${Number(cur.slice(5))}` : " "}</small></span></article>
         <article className="card metric-card"><span className="metric-icon amber"><Icon name="checks" /></span><span className="metric-copy"><span>Đang chờ duyệt</span><strong className={m?.pendingHours ? "tone-warn" : ""}>{m ? h(m.pendingHours) : "—"}<small> giờ</small></strong><small>{m ? vs(`${pend.length} đơn${pend.length === 1 ? ` | ${pend[0]!.no}` : ""}`) : " "}</small></span></article>
-        <article className="card metric-card"><span className="metric-icon blue"><Icon name="users" /></span><span className="metric-copy"><span>Nhân viên có OT</span><strong>{m ? m.employees : "—"}</strong><small>{b && m?.employees === 1 ? b.rows[0]?.employee.fullName : "Trong tháng"}</small></span></article>
+        <article className="card metric-card"><span className="metric-icon blue"><Icon name="clock" /></span><span className="metric-copy"><span>Nhân viên có OT</span><strong>{m ? m.employees : "—"}</strong><small>{b && m?.employees === 1 ? b.rows[0]?.employee.fullName : "Trong tháng"}</small></span></article>
         <article className="card metric-card"><span className="metric-icon red"><Icon name="alert" /></span><span className="metric-copy"><span>Gần giới hạn</span><strong>{m ? m.nearLimit : "—"}</strong><small>{limit ? `Từ 80% của ${h(limit)} giờ/tháng` : "Từ 80% giới hạn tháng"}</small></span></article>
       </div>
       <div className="grid one-two">
         <article className="card">
-          <div className="card-head"><div><h3>Tổng hợp theo nhân viên</h3></div>
-            <Select className="select" value={cur ?? ""} onChange={(e) => setMonth(e.target.value)} aria-label="Tháng">
+          <PageActions><Select className="select" value={cur ?? ""} onChange={(e) => setMonth(e.target.value)} aria-label="Tháng">
               {cur ? [0, -1, -2, -3, -4, -5].map((n) => shift(cur, n)).map((x) => <option key={x} value={x}>Tháng {Number(x.slice(5))}/{x.slice(0, 4)}</option>) : null}
-            </Select>
-          </div>
+            </Select></PageActions>
+          <div className="card-head"><div><h3>Tổng hợp theo nhân viên</h3></div></div>
           {b && !b.rows.length ? <Empty title="Chưa có ai đăng ký làm thêm" text="Nhân viên đăng ký OT trên app; đơn đi qua luồng Quản lý → HR." /> : (
             <div className="card-body" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
               {!b && !error ? <SkeletonRows cols={1} rows={3} /> : null}

@@ -63,7 +63,7 @@ export function Cycles({ tabs }: { tabs: ReactNode }) {
     <>
       <div className="page-head">
         <div>{tabs}</div>
-        <div className="head-actions">
+        <div className="head-actions"><div id="tab-actions" className="tab-actions" />
           {board?.cycles.length ? (
             <Select className="select" value={cur ?? ""} onChange={(e) => setMonth(e.target.value)} aria-label="Kỳ lương">
               {board.cycles.map((x) => <option key={x.id} value={x.month}>Kỳ {mm(x.month)} · {STATUS[x.status][0]}</option>)}
