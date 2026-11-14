@@ -113,6 +113,8 @@ check "Bảng hôm nay: Hà đang trong ca" "$(echo "$r" | py "[x['state'] for x
 check "Bảng hôm nay: đếm bản ghi bị từ chối" "$(echo "$r" | py "d['summary']['rejected']")" 1
 check "Danh sách bị từ chối có lý do ngoài vùng" "$(call GET admin/attendance/rejected "$HR" | py "d[0]['rejectReason']+' · '+d[0]['employee']['code']")" "out_of_range · HD0142"
 check "Tổng quan có số liệu thật" "$(call GET admin/overview "$HR" | py "(d['presentToday'], d['rejectedToday'], d['notActivated']>0)")" "(1, 1, True)"
+SUN=$(python3 -c "import datetime as d; t=d.date.today(); print(t-d.timedelta(days=(t.weekday()+1)%7 or 7))")
+check "Bảng chủ nhật: không ai 'Chưa vào ca', trạng thái nghỉ" "$(call GET "admin/attendance/board?date=$SUN" "$HR" | py "(d['summary']['notYet'], {x['state'] for x in d['rows'] if x['shift']} <= {'off'})")" "(0, True)"
 check "Audit thiết bị: duyệt/thu hồi/từ chối" "$(call GET admin/employees/$HA "$HR" | py "all(a in {x['action'] for x in d['audit']} for a in ['device.approved','device.revoked','device.rejected','account.locked','account.unlocked'])")" True
 
 echo "— Sửa địa điểm ngay trong ngày hiệu lực"

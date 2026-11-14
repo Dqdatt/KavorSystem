@@ -5,6 +5,8 @@ import { EVENT_COLS, localParts, tenantSettings, toAttendanceEvent, type EventRo
 import { PolicyIndex, loadPlacements, minutesOf } from "../attendance/policy.js";
 import { conflict, invalid, notFound, type AdminContext } from "./context.js";
 import { addDays } from "./validate.js";
+import { holidaysOf } from "../company/company.service.js";
+import { isoWeekday } from "../timesheet/compute.js";
 
 type DeviceRow = {
   id: string; employee_id: string; platform: AdminDevice["platform"]; device_model: string | null; os_version: string | null; app_version: string | null;
@@ -74,13 +76,14 @@ export class AttendanceAdmin {
     if (error) throw error;
     const emps = ((data ?? []) as unknown as Emp[]).filter((e) => e.status !== "terminated");
     const ids = emps.map((e) => e.id);
-    const [index, placements, events, pending, depts, leaves] = await Promise.all([
+    const [index, placements, events, pending, depts, leaves, holidays] = await Promise.all([
       PolicyIndex.load(ctx.db, ctx.tenantId),
       loadPlacements(ctx.db, ctx.tenantId, date, ids),
       this.rawEvents(ctx, ids, date, date, s.timezone),
       ctx.db.from("employee_devices").select("employee_id").eq("tenant_id", ctx.tenantId).eq("status", "pending"),
       ctx.db.from("departments").select("id, name").eq("tenant_id", ctx.tenantId),
       ids.length ? ctx.db.from("leave_days").select("employee_id, half, requests!inner(status), leave_types(name)").eq("tenant_id", ctx.tenantId).eq("leave_date", date).eq("requests.status", "approved").in("employee_id", ids) : { data: [], error: null },
+      holidaysOf(ctx.db, ctx.tenantId, Number(date.slice(0, 4))),
     ]);
     if (leaves.error) throw leaves.error;
     const leaveOf = new Map(((leaves.data ?? []) as unknown as Array<{ employee_id: string; half: LeaveHalf; leave_types: { name: string } | null }>).map((l) => [l.employee_id, { typeName: l.leave_types?.name ?? "Nghỉ phép", half: l.half }]));
@@ -89,7 +92,8 @@ export class AttendanceAdmin {
     const rows: TodayRow[] = emps.map((e) => {
       const p = placements.get(e.id) ?? null;
       const shift = index.resolve(e.id, p, date).shift;
-      return { ...boardRow(e, p ? deptName.get(p.department_id) ?? null : null, shift, byEmp.get(e.id) ?? [], index, s.timezone, date, now), leave: leaveOf.get(e.id) ?? null };
+      const off = !!shift && (!shift.workDays.includes(isoWeekday(date)) || holidays.some((h) => h.date === date));
+      return { ...boardRow(e, p ? deptName.get(p.department_id) ?? null : null, shift, byEmp.get(e.id) ?? [], index, s.timezone, date, now, off), leave: leaveOf.get(e.id) ?? null };
     });
     const idSet = new Set(ids);
     return {
@@ -207,7 +211,7 @@ export class AttendanceAdmin {
 }
 
 /* Một dòng của bảng hôm nay: giờ vào/ra hợp lệ đầu tiên, muộn/sớm theo ca và ân hạn, trạng thái */
-export function boardRow(e: Emp, department: string | null, shift: ReturnType<PolicyIndex["resolve"]>["shift"], events: EventRow[], index: PolicyIndex, tz: string, date: string, now: { date: string; minutes: number }): TodayRow {
+export function boardRow(e: Emp, department: string | null, shift: ReturnType<PolicyIndex["resolve"]>["shift"], events: EventRow[], index: PolicyIndex, tz: string, date: string, now: { date: string; minutes: number }, off = false): TodayRow {
   const accepted = events.filter((x) => x.status === "accepted");
   const cin = accepted.find((x) => x.kind === "in"), cout = accepted.find((x) => x.kind === "out");
   const ev = (x: EventRow | undefined) => (x ? toAttendanceEvent(x, index, shift, tz) : null);
@@ -215,7 +219,7 @@ export function boardRow(e: Emp, department: string | null, shift: ReturnType<Po
   const late = !!i && !!shift && i.deviationMinutes > shift.lateGraceMinutes;
   const early = !!o && !!shift && o.deviationMinutes > shift.earlyGraceMinutes;
   const pastEnd = date < now.date || (date === now.date && !!shift && now.minutes > minutesOf(shift.end));
-  const state: TodayRow["state"] = i ? (o ? "done" : "working") : !shift ? "no_shift" : pastEnd ? "absent" : "not_started";
+  const state: TodayRow["state"] = i ? (o ? "done" : "working") : !shift ? "no_shift" : off ? "off" : pastEnd ? "absent" : "not_started";
   return {
     employee: { id: e.id, code: e.employee_code, fullName: e.full_name, department },
     shift: shift ? { name: shift.name, start: shift.start, end: shift.end } : null,

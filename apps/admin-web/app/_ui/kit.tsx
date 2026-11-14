@@ -156,6 +156,14 @@ export function PageActions({ children }: { children: ReactNode }) {
   return host ? createPortal(<>{children}</>, host) : null;
 }
 
+/* Dòng phụ dưới tên trang (topbar): trang gọi <PageSub text="…" /> để thay ngày mặc định; rời trang thì trả lại */
+export const SubContext = createContext<(t: string | null) => void>(() => {});
+export function PageSub({ text }: { text: string | null }) {
+  const set = useContext(SubContext);
+  useEffect(() => { set(text); return () => set(null); }, [set, text]);
+  return null;
+}
+
 export function Field({ label, full, hint, note, children }: { label: string; full?: boolean; hint?: ReactNode; note?: ReactNode; children: ReactNode }) {
   return <div className={`field ${full ? "full" : ""}`}><label>{label}{hint ? <Hint text={hint} /> : null}</label>{children}{note ? <small>{note}</small> : null}</div>;
 }

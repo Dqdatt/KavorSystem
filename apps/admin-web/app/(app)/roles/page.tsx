@@ -6,7 +6,7 @@ import { useState } from "react";
 import type { OrgOptions, RoleAssignmentRow, RoleInfo, RolesBoard, ScopeType } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
 import { PageActions, ACCOUNT, Empty, ErrorLine, Field, Icon, LoadError, Modal, Person, Status, fmtDate, num, useAction, useMe } from "../../_ui/kit";
-import { Hint, Select, SkeletonRows } from "@kavor/web-ui";
+import { Hint, Select, Skeleton } from "@kavor/web-ui";
 
 const SCOPE: Record<string, string> = { tenant: "Toàn công ty", legal_entity: "Pháp nhân", branch: "Chi nhánh", department: "Phòng ban", direct_reports: "Nhân viên trực tiếp", self: "Bản thân" };
 const STATE: Record<RoleAssignmentRow["state"], [string, string]> = { active: ["Đang hiệu lực", ""], future: ["Sắp hiệu lực", "info"], ended: ["Đã kết thúc", "muted"] };
@@ -43,7 +43,7 @@ export default function RolesPage() {
       {b && !b.roles.length ? <article className="card"><Empty title="Chưa có vai trò" /></article> : (
         <div className="grid roles-grid">
           <section className="card roles-list">
-            {!b && !error ? <SkeletonRows cols={1} rows={5} /> : null}
+            {!b && !error ? <Skeleton w="100%" h={260} /> : null}
             {(b?.roles ?? []).map((r) => (
               <button key={r.code} type="button" className={`rolebtn ${r.code === role?.code ? "on" : ""}`} onClick={() => setOpen(r.code)}>
                 <span className="rl-spread"><b>{r.name}</b><Status v={r.sensitive ? ["Nhạy cảm", "warn"] : r.code === "auditor" ? ["Giới hạn", "info"] : ["Hệ thống", ""]} /></span>

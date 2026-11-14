@@ -3,7 +3,7 @@ import { Suspense, useMemo, useState, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { AdminAttendanceEvent, AdminDevice, AttendanceBoard, TimesheetBoard, TodayRow } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
-import { PageActions, DEVICE, Empty, Icon, LoadError, Person, REJECT_REASON, Status, can, dur, fmtDate, fmtDateTime, fmtTime, longDate, meters, tenantToday, useAction, useMe } from "../../_ui/kit";
+import { PageActions, PageSub, DEVICE, Empty, Icon, LoadError, Person, REJECT_REASON, Status, can, dur, fmtDate, fmtDateTime, fmtTime, longDate, meters, tenantToday, useAction, useMe } from "../../_ui/kit";
 import { ReasonModal } from "../../_ui/reason-modal";
 import { EmployeeMonth, MonthTab } from "./month";
 import { OvertimeTab } from "./overtime";
@@ -42,7 +42,7 @@ const keyOf = (r: TodayRow): Key => r.leave?.half === "full" ? "leave" : r.clock
 const stateOf = (r: TodayRow): [string, string] => {
   const k = keyOf(r);
   return k === "leave" ? ["Nghỉ phép", "info"] : k === "late" ? [`Đi muộn ${dur(r.clockIn!.lateMinutes)}`, "warn"] : k === "ok" ? [r.state === "done" ? "Đã xong ca" : "Đúng giờ", ""]
-    : r.state === "absent" ? ["Vắng / thiếu công", "bad"] : r.state === "no_shift" ? ["Chưa có ca", "warn"] : ["Chưa vào ca", "bad"];
+    : r.state === "absent" ? ["Vắng / thiếu công", "bad"] : r.state === "no_shift" ? ["Chưa có ca", "warn"] : r.state === "off" ? ["Nghỉ", "muted"] : ["Chưa vào ca", "bad"];
 };
 
 function Today({ tz, tenantId }: { tz: string; tenantId: string }) {
@@ -54,6 +54,7 @@ function Today({ tz, tenantId }: { tz: string; tenantId: string }) {
   const [open, setOpen] = useState<string | null>(null);
   const { data: b, error, reload } = useApi<AttendanceBoard>(`attendance/board?date=${date}`, { tables: ["attendance_events", "employee_devices", "leave_days"], tenantId });
   const all = b?.rows ?? [];
+  const sh = all.find((r) => r.shift)?.shift;
   const count = (k: Key) => all.filter((r) => keyOf(r) === k).length;
   const rows = useMemo(() => all.filter((r) =>
     (filter === "all" || keyOf(r) === filter)
@@ -61,6 +62,7 @@ function Today({ tz, tenantId }: { tz: string; tenantId: string }) {
   const s = b?.summary;
   return (
     <>
+      <PageSub text={sh ? `${sh.name} ${sh.start}–${sh.end}.` : null} />
       <LoadError error={error} retry={reload} />
       <div className="grid metrics">
         <article className="card metric-card"><span className="metric-icon"><Icon name="users" /></span><span className="metric-copy"><span>Đã vào ca</span><strong>{s ? <>{s.present}<small>/{s.inScope}</small></> : "—"}</strong><small>{longDate(date)}</small></span></article>
@@ -88,7 +90,7 @@ function Today({ tz, tenantId }: { tz: string; tenantId: string }) {
                 <td className="num">{r.clockIn ? <><b>{fmtTime(r.clockIn.at, tz)}</b>{r.clockIn.offline ? <span className="source-tag">offline</span> : null}</> : "—"}</td>
                 <td className="num muted">{r.clockOut ? <>{fmtTime(r.clockOut.at, tz)}{r.early ? <small className="text-red"> · sớm {dur(r.clockOut.earlyMinutes)}</small> : null}{r.clockOut.offline ? <span className="source-tag">offline</span> : null}</> : "—"}</td>
                 <td><Status v={stateOf(r)} />{r.rejectedCount ? <span className="source-tag" title="Số lần bị từ chối">{r.rejectedCount} bị từ chối</span> : null}</td>
-                <td><Icon name="arrow" size={16} /></td>
+                <td className="muted"><Icon name="chevR" size={16} /></td>
               </tr>
             ))}
           </tbody></table></div>

@@ -5,7 +5,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { AdminMe, RequestQueue, SetupChecklist } from "@kavor/contracts";
 import { useApi, useRealtimeStatus } from "../_lib/client";
 import { AccountMenu } from "../_ui/account-menu";
-import { Icon, MeContext, ToastProvider, can, longDate } from "../_ui/kit";
+import { Icon, MeContext, SubContext, ToastProvider, can, longDate } from "../_ui/kit";
 import { NotificationBell } from "../_ui/notifications";
 import { SupportBanner } from "../_ui/support";
 
@@ -34,6 +34,16 @@ const NAV: Array<{ label?: string; items: NavItem[] }> = [
 ];
 const TITLES: Record<string, string> = { "/": "Tổng quan", "/employees": "Nhân viên", "/attendance": "Chấm công", "/schedules": "Ca & địa điểm", "/settings": "Cài đặt doanh nghiệp", "/requests": "Đơn & phê duyệt", "/leave": "Nghỉ phép", "/payroll": "Lương & tạm ứng", "/announcements": "Bản tin", "/documents": "Tài liệu", "/organization": "Cơ cấu tổ chức", "/roles": "Vai trò & phân quyền" };
 
+/* Dòng phụ cố định của các trang không cần số liệu (chữ theo prototype); trang có số liệu dùng <PageSub> */
+const SUBS: Record<string, string> = {
+  "/schedules": "Ca làm, nơi được phép chấm công và phạm vi áp dụng. Thay đổi tạo phiên bản mới, không sửa lùi quá khứ.",
+  "/requests": "Giải trình công, nghỉ phép, làm thêm giờ, tạm ứng và sửa hồ sơ.",
+  "/payroll": "Bảng lương lấy công từ bảng công đã khóa và mức lương theo ngày hiệu lực.",
+  "/documents": "Hợp đồng, quyết định và giấy tờ hồ sơ của nhân viên.",
+  "/announcements": "Thông báo gửi tới nhân viên trên app. Bài quan trọng yêu cầu xác nhận đã đọc.",
+  "/roles": "5 vai trò mẫu của Kavor. Mỗi người có thể giữ nhiều vai trò với phạm vi khác nhau.",
+};
+
 function today(tz: string) {
   return new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
 }
@@ -44,6 +54,7 @@ export function Shell({ me, children }: { me: AdminMe; children: ReactNode }) {
   const [menu, setMenu] = useState(false);
   const [q, setQ] = useState("");
   const [mini, setMini] = useState(false);
+  const [sub, setSub] = useState<string | null>(null);
   useEffect(() => { try { setMini(localStorage.getItem("kavor.sidebarMini") === "1"); } catch { /* chặn lưu trữ: giữ mặc định */ } }, []);
   const toggleMini = () => { const v = !mini; setMini(v); try { localStorage.setItem("kavor.sidebarMini", v ? "1" : "0"); } catch { /* không nhớ được cũng không sao */ } };
   const live = useRealtimeStatus(me.tenant.id);
@@ -59,6 +70,7 @@ export function Shell({ me, children }: { me: AdminMe; children: ReactNode }) {
 
   return (
     <MeContext.Provider value={me}>
+      <SubContext.Provider value={setSub}>
       <main className={`app-shell full ${menu ? "menu-open" : ""} ${mini ? "mini" : ""}`}>
         <ToastProvider>
           <aside className="sidebar" aria-label="Điều hướng HR">
@@ -98,7 +110,7 @@ export function Shell({ me, children }: { me: AdminMe; children: ReactNode }) {
             <header className="topbar">
               <button className="icon-btn mobile-menu" onClick={() => setMenu(true)} aria-label="Mở menu"><Icon name="menu" /></button>
               <div className="title-copy"><h1>{profile ? "Hồ sơ nhân viên" : TITLES[path] ?? "Kavor HR"}</h1>
-                {profile ? <Link className="topbar-sub" href="/employees">← Nhân viên</Link> : <span className="topbar-sub">{longDate(today(me.tenant.timezone))}</span>}</div>
+                {profile ? <Link className="topbar-sub" href="/employees">← Nhân viên</Link> : <span className="topbar-sub">{sub ?? SUBS[path] ?? longDate(today(me.tenant.timezone))}</span>}</div>
               <div id="page-actions" className="page-actions" />
               {can(me, "employee.read") ? (
                 <label className="search"><Icon name="search" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Tìm nhân viên…" aria-label="Tìm nhân viên theo tên, mã hoặc email"
@@ -112,12 +124,14 @@ export function Shell({ me, children }: { me: AdminMe; children: ReactNode }) {
             <div className="workspace"><SupportBanner />{children}</div>
             <footer className="foot">
               <span>© {new Date().getFullYear()} Kavor</span>
+              {can(me, "support_access.approve") ? <Link href="/settings?tab=support">Liên hệ hỗ trợ</Link> : null}
               <span className="grow" />
               <span className={`realtime-dot ${live ? "on" : ""}`}><i />{live ? "Đang cập nhật trực tiếp" : "Mất kết nối cập nhật"}</span>
             </footer>
           </section>
         </ToastProvider>
       </main>
+      </SubContext.Provider>
     </MeContext.Provider>
   );
 }

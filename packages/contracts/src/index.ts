@@ -467,7 +467,7 @@ export const managerTierOk = (manager: number | null | undefined, employee: numb
 export type OrgOptions = { legalEntities: Ref[]; branches: Ref[]; departments: Array<Ref & { branchId: string | null }>; positions: Array<Ref & { tier: ManagementTier | null }>;
   employees: Array<Ref & { code: string; roles: string[]; tier: ManagementTier | null; position: string | null; department: string | null }> };
 
-export type TodayState = "not_started" | "working" | "done" | "absent" | "no_shift";
+export type TodayState = "not_started" | "working" | "done" | "absent" | "no_shift" | "off";
 export type TodayRow = {
   employee: { id: string; code: string; fullName: string; department: string | null };
   shift: { name: string; start: string; end: string } | null;

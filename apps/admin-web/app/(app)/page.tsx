@@ -2,7 +2,7 @@
 import Link from "next/link";
 import type { AdminOverview, AttendanceBoard, ChecklistGaps, OverviewDay, RequestQueue, SetupChecklist, TimesheetBoard, TodayRow } from "@kavor/contracts";
 import { useApi } from "../_lib/client";
-import { Empty, Icon, LoadError, Person, Status, can, dur, fmtDate, num, useMe } from "../_ui/kit";
+import { Empty, Icon, LoadError, PageActions, PageSub, Person, Status, can, dur, fmtDate, num, useMe } from "../_ui/kit";
 import { Skeleton } from "@kavor/web-ui";
 
 const WD = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
@@ -80,6 +80,11 @@ export default function Overview() {
 
   return (
     <section className="page active">
+      <PageSub text={todoLoading ? null : ["Chào " + (me.fullName.trim().split(/\s+/).at(-1) ?? ""), todos.length ? `${todos.length} việc cần xử lý` : "Không có việc cần xử lý", ts ? `Kỳ công ${ts.period.month.slice(5)}/${ts.period.month.slice(0, 4)} chốt ngày ${fmtDate(ts.period.end).slice(0, 5)}` : ""].filter(Boolean).join(" · ")} />
+      <PageActions>
+        {can(me, "announcement.publish") ? <Link className="btn" href="/announcements?new=1"><Icon name="plus" /> Tạo bài viết</Link> : null}
+        {can(me, "employee.create") ? <Link className="btn primary" href="/employees?new=1"><Icon name="plus" /> Thêm nhân viên</Link> : null}
+      </PageActions>
       <LoadError error={error} retry={reload} />
       {me.tenantAdminCount < 2 && can(me, "role.read") ? (
         <div className="banner soft-warn">

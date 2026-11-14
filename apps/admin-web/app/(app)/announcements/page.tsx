@@ -51,6 +51,9 @@ function AnnouncementsPage() {
   const [editing, setEditing] = useState<AnnouncementAdmin | "new" | null>(null);
   const [publishing, setPublishing] = useState<AnnouncementAdmin | null>(null);
   const openId = params.get("open");
+  /* /announcements?new=1 (nút "Tạo bài viết" ở Tổng quan) mở form tạo bài */
+  const wantNew = params.get("new") === "1";
+  useEffect(() => { if (wantNew) { setEditing("new"); router.replace("/announcements", { scroll: false }); } }, [wantNew, router]);
   const open = (id: string | null) => router.replace(id ? `/announcements?open=${id}` : "/announcements", { scroll: false });
   const items = b?.items ?? [];
   const live = items.filter((a) => a.status === "published");

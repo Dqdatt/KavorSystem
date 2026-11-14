@@ -3,7 +3,7 @@ import { Fragment, Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { BulkInviteResult, ChecklistGaps, EmployeeListItem, OrgOptions } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
-import { PageActions, ACCOUNT, EMP_STATUS, EMPLOYMENT, Empty, Icon, LoadError, Modal, Person, Status, can, fmtDate, tenantToday, tenure, useAction, useMe } from "../../_ui/kit";
+import { PageActions, PageSub, ACCOUNT, EMP_STATUS, EMPLOYMENT, Empty, Icon, LoadError, Modal, Person, Status, can, fmtDate, tenantToday, tenure, useAction, useMe } from "../../_ui/kit";
 import { ImportModal } from "../../_ui/employee-import";
 import { Select, SkeletonRows } from "@kavor/web-ui";
 import { EmployeeForm } from "./profile";
@@ -26,6 +26,9 @@ function EmployeesPage() {
   const [importing, setImporting] = useState(false);
   const [bulk, setBulk] = useState<EmployeeListItem[] | null>(null);
   const openId = params.get("id");
+  /* /employees?new=1 (nút "Thêm nhân viên" ở Tổng quan) mở form thêm */
+  const wantNew = params.get("new") === "1" && can(me, "employee.create");
+  useEffect(() => { if (wantNew) { setAdding(true); router.replace("/employees", { scroll: false }); } }, [wantNew, router]);
 
   useEffect(() => { setQ(params.get("q") ?? ""); }, [params]);
   /* Link cũ /employees?id=X → trang hồ sơ */
@@ -64,13 +67,14 @@ function EmployeesPage() {
 
   return (
     <section className="page active">
+      <PageSub text={list.data && status === "working" && !dept ? `${list.data.length} hồ sơ đang làm việc tại ${me.tenant.name}.` : null} />
       <PageActions>{can(me, "employee.create") ? <><button className="btn" onClick={() => setImporting(true)}><Icon name="upload" /> Nhập từ file</button><button className="btn primary" onClick={() => setAdding(true)}><Icon name="plus" /> Thêm nhân viên</button></> : null}</PageActions>
       <LoadError error={list.error} retry={list.reload} />
       <article className="card">
         <div className="toolbar">
-          <label className="search"><Icon name="search" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Tìm theo tên, mã hoặc email…" aria-label="Tìm nhân viên" /></label>
           {QUICK.map(([id, label, f]) => <button key={id} className={`filter-chip ${quick === id ? "active" : ""}`} onClick={() => setQuick(id)}>{label}<span className="n">{all.filter(f).length}</span></button>)}
           <span className="toolbar-spacer" />
+          <label className="search"><Icon name="search" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Tìm theo tên, mã hoặc email…" aria-label="Tìm nhân viên" /></label>
           <Select className="select" value={dept} onChange={(e) => setDept(e.target.value)} aria-label="Phòng ban">
             <option value="">Tất cả phòng ban</option>{org.data?.departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
           </Select>
@@ -97,7 +101,7 @@ function EmployeesPage() {
                 <td>{e.employmentType === "probation" ? <Status v={["Thử việc", "violet"]} /> : <span style={{ color: "var(--ink-2)" }}>{EMPLOYMENT[e.employmentType]}</span>}</td>
                 <td>{!hasDocs ? "—" : missing.get(e.id) ? <b style={{ color: "var(--amber)" }} title={`Thiếu: ${missing.get(e.id)!.join(", ")}`}>Thiếu {missing.get(e.id)!.length}</b> : <b style={{ color: "var(--ok)" }}>Đủ</b>}</td>
                 <td><span className="cell-stack">{e.account === "not_invited" ? <span className="muted">Chưa mời</span> : <Status v={ACCOUNT[e.account]} />}{e.devicePending ? <span className="source-tag" title="Có thiết bị chờ duyệt">Máy chờ duyệt</span> : null}</span></td>
-                <td><Icon name="arrow" size={16} className="icon" /></td>
+                <td className="muted"><Icon name="chevR" size={16} className="icon" /></td>
               </tr>
             </Fragment>))}
           </tbody></table></div>
