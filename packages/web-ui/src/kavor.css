@@ -862,8 +862,8 @@ button.account-chip:hover, button.account-chip.open { background: var(--surface)
 .account-item.danger:hover { background: var(--red-soft); }
 .account-row > span:first-child { white-space: nowrap; }
 .account-row { min-height: 44px; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0 10px; font-size: 13px; color: var(--ink-2); }
-.theme-switch { height: 34px; }
-.theme-switch button { min-width: 0; display: inline-flex; align-items: center; gap: 5px; padding: 0 9px; font-size: 12.5px; }
+.theme-switch { height: auto; }
+.theme-switch button { height: 28px; min-width: 0; display: inline-flex; align-items: center; gap: 5px; padding: 0 9px; font-size: 12.5px; }
 .theme-switch svg { width: 14px; height: 14px; }
 
 /* ---------- Cài đặt, form 3 cột, công tắc ---------- */

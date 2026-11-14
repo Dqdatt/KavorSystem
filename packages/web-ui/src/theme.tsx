@@ -31,6 +31,16 @@ function apply(t: ThemeChoice) {
   }
 }
 
+/** Áp lại lựa chọn đã lưu sau khi React dựng trang: lúc hydrate thuộc tính data-theme trên <html> có thể bị xóa
+    (máy để giao diện tối thì trang tối theo dù người dùng chọn Sáng). Đặt một lần trong layout gốc. */
+export function ThemeSync() {
+  useEffect(() => {
+    const t = read();
+    if (t !== "system") document.documentElement.dataset.theme = t;
+  }, []);
+  return null;
+}
+
 const NEXT: Record<ThemeChoice, ThemeChoice> = { system: "light", light: "dark", dark: "system" };
 const LABEL: Record<ThemeChoice, string> = { system: "Theo hệ thống", light: "Sáng", dark: "Tối" };
 

@@ -6,7 +6,7 @@ import { Suspense, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { LEAVE_TX_KINDS, type EmployeeLeave, type LeaveBalance, type LeaveBoard, type LeaveMonth, type LeaveMonthEntry, type RequestItem } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
-import { PageActions, Avatar, Drawer, Empty, ErrorLine, Field, Icon, LoadError, Person, Status, fmtDate, fmtDateTime, tenantToday, useAction, useMe } from "../../_ui/kit";
+import { PageActions, PageSub, Avatar, Drawer, Empty, ErrorLine, Field, Icon, LoadError, Person, Status, fmtDate, fmtDateTime, tenantToday, useAction, useMe } from "../../_ui/kit";
 import { REQUEST_STATUS, RequestModal, requestSummary } from "../../_ui/request";
 import { Select, SkeletonLines, SkeletonRows, Hint } from "@kavor/web-ui";
 
@@ -69,7 +69,7 @@ function LeavePage() {
   const live = { tables: ["requests", "approval_tasks"], tenantId: me.tenant.id };
   const board = useApi<LeaveBoard>(`leave?year=${year}`, live);
   const cal = useApi<LeaveMonth>(`leave/calendar?month=${mo}`, live);
-  const b = board.data, m = b?.metrics;
+  const b = board.data, m = b?.metrics, bal = b?.rows.find((r) => r.balance)?.balance;
   const curCal = useApi<LeaveMonth>(`leave/calendar?month=${cur}`, live);
   const entries = cal.data?.month === mo ? cal.data.entries : null;
   const curEntries = curCal.data?.month === cur ? curCal.data.entries : null;
@@ -80,6 +80,7 @@ function LeavePage() {
   const tabs: Array<[Tab, string, number | undefined]> = [["ov", "Tổng quan", undefined], ["cal", "Lịch nghỉ", undefined], ["bal", "Số dư phép", b?.rows.length]];
   return (
     <section className="page active">
+      <PageSub text={bal ? `Phép năm ${b!.year}${bal.accrualMonthly ? " tích lũy theo tháng" : ""}, ${d1(bal.yearEntitlement)} ngày/năm${bal.policy ? ` theo quy định ${bal.policy.name}` : ""}.` : null} />
       <PageActions><Link className="btn" href="/settings?tab=rules"><Icon name="settings" /> Quy định phép năm</Link></PageActions>
       <div className="page-head"><div><div className="segmented" role="tablist">{tabs.map(([k, l, n]) => <button key={k} role="tab" aria-selected={tab === k} className={tab === k ? "active" : ""} onClick={() => go(k)}>{l}{n != null ? <span className="n">{n}</span> : null}</button>)}</div></div></div>
       <LoadError error={board.error ?? cal.error ?? curCal.error} retry={() => { void board.reload(); void cal.reload(); void curCal.reload(); }} />

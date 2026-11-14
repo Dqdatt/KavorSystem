@@ -1,5 +1,5 @@
 import "@kavor/web-ui/kavor.css";
-import { themeInitScript } from "@kavor/web-ui";
+import { ThemeSync, themeInitScript } from "@kavor/web-ui";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -15,7 +15,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
-      <body>{children}</body>
+      <body><ThemeSync />{children}</body>
     </html>
   );
 }

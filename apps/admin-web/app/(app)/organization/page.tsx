@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { MANAGEMENT_TIERS, ORG_UNIT_KINDS, type EmployeeListItem, type ManagementTier, type OrgOptions, type OrgTree, type OrgUnit, type OrgUnitKind } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
-import { PageActions, Avatar, Empty, ErrorLine, Field, Icon, LoadError, Modal, MoreMenu, Person, Status, can, fmtDate, num, useAction, useMe } from "../../_ui/kit";
+import { PageActions, PageSub, Avatar, Empty, ErrorLine, Field, Icon, LoadError, Modal, MoreMenu, Person, Status, can, fmtDate, num, useAction, useMe } from "../../_ui/kit";
 import { StructureModal } from "../../_ui/structure-plan";
 import { Select, Skeleton, SkeletonLines } from "@kavor/web-ui";
 
@@ -35,10 +35,10 @@ export default function OrganizationPage() {
   const tabs: Array<[Tab, string, number | undefined]> = [["tree", "Sơ đồ", undefined], ["unit", "Đơn vị", units.filter((u) => u.kind !== "position").length || undefined], ["title", "Chức danh", m?.positions]];
   return (
     <section className="page active">
+      <PageSub text={m ? `${num(m.legalEntities)} pháp nhân · ${num(m.branches)} chi nhánh · ${num(m.departments)} phòng ban, ${num(m.positions)} chức danh. Hiệu lực tại ${fmtDate(t?.today)}.` : null} />
       <PageActions>{t?.canManage ? <>{can(me, "employee.update") ? <button className="btn" onClick={() => setArranging(true)}><Icon name="org" /> Sắp xếp tự động</button> : null}
           <button className="btn primary" onClick={() => setEdit({ mode: "create", kind: tab === "title" ? "position" : "department" })}><Icon name="plus" /> {tab === "title" ? "Thêm chức danh" : "Thêm đơn vị"}</button></> : null}</PageActions>
-      <div className="page-head"><div><div className="segmented" role="tablist">{tabs.map(([k, l, n]) => <button key={k} role="tab" aria-selected={tab === k} className={tab === k ? "active" : ""} onClick={() => go(k)}>{l}{n != null ? <span className="n">{n}</span> : null}</button>)}</div></div>
-        <span className="muted" style={{ fontSize: 13 }}>{m ? `${num(m.legalEntities)} pháp nhân · ${num(m.branches)} chi nhánh · ${num(m.departments)} phòng ban, ${num(m.positions)} chức danh. Hiệu lực tại ${fmtDate(t?.today)}.` : <Skeleton w={260} h={14} />}</span></div>
+      <div className="page-head"><div><div className="segmented" role="tablist">{tabs.map(([k, l, n]) => <button key={k} role="tab" aria-selected={tab === k} className={tab === k ? "active" : ""} onClick={() => go(k)}>{l}{n != null ? <span className="n">{n}</span> : null}</button>)}</div></div></div>
       <LoadError error={error} retry={reload} />
       {arranging ? <StructureModal onClose={() => setArranging(false)} onDone={() => void reload()} /> : null}
       {!t ? (error ? null : <article className="card"><SkeletonLines lines={5} /></article>) : tab === "tree" ? <Tree t={t} units={units} name={me.tenant.name} total={total} members={members} onOpen={setOpen} />

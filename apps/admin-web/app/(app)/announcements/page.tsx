@@ -76,7 +76,7 @@ function AnnouncementsPage() {
         <MetricBtn icon="news" tone="" label="Đang hiện" value={b ? num(live.length) : "—"} sub={live.length ? `Tỷ lệ đọc trung bình ${Math.round(live.reduce((t, a) => t + pct(a), 0) / live.length)}%` : "Chưa có bài đang hiện"} onClick={() => setFilter("published")} />
         <MetricBtn icon="clock" tone="blue" label="Hẹn giờ" value={b ? num(scheduled.length) : "—"} sub={scheduled[0] ? `Gần nhất ${fmtDateTime(scheduled[0].publishAt, tz)}` : "Không có bài hẹn giờ"} onClick={() => setFilter("scheduled")} />
         <MetricBtn icon="file" tone="amber" label="Nháp" value={b ? num(items.filter((a) => a.status === "draft").length) : "—"} sub="Chưa gửi tới nhân viên" onClick={() => setFilter("draft")} />
-        <MetricBtn icon="alert" tone="red" label="Chờ xác nhận đã đọc" value={b ? <>{num(waiting)}<small> người</small></> : "—"} sub={`${num(live.filter((a) => a.important).length)} bài quan trọng đang hiện`} onClick={() => setFilter("published")} />
+        <MetricBtn icon="alert" tone="red" label="Chờ xác nhận đã đọc" value={b ? <>{num(waiting)}<small> người</small></> : "—"} sub={`${num(live.filter((a) => a.important).length)} bài quan trọng đang hiện`} onClick={() => setFilter("published")} red={waiting > 0} />
       </div>
 
       {!b && !error ? <article className="card"><SkeletonLines lines={5} /></article> : b && !rows.length ? (
@@ -314,11 +314,11 @@ function PublishModal({ a, onClose, onDone }: { a: AnnouncementAdmin; onClose: (
 }
 
 /* Thẻ số liệu bấm được: lọc bảng bên dưới theo trạng thái */
-function MetricBtn({ icon, tone, label, value, sub, onClick }: { icon: string; tone: string; label: string; value: ReactNode; sub: string; onClick: () => void }) {
+function MetricBtn({ icon, tone, label, value, sub, onClick, red }: { red?: boolean; icon: string; tone: string; label: string; value: ReactNode; sub: string; onClick: () => void }) {
   return (
     <button className="card metric-card metric-btn" onClick={onClick}>
       <span className={`metric-icon ${tone}`}><Icon name={icon} /></span>
-      <span className="metric-copy"><span>{label}</span><strong>{value}</strong><small>{sub}</small></span>
+      <span className="metric-copy"><span>{label}</span><strong className={red ? "text-red" : undefined}>{value}</strong><small>{sub}</small></span>
     </button>
   );
 }
