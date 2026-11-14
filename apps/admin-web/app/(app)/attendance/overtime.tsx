@@ -65,7 +65,7 @@ export function OvertimeTab() {
                 <tr key={r.id} className="clickable" onClick={() => setOpen(r)}>
                   <td><b className="num">{r.no}</b></td><td>{r.requester.fullName}</td><td>{vs(requestSummary(r))}</td>
                   <td>{r.type !== "overtime" || !r.attendance ? <span className="muted">—</span>
-                    : <Status v={[overtimeAttendanceText(r.attendance).replace(/ giờ OT$/, " giờ"), overtimeAttendanceShort(r.attendance) ? "bad" : r.attendance.checked ? "" : "muted"]} />}</td>
+                    : <span title={overtimeAttendanceText(r.attendance)}><Status v={[r.attendance.checked ? `khớp ${h(r.attendance.matchedMinutes / 60)}/${h(r.attendance.minutes / 60)} giờ OT` : "chưa đối chiếu", overtimeAttendanceShort(r.attendance) ? "bad" : r.attendance.checked ? "" : "muted"]} /></span>}</td>
                   <td><Status v={REQUEST_STATUS[r.status]} />{r.myTaskId ? <span className="source-tag">cần bạn duyệt</span> : null}</td>
                 </tr>
               ))}

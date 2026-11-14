@@ -2,7 +2,7 @@
 /* Đơn từ trên web HR: nhãn, tóm tắt nội dung, các bước duyệt và modal "Chi tiết đơn" (bám modal approve của prototype HR) */
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
-import { EXPLANATION_KINDS, OVERTIME_DAY_KINDS, PROFILE_FIELDS, REQUEST_TYPES, overtimeAttendanceShort, overtimeAttendanceText, STEP_RESOLVERS, type AdminMe, type ProfileField, type ProfileValues, type RequestItem, type RequestStatus, type RequestType, type StepStatus } from "@kavor/contracts";
+import { EXPLANATION_KINDS, OVERTIME_DAY_KINDS, PROFILE_FIELDS, REQUEST_TYPES, overtimeAttendanceShort, STEP_RESOLVERS, type AdminMe, type ProfileField, type ProfileValues, type RequestItem, type RequestStatus, type RequestType, type StepStatus } from "@kavor/contracts";
 import { call } from "../_lib/client";
 import { Dl, vs, ErrorLine, Field, Icon, Modal, Person, Status, can, fmtDate, fmtDateTime, useAction, useMe } from "./kit";
 
@@ -22,8 +22,8 @@ export function leaveRange(p: Extract<RequestItem, { type: "leave" }>["payload"]
 
 /* Giá trị một trường hồ sơ để so sánh trước/sau; số tài khoản đầy đủ chỉ có khi người xem được phép (API đã lọc) */
 export function profileValue(f: ProfileField, v: ProfileValues) {
-  if (f === "emergency") return v.emergency ? `${v.emergency.name} · ${v.emergency.phone} · ${v.emergency.relation}` : "—";
-  if (f === "bank") return v.bank ? `${v.bank.bankName} · ${v.bank.accountNo ?? `•••• ${v.bank.last4}`} · ${v.bank.holder}` : "—";
+  if (f === "emergency") return v.emergency ? `${v.emergency.name} | ${v.emergency.phone} | ${v.emergency.relation}` : "—";
+  if (f === "bank") return v.bank ? `${v.bank.bankName} | ${v.bank.accountNo ?? `•••• ${v.bank.last4}`} | ${v.bank.holder}` : "—";
   return (v[f] as string | null | undefined) || "—";
 }
 
@@ -69,24 +69,24 @@ function useRequestDetail(r: RequestItem, onDone: (r: RequestItem) => void, onCl
   const why = notMineReason(r, me);
   const rows: Array<[string, ReactNode]> = r.type === "leave" ? [
     ["Loại nghỉ", r.payload.leaveTypeName],
-    ["Thời gian", `${leaveRange(r.payload)} · ${days(r.payload.days)} làm việc`],
+    ["Thời gian", `${leaveRange(r.payload)} | ${days(r.payload.days)} làm việc`],
   ] : r.type === "salary_advance" ? [
     ["Số tiền", money(r.payload.amount)],
     ["Trừ vào lương", `Tháng ${r.payload.month.slice(5)}/${r.payload.month.slice(0, 4)}`],
-    ...(r.payout ? [["Đã chi", `${fmtDateTime(r.payout.paidAt, tz)}${r.payout.paidBy ? ` · ${r.payout.paidBy}` : ""}${r.payout.note ? ` · ${r.payout.note}` : ""}`] as [string, ReactNode]] : []),
+    ...(r.payout ? [["Đã chi", `${fmtDateTime(r.payout.paidAt, tz)}${r.payout.paidBy ? ` | ${r.payout.paidBy}` : ""}${r.payout.note ? ` | ${r.payout.note}` : ""}`] as [string, ReactNode]] : []),
   ] : r.type === "overtime" ? [
-    ["Ngày", `${wd(r.payload.date)} ${fmtDate(r.payload.date)} · ${OVERTIME_DAY_KINDS[r.payload.dayKind]}`],
-    ["Giờ làm thêm", `${r.payload.start}–${r.payload.end} · ${r.payload.hours.toLocaleString("vi-VN")} giờ`],
+    ["Ngày", `${wd(r.payload.date)} ${fmtDate(r.payload.date)} | ${OVERTIME_DAY_KINDS[r.payload.dayKind]}`],
+    ["Giờ làm thêm", `${r.payload.start}–${r.payload.end} | ${r.payload.hours.toLocaleString("vi-VN")} giờ`],
     ["Hệ số", `${r.payload.ratePercent}%`],
-    ...(r.attendance ? [["Chấm công thực tế", overtimeAttendanceShort(r.attendance) ? <Status v={[overtimeAttendanceText(r.attendance), "bad"]} /> : overtimeAttendanceText(r.attendance)] as [string, ReactNode]] : []),
+    ...(r.attendance ? [["Chấm công thực tế", <OtAttendance key="ot" a={r.attendance} />] as [string, ReactNode]] : []),
   ] : r.type === "profile_change" ? r.payload.fields.map((f): [string, ReactNode] => [PROFILE_FIELDS[f],
-    <><span className="muted" style={{ textDecoration: "line-through", fontWeight: 500 }}>{profileValue(f, r.payload.before)}</span> → {profileValue(f, r.payload.after)}</>])
+    <><span className="muted" style={{ textDecoration: "line-through", fontWeight: 500 }}>{vs(profileValue(f, r.payload.before))}</span> → {vs(profileValue(f, r.payload.after))}</>])
     : r.workDate ? [["Ngày áp dụng", fmtDate(r.workDate)]] : [];
   if (r.type === "explanation" && r.day) rows.push(["Chấm công gốc", `${r.day.shift ?? "—"} | vào ${r.day.rawIn ?? "--:--"} | ra ${r.day.rawOut ?? "--:--"}`]);
   rows.push(["Lý do", r.payload.reason || "—"]);
   if (r.attachments.length || r.attachmentRequired) rows.push(["Minh chứng", r.attachments.length ? r.attachments.map((a) => (
     <a key={a.id} className="btn small" style={{ margin: "0 0 4px 6px" }} href={`/api/requests/${r.id}/attachments/${a.id}`} target="_blank" rel="noreferrer"><Icon name="download" /> {a.name} · {kb(a.size)}</a>
-  )) : <Status v={["Bắt buộc · nhân viên chưa đính kèm", "bad"]} />]);
+  )) : <Status v={["Bắt buộc | nhân viên chưa đính kèm", "bad"]} />]);
   const body = (
     <div className="sc">
       <div className="rsp" style={{ alignItems: "flex-start" }}>
@@ -161,4 +161,12 @@ function notMineReason(r: RequestItem, me: AdminMe): { text: string; needRole?: 
   const [perm, roles] = cur.resolver === "hr" ? ["request.hr_review", "Nhân sự vận hành hoặc Quản trị viên công ty"] : ["salary_advance.process", "Kế toán"];
   if (can(me, perm)) return { text: `Bước ${STEP_RESOLVERS[cur.resolver]} đang chờ, nhưng nhân viên này nằm ngoài phạm vi vai trò của bạn.` };
   return { text: `Bước ${STEP_RESOLVERS[cur.resolver]} cần vai trò ${roles}. Gán thêm vai trò ở Vai trò & phân quyền (một người giữ được nhiều vai trò).`, needRole: true };
+}
+
+/* Chấm công thực tế của đơn OT: giờ vào/ra là chữ, phần đối chiếu là nhãn (đỏ khi không phủ hết giờ trên đơn) */
+function OtAttendance({ a }: { a: NonNullable<Extract<RequestItem, { type: "overtime" }>["attendance"]> }) {
+  const nw = { whiteSpace: "nowrap" } as const;
+  const times = a.clockIn || a.clockOut ? <span style={{ textAlign: "right" }}><span style={nw}>Vào {a.clockIn ?? "--:--"}</span><i className="vs" /><span style={nw}>Ra {a.clockOut ?? "--:--"}</span>{a.adjusted ? <> <span style={nw}>(đã điều chỉnh)</span></> : null}</span> : "Không có chấm công";
+  const tag = a.checked ? `khớp ${(a.matchedMinutes / 60).toLocaleString("vi-VN", { maximumFractionDigits: 1 })}/${(a.minutes / 60).toLocaleString("vi-VN", { maximumFractionDigits: 1 })} giờ OT` : "chưa đối chiếu (hôm nay)";
+  return <span style={{ display: "inline-flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>{times}<Status v={[tag, overtimeAttendanceShort(a) ? "bad" : a.checked ? "" : "muted"]} /></span>;
 }

@@ -116,7 +116,7 @@ export function Shell({ me, children }: { me: AdminMe; children: ReactNode }) {
             <header className="topbar">
               <button className="icon-btn mobile-menu" onClick={() => setMenu(true)} aria-label="Mở menu"><Icon name="menu" /></button>
               <div className="title-copy"><h1>{profile ? "Hồ sơ nhân viên" : TITLES[path] ?? "Kavor HR"}</h1>
-                {profile ? <span className="topbar-sub"><Link href="/employees">Nhân viên</Link> /</span> : <span className="topbar-sub">{sub ? sub.split(" | ").map((x, i) => <Fragment key={i}>{i ? <i className="vs" /> : null}{x}</Fragment>) : SUBS[path] ?? longDate(today(me.tenant.timezone))}</span>}</div>
+                {profile ? <span className="topbar-sub"><Link href="/employees">Nhân viên</Link>{sub ? <> / {sub}</> : null}</span> : <span className="topbar-sub">{sub ? sub.split(" | ").map((x, i) => <Fragment key={i}>{i ? <i className="vs" /> : null}{x}</Fragment>) : SUBS[path] ?? longDate(today(me.tenant.timezone))}</span>}</div>
               <div id="page-actions" className="page-actions" />
               <button className="search cmdk-btn" onClick={() => setCmd(true)} aria-label="Tìm kiếm"><Icon name="search" /><span className="grow trunc">Tìm nhanh…</span><span className="kbd">Ctrl K</span></button>
               <div className="top-actions">

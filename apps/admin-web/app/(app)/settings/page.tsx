@@ -28,7 +28,10 @@ function SettingsPage() {
   const router = useRouter();
   const params = useSearchParams();
   const menu = MENU.map(([g, items]) => [g, items.filter(([, , , perm]) => !perm || can(me, perm))] as const).filter(([, items]) => items.length);
-  const tab = menu.flatMap(([, items]) => items).find(([k]) => k === params.get("tab"))?.[0] ?? "company";
+  const urlTab = menu.flatMap(([, items]) => items).find(([k]) => k === params.get("tab"))?.[0] ?? "company";
+  /* Đổi mục ngay khi bấm (URL cập nhật sau) để nút trên topbar thay một lần, không chớp mất rồi hiện lại */
+  const [tab, setTab] = useState<Tab>(urlTab);
+  useEffect(() => { setTab(urlTab); }, [urlTab]);
   const [action, setAction] = useState<ReactNode>(null);
   const setupApi = useApi<SetupChecklist>("settings/checklist");
   const setup = setupApi.data;
@@ -44,7 +47,7 @@ function SettingsPage() {
             <div key={g} className="setnav-group">
               <div className="cap">{g}</div>
               {items.map(([k, l, icon]) => (
-                <button key={k} className={tab === k ? "on" : ""} aria-current={tab === k ? "page" : undefined} onClick={() => { setAction(null); router.replace(`/settings?tab=${k}`, { scroll: false }); }}>
+                <button key={k} className={tab === k ? "on" : ""} aria-current={tab === k ? "page" : undefined} onClick={() => { setTab(k); router.replace(`/settings?tab=${k}`, { scroll: false }); }}>
                   <Icon name={icon} size={16} /><span className="grow">{l}</span>{k === "setup" && setup ? <span className="small-note num">{setup.done}/{setup.total}</span> : null}{k === "rules" && rulesCount != null ? <span className="small-note num">{rulesCount}</span> : null}
                 </button>
               ))}
