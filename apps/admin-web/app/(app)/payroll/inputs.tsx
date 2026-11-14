@@ -5,7 +5,7 @@
 import { useMemo, useState, type ReactNode } from "react";
 import type { PayrollInputRow, PayrollInputSheet } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
-import { PageActions, EMPLOYMENT, Empty, ErrorLine, Field, Icon, LoadError, Modal, Person, Status, fmtDate, fmtDateTime, num, useAction, useMe } from "../../_ui/kit";
+import { PageActions, Thk, EMPLOYMENT, Empty, ErrorLine, Field, Icon, LoadError, Modal, Person, Status, fmtDate, fmtDateTime, num, useAction, useMe } from "../../_ui/kit";
 import { money } from "../../_ui/request";
 import { Hint, Select, SkeletonRows } from "@kavor/web-ui";
 
@@ -57,11 +57,11 @@ export function Inputs({ tabs }: { tabs: ReactNode }) {
           <button className="btn small" style={{ marginLeft: "auto" }} onClick={() => setLive(s.source === "final")}>{s.source === "final" ? "Xem dữ liệu hiện tại" : "Xem bản đã chốt"}</button>
         </div>
       ) : null}
-      <div className="grid metrics">
-        <article className="card metric-card"><span className="metric-icon"><Icon name="users" /></span><span className="metric-copy"><span>Nhân viên</span><strong>{s ? num(s.totals.employees) : "—"}</strong><small>Còn làm trong kỳ</small></span></article>
-        <article className="card metric-card"><span className="metric-icon amber"><Icon name="alert" /></span><span className="metric-copy"><span>Cần rà soát</span><strong>{s ? num(s.totals.warnings) : "—"}</strong><small>Dòng có cảnh báo</small></span></article>
-        <article className="card metric-card"><span className="metric-icon red"><Icon name="pay" /></span><span className="metric-copy"><span>Chưa nhập lương</span><strong>{s ? num(s.totals.noSalary) : "—"}</strong><small>Nhập ở hồ sơ nhân viên</small></span></article>
-        <article className="card metric-card"><span className="metric-icon violet"><Icon name="checks" /></span><span className="metric-copy"><span>Trạng thái</span><strong>{s ? (s.finalized ? `Đã chốt` : "Chưa chốt") : "—"}</strong><small>{s?.finalized ? `${s.finalized.versions} lần chốt` : "Kế toán chờ bản chốt"}</small></span></article>
+      <div className="thks">
+        <Thk label="Nhân viên" icon="users" value={s ? num(s.totals.employees) : "—"} chip="Còn làm trong kỳ" />
+        <Thk label="Cần rà soát" icon="alert" tone={s?.totals.warnings ? "warn" : ""} value={s ? num(s.totals.warnings) : "—"} chip="Dòng có cảnh báo" />
+        <Thk label="Chưa nhập lương" icon="pay" tone={s?.totals.noSalary ? "warn" : ""} value={s ? num(s.totals.noSalary) : "—"} chip="Nhập ở hồ sơ nhân viên" />
+        <Thk label="Trạng thái" icon="checks" tone={s?.finalized ? "ok" : ""} value={s ? (s.finalized ? "Đã chốt" : "Chưa chốt") : "—"} chip={s?.finalized ? `${s.finalized.versions} lần chốt` : "Kế toán chờ bản chốt"} />
       </div>
       <article className="card">
         <div className="toolbar">

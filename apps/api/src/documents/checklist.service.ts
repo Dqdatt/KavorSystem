@@ -199,7 +199,7 @@ export class ChecklistService {
     if (error) throw error;
     if (e3) throw e3;
     const req = rows.filter((r) => r.required);
-    if (!req.length) return { rows: [], itemCount: rows.length };
+    if (!req.length) return { rows: [], itemCount: rows.length, requiredCount: 0 };
     const working = ((emps ?? []) as unknown as Array<{ id: string; employment_type: EmploymentType; status: string; termination_date: string | null }>)
       .filter((e) => e.status !== "terminated" && (!e.termination_date || e.termination_date >= (today as string)));
     const done = new Set<string>();
@@ -209,8 +209,10 @@ export class ChecklistService {
       if (e2) throw e2;
       for (const s of (data ?? []) as Array<{ employee_id: string; item_id: string }>) done.add(`${s.employee_id}:${s.item_id}`);
     }
-    const out = working.map((e) => ({ employeeId: e.id, missing: req.filter((r) => applies(r, e.employment_type) && !done.has(`${e.id}:${r.id}`)).map((r) => r.name) }))
-      .filter((r) => r.missing.length);
-    return { rows: out, itemCount: rows.length };
+    const out = working.map((e) => {
+      const mine = req.filter((r) => applies(r, e.employment_type));
+      return { employeeId: e.id, missing: mine.filter((r) => !done.has(`${e.id}:${r.id}`)).map((r) => r.name), required: mine.length };
+    }).filter((r) => r.missing.length);
+    return { rows: out, itemCount: rows.length, requiredCount: req.length };
   }
 }

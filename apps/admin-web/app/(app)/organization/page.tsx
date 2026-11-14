@@ -69,7 +69,7 @@ function Tree({ t, units, name, total, members, onOpen }: { t: OrgTree; units: O
               return (
                 <button key={d.id} className="orgnode" onClick={() => onOpen(d)}>
                   <div className="spread"><b>{d.name}</b><span className="tag">{d.code}</span></div>
-                  <div className="muted" style={{ fontSize: 12.5, margin: "2px 0 12px" }}>{d.head ? <>Trưởng đơn vị: {d.head.name}</> : "Chưa có trưởng đơn vị"}{kids ? ` · ${kids} phòng con` : ""}</div>
+                  <div className="muted" style={{ fontSize: 12.5, margin: "2px 0 12px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{d.head ? <>{d.head.name}{d.head.position ? <><i className="vs" />{d.head.position}</> : null}</> : "Chưa có trưởng đơn vị"}{kids ? ` · ${kids} phòng con` : ""}</div>
                   <div className="spread"><span className="stackav">{ms.slice(0, 4).map((e) => <Avatar key={e.id} name={e.fullName} seed={e.id} />)}{ms.length > 4 ? <span className="avatar rest">+{ms.length - 4}</span> : null}</span>
                     <span className="num" style={{ fontSize: 12.5 }}>{num(total(d))} người</span></div>
                 </button>

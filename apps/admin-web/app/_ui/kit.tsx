@@ -201,6 +201,15 @@ export function Phrases({ text }: { text: string | null | undefined }) {
 export function Dl({ rows }: { rows: Array<[string, ReactNode]> }) {
   return <div className="dl">{rows.map(([k, v], i) => <Fragment key={i}><div className="k">{k}</div><div className="v">{v}</div></Fragment>)}</div>;
 }
+/* Thẻ số liệu v2 (prototype .thk): nhãn, số lớn, chip phụ; icon vuông bên phải */
+export function Thk({ label, value, chip, tone = "", icon }: { label: string; value: ReactNode; chip?: ReactNode; tone?: "" | "mint" | "ok" | "warn"; icon: string }) {
+  return (
+    <div className={`thk ${tone === "mint" ? "mint" : ""}`}>
+      <div className="tx"><span className="l">{label}</span><b className="v">{value}</b>{chip ? <span className={`chip ${tone}`}>{chip}</span> : null}</div>
+      <span className="ico"><Icon name={icon} size={24} /></span>
+    </div>
+  );
+}
 export function Section({ title, action, children }: { title: string; action?: ReactNode; children: ReactNode }) {
   return <section className="card"><div className="card-head"><h3>{title}</h3>{action}</div><div className="card-body">{children}</div></section>;
 }

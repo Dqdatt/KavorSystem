@@ -39,7 +39,7 @@ export default function RolesPage() {
     <section className="page active">
       <PageActions>{b?.canAssign ? <button className="btn primary" onClick={() => setAssign("any")}><Icon name="plus" /> Gán vai trò</button> : null}</PageActions>
       <LoadError error={error} retry={reload} />
-      {idle.length ? <div className="note-amber" style={{ marginBottom: 16 }}><b>{idle.length} vai trò chưa có ai giữ:</b> {idle.join(", ")}. Đơn đến bước duyệt của các vai trò này sẽ dừng lại.</div> : null}
+      {idle.length ? <div className="note-amber note-icon" style={{ marginBottom: 16 }}><Icon name="alert" /><span><b>{idle.length} vai trò chưa có ai giữ:</b> {idle.join(", ")}. Đơn đến bước duyệt của các vai trò này sẽ dừng lại.</span></div> : null}
       {b && !b.roles.length ? <article className="card"><Empty title="Chưa có vai trò" /></article> : (
         <div className="grid roles-grid">
           <section className="card roles-list">

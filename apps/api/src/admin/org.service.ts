@@ -75,11 +75,12 @@ export class OrgAdmin {
       for (const k of [p.legal_entity_id, p.branch_id, p.department_id, p.position_id]) n.set(k, (n.get(k) ?? 0) + 1);
       if (p.manager_employee_id) managers.add(p.manager_employee_id);
     }
+    const posName = new Map(po.map((u) => [u.id, u.name]));
     const live = (u: UnitRow) => u.effective_from <= today && (!u.effective_to || u.effective_to >= today) || u.effective_from > today;
     const unit = (kind: OrgUnitKind, u: UnitRow, parentId: string | null, branchId: string | null): OrgUnit => ({
       id: u.id, kind, code: u.code, name: u.name, parentId, branchId, taxCode: u.tax_code ?? null, jobLevel: u.job_level ?? null, tier: (u.management_tier ?? null) as ManagementTier | null,
       effectiveFrom: u.effective_from, effectiveTo: u.effective_to, active: live(u), employees: n.get(u.id) ?? 0,
-      head: u.head_employee_id ? { id: u.head_employee_id, name: empName.get(u.head_employee_id) ?? "(đã nghỉ việc)" } : null,
+      head: u.head_employee_id ? { id: u.head_employee_id, name: empName.get(u.head_employee_id) ?? "(đã nghỉ việc)", position: posName.get(place.get(u.head_employee_id)?.position_id ?? "") ?? null } : null,
     });
     const units = [
       ...le.map((u) => unit("legal_entity", u, null, null)),

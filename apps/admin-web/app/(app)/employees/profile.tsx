@@ -8,7 +8,7 @@ import { EmployeePaySection } from "./pay";
 import { EmployeeChecklistSection } from "../documents/checklist";
 import {
   ACCOUNT, Avatar, DEVICE, Dl, EMP_STATUS, EMPLOYMENT, ErrorLine, Field, Icon, LoadError, Modal, MoreMenu, Phrases, REJECT_REASON, Section, Status, scopeText,
-  ago, can, fmtDate, fmtDateTime, tenantToday, tenure, useAction, useMe,
+  PageSub, ago, can, fmtDate, fmtDateTime, tenantToday, tenure, useAction, useMe,
 } from "../../_ui/kit";
 import { ReasonModal } from "../../_ui/reason-modal";
 import { REQUEST_STATUS, REQUEST_TYPE, RequestModal, requestSummary } from "../../_ui/request";
@@ -56,6 +56,13 @@ export function EmployeeProfile({ id }: { id: string }) {
   const ts = useApi<EmployeeTimesheet>(tab === "overview" && can(me, "attendance.read") ? `timesheets/${id}` : null);
   const lv = useApi<EmployeeLeave>(tab === "overview" && can(me, "leave.read") ? `leave/${id}` : null);
 
+  /* Hôm nay: lấy từ ngày "today" của kỳ công đã tải */
+  const td = ts.data?.days.find((d) => d.date === today);
+  const todayState: [string, string] | null = !td || td.kind === "future" || td.kind === "not_employed" ? null
+    : td.kind === "leave" ? ["Nghỉ phép", "info"]
+    : td.clockIn ? (td.lateMinutes > 0 ? ["Đi muộn", "warn"] : [td.clockOut ? "Đã xong ca" : "Đúng giờ", "ok"])
+    : td.workday ? ["Chưa vào ca", "bad"] : ["Nghỉ", "muted"];
+
   const deviceAct = (d: AdminDevice, action: "approve" | "reject" | "revoke") =>
     action === "approve"
       ? run(`dev-${d.id}`, () => call("POST", `devices/${d.id}/approve`, {}), `Đã duyệt ${d.deviceModel ?? "thiết bị"}`).then(reload)
@@ -76,6 +83,7 @@ export function EmployeeProfile({ id }: { id: string }) {
 
   return (
     <>
+      <PageSub text={e.fullName} />
       <LoadError error={error} retry={reload} />
       <section className="card phead">
         <div className="phead-top">
@@ -91,7 +99,7 @@ export function EmployeeProfile({ id }: { id: string }) {
             </div>
           </div>
           <div className="phead-actions">
-            {can(me, "employee.update") ? <button className="btn" disabled={!org.data} onClick={() => setEditing(true)}>Sửa hồ sơ</button> : null}
+            {can(me, "employee.update") ? <button className="btn" disabled={!org.data} onClick={() => setEditing(true)}><Icon name="edit" />Sửa hồ sơ</button> : null}
             {menu.length ? <MoreMenu items={menu} /> : null}
           </div>
         </div>
@@ -108,18 +116,14 @@ export function EmployeeProfile({ id }: { id: string }) {
 
       {tab === "overview" ? <>
         <div className="grid two top">
-          <Section title="Công việc" action={can(me, "employee.update") ? <button className="btn small" disabled={!org.data} onClick={() => setEditing(true)}>Sửa</button> : undefined}>
+          <Section title="Công việc" action={can(me, "employee.update") ? <button className="btn small ghost" disabled={!org.data} onClick={() => setEditing(true)}><Icon name="edit" />Sửa</button> : undefined}>
             <Dl rows={[
               ["Phòng ban", e.department?.name ?? "—"],
               ["Chức danh", e.position?.name ?? "—"],
-              ["Chi nhánh · pháp nhân", <Phrases key="b" text={`${e.branch?.name ?? "—"} · ${e.legalEntity?.name ?? "—"}`} />],
-              ["Quản lý trực tiếp", e.manager?.name ?? "—"],
-              ["Cấp bậc", `${e.tier ? `${MANAGEMENT_TIERS[e.tier]} (${MANAGEMENT_TIERS_EN[e.tier]})` : "Chưa đặt"}${e.directReports ? ` · quản lý ${e.directReports} người` : ""}`],
-              /* Cấp bậc theo chức danh; quyền xem/duyệt trên web theo vai trò được gán — hai thứ tách nhau */
-              ["Quyền trên Kavor", <Phrases key="r" text={e.roles.length ? e.roles.map((r) => `${r.name} (${r.scope})`).join(", ") : "Nhân viên (chỉ dùng app)"} />],
-              ["Email công ty", e.email ?? "—"],
-              ["Điện thoại", e.phone ?? "—"],
-              ["Ngày vào làm · loại HĐ", `${fmtDate(e.hireDate)} · ${EMPLOYMENT[e.employmentType]}`],
+              ["Chi nhánh / pháp nhân", <Fragment key="b">{e.branch?.name ?? "—"}<i className="vs" />{e.legalEntity?.name ?? "—"}</Fragment>],
+              ["Quản lý trực tiếp", e.manager?.name ?? <span key="m" className="muted">Không có</span>],
+              ["Ngày vào làm", <Fragment key="j">{fmtDate(e.hireDate)}<i className="vs" />{tenure(e.hireDate, today)}</Fragment>],
+              ["Hợp đồng", EMPLOYMENT[e.employmentType]],
               ...(e.terminationDate ? [["Ngày nghỉ việc", fmtDate(e.terminationDate)] as [string, ReactNode]] : []),
             ]} />
             {e.directReports && !e.roles.some((r) => ["manager", "tenant_admin", "hr_ops"].includes(r.code)) ? <p className="text-amber" style={{ fontSize: 12.5, margin: "10px 0 0" }}>
@@ -132,15 +136,13 @@ export function EmployeeProfile({ id }: { id: string }) {
               <div className="kv-spread"><span><b>Địa điểm chấm công</b><small>{e.policies.locations.length ? e.policies.locations.map((l) => `${l.name} (${l.radiusM} m)`).join(", ") : ""}</small></span>
                 {e.policies.locations.length ? (e.policies.locationSource ? <span className="source-tag">{scopeText(e.policies.locationSource)}</span> : null) : <span className="text-red">Chưa có địa điểm</span>}</div>
             </Section>
+            {/* Quyền xem/duyệt trên web theo vai trò được gán; cấp bậc theo chức danh (tab Cá nhân) — hai thứ tách nhau */}
             <Section title="Tài khoản Kavor">
-              <Dl rows={[
-                ["Trạng thái", <Status key="s" v={ACCOUNT[e.account]} />],
-                ...(e.invitedAt ? [["Lời mời gần nhất", fmtDateTime(e.invitedAt, tz)] as [string, ReactNode]] : []),
-                ...(e.lastLoginAt ? [["Đăng nhập gần nhất", ago(e.lastLoginAt)] as [string, ReactNode]] : []),
-              ]} />
-              {canInvite ? <div className="row-actions" style={{ justifyContent: "flex-start", marginTop: 10 }}>
-                <button className="btn small" disabled={!!busy || !e.email} onClick={() => void invite()}><Icon name="mail" /> {busy === "invite" ? "Đang gửi…" : e.account === "invited" ? "Gửi lại lời mời" : "Gửi lời mời"}</button>
-              </div> : null}
+              <div className="kv-spread"><Status v={ACCOUNT[e.account]} />
+                {canInvite ? <button className="btn small accent" disabled={!!busy || !e.email} onClick={() => void invite()}><Icon name="mail" />{busy === "invite" ? "Đang gửi…" : e.account === "invited" ? "Gửi lại lời mời" : "Gửi lời mời"}</button>
+                  : <span className="muted" style={{ fontSize: 12.5, textAlign: "right" }}>Quyền: {e.roles.length ? e.roles.map((r) => `${r.name} (${r.scope})`).join(", ") : "Nhân viên (app)"}</span>}</div>
+              {e.account !== "active" ? <p className="muted" style={{ fontSize: 12.5, margin: "10px 0 0" }}>Chưa kích hoạt thì chưa chấm công và gửi đơn trên app được.</p> : null}
+              {e.invitedAt || e.lastLoginAt ? <p className="muted" style={{ fontSize: 12.5, margin: "10px 0 0" }}>{[e.invitedAt ? `Lời mời gần nhất ${fmtDateTime(e.invitedAt, tz)}` : null, e.lastLoginAt ? `Đăng nhập gần nhất ${ago(e.lastLoginAt)}` : null].filter(Boolean).join(" · ")}</p> : null}
             </Section>
           </div>
         </div>
@@ -153,6 +155,8 @@ export function EmployeeProfile({ id }: { id: string }) {
               <div className="param"><b className={ts.data.summary.missingDays ? "text-red" : ""}>{ts.data.summary.missingDays}</b><span>Thiếu công</span></div>
               <div className="param"><b>{ts.data.summary.leaveDays}</b><span>Nghỉ phép</span></div>
             </div>
+            {todayState ? <div className="kv-spread" style={{ marginTop: 14 }}><span className="muted">Hôm nay</span>
+              <Status v={[`${todayState[0]}${td?.clockIn ? ` · vào ${td.clockIn}` : ""}`, todayState[1]]} /></div> : null}
           </Section> : <div />}
           {lv.data?.balance ? <LeaveCard b={lv.data.balance} /> : <div />}
         </div> : null}
@@ -165,6 +169,7 @@ export function EmployeeProfile({ id }: { id: string }) {
             ["Ngày sinh · giới tính", `${e.personal.birthDate ? fmtDate(e.personal.birthDate) : "—"} · ${e.personal.gender ? { male: "Nam", female: "Nữ", other: "Khác" }[e.personal.gender] : "—"}`],
             ["CCCD/CMND", <Phrases key="i" text={e.personal.idNumber ? `${e.personal.idNumber}${e.personal.idIssuedOn ? ` · cấp ${fmtDate(e.personal.idIssuedOn)}` : ""}${e.personal.idIssuedBy ? ` · ${e.personal.idIssuedBy}` : ""}` : null} />],
             ["Số sổ BHXH", e.personal.socialInsuranceNo ?? "—"],
+            ["Cấp quản lý", `${e.tier ? `${MANAGEMENT_TIERS[e.tier]} (${MANAGEMENT_TIERS_EN[e.tier]})` : "Chưa đặt"}${e.directReports ? ` · quản lý ${e.directReports} người` : ""}`],
             ["Email cá nhân", e.personal.personalEmail ?? "—"],
           ]} />
         </Section>
@@ -239,6 +244,7 @@ function LeaveCard({ b }: { b: NonNullable<EmployeeLeave["balance"]> }) {
         <div className="col">
           <div className="kv-spread"><span><i className="lg-dot" style={{ background: "var(--accent)" }} />Còn lại</span><b className="num">{b.available} ngày</b></div>
           <div className="kv-spread"><span><i className="lg-dot" style={{ background: "var(--info-fill)" }} />Đã nghỉ</span><b className="num">{b.used} ngày</b></div>
+          {b.accrualMonthly ? <div className="kv-spread"><span><i className="lg-dot" style={{ background: "var(--track)" }} />Chưa tích lũy</span><b className="num">{Math.max(0, b.yearEntitlement - b.granted)} ngày</b></div> : null}
           {b.pending ? <div className="kv-spread"><span><i className="lg-dot" style={{ background: "var(--warn-fill)" }} />Đang chờ duyệt</span><b className="num">{b.pending} ngày</b></div> : null}
         </div>
       </div>

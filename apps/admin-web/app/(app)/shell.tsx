@@ -1,11 +1,12 @@
 "use client";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { usePathname } from "next/navigation";
+import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import type { AdminMe, RequestQueue, SetupChecklist } from "@kavor/contracts";
 import { useApi, useRealtimeStatus } from "../_lib/client";
 import { AccountMenu } from "../_ui/account-menu";
 import { Icon, MeContext, SubContext, ToastProvider, can, longDate } from "../_ui/kit";
+import { CmdK } from "../_ui/cmdk";
 import { NotificationBell } from "../_ui/notifications";
 import { SupportBanner } from "../_ui/support";
 
@@ -50,9 +51,8 @@ function today(tz: string) {
 
 export function Shell({ me, children }: { me: AdminMe; children: ReactNode }) {
   const path = usePathname();
-  const router = useRouter();
   const [menu, setMenu] = useState(false);
-  const [q, setQ] = useState("");
+  const [cmd, setCmd] = useState(false);
   const [mini, setMini] = useState(false);
   const [sub, setSub] = useState<string | null>(null);
   useEffect(() => { try { setMini(localStorage.getItem("kavor.sidebarMini") === "1"); } catch { /* chặn lưu trữ: giữ mặc định */ } }, []);
@@ -63,6 +63,12 @@ export function Shell({ me, children }: { me: AdminMe; children: ReactNode }) {
   /* Tiến độ thiết lập ban đầu: chỉ người cấu hình được công ty; tải lại khi đổi trang (vừa lưu cài đặt xong) */
   const setupApi = useApi<SetupChecklist>(can(me, "tenant.settings.manage") ? "settings/checklist" : null);
   const setup = setupApi.data;
+  useEffect(() => {
+    const f = (e: KeyboardEvent) => { if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") { e.preventDefault(); setCmd(true); } };
+    window.addEventListener("keydown", f);
+    return () => window.removeEventListener("keydown", f);
+  }, []);
+  const pages = NAV.flatMap((g) => g.items).filter((it) => !it.perm || [it.perm].flat().some((p) => can(me, p)));
   const lastPath = useRef(path);
   useEffect(() => { if (lastPath.current !== path) { lastPath.current = path; void setupApi.reload(); } }, [path, setupApi]);
   const profile = path.startsWith("/employees/");
@@ -110,12 +116,9 @@ export function Shell({ me, children }: { me: AdminMe; children: ReactNode }) {
             <header className="topbar">
               <button className="icon-btn mobile-menu" onClick={() => setMenu(true)} aria-label="Mở menu"><Icon name="menu" /></button>
               <div className="title-copy"><h1>{profile ? "Hồ sơ nhân viên" : TITLES[path] ?? "Kavor HR"}</h1>
-                {profile ? <Link className="topbar-sub" href="/employees">← Nhân viên</Link> : <span className="topbar-sub">{sub ?? SUBS[path] ?? longDate(today(me.tenant.timezone))}</span>}</div>
+                {profile ? <span className="topbar-sub"><Link href="/employees">Nhân viên</Link> / {sub}</span> : <span className="topbar-sub">{sub ? sub.split(" | ").map((x, i) => <Fragment key={i}>{i ? <i className="vs" /> : null}{x}</Fragment>) : SUBS[path] ?? longDate(today(me.tenant.timezone))}</span>}</div>
               <div id="page-actions" className="page-actions" />
-              {can(me, "employee.read") ? (
-                <label className="search"><Icon name="search" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Tìm nhân viên…" aria-label="Tìm nhân viên theo tên, mã hoặc email"
-                  onKeyDown={(e) => { if (e.key === "Enter" && q.trim()) router.push(`/employees?q=${encodeURIComponent(q.trim())}`); }} /></label>
-              ) : null}
+              <button className="search cmdk-btn" onClick={() => setCmd(true)} aria-label="Tìm kiếm"><Icon name="search" /><span className="grow trunc">Tìm nhanh…</span><span className="kbd">Ctrl K</span></button>
               <div className="top-actions">
                 <NotificationBell />
                 <AccountMenu />
@@ -129,6 +132,7 @@ export function Shell({ me, children }: { me: AdminMe; children: ReactNode }) {
               <span className={`realtime-dot ${live ? "on" : ""}`}><i />{live ? "Đang cập nhật trực tiếp" : "Mất kết nối cập nhật"}</span>
             </footer>
           </section>
+        {cmd ? <CmdK pages={pages} onClose={() => setCmd(false)} /> : null}
         </ToastProvider>
       </main>
       </SubContext.Provider>

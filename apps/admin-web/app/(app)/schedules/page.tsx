@@ -75,7 +75,7 @@ function ShiftCard({ s, manage, onNew, onChanged }: { s: ShiftDef; manage: boole
         {s.next && s.current ? <p className="small" style={{ margin: 0 }}><span className="status info">Từ {fmtDate(s.next.effectiveFrom)}</span> {shiftNote(s.next)} · {s.next.workDays.map((d) => DAYS[d]).join(", ")}</p> : null}
         {s.versions.length > 1 ? <ul className="version-list" style={{ margin: 0 }}>{s.versions.map((x) => <li key={x.id}>v{x.versionNo} · từ {fmtDate(x.effectiveFrom)} · {shiftNote(x)}{x.note ? ` — ${x.note}` : ""}</li>)}</ul> : null}
         {manage ? <div className="row-actions">
-          <button className="btn small" onClick={onNew}>Phiên bản mới</button>
+          <button className="btn small" onClick={onNew}><Icon name="edit" />Phiên bản mới</button>
           <button className="btn small ghost" onClick={() => run(s.id, () => call("PATCH", `shifts/${s.id}`, { active: !s.active }), s.active ? "Đã ngừng dùng ca" : "Đã dùng lại ca").then(() => onChanged())}>{s.active ? "Ngừng dùng" : "Dùng lại"}</button>
         </div> : null}
       </div>
@@ -103,7 +103,7 @@ function LocationCard({ l, manage, unapplied, onNew, onApply, onChanged }: { l: 
         {l.current && l.next ? <p className="small" style={{ margin: 0 }}><span className="status info">Từ {fmtDate(l.next.effectiveFrom)}</span> bán kính {l.next.radiusM} m</p> : null}
         {!l.current && l.next ? <p className="small" style={{ margin: 0 }}><span className="status warn">Chưa hiệu lực</span></p> : null}
         {manage ? <div className="row-actions">{unapplied ? <button className="btn small primary" onClick={onApply}>Áp dụng</button> : null}
-          <button className="btn small" onClick={onNew}>Phiên bản mới</button>
+          <button className="btn small" onClick={onNew}><Icon name="edit" />Phiên bản mới</button>
           <button className="btn small ghost" onClick={() => run(l.id, () => call("PATCH", `locations/${l.id}`, { active: !l.active }), l.active ? "Đã ngừng dùng địa điểm" : "Đã dùng lại địa điểm").then(() => onChanged())}>{l.active ? "Ngừng" : "Dùng lại"}</button></div> : null}
       </div>
     </article>

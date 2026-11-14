@@ -30,7 +30,7 @@ function AttendancePage() {
         <div><div className="segmented" role="tablist">{TABS.filter(([, , perm]) => !perm || can(me, perm)).map(([k, label]) => <button key={k} role="tab" aria-selected={tab === k} className={tab === k ? "active" : ""} onClick={() => go(k)}>{label}{badge[k]?.[0] != null && (badge[k]![0]! > 0 || !badge[k]![1]) ? <span className={`n ${badge[k]![1] ? "hot" : ""}`}>{badge[k]![0]}</span> : null}</button>)}</div></div>
       </div>
       {tab === "month" ? <PageActions>{action}</PageActions> : null}
-      {tab === "month" ? <MonthTab setAction={setAction} /> : tab === "overtime" ? <OvertimeTab /> : tab === "today" ? <Today tz={me.tenant.timezone} tenantId={me.tenant.id} /> : tab === "rejected" ? <Rejected tz={me.tenant.timezone} tenantId={me.tenant.id} /> : <Devices tz={me.tenant.timezone} tenantId={me.tenant.id} />}
+      {tab === "month" ? <MonthTab setAction={setAction} /> : tab === "overtime" ? <OvertimeTab /> : tab === "today" ? <Today tz={me.tenant.timezone} tenantId={me.tenant.id} period={ts?.period} /> : tab === "rejected" ? <Rejected tz={me.tenant.timezone} tenantId={me.tenant.id} /> : <Devices tz={me.tenant.timezone} tenantId={me.tenant.id} />}
     </section>
   );
 }
@@ -45,7 +45,7 @@ const stateOf = (r: TodayRow): [string, string] => {
     : r.state === "absent" ? ["Vắng / thiếu công", "bad"] : r.state === "no_shift" ? ["Chưa có ca", "warn"] : r.state === "off" ? ["Nghỉ", "muted"] : ["Chưa vào ca", "bad"];
 };
 
-function Today({ tz, tenantId }: { tz: string; tenantId: string }) {
+function Today({ tz, tenantId, period }: { tz: string; tenantId: string; period?: TimesheetBoard["period"] }) {
   const [date, setDate] = useState(tenantToday(tz));
   /* ?filter= từ Tổng quan (việc cần xử lý) */
   const initial = useSearchParams().get("filter");
@@ -55,6 +55,9 @@ function Today({ tz, tenantId }: { tz: string; tenantId: string }) {
   const { data: b, error, reload } = useApi<AttendanceBoard>(`attendance/board?date=${date}`, { tables: ["attendance_events", "employee_devices", "leave_days"], tenantId });
   const all = b?.rows ?? [];
   const sh = all.find((r) => r.shift)?.shift;
+  /* Địa điểm: chỉ nêu khi mọi lượt chấm công hôm nay cùng một nơi (tên địa điểm cấu hình không có trong response bảng) */
+  const places = new Set(all.map((r) => r.clockIn?.location).filter(Boolean));
+  const loc = places.size === 1 ? [...places][0] : null;
   const count = (k: Key) => all.filter((r) => keyOf(r) === k).length;
   const rows = useMemo(() => all.filter((r) =>
     (filter === "all" || keyOf(r) === filter)
@@ -62,7 +65,7 @@ function Today({ tz, tenantId }: { tz: string; tenantId: string }) {
   const s = b?.summary;
   return (
     <>
-      <PageSub text={sh ? `${sh.name} ${sh.start}–${sh.end}.` : null} />
+      <PageSub text={sh ? `${sh.name} ${sh.start}–${sh.end}${loc ? ` tại ${loc}` : ""}.${period ? ` Kỳ công ${period.month.slice(5)}/${period.month.slice(0, 4)} ${period.locked ? "đã khóa" : "chưa khóa"}.` : ""}` : null} />
       <LoadError error={error} retry={reload} />
       <div className="grid metrics">
         <article className="card metric-card"><span className="metric-icon"><Icon name="users" /></span><span className="metric-copy"><span>Đã vào ca</span><strong>{s ? <>{s.present}<small>/{s.inScope}</small></> : "—"}</strong><small>{longDate(date)}</small></span></article>

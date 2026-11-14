@@ -63,15 +63,15 @@ function DocumentsPage() {
       <div className="grid metrics">
         <article className="card metric-card"><span className="metric-icon"><Icon name="file" /></span><span className="metric-copy"><span>Tổng tài liệu</span><strong>{m ? num(m.total) : "—"}</strong><small>{num(used)} danh mục</small></span></article>
         <article className="card metric-card"><span className="metric-icon amber"><Icon name="alert" /></span><span className="metric-copy"><span>Sắp hết hạn</span><strong>{m ? num(m.expiringSoon) : "—"}</strong><small>Trong 30 ngày{m?.expired ? ` · ${num(m.expired)} đã hết hạn` : ""}</small></span></article>
-        <article className="card metric-card"><span className="metric-icon red"><Icon name="alert" /></span><span className="metric-copy"><span>Thiếu hồ sơ</span><strong>{m ? num(m.missingContract) : "—"}</strong><small>nhân viên chưa có hợp đồng</small></span></article>
+        <article className="card metric-card"><span className="metric-icon red"><Icon name="alert" /></span><span className="metric-copy">{gaps.data?.requiredCount ? <><span>Thiếu giấy tờ bắt buộc</span><strong className={missing ? "text-red" : ""}>{num(missing ?? 0)}</strong><small>nhân viên</small></> : <><span>Thiếu hồ sơ</span><strong>{m ? num(m.missingContract) : "—"}</strong><small>nhân viên chưa có hợp đồng</small></>}</span></article>
         <article className="card metric-card"><span className="metric-icon blue"><Icon name="lock" /></span><span className="metric-copy"><span>Truy cập tuần này</span><strong>{m ? num(m.downloadsWeek) : "—"}</strong><small>Đã ghi nhật ký</small></span></article>
       </div>
       {tab === "miss" ? <Missing gaps={gaps} /> : tab === "cat" ? <ChecklistCatalog /> : (
       <article className="card">
         <div className="toolbar">
-          <label className="search"><Icon name="search" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Tên tài liệu hoặc nhân viên…" /></label>
           {chips.map(([k, l, n, on, fn]) => <button key={k} className={`filter-chip ${on ? "active" : ""}`} onClick={fn}>{l}<span className="n">{n}</span></button>)}
           <span className="toolbar-spacer" />
+          <label className="search" style={{ flexBasis: 220, minWidth: 160 }}><Icon name="search" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Tên tài liệu hoặc nhân viên…" /></label>
           <Select className="select" value={cat} onChange={(e) => setCat(e.target.value as DocumentCategory | "all")} aria-label="Danh mục">
             <option value="all">Mọi danh mục</option>{(Object.keys(DOCUMENT_CATEGORIES) as DocumentCategory[]).map((k) => <option key={k} value={k}>{DOCUMENT_CATEGORIES[k]}</option>)}
           </Select>

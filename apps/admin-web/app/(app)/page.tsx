@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import type { AdminOverview, AttendanceBoard, ChecklistGaps, OverviewDay, RequestQueue, SetupChecklist, TimesheetBoard, TodayRow } from "@kavor/contracts";
+import type { AdminOverview, AttendanceBoard, ChecklistGaps, LeaveMonth, LeaveMonthEntry, OverviewDay, RequestQueue, RulePolicy, SetupChecklist, TimesheetBoard, TodayRow } from "@kavor/contracts";
 import { useApi } from "../_lib/client";
 import { Empty, Icon, LoadError, PageActions, PageSub, Person, Status, can, dur, fmtDate, num, useMe } from "../_ui/kit";
 import { Skeleton } from "@kavor/web-ui";
@@ -144,19 +144,55 @@ export default function Overview() {
             <div className="card-body">{o ? <PresenceChart days={o.days} /> : !error ? <Skeleton w="100%" h={190} /> : null}</div>
           </article>
         ) : null}
-        {can(me, "employee.read") ? (
-          <article className="card">
-            <div className="card-head"><div><h3>Nhân viên mới thêm</h3><p>5 hồ sơ gần nhất</p></div><Link className="btn small" href="/employees">Xem tất cả</Link></div>
-            {o && !o.recentEmployees.length ? <Empty title="Chưa có nhân viên" /> : (
-              <div className="todo-list">{!o && !error ? <div className="card-body"><Skeleton w="100%" h={160} /></div> : null}
-                {(o?.recentEmployees ?? []).map((e) => (
-                  <Link key={e.id} href={`/employees/${e.id}`} className="todo-row"><Person name={e.fullName} sub={e.department?.name ?? e.code} seed={e.code} /><span className="grow" /><span className="muted small-note">{fmtDate(e.hireDate)}</span></Link>
-                ))}
-              </div>
-            )}
-          </article>
-        ) : null}
+        {o ? <Upcoming today={o.date} ts={ts ?? null} /> : null}
       </div>
     </section>
+  );
+}
+
+/* Ngày dạng YYYY-MM-DD, cộng ngày/tháng theo UTC (không lệch múi giờ) */
+const addDays = (d: string, n: number) => new Date(Date.parse(`${d}T00:00:00Z`) + n * 86400000).toISOString().slice(0, 10);
+const nextMonth = (m: string) => new Date(Date.UTC(Number(m.slice(0, 4)), Number(m.slice(5, 7)), 1)).toISOString().slice(0, 7);
+const lastDay = (m: string) => new Date(Date.UTC(Number(m.slice(0, 4)), Number(m.slice(5, 7)), 0)).getUTCDate();
+const dm = (d: string) => `${d.slice(8, 10)}/${d.slice(5, 7)}`;
+const span = (a: string, b: string) => a === b ? dm(a) : a.slice(5, 7) === b.slice(5, 7) ? `${a.slice(8, 10)}–${dm(b)}` : `${dm(a)}–${dm(b)}`;
+
+/* Sắp tới (30 ngày) theo prototype: lịch nghỉ (leave/calendar), hạn nhận đơn tạm ứng (quy định áp dụng toàn công ty), ngày chốt kỳ công chưa khóa.
+   Chưa có "hết thử việc" vì hồ sơ chưa lưu thời hạn thử việc. */
+function Upcoming({ today, ts }: { today: string; ts: TimesheetBoard | null }) {
+  const me = useMe();
+  const cur = today.slice(0, 7), nxt = nextMonth(cur), until = addDays(today, 30);
+  const lv = can(me, "leave.read");
+  const a = useApi<LeaveMonth>(lv ? `leave/calendar?month=${cur}` : null);
+  const b = useApi<LeaveMonth>(lv ? `leave/calendar?month=${nxt}` : null);
+  const rules = useApi<RulePolicy[]>(can(me, "policy.read") ? "rules" : null);
+  const items: Array<{ from: string; to: string; title: string; sub: string }> = [];
+  const byReq = new Map<string, LeaveMonthEntry[]>();
+  for (const e of [...(a.data?.entries ?? []), ...(b.data?.entries ?? [])]) if (e.date >= today && e.date <= until) byReq.set(e.requestId, [...(byReq.get(e.requestId) ?? []), e]);
+  for (const g of byReq.values()) {
+    const e = g[0]!, days = g.reduce((t, x) => t + x.portion, 0);
+    items.push({ from: g.at(0)!.date, to: g.at(-1)!.date, title: `${e.employee.fullName} nghỉ ${e.typeName.toLowerCase()} ${num(days)} ngày`, sub: `Đơn ${e.requestNo} ${e.status === "pending" ? "đang chờ duyệt" : "đã duyệt"}` });
+  }
+  const adv = (rules.data ?? []).find((r) => r.kind === "salary_advance" && r.active && r.current && r.current.config.enabled !== false
+    && r.assignments.some((x) => x.scopeType === "tenant" && x.state === "active"));
+  if (adv?.current) {
+    const day = Number(adv.current.config.deadlineDay ?? 20);
+    let m = cur, d = `${m}-${String(Math.min(day, lastDay(m))).padStart(2, "0")}`;
+    if (d < today) { m = nxt; d = `${m}-${String(Math.min(day, lastDay(m))).padStart(2, "0")}`; }
+    if (d <= until) items.push({ from: d, to: d, title: `Hạn nhận đơn tạm ứng kỳ ${Number(m.slice(5, 7))}`, sub: `Theo quy định ${adv.code}` });
+  }
+  const p = ts?.period;
+  if (p && !p.locked && p.end >= today && p.end <= until) items.push({ from: p.end, to: p.end, title: `Chốt kỳ công ${p.month.slice(5)}/${p.month.slice(0, 4)}`, sub: "Khóa bảng công để tính lương" });
+  items.sort((x, y) => x.from.localeCompare(y.from));
+  return (
+    <article className="card">
+      <div className="card-head"><h3>Sắp tới</h3><span className="muted small-note">30 ngày</span></div>
+      {items.length ? (
+        <div className="check-list" style={{ marginTop: 8 }}>{items.map((x, i) => (
+          <div key={i}><span className="tag num" style={{ minWidth: 66, justifyContent: "center", textAlign: "center" }}>{span(x.from, x.to)}</span>
+            <span className="grow"><b style={{ display: "block" }}>{x.title}</b><span className="sub">{x.sub}</span></span></div>
+        ))}</div>
+      ) : <div className="card-body"><span className="sub">Không có lịch nào trong 30 ngày tới.</span></div>}
+    </article>
   );
 }

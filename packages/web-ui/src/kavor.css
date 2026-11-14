@@ -310,7 +310,7 @@ a.nav-item, a.quick-item { text-decoration: none; }
 }
 .title-copy { min-width: 0; }
 .topbar h1 { margin: 0; font-size: 22px; font-weight: 700; line-height: 1.2; letter-spacing: -.015em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.topbar-sub { display: block; margin-top: 2px; color: var(--ink-2); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.topbar-sub { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; margin-top: 2px; color: var(--ink-2); font-size: 13px; white-space: normal; overflow: hidden; text-wrap: balance; }
 .top-actions { display: flex; justify-content: flex-end; align-items: center; gap: 8px; }
 .search {
   height: var(--control); display: flex; align-items: center; gap: 9px; padding: 0 13px; border: 0; border-radius: var(--radius-sm);
@@ -1394,7 +1394,7 @@ a.todo-row:hover { background: var(--surface-2); }
 .lg-link { padding: 0; border: 0; background: none; cursor: pointer; font: inherit; font-size: 13px; font-weight: 500; color: var(--muted); text-decoration: none; }
 .lg-link:hover { color: var(--brand-ink); text-decoration: underline; }
 .lg-link.strong { color: var(--brand-ink); font-weight: 700; }
-.lg-btn { width: 100%; height: 50px; border-radius: 12px; font-size: 15px; background: linear-gradient(160deg, color-mix(in srgb, var(--primary) 70%, var(--accent)), var(--primary)); box-shadow: inset 0 1.5px 0 rgba(255, 255, 255, .38), 0 10px 22px rgba(15, 92, 70, .30); }
+.btn.lg-btn, .btn.lg-btn:hover { width: 100%; height: 50px; border-radius: 12px; font-size: 15px; background: linear-gradient(160deg, color-mix(in srgb, var(--primary) 70%, var(--accent)), var(--primary)); box-shadow: inset 0 1.5px 0 rgba(255, 255, 255, .38), 0 10px 22px rgba(15, 92, 70, .30); }
 .lg-btn:disabled { opacity: .6; cursor: not-allowed; }
 .lg-alt { margin: 0; text-align: center; font-size: 13.5px; color: var(--muted); text-wrap: pretty; }
 .lg-back { display: inline-flex; align-items: center; gap: 6px; align-self: flex-start; padding: 0; border: 0; background: none; cursor: pointer; font: inherit; font-size: 13px; font-weight: 600; color: var(--ink-2); }
@@ -1434,3 +1434,51 @@ input:-webkit-autofill, input:-webkit-autofill:hover, input:-webkit-autofill:foc
   -webkit-box-shadow: 0 0 0 1000px var(--surface) inset; -webkit-text-fill-color: var(--ink); caret-color: var(--ink); transition: background-color 9999s ease-out 0s;
 }
 .lgi input:-webkit-autofill, .lgi input:-webkit-autofill:hover, .lgi input:-webkit-autofill:focus { -webkit-box-shadow: 0 0 0 1000px var(--surface) inset; }
+
+/* v2 port (sửa lệch prototype): nút ghost trong đầu thẻ, link trong dòng phụ topbar */
+.card-head .btn.ghost { color: var(--brand-ink); background: var(--surface-2); }
+.card-head .btn.ghost:hover { color: var(--brand-ink); background: var(--brand-soft); }
+.topbar-sub a { color: var(--brand-ink); text-decoration: none; }
+/* Băng cảnh báo có icon (prototype .note): icon màu cảnh báo, chữ màu thường, phần đầu in đậm */
+.note-icon { display: flex; gap: 12px; align-items: flex-start; color: var(--ink); text-wrap: balance; }
+.note-icon > svg { flex: none; width: 20px; height: 20px; margin-top: 1px; color: var(--amber); }
+.note-icon b { font-weight: 700; }
+
+/* v2 thẻ số liệu (prototype .thks/.thk): Nghỉ phép → Tổng quan, Lương → Bảng lương đầu vào */
+.thks { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin-bottom: 16px; }
+.thk { display: flex; align-items: center; justify-content: space-between; gap: 12px; text-align: left; background: var(--surface); border-radius: 18px; padding: 20px 22px; box-shadow: 0 0 0 1px var(--line), 0 1px 2px rgba(16, 32, 24, .04); min-width: 0; }
+.thk.mint { background: linear-gradient(145deg, var(--mint-soft), var(--brand-soft)); }
+.thk .tx { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.thk .l { font-size: 13px; color: var(--muted); font-weight: 500; }
+.thk .v { font-size: 26px; font-weight: 800; line-height: 1.05; letter-spacing: -.02em; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.thk .v small { font-size: 15px; font-weight: 700; color: var(--ink-2); margin-left: 2px; }
+.thk .chip { align-self: flex-start; font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 7px; background: var(--surface-3); color: var(--ink-2); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.thk .chip.ok { background: var(--brand-soft); color: var(--brand-ink); }
+.thk .chip.warn { background: var(--amber-soft); color: var(--amber); }
+.thk .chip.mint { background: rgba(255, 255, 255, .7); color: var(--brand-ink); }
+.thk .ico { width: 50px; height: 50px; border-radius: 15px; background: var(--brand-soft); color: var(--brand-ink); display: grid; place-items: center; flex: none; }
+.thk.mint .ico { background: var(--surface); }
+@media (max-width: 1100px) { .thks { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 700px) { .thks { grid-template-columns: 1fr; } }
+@media (max-width: 1400px) { .thk .ico { display: none; } .thk .v { font-size: clamp(20px, 1.9vw, 26px); } }
+
+/* ---------- v2 tìm nhanh (bảng lệnh Ctrl/⌘ K) ---------- */
+.cmdk-btn { width: 210px; flex: none; cursor: pointer; text-align: left; }
+.cmdk-btn:hover { color: var(--ink-2); }
+.cmdk-layer { position: fixed; inset: 0; z-index: 95; display: flex; align-items: flex-start; justify-content: center; padding: 10vh 16px 24px; }
+.cmdk { position: relative; width: min(620px, 100%); background: var(--surface); border-radius: 22px; box-shadow: var(--shadow); overflow: hidden; animation: modalIn2 .2s cubic-bezier(.2, .8, .2, 1) both; }
+@keyframes modalIn2 { from { opacity: 0; transform: translateY(-6px) scale(.985); } }
+.cmdk .inwrap { position: relative; }
+.cmdk .inwrap > svg { position: absolute; left: 20px; top: 21px; width: 18px; height: 18px; color: var(--muted); }
+.cmdk input { width: 100%; height: 60px; border: 0; border-bottom: 1px solid var(--line); padding: 0 20px 0 50px; background: transparent; color: var(--ink); font-size: 16px; outline: 0; }
+.cmdk .res { max-height: 52vh; overflow: auto; padding: 10px; }
+.cmdk .res h6 { margin: 10px 12px 4px; font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.cmdk .res button { display: flex; align-items: center; gap: 12px; width: 100%; padding: 9px 12px; border: 0; border-radius: 12px; background: transparent; color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+.cmdk .res button.on { background: var(--brand-soft); }
+.cmdk .res b { font-weight: 600; }
+.cmdk .res .tile { width: 28px; height: 28px; }
+.cmdk .res .avatar { width: 28px; height: 28px; font-size: 12px; flex: none; }
+@media (max-width: 1280px) { .cmdk-btn { width: var(--control); padding: 0; justify-content: center; } .cmdk-btn span { display: none; } }
+.cmdk-btn .grow { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cmdk .res .grow { flex: 1; min-width: 0; }
+.cmdk .res .small { font-size: 13px; }

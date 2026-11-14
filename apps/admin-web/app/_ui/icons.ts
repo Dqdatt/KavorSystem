@@ -39,4 +39,5 @@ export const ICONS: Record<string, string> = {
   "logout": `<path d="M15 4h4a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-4M10 17l5-5-5-5M15 12H3"/>`,
   "mail": `<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>`,
   "check": `<path d="m5 12 5 5 9-10"/>`,
+  "edit": `<path d="M4 20h4L19 9l-4-4L4 16zM13.5 6.5l4 4"/>`,
 };

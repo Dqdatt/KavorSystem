@@ -38,6 +38,7 @@ _r=$(call POST admin/employees/$HA/checklist/$DEP "$HR" '{"status":"waived","not
 check "Đánh dấu không áp dụng có lý do" "$(echo "$_r" | py "[(e['status'], e['note']) for e in d['entries'] if e['item']['id']=='$DEP'][0]")" "('waived', 'Chưa có người phụ thuộc')"
 G=$(call GET admin/checklist/gaps "$HR")
 check "Danh sách thiếu giấy tờ: Hà thiếu 3 mục, không còn CCCD" "$(echo "$G" | py "[(len(r['missing']), 'CCCD (bản sao)' in r['missing']) for r in d['rows'] if r['employeeId']=='$HA'][0]")" "(3, False)"
+check "Thiếu giấy tờ: required = số mục bắt buộc áp dụng cho Hà" "$(echo "$G" | py "[r['required'] for r in d['rows'] if r['employeeId']=='$HA'][0]")" 4
 _r=$(call POST admin/employees/$HA/checklist/$CCCD "$HR" '{"status":null}') || :
 check "Bỏ tích CCCD → thiếu lại 4" "$(echo "$_r" | py "d['missingRequired']")" 4
 _r=$(call POST admin/employees/$HA/checklist/$CCCD "$HR" '{"status":"submitted","form":"copy"}') || :

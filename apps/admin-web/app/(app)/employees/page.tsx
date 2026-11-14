@@ -38,7 +38,7 @@ function EmployeesPage() {
   const org = useApi<OrgOptions>("org");
   /* Giấy tờ bắt buộc còn thiếu (danh mục công ty tự khai) — chỉ người xem được tài liệu */
   const gaps = useApi<ChecklistGaps>(can(me, "document.read") ? "checklist/gaps" : null);
-  const missing = useMemo(() => new Map((gaps.data?.rows ?? []).map((r) => [r.employeeId, r.missing])), [gaps.data]);
+  const missing = useMemo(() => new Map((gaps.data?.rows ?? []).map((r) => [r.employeeId, r])), [gaps.data]);
   const hasDocs = !!gaps.data?.itemCount;
   const QUICK: Array<[Quick, string, (e: EmployeeListItem) => boolean]> = [
     ["all", "Tất cả", () => true],
@@ -99,7 +99,7 @@ function EmployeesPage() {
                 <td className="wrap"><b style={{ fontWeight: 500, display: "block" }}>{e.position?.name ?? "—"}</b><span className="muted" style={{ fontSize: 12 }}>{e.department?.name ?? "—"}</span></td>
                 <td>{fmtDate(e.hireDate)}<span className="muted" style={{ display: "block", fontSize: 12 }}>{tenure(e.hireDate, today)}</span></td>
                 <td>{e.employmentType === "probation" ? <Status v={["Thử việc", "violet"]} /> : <span style={{ color: "var(--ink-2)" }}>{EMPLOYMENT[e.employmentType]}</span>}</td>
-                <td>{!hasDocs ? "—" : missing.get(e.id) ? <b style={{ color: "var(--amber)" }} title={`Thiếu: ${missing.get(e.id)!.join(", ")}`}>Thiếu {missing.get(e.id)!.length}</b> : <b style={{ color: "var(--ok)" }}>Đủ</b>}</td>
+                <td>{!hasDocs || !gaps.data?.requiredCount ? "—" : <DocTicks gap={missing.get(e.id)} all={gaps.data.requiredCount} />}</td>
                 <td><span className="cell-stack">{e.account === "not_invited" ? <span className="muted">Chưa mời</span> : <Status v={ACCOUNT[e.account]} />}{e.devicePending ? <span className="source-tag" title="Có thiết bị chờ duyệt">Máy chờ duyệt</span> : null}</span></td>
                 <td className="muted"><Icon name="chevR" size={16} className="icon" /></td>
               </tr>
@@ -131,3 +131,15 @@ function BulkInvite({ rows, onClose, onDone }: { rows: EmployeeListItem[]; onClo
 }
 
 export default function Page() { return <Suspense><EmployeesPage /></Suspense>; }
+
+/* Giấy tờ bắt buộc theo prototype: vạch + "đã nộp/cần nộp" hoặc "Đủ".
+   shortcut: người đã đủ vẽ theo tổng mục bắt buộc của công ty (API chỉ trả số mục áp dụng cho người còn thiếu), đổi khi gaps trả mọi người */
+function DocTicks({ gap, all }: { gap?: { missing: string[]; required: number }; all: number }) {
+  const total = gap?.required ?? all, done = total - (gap?.missing.length ?? 0);
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 10 }} title={gap ? `Thiếu: ${gap.missing.join(", ")}` : undefined}>
+      <span className="ticks sm" aria-hidden="true">{Array.from({ length: total }, (_, i) => <i key={i} className={!gap ? "m" : i < done ? "a" : ""} />)}</span>
+      {gap ? <span className="small-note num">{done}/{total}</span> : <span className="small-note num" style={{ color: "var(--ok)", fontWeight: 700 }}>Đủ</span>}
+    </span>
+  );
+}

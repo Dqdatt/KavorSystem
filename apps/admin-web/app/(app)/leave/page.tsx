@@ -6,7 +6,7 @@ import { Suspense, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { LEAVE_TX_KINDS, type EmployeeLeave, type LeaveBalance, type LeaveBoard, type LeaveMonth, type LeaveMonthEntry, type RequestItem } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
-import { PageActions, PageSub, Avatar, Drawer, Empty, ErrorLine, Field, Icon, LoadError, Person, Status, fmtDate, fmtDateTime, tenantToday, useAction, useMe } from "../../_ui/kit";
+import { PageActions, PageSub, Thk, Avatar, Drawer, Empty, ErrorLine, Field, Icon, LoadError, Person, Status, fmtDate, fmtDateTime, tenantToday, useAction, useMe } from "../../_ui/kit";
 import { REQUEST_STATUS, RequestModal, requestSummary } from "../../_ui/request";
 import { Select, SkeletonLines, SkeletonRows, Hint } from "@kavor/web-ui";
 
@@ -162,11 +162,11 @@ function Tiles({ b, loaded, now }: { b: LeaveBoard | null; loaded: boolean; now:
   const granted = (b?.rows ?? []).reduce((n, r) => n + (r.balance ? r.balance.granted + r.balance.carry + r.balance.adjusted : 0), 0);
   const expiring = m && m.expiringCarry > 0 && m.expiringOn ? ` · ${d1(m.expiringCarry)} ngày phép tồn đến ${fmtDate(m.expiringOn).slice(0, 5)}` : "";
   return (
-      <div className="grid metrics">
-        <article className="card metric-card"><span className="metric-icon"><Icon name="plane" /></span><span className="metric-copy"><span>Đang nghỉ hôm nay</span><strong>{loaded ? now.length : "—"}<small> người</small></strong><small>{loaded ? now.map((p) => given(p.e.fullName)).join(", ") || "Không ai nghỉ" : " "}</small></span></article>
-        <article className="card metric-card"><span className="metric-icon blue"><Icon name="calendar" /></span><span className="metric-copy"><span>Phép còn lại toàn công ty</span><strong>{m ? d1(m.available) : "—"}<small> ngày</small></strong><small>{m ? `Đã cấp ${d1(granted)} ngày${expiring}` : " "}</small></span></article>
-        <article className="card metric-card"><span className="metric-icon amber"><Icon name="checks" /></span><span className="metric-copy"><span>Đã sử dụng</span><strong>{m ? d1(m.used) : "—"}<small> ngày</small></strong><small>{m && granted ? `${((m.used / granted) * 100).toLocaleString("vi-VN", { maximumFractionDigits: 1 })}% số phép đã cấp` : " "}</small></span></article>
-        <article className="card metric-card"><span className="metric-icon red"><Icon name="clock" /></span><span className="metric-copy"><span>Đang chờ duyệt</span><strong>{m ? d1(m.pending) : "—"}<small> ngày</small></strong><small>đang giữ chỗ phép</small></span></article>
+      <div className="thks">
+        <Thk label="Đang nghỉ hôm nay" tone="mint" icon="plane" value={<>{loaded ? now.length : "—"}<small> người</small></>} chip={loaded ? now.map((p) => given(p.e.fullName)).join(", ") || "Không ai nghỉ" : null} />
+        <Thk label="Phép còn lại toàn công ty" icon="calendar" value={<>{m ? d1(m.available) : "—"}<small> ngày</small></>} chip={m ? `Đã cấp ${d1(granted)} ngày${expiring}` : null} />
+        <Thk label="Đã sử dụng" tone="ok" icon="checks" value={<>{m ? d1(m.used) : "—"}<small> ngày</small></>} chip={m && granted ? `${((m.used / granted) * 100).toLocaleString("vi-VN", { maximumFractionDigits: 1 })}% số phép đã cấp` : null} />
+        <Thk label="Đang chờ duyệt" tone={m?.pending ? "warn" : ""} icon="clock" value={<>{m ? d1(m.pending) : "—"}<small> ngày</small></>} chip="đang giữ chỗ phép" />
       </div>
   );
 }

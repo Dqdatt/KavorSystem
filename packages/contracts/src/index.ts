@@ -205,7 +205,7 @@ export const ORG_UNIT_KINDS: Record<OrgUnitKind, string> = { legal_entity: "Phá
 export type OrgUnit = {
   id: string; kind: OrgUnitKind; code: string; name: string; parentId: string | null; branchId: string | null;
   taxCode: string | null; jobLevel: string | null; tier: ManagementTier | null; effectiveFrom: string; effectiveTo: string | null; active: boolean; employees: number;
-  /* Phòng ban: trưởng đơn vị (người phụ trách, có thể thuộc phòng khác) */ head: { id: string; name: string } | null;
+  /* Phòng ban: trưởng đơn vị (người phụ trách, có thể thuộc phòng khác) */ head: { id: string; name: string; position: string | null } | null;
 };
 export type OrgTree = {
   units: OrgUnit[]; today: string; canManage: boolean;
@@ -1261,7 +1261,8 @@ export type EmployeeChecklist = { employeeId: string; employmentType: Employment
 /* status null = bỏ tích (chưa nộp) */
 export type ChecklistEntryInput = { status: ChecklistStatus | null; form?: ChecklistForm | null; submittedOn?: string | null; note?: string | null };
 /* Nhân viên đang làm trong phạm vi còn thiếu giấy tờ bắt buộc */
-export type ChecklistGaps = { rows: Array<{ employeeId: string; missing: string[] }>; itemCount: number };
+/* rows: chỉ người còn thiếu; required = số mục bắt buộc áp dụng cho người đó · requiredCount = số mục bắt buộc của danh mục */
+export type ChecklistGaps = { rows: Array<{ employeeId: string; missing: string[]; required: number }>; itemCount: number; requiredCount: number };
 export type DocumentDetail = { item: EmployeeDocument; versions: DocumentVersion[]; canUpload: boolean; canManage: boolean };
 export type DocumentFileInput = { fileName: string; dataBase64: string; note?: string | null };
 export type DocumentMeta = { category: DocumentCategory; title: string; docNo?: string | null; issuedOn?: string | null; expiresOn?: string | null; visibility: DocumentVisibility };

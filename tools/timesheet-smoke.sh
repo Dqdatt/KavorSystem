@@ -99,7 +99,7 @@ check "Đơn của tôi: 3 đơn, mới nhất trước" "$(call GET me/requests
 echo "— Bảng công web, phạm vi, khóa kỳ"
 r=$(call GET admin/timesheets "$HR")
 check "HR thấy bảng công cả công ty" "$(echo "$r" | py "('HD0142' in [x['employee']['code'] for x in d['rows']], d['canLock'], d['periodStartDay'])")" "(True, True, 26)"
-check "Bảng công có ô từng ngày cho mỗi người (đủ ngày kỳ, trạng thái hợp lệ)" "$(echo "$r" | py "all(len(x['cells'])==(__import__('datetime').date.fromisoformat(d['period']['end'])-__import__('datetime').date.fromisoformat(d['period']['start'])).days+1 and {c['s'] for c in x['cells']}<={'ok','late','miss','leave','exp','off','fut'} for x in d['rows'])")" True
+check "Bảng công có ô từng ngày cho mỗi người (đủ ngày kỳ, trạng thái hợp lệ)" "$(echo "$r" | py "all(len(x['cells'])==(__import__('datetime').date.fromisoformat(d['period']['end'])-__import__('datetime').date.fromisoformat(d['period']['start'])).days+1 and set(c['s'] for c in x['cells'])<=set(['ok','late','miss','leave','exp','off','fut']) for x in d['rows'])")" True
 check "Quản lý chỉ thấy phòng Marketing" "$(call GET admin/timesheets "$MGRW" | py "sorted(x['employee']['code'] for x in d['rows'])")" "['HD0142', 'HDG0003']"
 IN_PERIOD=1; [ "$OUTMONTH" != "$LATEMONTH" ] || IN_PERIOD=3
 check "Chi tiết nhân viên kèm đơn đúng kỳ" "$(call GET "admin/timesheets/$HA?month=$OUTMONTH" "$HR" | py "(len(d['days'])>=28, len(d['requests']))")" "(True, $IN_PERIOD)"

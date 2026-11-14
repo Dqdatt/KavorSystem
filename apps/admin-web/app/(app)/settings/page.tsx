@@ -11,7 +11,7 @@ import {
 } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
 import { SupportPanel } from "../../_ui/support";
-import { PageActions, Empty, ErrorLine, Field, Icon, LoadError, Modal, MoreMenu, SCOPE, Status, can, fmtDate, fmtDateTime, num, tenantToday, useAction, useMe } from "../../_ui/kit";
+import { PageActions, PageSub, Empty, ErrorLine, Field, Icon, LoadError, Modal, MoreMenu, SCOPE, Status, can, fmtDate, fmtDateTime, num, tenantToday, useAction, useMe } from "../../_ui/kit";
 import { ReasonModal } from "../../_ui/reason-modal";
 import { Hint, Select, SkeletonRows } from "@kavor/web-ui";
 
@@ -32,8 +32,11 @@ function SettingsPage() {
   const [action, setAction] = useState<ReactNode>(null);
   const setupApi = useApi<SetupChecklist>("settings/checklist");
   const setup = setupApi.data;
+  const rulesCount = useApi<RulePolicy[]>(can(me, "policy.read") ? "rules" : null).data?.length;
+  const tabLabel = menu.flatMap(([, items]) => items).find(([k]) => k === tab)?.[1] ?? "Doanh nghiệp";
   return (
     <section className="page active">
+      <PageSub text={`${tabLabel} | áp dụng cho ${me.tenant.name}`} />
       <PageActions>{action}</PageActions>
       <div className="settings-layout">
         <nav className="card setnav" aria-label="Mục cài đặt">
@@ -42,7 +45,7 @@ function SettingsPage() {
               <div className="cap">{g}</div>
               {items.map(([k, l, icon]) => (
                 <button key={k} className={tab === k ? "on" : ""} aria-current={tab === k ? "page" : undefined} onClick={() => { setAction(null); router.replace(`/settings?tab=${k}`, { scroll: false }); }}>
-                  <Icon name={icon} size={16} /><span className="grow">{l}</span>{k === "setup" && setup ? <span className="small-note num">{setup.done}/{setup.total}</span> : null}
+                  <Icon name={icon} size={16} /><span className="grow">{l}</span>{k === "setup" && setup ? <span className="small-note num">{setup.done}/{setup.total}</span> : null}{k === "rules" && rulesCount != null ? <span className="small-note num">{rulesCount}</span> : null}
                 </button>
               ))}
             </div>
@@ -123,7 +126,7 @@ function Company({ setAction, part }: { setAction: SetAction; part: "company" | 
         <article className="card"><div className="card-head"><h3>Gói dịch vụ<Hint text="Do Kavor cấu hình theo hợp đồng" /></h3></div><div className="card-body">
           {(() => { const pl = data.tenant.plan, pct = Math.min(100, Math.round((pl.employees / Math.max(1, pl.employeeLimit)) * 100)), near = pl.employees >= pl.employeeLimit * NEAR_LIMIT_RATIO; return (
             <div className="spread"><span><b>{pl.name}</b><span className="muted small-note" style={{ display: "block" }}>Đang dùng {pl.employees.toLocaleString("vi-VN")} trên {pl.employeeLimit.toLocaleString("vi-VN")} nhân sự{near ? <span className="text-amber"> · Sắp hết chỗ, liên hệ Kavor để nâng gói</span> : null}</span></span>
-              <span className={`progress ${near ? "amber" : ""}`} style={{ width: 200, ["--value" as string]: `${pct}%` }}><i /></span></div>
+              <span className="ticks sm" aria-hidden="true">{Array.from({ length: Math.min(pl.employeeLimit, 50) }, (_, i) => <i key={i} className={i < Math.round((pct / 100) * Math.min(pl.employeeLimit, 50)) ? (near ? "w" : "a") : ""} />)}</span></div>
           ); })()}
         </div></article>
         <article className="card"><div className="card-head"><h3>Chính sách nền tảng</h3></div><div className="detail-list">
