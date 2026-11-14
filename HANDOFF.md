@@ -1,38 +1,34 @@
-# HANDOFF — 14/11/2026
+# HANDOFF — 15/11/2026
 
-**Mục tiêu phiên vừa rồi:** áp thiết kế mới web HR (`Kavor HR Admin Prototype v2.html`) lên hệ thống, giống prototype 100%.
+**Mục tiêu phiên vừa rồi:** web HR v2 giống prototype `Kavor HR Admin Prototype v2.html` 100% (chỉ UI, chưa làm số liệu/API mới).
 
-## Đã xong (đã push `claude/ecstatic-pascal-dblg7v` → Render/Vercel deploy)
-- `6e50bea` nền chung (Plus Jakarta Sans, token, khung) + Nhân viên + hồ sơ trang riêng `/employees/[id]`
-- `4a3ded7` Đơn hộp thư (API `only=others`, `status=done`) · `0e7400c` Chấm công (API `cells`, board `leave`)
-- `d0be6e5` Ca & địa điểm + Nghỉ phép (API `leave/calendar`) · `8f4db46` Cơ cấu + Tài liệu + Bản tin
-- `e5188ed` Tổng quan + Cài đặt + Đăng nhập · `cfa1cd8` Vai trò + Lương (chỉ giao diện)
-- `b8985ff` sửa sau rà online: ngày nghỉ trả `state:"off"` (hr-smoke kiểm), autofill ô nhập, thanh bên, `PageSub`
-- `22bcd7e` `ThemeSync`: giữ theme đã chọn khi hệ điều hành tối (lỗi cũ: React xóa `data-theme` lúc hydrate)
-- `verify-all` đầy đủ đạt ở `cfa1cd8`; các commit sau qua `--quick` + smoke liên quan.
+## Đã xong (đã push `claude/ecstatic-pascal-dblg7v` → Vercel deploy; chưa kiểm online sau `977f0cc`)
+- `1ab49be` sửa lệch đợt 1 + P3: khối Sắp tới, Tìm nhanh Ctrl K, giấy tờ 3/4 (API `checklist/gaps` thêm `required`, `requiredCount`), chức danh trưởng đơn vị; sửa smoke leave/timesheet đạt giả (bash 3.2 bung `{a,b}`)
+- `ec8236f` spacing đo trên bản online: topbar 14px 28px, toolbar 0 20px, bảng 13.5px + `table-wrap` 0 10px 8px, menu trái gap 2px, chân trang
+- `8454334` rà local từng trang: chi tiết đơn (.note quá hạn), nút trang lên hàng tab (`#tab-actions`), bộ icon = prototype, avatar 6 màu (`--av0..5`), `.small/.sub/.row/.col`, Empty có icon, hồ sơ tab Chấm công (lịch + Từng ngày) và Cá nhân
+- `977f0cc` ô chấm công đơn OT gọn, đường dẫn hồ sơ có tên, Cài đặt đổi mục bằng state (nút topbar không chớp)
+- verify-all đầy đủ đạt ở `1ab49be`; các commit sau `--quick` (typecheck, unit, pgTAP 586)
 
 ## Đang dở
-- Không có code dở. Chưa xem bản online sau deploy `22bcd7e`. Dòng phụ Cơ cấu/Nghỉ phép, số đỏ Bản tin chưa xem bằng mắt.
+- Không có code dở. Chưa so được (thiếu dữ liệu local): hồ sơ tab Lương/Giấy tờ/Đơn từ/Lịch sử, ngăn kéo/hộp thoại, tab phụ trang Lương.
+- DB local đang có dữ liệu thử: đơn GT-0004/0005 quá hạn, OT-0001, hạn giải trình nới 31 ngày (sửa thẳng `policy_versions`) — reset DB là mất.
 
 ## Quyết định đã chốt
-- Prototype v2 là chuẩn web HR; font Plus Jakarta Sans (mobile giữ Montserrat); Cài đặt có ở thanh bên + menu tài khoản.
-- Giữ tên class/biến cũ trong `kavor.css`, đổi giá trị; PageActions vẫn ở topbar (prototype đặt cạnh tab ở vài trang).
-- Nút giả của prototype không có API (Nhắc, Giải trình hộ, Ghi nhớ, link Bảo mật/Điều khoản) → bỏ, không làm nút giả.
-- Giao việc UI cho agent `laptrinh` theo `docs/plans/web-hr-v2-port.md` (tự chụp đối chiếu); Lương/Vai trò/Đăng nhập phiên chính tự review.
-- Rà bản online bằng Claude in Chrome phải do phiên chính (agent con không có quyền site).
+- Chỉ sửa UI; giữ chức năng thật dù prototype không có: ô tìm Bản tin/Tài liệu, dropdown "Đang làm việc", nút lọc danh sách đơn, phần áp dụng/lịch sử thẻ quy định.
+- Giữ logo Kavor thật; không làm nút/link giả (Ghi nhớ, Điều khoản, nút ✦ prototype, Nhắc).
+- Trang có tab: nút trang ở bên phải hàng tab; không có tab: ở topbar. Phân cách meta dùng vạch `.vs` (chuỗi " | " qua `vs()`).
+- Đường dẫn hồ sơ hiện "Nhân viên / Tên" (người dùng không muốn kiểu "Nhân viên /").
+- Rà online bằng Claude in Chrome (extension không đọc `file://`; prototype phục vụ ở `127.0.0.1:8765`/`localhost:8765` từ scratchpad).
 
 ## Nợ Ponytail
-- Không có `shortcut:` mới.
+- `employees/page.tsx` DocTicks: người đủ giấy tờ vẽ theo tổng mục bắt buộc của công ty — sửa khi `checklist/gaps` trả cả người đủ.
 
 ## Việc tiếp theo
-1. Người dùng xem bản online, chỉ lệch còn lại → sửa theo quy trình port. `[sonnet]`
-2. P3 API: nút "Nhắc" (chấm công/giấy tờ/bản tin), tiến độ giấy tờ theo người, chức danh trưởng đơn vị, khối "Sắp tới", Tìm nhanh Ctrl K. `[opus high]`
-3. P3 lương: tổng quỹ lương nhiều kỳ cho biểu đồ + cơ cấu quỹ; xem thanh 4 bước bằng Kế toán HD0215. `[opus xhigh]`
+1. Kiểm bản online sau deploy `977f0cc` + rà các phần chưa so (hồ sơ tab Lương/Giấy tờ/Đơn từ/Lịch sử, drawer/modal) với dữ liệu thử đầy đủ `[opus high]`
+2. Nút "Nhắc" (endpoint HR + migration kind thông báo + icon fallback web/mobile) `[opus high]`
+3. Trang Lương theo prototype (quỹ lương nhiều kỳ, cơ cấu quỹ) `[opus xhigh]`
 
 ## File cần đọc đầu tiên
-- `docs/plans/web-hr-v2.md`, `docs/plans/web-hr-v2-port.md`
+- `docs/plans/web-hr-v2-port.md`, `docs/TASKS.md`
 - `apps/admin-web/app/(app)/shell.tsx`, `apps/admin-web/app/_ui/kit.tsx`
-- `packages/web-ui/src/kavor.css` (các khối "v2" cuối file)
-
-Ghi chú máy: Docker + Supabase local + API + dev 3000/3001 + server prototype 8765 đang chạy; HD0007 đăng nhập = activate bằng `tools/smoke-lib.sh`,
-xóa `auth.mfa_factors` của user, đăng nhập lấy khóa TOTP. `docs/plans/roadmap-competitive.md` chưa theo dõi, có từ trước — hỏi người dùng.
+- `packages/web-ui/src/kavor.css` (khối cuối file)
