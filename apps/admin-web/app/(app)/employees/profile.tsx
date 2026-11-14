@@ -6,7 +6,7 @@ import { MANAGEMENT_TIERS, MANAGEMENT_TIERS_EN, managerTierOk, type AdminMe } fr
 import { call, useApi } from "../../_lib/client";
 import { EmployeePaySection } from "./pay";
 import { EmployeeChecklistSection } from "../documents/checklist";
-import {
+import { vs,
   ACCOUNT, Avatar, DEVICE, Dl, EMP_STATUS, EMPLOYMENT, ErrorLine, Field, Icon, LoadError, Modal, MoreMenu, Phrases, REJECT_REASON, Section, Status, scopeText,
   PageSub, ago, can, fmtDate, fmtDateTime, tenantToday, tenure, useAction, useMe,
 } from "../../_ui/kit";
@@ -90,11 +90,11 @@ export function EmployeeProfile({ id }: { id: string }) {
           <Avatar name={e.fullName} seed={e.code} xl />
           <div className="phead-main">
             <div className="phead-title"><h2>{e.fullName}</h2><span className="source-tag">{e.code}</span><Status v={EMP_STATUS[e.status]} /></div>
-            <p className="phead-sub">{[e.position?.name, e.department?.name].filter(Boolean).join(" · ") || "—"}</p>
+            <p className="phead-sub">{vs([e.position?.name, e.department?.name].filter(Boolean).join(" | ")) || "—"}</p>
             <div className="meta">
               {e.email ? <span><Icon name="mail" />{e.email}</span> : null}
               {e.phone ? <span><Icon name="phone" />{e.phone}</span> : null}
-              <span><Icon name="calendar" />Vào làm {fmtDate(e.hireDate)} · {tenure(e.hireDate, today)}</span>
+              <span><Icon name="calendar" />Vào làm {fmtDate(e.hireDate)}<i className="vs" />{tenure(e.hireDate, today)}</span>
               {e.branch ? <span><Icon name="pin" />{e.branch.name}</span> : null}
             </div>
           </div>
@@ -106,7 +106,7 @@ export function EmployeeProfile({ id }: { id: string }) {
         {(missing.length && e.status !== "terminated") || needInvite ? (
           <div className="needs"><span className="cap">Cần bổ sung</span>
             {missing.length && e.status !== "terminated" ? <button className="needbtn" title={missing.join(", ")} onClick={() => setTab("papers")}><Icon name="file" />Thiếu {missing.length} giấy tờ bắt buộc</button> : null}
-            {needInvite ? <button className="needbtn" disabled={!!busy || !e.email} onClick={() => void invite()}><Icon name="mail" />{e.account === "invited" ? "Chưa kích hoạt app · gửi lại lời mời" : "Chưa mời dùng app · gửi lời mời"}</button> : null}
+            {needInvite ? <button className="needbtn" disabled={!!busy || !e.email} onClick={() => void invite()}><Icon name="mail" />{e.account === "invited" ? <>Chưa kích hoạt app<i className="vs" />gửi lại lời mời</> : <>Chưa mời dùng app<i className="vs" />gửi lời mời</>}</button> : null}
           </div>
         ) : null}
       </section>
@@ -131,7 +131,7 @@ export function EmployeeProfile({ id }: { id: string }) {
           </Section>
           <div className="col-stack">
             <Section title="Ca và nơi chấm công">
-              <div className="kv-spread"><span><b>Ca làm</b><small>{e.policies.shift ? `${e.policies.shift.name} · ${e.policies.shift.start}–${e.policies.shift.end}` : ""}</small></span>
+              <div className="kv-spread"><span><b>Ca làm</b><small>{e.policies.shift ? vs(`${e.policies.shift.name} | ${e.policies.shift.start}–${e.policies.shift.end}`) : ""}</small></span>
                 {e.policies.shift ? <span className="source-tag" title="Tầng áp dụng">{scopeText(e.policies.shift.source)}</span> : <span className="text-red">Chưa áp dụng ca nào</span>}</div>
               <div className="kv-spread"><span><b>Địa điểm chấm công</b><small>{e.policies.locations.length ? e.policies.locations.map((l) => `${l.name} (${l.radiusM} m)`).join(", ") : ""}</small></span>
                 {e.policies.locations.length ? (e.policies.locationSource ? <span className="source-tag">{scopeText(e.policies.locationSource)}</span> : null) : <span className="text-red">Chưa có địa điểm</span>}</div>
@@ -166,7 +166,7 @@ export function EmployeeProfile({ id }: { id: string }) {
         {/* Thông tin cá nhân do nhân viên đề nghị sửa trên app, HR duyệt (Đơn & phê duyệt); số tài khoản đầy đủ chỉ khi có quyền */}
         <Section title="Thông tin cá nhân">
           <Dl rows={[
-            ["Ngày sinh · giới tính", `${e.personal.birthDate ? fmtDate(e.personal.birthDate) : "—"} · ${e.personal.gender ? { male: "Nam", female: "Nữ", other: "Khác" }[e.personal.gender] : "—"}`],
+            ["Ngày sinh / giới tính", `${e.personal.birthDate ? fmtDate(e.personal.birthDate) : "—"} | ${e.personal.gender ? { male: "Nam", female: "Nữ", other: "Khác" }[e.personal.gender] : "—"}`],
             ["CCCD/CMND", <Phrases key="i" text={e.personal.idNumber ? `${e.personal.idNumber}${e.personal.idIssuedOn ? ` · cấp ${fmtDate(e.personal.idIssuedOn)}` : ""}${e.personal.idIssuedBy ? ` · ${e.personal.idIssuedBy}` : ""}` : null} />],
             ["Số sổ BHXH", e.personal.socialInsuranceNo ?? "—"],
             ["Cấp quản lý", `${e.tier ? `${MANAGEMENT_TIERS[e.tier]} (${MANAGEMENT_TIERS_EN[e.tier]})` : "Chưa đặt"}${e.directReports ? ` · quản lý ${e.directReports} người` : ""}`],
@@ -177,7 +177,7 @@ export function EmployeeProfile({ id }: { id: string }) {
           <Dl rows={[
             ["Thường trú", <Phrases key="p" text={e.personal.permanentAddress} />],
             ["Địa chỉ hiện tại", <Phrases key="a" text={e.personal.address} />],
-            ["Liên hệ khẩn cấp", e.personal.emergency ? `${e.personal.emergency.name} · ${e.personal.emergency.relation} · ${e.personal.emergency.phone}` : "—"],
+            ["Liên hệ khẩn cấp", e.personal.emergency ? `${e.personal.emergency.name} | ${e.personal.emergency.relation} | ${e.personal.emergency.phone}` : "—"],
             ["Tài khoản ngân hàng", <Phrases key="k" text={e.personal.bank ? `${e.personal.bank.bankName} · ${e.personal.bank.accountNo ?? `•••• ${e.personal.bank.last4}`} · ${e.personal.bank.holder}` : null} />],
           ]} />
         </Section>
@@ -325,7 +325,7 @@ function EmployeeRequests({ employeeId }: { employeeId: string }) {
         <div className="table-wrap" style={{ marginTop: 12 }}><table className="data-table"><tbody>
           {data.items.map((r) => (
             <tr key={r.id} className="clickable" onClick={() => setOpen(r)}>
-              <td className="nowrap"><b>{r.no}</b></td><td>{REQUEST_TYPE[r.type]}</td><td>{requestSummary(r)}</td>
+              <td className="nowrap"><b>{r.no}</b></td><td>{REQUEST_TYPE[r.type]}</td><td>{vs(requestSummary(r))}</td>
               <td className="nowrap">{fmtDateTime(r.submittedAt, me.tenant.timezone)}</td><td><Status v={REQUEST_STATUS[r.status]} /></td>
             </tr>
           ))}

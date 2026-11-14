@@ -5,7 +5,7 @@
 import { useState } from "react";
 import type { OrgOptions, RoleAssignmentRow, RoleInfo, RolesBoard, ScopeType } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
-import { PageActions, ACCOUNT, Empty, ErrorLine, Field, Icon, LoadError, Modal, Person, Status, fmtDate, num, useAction, useMe } from "../../_ui/kit";
+import { PageActions, ACCOUNT, Avatar, Empty, ErrorLine, Field, Icon, LoadError, Modal, Person, Status, fmtDate, num, useAction, useMe } from "../../_ui/kit";
 import { Hint, Select, Skeleton } from "@kavor/web-ui";
 
 const SCOPE: Record<string, string> = { tenant: "Toàn công ty", legal_entity: "Pháp nhân", branch: "Chi nhánh", department: "Phòng ban", direct_reports: "Nhân viên trực tiếp", self: "Bản thân" };
@@ -48,7 +48,7 @@ export default function RolesPage() {
               <button key={r.code} type="button" className={`rolebtn ${r.code === role?.code ? "on" : ""}`} onClick={() => setOpen(r.code)}>
                 <span className="rl-spread"><b>{r.name}</b><Status v={r.sensitive ? ["Nhạy cảm", "warn"] : r.code === "auditor" ? ["Giới hạn", "info"] : ["Hệ thống", ""]} /></span>
                 <span className="muted rb-desc">{r.description}</span>
-                <span className="rl-spread"><span className="muted">{r.defaultScope}</span>{r.members ? <b>{num(r.members)} người</b> : <b className="rb-idle">Chưa gán cho ai</b>}</span>
+                <span className="rl-spread"><span className="muted">{r.defaultScope}</span>{r.members ? <span className="rw"><span className="stackav">{[...new Map(r.assignments.filter((a) => a.state !== "ended").map((a) => [a.employee.code, a.employee])).values()].slice(0, 3).map((e) => <Avatar key={e.code} name={e.fullName} seed={e.code} />)}</span><b>{num(r.members)} người</b></span> : <b className="rb-idle">Chưa gán cho ai</b>}</span>
               </button>
             ))}
           </section>
@@ -74,7 +74,7 @@ function RoleDetail({ r, canAssign, hint, onAssign, onDone }: { r: RoleInfo; can
     <div className="rl-stack">
       <section className="card">
         <div className="card-head"><div style={{ minWidth: 0 }}><h3>{r.name}<Hint text={`Một người giữ được nhiều vai trò, quyền cộng dồn (ví dụ Quản trị viên công ty kiêm Nhân sự vận hành): gán vai trò mới không thay vai trò đang có. Vai trò Nhân viên được gán tự động khi kích hoạt tài khoản. Quyền thay đổi có hiệu lực ngay ở thao tác kế tiếp của người đó.${hint ? "" : " Chỉ quản trị viên công ty được gán hoặc thu hồi vai trò."}`} /></h3>
-          <span className="muted" style={{ display: "block", fontSize: 12 }}>Phạm vi mặc định: {r.defaultScope} · Dữ liệu lương: {r.payrollData} · Gán theo: {r.allowedScopes.map((s) => SCOPE[s]).join(", ")}</span></div>
+          <span className="muted" style={{ display: "block", fontSize: 12 }}>Phạm vi mặc định: {r.defaultScope}<i className="vs" />Dữ liệu lương: {r.payrollData}<i className="vs" />Gán theo: {r.allowedScopes.map((s) => SCOPE[s]).join(", ")}</span></div>
           {canAssign ? <button className="btn small" onClick={onAssign}><Icon name="plus" /> Gán cho nhân viên</button> : null}</div>
         <div className="card-body">
           <div className="table-wrap"><table className="pm"><thead><tr><th>Phân hệ</th>{LEVELS.map(([, l]) => <th key={l}>{l}</th>)}</tr></thead><tbody>
@@ -94,7 +94,7 @@ function RoleDetail({ r, canAssign, hint, onAssign, onDone }: { r: RoleInfo; can
         {rows.length ? <div className="card-body"><div className="card detail-list">
           {rows.map((a) => (
             <div key={a.id} className="detail-row" style={{ gridTemplateColumns: "1fr auto", minHeight: 56 }}>
-              <span style={{ color: "var(--ink)" }}><Person name={a.employee.fullName} seed={a.employee.code} sub={`${a.employee.code} · ${a.scopeName} · từ ${fmtDate(a.effectiveFrom)}${a.effectiveTo ? ` đến ${fmtDate(a.effectiveTo)}` : ""}`} /></span>
+              <span style={{ color: "var(--ink)" }}><Person name={a.employee.fullName} seed={a.employee.code} sub={`${a.employee.code} | ${a.scopeName} | từ ${fmtDate(a.effectiveFrom)}${a.effectiveTo ? ` đến ${fmtDate(a.effectiveTo)}` : ""}`} /></span>
               <span className="row-actions"><Status v={STATE[a.state]} />{a.state !== "active" ? null : <Status v={ACCOUNT[a.account]} />}
                 {canAssign && a.state !== "ended" ? <button className="btn small danger" onClick={() => setRevoking(a)}>Thu hồi</button> : null}</span>
             </div>

@@ -19,8 +19,10 @@ export const initials = (name: string) => { const p = name.trim().split(/\s+/); 
 const TONES = ["", "purple", "gold"] as const;
 export const avatarTone = (seed: string) => TONES[[...seed].reduce((a, c) => a + c.charCodeAt(0), 0) % TONES.length];
 export function Avatar({ name, seed, xl }: { name: string; seed?: string; xl?: boolean }) { return <span className={`avatar ${xl ? "xl " : ""}${avatarTone(seed ?? name)}`}>{initials(name)}</span>; }
+/* Dòng meta: " | " → vạch .vs như prototype (chuỗi dữ liệu/CSV/API giữ nguyên) */
+export const vs = (t: ReactNode) => typeof t === "string" ? t.split(" | ").map((x, i) => <Fragment key={i}>{i ? <i className="vs" /> : null}{x}</Fragment>) : t;
 export function Person({ name, sub, seed, badge }: { name: string; sub?: ReactNode; seed?: string; badge?: ReactNode }) {
-  return <span className="person"><Avatar name={name} seed={seed} /><span className="person-copy"><b>{name}{badge ? <> {badge}</> : null}</b>{sub ? <span>{sub}</span> : null}</span></span>;
+  return <span className="person"><Avatar name={name} seed={seed} /><span className="person-copy"><b>{name}{badge ? <> {badge}</> : null}</b>{sub ? <span>{vs(sub)}</span> : null}</span></span>;
 }
 
 export const fmtDate = (d: string | null | undefined) => (d ? d.slice(0, 10).split("-").reverse().join("/") : "—");
@@ -118,7 +120,7 @@ export function Modal({ title, sub, onClose, children, foot, wide }: { title: st
     <Layer><div className="modal-layer show">
       <div className="scrim" onClick={onClose} />
       <section className="modal" role="dialog" aria-modal="true" aria-label={title} style={wide ? { width: "min(760px, calc(100% - 28px))" } : undefined}>
-        <div className="modal-head"><div><h3>{title}</h3>{sub ? <p>{sub}</p> : null}</div><button className="modal-close" onClick={onClose} aria-label="Đóng">×</button></div>
+        <div className="modal-head"><div><h3>{title}</h3>{sub ? <p>{vs(sub)}</p> : null}</div><button className="modal-close" onClick={onClose} aria-label="Đóng">×</button></div>
         <div className="modal-body">{children}</div>
         {foot ? <div className="modal-foot">{foot}</div> : null}
       </section>
@@ -199,7 +201,7 @@ export function Phrases({ text }: { text: string | null | undefined }) {
 
 /* Khối khóa–giá trị và thẻ có tiêu đề (web HR v2) */
 export function Dl({ rows }: { rows: Array<[string, ReactNode]> }) {
-  return <div className="dl">{rows.map(([k, v], i) => <Fragment key={i}><div className="k">{k}</div><div className="v">{v}</div></Fragment>)}</div>;
+  return <div className="dl">{rows.map(([k, v], i) => <Fragment key={i}><div className="k">{k}</div><div className="v">{vs(v)}</div></Fragment>)}</div>;
 }
 /* Thẻ số liệu v2 (prototype .thk): nhãn, số lớn, chip phụ; icon vuông bên phải */
 export function Thk({ label, value, chip, tone = "", icon }: { label: string; value: ReactNode; chip?: ReactNode; tone?: "" | "mint" | "ok" | "warn"; icon: string }) {

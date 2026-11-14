@@ -63,12 +63,14 @@ function Today({ tz, tenantId, period }: { tz: string; tenantId: string; period?
     (filter === "all" || keyOf(r) === filter)
     && (!q.trim() || `${r.employee.fullName} ${r.employee.code}`.toLowerCase().includes(q.trim().toLowerCase()))).sort((x, y) => ORDER[keyOf(x)] - ORDER[keyOf(y)]), [b, filter, q]);
   const s = b?.summary;
+  const updated = useMemo(() => (b ? fmtTime(new Date().toISOString(), tz) : null), [b]);
+  const dayLabel = `${longDate(date).split(",")[0]} ${fmtDate(date).slice(0, 5)}`;
   return (
     <>
       <PageSub text={sh ? `${sh.name} ${sh.start}–${sh.end}${loc ? ` tại ${loc}` : ""}.${period ? ` Kỳ công ${period.month.slice(5)}/${period.month.slice(0, 4)} ${period.locked ? "đã khóa" : "chưa khóa"}.` : ""}` : null} />
       <LoadError error={error} retry={reload} />
       <div className="grid metrics">
-        <article className="card metric-card"><span className="metric-icon"><Icon name="users" /></span><span className="metric-copy"><span>Đã vào ca</span><strong>{s ? <>{s.present}<small>/{s.inScope}</small></> : "—"}</strong><small>{longDate(date)}</small></span></article>
+        <article className="card metric-card"><span className="metric-icon"><Icon name="users" /></span><span className="metric-copy"><span>Đã vào ca</span><strong>{s ? <>{s.present}<small>/{s.inScope}</small></> : "—"}</strong><small>{dayLabel}{updated ? <><i className="vs" />cập nhật {updated}</> : null}</small></span></article>
         <article className="card metric-card"><span className="metric-icon amber"><Icon name="clock" /></span><span className="metric-copy"><span>Đi muộn</span><strong className={s?.late ? "tone-warn" : ""}>{s?.late ?? "—"}</strong><small>Sau giờ vào ca + ân hạn</small></span></article>
         <article className="card metric-card"><span className="metric-icon blue"><Icon name="calendar" /></span><span className="metric-copy"><span>Nghỉ phép</span><strong>{s?.onLeave ?? "—"}</strong><small>Đã có đơn được duyệt</small></span></article>
         <article className="card metric-card"><span className="metric-icon red"><Icon name="alert" /></span><span className="metric-copy"><span>Chưa vào ca</span><strong className={s?.notYet ? "tone-danger" : ""}>{s?.notYet ?? "—"}</strong><small>Chưa có giờ vào, chưa có đơn</small></span></article>
@@ -88,8 +90,8 @@ function Today({ tz, tenantId, period }: { tz: string; tenantId: string; period?
             {rows.map((r) => (
               <tr key={r.employee.id} className="clickable" onClick={() => setOpen(r.employee.id)}>
                 <td><Person name={r.employee.fullName} sub={r.employee.code} seed={r.employee.code} /></td>
-                <td className="muted">{r.employee.department ?? "—"}</td>
-                <td className="muted num" title={r.shift?.name}>{r.shift ? `${r.shift.start}–${r.shift.end}` : "—"}</td>
+                <td>{r.employee.department ?? "—"}</td>
+                <td className="num" title={r.shift?.name}>{r.shift ? `${r.shift.start}–${r.shift.end}` : "—"}</td>
                 <td className="num">{r.clockIn ? <><b>{fmtTime(r.clockIn.at, tz)}</b>{r.clockIn.offline ? <span className="source-tag">offline</span> : null}</> : "—"}</td>
                 <td className="num muted">{r.clockOut ? <>{fmtTime(r.clockOut.at, tz)}{r.early ? <small className="text-red"> · sớm {dur(r.clockOut.earlyMinutes)}</small> : null}{r.clockOut.offline ? <span className="source-tag">offline</span> : null}</> : "—"}</td>
                 <td><Status v={stateOf(r)} />{r.rejectedCount ? <span className="source-tag" title="Số lần bị từ chối">{r.rejectedCount} bị từ chối</span> : null}</td>
@@ -121,7 +123,7 @@ function Rejected({ tz, tenantId }: { tz: string; tenantId: string }) {
             {(data ?? []).map((e) => (
               <tr key={e.id}>
                 <td className="nowrap">{fmtDateTime(e.occurredAt, tz)}{e.offline ? <span className="source-tag">offline</span> : null}</td>
-                <td><Person name={e.employee.fullName} sub={`${e.employee.code} · ${e.employee.department ?? "—"}`} seed={e.employee.code} /></td>
+                <td><Person name={e.employee.fullName} sub={`${e.employee.code} | ${e.employee.department ?? "—"}`} seed={e.employee.code} /></td>
                 <td>{e.kind === "in" ? "Vào ca" : "Ra ca"}</td>
                 <td><span className="status bad">{REJECT_REASON[e.rejectReason ?? ""] ?? "Bị từ chối"}</span></td>
                 <td>{e.distanceM != null ? meters(e.distanceM) : "—"} · ±{e.accuracyM != null ? Math.round(e.accuracyM) : "—"}{"\u00a0"}m</td>

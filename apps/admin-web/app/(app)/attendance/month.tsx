@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { AdminDevice, EmployeeTimesheet, RequestItem, TimesheetBoard, TimesheetDay } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
-import { Drawer, Empty, Field, Icon, LoadError, Modal, Person, Status, dur, fmtDate, fmtDateTime, num, tenantToday, useAction, useMe } from "../../_ui/kit";
+import { vs, Drawer, Empty, Field, Icon, LoadError, Modal, Person, Status, dur, fmtDate, fmtDateTime, num, tenantToday, useAction, useMe } from "../../_ui/kit";
 import { ReasonModal } from "../../_ui/reason-modal";
 import { REQUEST_STATUS, RequestModal, requestSummary } from "../../_ui/request";
 import { Select, SkeletonLines, SkeletonRows } from "@kavor/web-ui";
@@ -56,7 +56,7 @@ export function MonthTab({ setAction }: { setAction: (n: ReactNode) => void }) {
     <>
       <LoadError error={error} retry={reload} />
       <div className="grid metrics sm">
-        <article className="card metric-card"><span className="metric-icon"><Icon name="clock" /></span><span className="metric-copy"><span>Công đã ghi nhận</span><strong>{b ? num(credited) : "—"}<small> ngày công</small></strong><small>{b && standard ? `${Math.round((credited / standard) * 100)}% công chuẩn · ${num(all.length)} người` : " "}</small></span></article>
+        <article className="card metric-card"><span className="metric-icon"><Icon name="clock" /></span><span className="metric-copy"><span>Công đã ghi nhận</span><strong>{b ? num(credited) : "—"}<small> ngày công</small></strong><small>{b && standard ? vs(`${Math.round((credited / standard) * 100)}% công chuẩn | ${num(all.length)} người`) : " "}</small></span></article>
         <article className="card metric-card"><span className="metric-icon amber"><Icon name="clock" /></span><span className="metric-copy"><span>Đi muộn</span><strong className={m?.lateTimes ? "tone-warn" : ""}>{m ? num(m.lateTimes) : "—"}<small> lượt</small></strong><small>{m ? `${num(m.lateEmployees)} nhân viên` : " "}</small></span></article>
         <article className="card metric-card"><span className="metric-icon red"><Icon name="alert" /></span><span className="metric-copy"><span>Thiếu công</span><strong className={m?.unexplained ? "tone-danger" : ""}>{m ? num(m.unexplained) : "—"}<small> ngày</small></strong><small>{m ? `${num(m.short)} nhân viên chưa giải trình` : " "}</small></span></article>
         <article className="card metric-card"><span className="metric-icon blue"><Icon name="calendar" /></span><span className="metric-copy"><span>Nghỉ phép</span><strong>{b ? num(leaveDays) : "—"}<small> ngày</small></strong><small>Đã duyệt trong kỳ</small></span></article>
@@ -66,7 +66,7 @@ export function MonthTab({ setAction }: { setAction: (n: ReactNode) => void }) {
           <div className="segmented">{([["all", "Tất cả"], ["short", "Có thiếu công"], ["late", "Có đi muộn"]] as const).map(([k, l]) => <button key={k} className={filter === k ? "active" : ""} onClick={() => setFilter(k)}>{l}</button>)}</div>
           <span className="toolbar-spacer" />
           <div className="legend">{([["ok", "Đủ công"], ["late", "Đi muộn"], ["miss", "Thiếu công"], ["leave", "Nghỉ phép"], ["exp", "Đã giải trình"]] as const).map(([k, l]) => <span key={k}><i className={`cell ${k}`} />{l}</span>)}</div>
-          {b ? <span className={`status ${b.period.locked ? "" : "warn"}`} title={b.period.locked && b.lock ? `Khóa lúc ${fmtDateTime(b.lock.lockedAt, b.timezone)}${b.lock.lockedBy ? ` bởi ${b.lock.lockedBy}` : ""}` : undefined}>{fmtDate(b.period.start).slice(0, 5)}–{fmtDate(b.period.end)} · {b.period.locked ? "đã khóa" : "chưa khóa"}</span> : null}
+          {b ? <span className={`status ${b.period.locked ? "" : "warn"}`} title={b.period.locked && b.lock ? `Khóa lúc ${fmtDateTime(b.lock.lockedAt, b.timezone)}${b.lock.lockedBy ? ` bởi ${b.lock.lockedBy}` : ""}` : undefined}>{fmtDate(b.period.start).slice(0, 5)}–{fmtDate(b.period.end)}<i className="vs" />{b.period.locked ? "đã khóa" : "chưa khóa"}</span> : null}
           <Select className="select" value={cur ?? ""} onChange={(e) => setMonth(e.target.value)} aria-label="Kỳ công">{months.map((x) => <option key={x} value={x}>{monthLabel(x)}</option>)}</Select>
         </div>
         {b && !rows.length ? <Empty title="Không có nhân viên phù hợp" /> : (
@@ -78,7 +78,7 @@ export function MonthTab({ setAction }: { setAction: (n: ReactNode) => void }) {
               <tr key={r.employee.id} onClick={() => setOpen(r.employee.id)}>
                 <td className="n"><Person name={r.employee.fullName} seed={r.employee.code} sub={r.employee.department ?? r.employee.code} /></td>
                 {r.cells.map((c) => <td key={c.date}><i className={`cell ${c.s === "off" ? "we" : c.s}${c.date === today ? " today" : ""}`} title={fmtDate(c.date).slice(0, 5)} /></td>)}
-                <td className="s"><b>{num(r.summary.credited)}</b><span className="muted">/{num(r.summary.standard)}</span>{r.summary.missingDays ? <> · <b className="text-red">{num(r.summary.missingDays)}</b></> : null}</td>
+                <td className="s"><b>{num(r.summary.credited)}</b><span className="muted">/{num(r.summary.standard)}</span>{r.summary.missingDays ? <><i className="vs" /><b className="text-red">{num(r.summary.missingDays)}</b></> : null}</td>
               </tr>
             ))}
           </tbody></table></div>
@@ -130,7 +130,7 @@ export function EmployeeMonth({ id, month, onClose, onChanged }: { id: string; m
   const missing = (e?.days ?? []).filter((d) => (d.issue === "missing_in" || d.issue === "missing_out" || d.issue === "absent") && (!d.request || d.request.status === "rejected" || d.request.status === "cancelled"));
   const days = (e?.days ?? []).filter((d) => d.kind !== "future" && d.kind !== "not_employed").slice().reverse();
   return (
-    <Drawer onClose={onClose} head={<div><b>{e?.employee.fullName ?? "…"}</b><div className="muted" style={{ fontSize: 12 }}>{e ? `${e.employee.code}${e.employee.department ? ` · ${e.employee.department}` : ""} · ${monthLabel(e.period.month)}` : ""}</div></div>}>
+    <Drawer onClose={onClose} head={<div><b>{e?.employee.fullName ?? "…"}</b><div className="muted" style={{ fontSize: 12 }}>{e ? vs(`${e.employee.code}${e.employee.department ? ` | ${e.employee.department}` : ""} | ${monthLabel(e.period.month)}`) : ""}</div></div>}>
       <LoadError error={error} retry={reload} />
       {e ? <>
         <div className="params">
@@ -155,7 +155,7 @@ export function EmployeeMonth({ id, month, onClose, onChanged }: { id: string; m
         </div>
         <div className="drawer-section"><h4>Giải trình trong kỳ</h4>
           {e.requests.length ? <div className="card detail-list">{e.requests.map((r) => (
-            <div key={r.id} className="detail-row clickable" style={{ cursor: "pointer" }} onClick={() => setReq(r)}><span>{r.no} · {requestSummary(r)}<small style={{ display: "block" }}>{fmtDateTime(r.submittedAt, tz)}</small></span><b><Status v={REQUEST_STATUS[r.status]} /></b></div>
+            <div key={r.id} className="detail-row clickable" style={{ cursor: "pointer" }} onClick={() => setReq(r)}><span>{r.no} · {vs(requestSummary(r))}<small style={{ display: "block" }}>{fmtDateTime(r.submittedAt, tz)}</small></span><b><Status v={REQUEST_STATUS[r.status]} /></b></div>
           ))}</div> : <p className="muted" style={{ fontSize: 12 }}>Chưa có giải trình nào.</p>}
         </div>
       </> : (error ? null : <SkeletonLines lines={6} avatar />)}

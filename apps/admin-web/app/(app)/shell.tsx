@@ -5,6 +5,7 @@ import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import type { AdminMe, RequestQueue, SetupChecklist } from "@kavor/contracts";
 import { useApi, useRealtimeStatus } from "../_lib/client";
 import { AccountMenu } from "../_ui/account-menu";
+import pkg from "../../package.json";
 import { Icon, MeContext, SubContext, ToastProvider, can, longDate } from "../_ui/kit";
 import { CmdK } from "../_ui/cmdk";
 import { NotificationBell } from "../_ui/notifications";
@@ -90,7 +91,7 @@ export function Shell({ me, children }: { me: AdminMe; children: ReactNode }) {
               const items = g.items.filter((it) => !it.perm || [it.perm].flat().some((p) => can(me, p)));
               if (!items.length) return null;
               return (
-                <div key={i}>
+                <div key={i} className="nav-group">
                   {g.label ? <div className="nav-label">{g.label}</div> : null}
                   {items.map((it) => (
                     <Link key={it.href} href={it.href} title={it.label} className={`nav-item ${active(it.href) ? "active" : ""}`} onClick={() => setMenu(false)}>
@@ -127,9 +128,11 @@ export function Shell({ me, children }: { me: AdminMe; children: ReactNode }) {
             <div className="workspace"><SupportBanner />{children}</div>
             <footer className="foot">
               <span>© {new Date().getFullYear()} Kavor</span>
+              {can(me, "privacy.read") ? <Link href="/settings?tab=privacy">Chính sách bảo mật</Link> : null}
               {can(me, "support_access.approve") ? <Link href="/settings?tab=support">Liên hệ hỗ trợ</Link> : null}
               <span className="grow" />
               <span className={`realtime-dot ${live ? "on" : ""}`}><i />{live ? "Đang cập nhật trực tiếp" : "Mất kết nối cập nhật"}</span>
+              <span className="ver">Phiên bản {pkg.version}</span>
             </footer>
           </section>
         {cmd ? <CmdK pages={pages} onClose={() => setCmd(false)} /> : null}

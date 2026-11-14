@@ -4,7 +4,7 @@
 import { useState } from "react";
 import { overtimeAttendanceShort, overtimeAttendanceText, type OvertimeBoard, type RequestItem } from "@kavor/contracts";
 import { useApi } from "../../_lib/client";
-import { Empty, Icon, LoadError, Person, Status, fmtDateTime, useMe } from "../../_ui/kit";
+import { vs, Empty, Icon, LoadError, Person, Status, fmtDateTime, useMe } from "../../_ui/kit";
 import { REQUEST_STATUS, RequestModal, requestSummary } from "../../_ui/request";
 import { Select, SkeletonRows, Hint } from "@kavor/web-ui";
 
@@ -30,7 +30,7 @@ export function OvertimeTab() {
       <LoadError error={error} retry={reload} />
       <div className="grid metrics">
         <article className="card metric-card"><span className="metric-icon"><Icon name="clock" /></span><span className="metric-copy"><span>Giờ OT đã duyệt</span><strong>{m ? h(m.approvedHours) : "—"}<small> giờ</small></strong><small>{cur ? `Trong tháng ${Number(cur.slice(5))}` : " "}</small></span></article>
-        <article className="card metric-card"><span className="metric-icon amber"><Icon name="checks" /></span><span className="metric-copy"><span>Đang chờ duyệt</span><strong className={m?.pendingHours ? "tone-warn" : ""}>{m ? h(m.pendingHours) : "—"}<small> giờ</small></strong><small>{m ? `${pend.length} đơn${pend.length === 1 ? ` · ${pend[0]!.no}` : ""}` : " "}</small></span></article>
+        <article className="card metric-card"><span className="metric-icon amber"><Icon name="checks" /></span><span className="metric-copy"><span>Đang chờ duyệt</span><strong className={m?.pendingHours ? "tone-warn" : ""}>{m ? h(m.pendingHours) : "—"}<small> giờ</small></strong><small>{m ? vs(`${pend.length} đơn${pend.length === 1 ? ` | ${pend[0]!.no}` : ""}`) : " "}</small></span></article>
         <article className="card metric-card"><span className="metric-icon blue"><Icon name="users" /></span><span className="metric-copy"><span>Nhân viên có OT</span><strong>{m ? m.employees : "—"}</strong><small>{b && m?.employees === 1 ? b.rows[0]?.employee.fullName : "Trong tháng"}</small></span></article>
         <article className="card metric-card"><span className="metric-icon red"><Icon name="alert" /></span><span className="metric-copy"><span>Gần giới hạn</span><strong>{m ? m.nearLimit : "—"}</strong><small>{limit ? `Từ 80% của ${h(limit)} giờ/tháng` : "Từ 80% giới hạn tháng"}</small></span></article>
       </div>
@@ -50,7 +50,7 @@ export function OvertimeTab() {
                   <div key={r.employee.id} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                     <div className="rsp"><Person name={r.employee.fullName} seed={r.employee.code} sub={r.employee.department ?? r.employee.code} /><b className="num">{cap ? `${h(r.approvedHours)} / ${h(cap)} giờ` : `${h(r.approvedHours)} giờ`}</b></div>
                     {cap ? <Ticks n={Math.round(cap)} a={Math.round(r.approvedHours)} w={Math.round(r.pendingHours)} /> : null}
-                    <span className="muted" style={{ fontSize: 12.5 }}>{r.pendingHours ? `${h(r.pendingHours)} giờ đang chờ duyệt · ` : ""}Ngày thường {h(r.byKind.workday)} giờ · nghỉ {h(r.byKind.weekend)} · lễ {h(r.byKind.holiday)} · cả năm {h(r.yearHours)} giờ</span>
+                    <span className="muted" style={{ fontSize: 12.5 }}>{r.pendingHours ? <>{h(r.pendingHours)} giờ đang chờ duyệt<i className="vs" /></> : ""}Ngày thường {h(r.byKind.workday)} giờ<i className="vs" />nghỉ {h(r.byKind.weekend)}<i className="vs" />lễ {h(r.byKind.holiday)}<i className="vs" />cả năm {h(r.yearHours)} giờ</span>
                   </div>
                 );
               })}
@@ -64,7 +64,7 @@ export function OvertimeTab() {
               {!b && !error ? <SkeletonRows cols={5} rows={4} /> : null}
               {(b?.requests ?? []).map((r) => (
                 <tr key={r.id} className="clickable" onClick={() => setOpen(r)}>
-                  <td><b className="num">{r.no}</b></td><td>{r.requester.fullName}</td><td>{requestSummary(r)}</td>
+                  <td><b className="num">{r.no}</b></td><td>{r.requester.fullName}</td><td>{vs(requestSummary(r))}</td>
                   <td>{r.type !== "overtime" || !r.attendance ? <span className="muted">—</span>
                     : <Status v={[overtimeAttendanceText(r.attendance).replace(/ giờ OT$/, " giờ"), overtimeAttendanceShort(r.attendance) ? "bad" : r.attendance.checked ? "" : "muted"]} />}</td>
                   <td><Status v={REQUEST_STATUS[r.status]} />{r.myTaskId ? <span className="source-tag">cần bạn duyệt</span> : null}</td>

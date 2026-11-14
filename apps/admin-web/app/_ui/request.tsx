@@ -4,7 +4,7 @@ import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { EXPLANATION_KINDS, OVERTIME_DAY_KINDS, PROFILE_FIELDS, REQUEST_TYPES, overtimeAttendanceShort, overtimeAttendanceText, STEP_RESOLVERS, type AdminMe, type ProfileField, type ProfileValues, type RequestItem, type RequestStatus, type RequestType, type StepStatus } from "@kavor/contracts";
 import { call } from "../_lib/client";
-import { Dl, ErrorLine, Field, Icon, Modal, Person, Status, can, fmtDate, fmtDateTime, useAction, useMe } from "./kit";
+import { Dl, vs, ErrorLine, Field, Icon, Modal, Person, Status, can, fmtDate, fmtDateTime, useAction, useMe } from "./kit";
 
 export const REQUEST_TYPE = REQUEST_TYPES;
 export const REQUEST_STATUS: Record<RequestStatus, [string, string]> = { pending: ["Chờ duyệt", "warn"], approved: ["Đã duyệt", ""], rejected: ["Từ chối", "bad"], cancelled: ["Đã hủy", "muted"] };
@@ -27,15 +27,15 @@ export function profileValue(f: ProfileField, v: ProfileValues) {
   return (v[f] as string | null | undefined) || "—";
 }
 
-/* "T5 22/10 · Quên chấm ra · ra 17:00" / "Phép năm · T2 26/10–T4 28/10 · 3 ngày" / "Sửa điện thoại, tài khoản ngân hàng" */
+/* "T5 22/10 | Quên chấm ra | ra 17:00" / "Phép năm | T2 26/10–T4 28/10 | 3 ngày" (hiển thị qua vs()) / "Sửa điện thoại, tài khoản ngân hàng" */
 export function requestSummary(r: RequestItem) {
-  if (r.type === "leave") return `${r.payload.leaveTypeName} · ${leaveRange(r.payload)} · ${days(r.payload.days)}`;
-  if (r.type === "salary_advance") return `${money(r.payload.amount)} · trừ lương ${r.payload.month.slice(5)}/${r.payload.month.slice(0, 4)}`;
+  if (r.type === "leave") return `${r.payload.leaveTypeName} | ${leaveRange(r.payload)} | ${days(r.payload.days)}`;
+  if (r.type === "salary_advance") return `${money(r.payload.amount)} | trừ lương ${r.payload.month.slice(5)}/${r.payload.month.slice(0, 4)}`;
   if (r.type === "profile_change") return `Sửa ${r.payload.fields.map((f) => PROFILE_FIELDS[f].toLowerCase()).join(", ")}`;
-  if (r.type === "overtime") return `${wd(r.payload.date)} ${fmtDate(r.payload.date).slice(0, 5)} · ${r.payload.start}–${r.payload.end} · ${r.payload.hours.toLocaleString("vi-VN")} giờ (${r.payload.ratePercent}%)`;
+  if (r.type === "overtime") return `${wd(r.payload.date)} ${fmtDate(r.payload.date).slice(0, 5)} | ${r.payload.start}–${r.payload.end} | ${r.payload.hours.toLocaleString("vi-VN")} giờ (${r.payload.ratePercent}%)`;
   const p = r.payload;
   const times = [p.clockIn ? `vào ${p.clockIn}` : null, p.clockOut ? `ra ${p.clockOut}` : null].filter(Boolean).join(", ");
-  return `${r.workDate ? `${wd(r.workDate)} ${fmtDate(r.workDate).slice(0, 5)} · ` : ""}${EXPLANATION_KINDS[p.kind]}${times ? ` · ${times}` : ""}`;
+  return `${r.workDate ? `${wd(r.workDate)} ${fmtDate(r.workDate).slice(0, 5)} | ` : ""}${EXPLANATION_KINDS[p.kind]}${times ? ` | ${times}` : ""}`;
 }
 
 /* Hạn SLA của bước đang chờ: "Còn 5 giờ" / "Quá 38 giờ" */
@@ -82,7 +82,7 @@ function useRequestDetail(r: RequestItem, onDone: (r: RequestItem) => void, onCl
   ] : r.type === "profile_change" ? r.payload.fields.map((f): [string, ReactNode] => [PROFILE_FIELDS[f],
     <><span className="muted" style={{ textDecoration: "line-through", fontWeight: 500 }}>{profileValue(f, r.payload.before)}</span> → {profileValue(f, r.payload.after)}</>])
     : [["Nội dung", requestSummary(r)]];
-  if (r.type === "explanation" && r.day) rows.push(["Chấm công gốc", `${r.day.shift ?? "—"} · vào ${r.day.rawIn ?? "--:--"} · ra ${r.day.rawOut ?? "--:--"}`]);
+  if (r.type === "explanation" && r.day) rows.push(["Chấm công gốc", `${r.day.shift ?? "—"} | vào ${r.day.rawIn ?? "--:--"} | ra ${r.day.rawOut ?? "--:--"}`]);
   rows.push(["Lý do", r.payload.reason || "—"], ["Gửi lúc", fmtDateTime(r.submittedAt, tz)]);
   if (r.attachments.length || r.attachmentRequired) rows.push(["Minh chứng", r.attachments.length ? r.attachments.map((a) => (
     <a key={a.id} className="btn small" style={{ margin: "0 0 4px 6px" }} href={`/api/requests/${r.id}/attachments/${a.id}`} target="_blank" rel="noreferrer"><Icon name="download" /> {a.name} · {kb(a.size)}</a>
@@ -92,13 +92,13 @@ function useRequestDetail(r: RequestItem, onDone: (r: RequestItem) => void, onCl
       <div className="rsp" style={{ alignItems: "flex-start" }}>
         <div>
           <div className="rw small"><TypeBadge type={r.type} /><span className="muted">{r.no}</span><span className="muted">gửi {fmtDateTime(r.submittedAt, tz)} từ app</span></div>
-          <h2 style={{ fontSize: 19, margin: "8px 0 0" }}>{requestSummary(r)}</h2>
+          <h2 style={{ fontSize: 19, margin: "8px 0 0" }}>{vs(requestSummary(r))}</h2>
         </div>
         {pending ? <Status v={sla} /> : <Status v={REQUEST_STATUS[r.status]} />}
       </div>
       {pending && sla[1] === "bad" ? <div className="banner soft-warn"><span className="banner-icon"><Icon name="alert" /></span><span className="banner-copy"><b>Đơn đã quá hạn xử lý.</b><span>{sla[0]} so với hạn của bước đang chờ. Nhân viên vẫn đang chờ kết quả.</span></span></div> : null}
       <div className="inset rsp">
-        <Person name={r.requester.fullName} seed={r.requester.code} sub={`${r.requester.department ?? "—"} · ${r.requester.code}`} />
+        <Person name={r.requester.fullName} seed={r.requester.code} sub={`${r.requester.department ?? "—"} | ${r.requester.code}`} />
         <Link className="small" href={`/employees/${r.requester.id}`} style={{ color: "var(--brand-ink)", fontWeight: 700 }}>Xem hồ sơ →</Link>
       </div>
       <div className="rd-grid">

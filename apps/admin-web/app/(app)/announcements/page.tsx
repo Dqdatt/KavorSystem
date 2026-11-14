@@ -7,7 +7,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { ANNOUNCEMENT_CATEGORIES, ANNOUNCEMENT_MAX_BYTES, type AnnouncementAdmin, type AnnouncementBoard, type AnnouncementCategory,
   type AnnouncementDetail, type AnnouncementInput, type AnnouncementStatus, type AnnouncementUnit } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
-import { PageActions, Drawer, Empty, ErrorLine, Field, Icon, LoadError, Modal, Person, Status, fmtDateTime, num, useAction, useMe } from "../../_ui/kit";
+import { vs, PageActions, Drawer, Empty, ErrorLine, Field, Icon, LoadError, Modal, Person, Status, fmtDateTime, num, useAction, useMe } from "../../_ui/kit";
 import { Select, SkeletonLines, SkeletonRows } from "@kavor/web-ui";
 import { RichText, RichTextEditor } from "../../_ui/rich-text";
 
@@ -88,13 +88,13 @@ function AnnouncementsPage() {
             <button key={a.id} className={`card postcard ${a.status === "published" || a.status === "draft" || a.status === "scheduled" ? "" : "dim"}`} onClick={() => open(a.id)}>
               <span>
                 <span style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, marginBottom: 6 }}><Status v={STATUS[a.status]} />{a.important ? <Status v={["Quan trọng", "bad"]} /> : null}
-                  <span className="muted" style={{ fontSize: 12.5 }}>{[ANNOUNCEMENT_CATEGORIES[a.category], a.authorLabel, a.publishAt ? fmtDateTime(a.publishAt, tz) : null].filter(Boolean).join(" · ")}</span></span>
+                  <span className="muted" style={{ fontSize: 12.5 }}>{vs([ANNOUNCEMENT_CATEGORIES[a.category], a.authorLabel, a.publishAt ? fmtDateTime(a.publishAt, tz) : null].filter(Boolean).join(" | "))}</span></span>
                 <b className="ttl">{a.title}</b>
                 {excerpt(a.body) ? <span className="exc">{excerpt(a.body)}</span> : null}
               </span>
               <span>
-                {sent ? <><span className="spread" style={{ marginBottom: 6, fontSize: 12.5 }}><span style={{ color: "var(--ink-2)" }}>Đã đọc</span><b className="num">{num(a.reads)}/{num(a.recipients)} · {pct(a)}%</b></span><ReadTicks reads={a.reads} total={a.recipients} /></>
-                  : <span className="muted" style={{ fontSize: 12.5 }}>{num(a.recipients)} người nhận · {audienceText(a)}</span>}
+                {sent ? <><span className="spread" style={{ marginBottom: 6, fontSize: 12.5 }}><span style={{ color: "var(--ink-2)" }}>Đã đọc</span><b className="num">{num(a.reads)}/{num(a.recipients)}<i className="vs" />{pct(a)}%</b></span><ReadTicks reads={a.reads} total={a.recipients} /></>
+                  : <span className="muted" style={{ fontSize: 12.5 }}>{num(a.recipients)} người nhận<i className="vs" />{audienceText(a)}</span>}
               </span>
             </button>
           );
@@ -142,7 +142,7 @@ function DetailDrawer({ id, onClose, onEdit, onPublish, onChanged }: { id: strin
             {a.status === "draft" || a.status === "scheduled" ? <button className="btn small danger" onClick={() => setConfirm("remove")}>Xóa</button> : null}
           </div>
           <div className="inset" style={{ marginBottom: 12 }}>
-            <div className="muted" style={{ fontSize: 12.5 }}>{a.publishAt ? `${a.status === "scheduled" ? "Hẹn xuất bản" : "Xuất bản"} ${fmtDateTime(a.publishAt, tz)}` : "Chưa xuất bản"}{a.important ? " · Quan trọng" : ""}{a.pinned ? " · Đã ghim" : ""}</div>
+            <div className="muted" style={{ fontSize: 12.5 }}>{a.publishAt ? `${a.status === "scheduled" ? "Hẹn xuất bản" : "Xuất bản"} ${fmtDateTime(a.publishAt, tz)}` : "Chưa xuất bản"}{a.important ? <><i className="vs" />Quan trọng</> : null}{a.pinned ? <><i className="vs" />Đã ghim</> : null}</div>
             <h3 style={{ margin: "6px 0 12px", fontSize: 16 }}>{a.title}</h3>
             <div style={{ fontSize: 13, lineHeight: 1.6 }}><RichText body={a.body} /></div>
             {a.attachment ? <a className="btn small" style={{ marginTop: 12 }} href={`/api/announcements/${a.id}/attachment`} target="_blank" rel="noreferrer"><Icon name="file" /> {a.attachment.name} · {kb(a.attachment.size)}</a> : null}
@@ -300,7 +300,7 @@ function PublishModal({ a, onClose, onDone }: { a: AnnouncementAdmin; onClose: (
     }, mode === "later" ? "Đã hẹn giờ xuất bản" : "Đã xuất bản bài viết");
   }
   return (
-    <Modal title={`Xuất bản “${a.title}”`} sub={`${audienceText(a)} · ${num(a.recipients)} người nhận${a.notify ? " · gửi thông báo trong app" : ""}`} onClose={onClose}
+    <Modal title={`Xuất bản “${a.title}”`} sub={`${audienceText(a)} | ${num(a.recipients)} người nhận${a.notify ? " | gửi thông báo trong app" : ""}`} onClose={onClose}
       foot={<><button className="btn" onClick={onClose}>Để sau</button><button className="btn primary" disabled={!!busy} onClick={() => void go()}>{busy ? "Đang xử lý…" : mode === "later" ? "Hẹn giờ" : "Xuất bản ngay"}</button></>}>
       <div style={{ display: "grid", gap: 10 }}>
         <label className="check-row"><input type="radio" name="when" checked={mode === "now"} onChange={() => setMode("now")} /> Xuất bản ngay</label>

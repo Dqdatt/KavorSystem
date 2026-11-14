@@ -6,7 +6,7 @@ import { Suspense, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { LEAVE_TX_KINDS, type EmployeeLeave, type LeaveBalance, type LeaveBoard, type LeaveMonth, type LeaveMonthEntry, type RequestItem } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
-import { PageActions, PageSub, Thk, Avatar, Drawer, Empty, ErrorLine, Field, Icon, LoadError, Person, Status, fmtDate, fmtDateTime, tenantToday, useAction, useMe } from "../../_ui/kit";
+import { vs, PageActions, PageSub, Thk, Avatar, Drawer, Empty, ErrorLine, Field, Icon, LoadError, Person, Status, fmtDate, fmtDateTime, tenantToday, useAction, useMe } from "../../_ui/kit";
 import { REQUEST_STATUS, RequestModal, requestSummary } from "../../_ui/request";
 import { Select, SkeletonLines, SkeletonRows, Hint } from "@kavor/web-ui";
 
@@ -276,7 +276,7 @@ function LeaveDrawer({ id, year, canManage, onClose, onChanged }: { id: string; 
   const [req, setReq] = useState<RequestItem | null>(null);
   const tz = me.tenant.timezone;
   return (
-    <Drawer onClose={onClose} head={<div><b>{e?.employee.fullName ?? "…"}</b><div className="muted" style={{ fontSize: 12 }}>{e ? `${e.employee.code} · vào làm ${fmtDate(e.employee.hireDate)} · sổ phép ${year}` : ""}</div></div>}>
+    <Drawer onClose={onClose} head={<div><b>{e?.employee.fullName ?? "…"}</b><div className="muted" style={{ fontSize: 12 }}>{e ? vs(`${e.employee.code} | vào làm ${fmtDate(e.employee.hireDate)} | sổ phép ${year}`) : ""}</div></div>}>
       <LoadError error={error} retry={reload} />
       {e ? (!e.balance ? <Empty title="Chưa có sổ phép" text="Nhân viên chưa được áp dụng quy định phép năm, hoặc chưa vào làm trong năm này." /> : <>
         <div className="params">
@@ -301,7 +301,7 @@ function LeaveDrawer({ id, year, canManage, onClose, onChanged }: { id: string; 
       </>) : (error ? null : <SkeletonLines lines={6} avatar />)}
       {e ? <div className="drawer-section"><h4>Đơn nghỉ năm {year}</h4>
         {e.requests.length ? <div className="card detail-list">{e.requests.map((r) => (
-          <div key={r.id} className="detail-row clickable" style={{ cursor: "pointer" }} onClick={() => setReq(r)}><span>{r.no} · {requestSummary(r)}<small style={{ display: "block" }}>{fmtDateTime(r.submittedAt, tz)}</small></span><b><Status v={REQUEST_STATUS[r.status]} /></b></div>
+          <div key={r.id} className="detail-row clickable" style={{ cursor: "pointer" }} onClick={() => setReq(r)}><span>{r.no} · {vs(requestSummary(r))}<small style={{ display: "block" }}>{fmtDateTime(r.submittedAt, tz)}</small></span><b><Status v={REQUEST_STATUS[r.status]} /></b></div>
         ))}</div> : <p className="muted" style={{ fontSize: 12 }}>Chưa có đơn nghỉ nào.</p>}
       </div> : null}
       {req ? <RequestModal r={req} onClose={() => setReq(null)} onDone={() => { void reload(); onChanged(); }} /> : null}

@@ -5,7 +5,7 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { STEP_RESOLVERS, type OrgOptions, type RequestItem, type RequestQueue, type RequestType, type StepResolver, type WorkflowDef, type WorkflowStepInput } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
-import { PageActions, Avatar, Empty, ErrorLine, Field, Icon, LoadError, Modal, Status, can, fmtDate, num, tenantToday, useAction, useMe } from "../../_ui/kit";
+import { vs, PageActions, Avatar, Empty, ErrorLine, Field, Icon, LoadError, Modal, Status, can, fmtDate, num, tenantToday, useAction, useMe } from "../../_ui/kit";
 import { REQUEST_STATUS, REQUEST_TYPE, RequestDetail, TypeBadge, requestSummary, slaLabel } from "../../_ui/request";
 import { Select, SkeletonLines } from "@kavor/web-ui";
 
@@ -101,7 +101,7 @@ function RequestsPage() {
                 <div className="rsp"><span className="rw"><Avatar name={r.requester.fullName} seed={r.requester.code} /><b style={{ fontWeight: 600 }}>{r.requester.fullName}</b></span>
                   {r.status === "pending" ? (sla[1] === "bad" ? <Status v={sla} /> : <span className="small muted">{sla[0]}</span>) : <Status v={REQUEST_STATUS[r.status]} />}</div>
                 <div className="rw small" style={{ margin: "6px 0 2px" }}><TypeBadge type={r.type} /><span className="muted">{r.no}</span></div>
-                <div className="sub">{requestSummary(r)}</div>
+                <div className="sub">{vs(requestSummary(r))}</div>
               </button>
             );
           })}
@@ -176,7 +176,7 @@ function WorkflowModal({ onClose }: { onClose: () => void }) {
         <Field label="Ghi chú"><input value={note} onChange={(e) => setNote(e.target.value)} /></Field>
       </div> : null}
       <ErrorLine text={err} />
-      <ul className="version-list">{(wf?.versions ?? []).map((v) => <li key={v.versionNo}>v{v.versionNo} · từ {fmtDate(v.effectiveFrom)} · {v.steps.map((s) => `${STEP_RESOLVERS[s.resolver]} (${s.slaHours} giờ${s.daysOver != null ? `, khi nghỉ trên ${s.daysOver} ngày` : ""}${s.amountOver != null ? `, khi trên ${s.amountOver.toLocaleString("vi-VN")} ₫` : ""})`).join(" → ")}{v.note ? ` — ${v.note}` : ""}</li>)}</ul>
+      <ul className="version-list">{(wf?.versions ?? []).map((v) => <li key={v.versionNo}>v{v.versionNo}<i className="vs" />từ {fmtDate(v.effectiveFrom)}<i className="vs" />{v.steps.map((s) => `${STEP_RESOLVERS[s.resolver]} (${s.slaHours} giờ${s.daysOver != null ? `, khi nghỉ trên ${s.daysOver} ngày` : ""}${s.amountOver != null ? `, khi trên ${s.amountOver.toLocaleString("vi-VN")} ₫` : ""})`).join(" → ")}{v.note ? ` — ${v.note}` : ""}</li>)}</ul>
     </Modal>
   );
 }

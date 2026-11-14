@@ -11,7 +11,7 @@ import {
 } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
 import { SupportPanel } from "../../_ui/support";
-import { PageActions, PageSub, Empty, ErrorLine, Field, Icon, LoadError, Modal, MoreMenu, SCOPE, Status, can, fmtDate, fmtDateTime, num, tenantToday, useAction, useMe } from "../../_ui/kit";
+import { vs, PageActions, PageSub, Empty, ErrorLine, Field, Icon, LoadError, Modal, MoreMenu, SCOPE, Status, can, fmtDate, fmtDateTime, num, tenantToday, useAction, useMe } from "../../_ui/kit";
 import { ReasonModal } from "../../_ui/reason-modal";
 import { Hint, Select, SkeletonRows } from "@kavor/web-ui";
 
@@ -282,7 +282,7 @@ function Rules({ setAction }: { setAction: SetAction }) {
           const live = r.assignments.filter((a) => a.state === "active" || a.state === "scheduled");
           return (
             <article key={r.id} className="card">
-              <div className="card-head"><div><h3>{RULE_KINDS[r.kind].label} · {r.name}<Hint text={RULE_KINDS[r.kind].description} /></h3>
+              <div className="card-head"><div><h3>{RULE_KINDS[r.kind].label}<i className="vs" />{r.name}<Hint text={RULE_KINDS[r.kind].description} /></h3>
                 <div className="rule-meta">{r.active ? <Status v={["Đang dùng", ""]} /> : <Status v={["Ngừng dùng", "muted"]} />}<span className="tag">{r.code}</span>{r.current ? <span className="muted small-note">Phiên bản {r.current.versionNo}<i className="vs" />từ {fmtDate(r.current.effectiveFrom)}</span> : null}</div></div>
                 {manage ? <MoreMenu bare items={[
                   { label: "Tạo phiên bản mới", icon: "plus", onClick: () => setForm({ rule: r, kind: r.kind }) },
@@ -292,7 +292,7 @@ function Rules({ setAction }: { setAction: SetAction }) {
               <div className="card-body">
                 {r.current ? <Kv rows={fieldRows(r.kind, r.current.config)} /> : <p className="text-red" style={{ fontSize: 12 }}>Chưa có phiên bản hiệu lực hôm nay.</p>}
                 {r.next ? <div style={{ margin: "10px 0 0" }}><p style={{ margin: "0 0 4px", fontSize: 12.5 }}><span className="status info">Từ {fmtDate(r.next.effectiveFrom)}</span></p><Kv rows={fieldRows(r.kind, r.next.config)} /></div> : null}
-                <ul className="version-list">{r.versions.map((v) => <li key={v.id}>v{v.versionNo} · từ {fmtDate(v.effectiveFrom)}{v.note ? ` — ${v.note}` : ""}</li>)}</ul>
+                <ul className="version-list">{r.versions.map((v) => <li key={v.id}>v{v.versionNo}<i className="vs" />từ {fmtDate(v.effectiveFrom)}{v.note ? ` — ${v.note}` : ""}</li>)}</ul>
                 <div style={{ marginTop: 10, fontSize: 12 }}>
                   <b style={{ fontSize: 12, color: "var(--muted)", textTransform: "uppercase", letterSpacing: ".04em" }}>Áp dụng</b>
                   {live.length ? live.map((a) => (
@@ -484,7 +484,7 @@ function Privacy({ setAction }: { setAction: SetAction }) {
     <>
       <div className="split-panel">
         <article className="card">
-          <div className="card-head"><div><h3>{data.current ? `${data.current.title} · phiên bản ${data.current.versionNo}` : "Chưa có điều khoản"}</h3>
+          <div className="card-head"><div><h3>{data.current ? vs(`${data.current.title} | phiên bản ${data.current.versionNo}`) : "Chưa có điều khoản"}</h3>
             <p>{data.current ? `Công bố ${fmtDateTime(data.current.publishedAt, me.tenant.timezone)}. Nội dung mẫu cần chuyên gia pháp lý rà soát.` : "Nhân viên chưa thể đồng ý xử lý dữ liệu cá nhân."}</p></div></div>
           {data.current ? <div className="card-body" style={{ whiteSpace: "pre-wrap", fontSize: 12.5, lineHeight: 1.6, maxHeight: 460, overflow: "auto" }}>{data.current.content}</div> : null}
         </article>

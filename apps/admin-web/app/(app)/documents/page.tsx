@@ -7,7 +7,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { DOCUMENT_CATEGORIES, type DocumentBoard, type DocumentCategory, type DocumentDetail, type DocumentExpiry, type DocumentMeta,
   type DocumentVisibility, type ChecklistGaps, type EmployeeDocument, type EmployeeListItem } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
-import { PageActions, Drawer, Empty, ErrorLine, Field, Icon, LoadError, Modal, MoreMenu, Person, Status, fmtDate, fmtDateTime, num, useAction, useMe } from "../../_ui/kit";
+import { vs, PageActions, Drawer, Empty, ErrorLine, Field, Icon, LoadError, Modal, MoreMenu, Person, Status, fmtDate, fmtDateTime, num, useAction, useMe } from "../../_ui/kit";
 import Link from "next/link";
 import { ReasonModal } from "../../_ui/reason-modal";
 import { ChecklistCatalog } from "./checklist";
@@ -62,7 +62,7 @@ function DocumentsPage() {
       <LoadError error={error} retry={reload} />
       <div className="grid metrics">
         <article className="card metric-card"><span className="metric-icon"><Icon name="file" /></span><span className="metric-copy"><span>Tổng tài liệu</span><strong>{m ? num(m.total) : "—"}</strong><small>{num(used)} danh mục</small></span></article>
-        <article className="card metric-card"><span className="metric-icon amber"><Icon name="alert" /></span><span className="metric-copy"><span>Sắp hết hạn</span><strong>{m ? num(m.expiringSoon) : "—"}</strong><small>Trong 30 ngày{m?.expired ? ` · ${num(m.expired)} đã hết hạn` : ""}</small></span></article>
+        <article className="card metric-card"><span className="metric-icon amber"><Icon name="alert" /></span><span className="metric-copy"><span>Sắp hết hạn</span><strong>{m ? num(m.expiringSoon) : "—"}</strong><small>Trong 30 ngày{m?.expired ? <><i className="vs" />{num(m.expired)} đã hết hạn</> : ""}</small></span></article>
         <article className="card metric-card"><span className="metric-icon red"><Icon name="alert" /></span><span className="metric-copy">{gaps.data?.requiredCount ? <><span>Thiếu giấy tờ bắt buộc</span><strong className={missing ? "text-red" : ""}>{num(missing ?? 0)}</strong><small>nhân viên</small></> : <><span>Thiếu hồ sơ</span><strong>{m ? num(m.missingContract) : "—"}</strong><small>nhân viên chưa có hợp đồng</small></>}</span></article>
         <article className="card metric-card"><span className="metric-icon blue"><Icon name="lock" /></span><span className="metric-copy"><span>Truy cập tuần này</span><strong>{m ? num(m.downloadsWeek) : "—"}</strong><small>Đã ghi nhật ký</small></span></article>
       </div>
@@ -85,7 +85,7 @@ function DocumentsPage() {
             {rows.map((d) => (
               <tr key={d.id} className="clickable" onClick={() => open(d.id)}>
                 <td style={{ whiteSpace: "normal" }}><span className="row" style={{ display: "flex", alignItems: "center", gap: 12 }}><span className="tile brand"><Icon name="file" /></span>
-                  <span><b style={{ fontWeight: 600, display: "block" }}>{d.title}</b><span className="muted" style={{ fontSize: 12.5 }}>{[DOCUMENT_CATEGORIES[d.category], `v${d.current.versionNo}`, d.current.fileName, d.docNo].filter(Boolean).join(" · ")}{d.archivedAt ? " · Đã gỡ" : ""}</span></span></span></td>
+                  <span><b style={{ fontWeight: 600, display: "block" }}>{d.title}</b><span className="muted" style={{ fontSize: 12.5 }}>{vs([DOCUMENT_CATEGORIES[d.category], `v${d.current.versionNo}`, d.current.fileName, d.docNo].filter(Boolean).join(" | "))}{d.archivedAt ? <><i className="vs" />Đã gỡ</> : null}</span></span></span></td>
                 <td><Person name={d.employee.fullName} seed={d.employee.code} sub={[d.employee.code, d.employee.department].filter(Boolean).join(" · ")} /></td>
                 <td className="num nowrap">{fmtDate(d.issuedOn)}</td>
                 <td className="nowrap"><Expiry d={d} /></td>
@@ -142,7 +142,7 @@ function DetailDrawer({ id, onClose, onChanged }: { id: string; onClose: () => v
   const done = (x: DocumentDetail) => { setData(x); onChanged(); };
   const a = d?.item;
   return (
-    <Drawer onClose={onClose} head={<><div><b>Chi tiết tài liệu</b><div className="muted" style={{ fontSize: 12 }}>{a ? `${DOCUMENT_CATEGORIES[a.category]} · v${a.current.versionNo}` : "Đang tải…"}</div></div>
+    <Drawer onClose={onClose} head={<><div><b>Chi tiết tài liệu</b><div className="muted" style={{ fontSize: 12 }}>{a ? vs(`${DOCUMENT_CATEGORIES[a.category]} | v${a.current.versionNo}`) : "Đang tải…"}</div></div>
       {a ? <span style={{ marginLeft: "auto" }}><Status v={a.archivedAt ? ["Đã gỡ", "muted"] : VIS[a.visibility]} /></span> : null}</>}>
       <LoadError error={error} retry={reload} />
       {!a || !d ? (error ? null : <SkeletonLines lines={6} />) : (

@@ -92,7 +92,7 @@ function EmployeesPage() {
             <th>Nhân viên</th><th>Chức danh / phòng ban</th><th>Vào làm</th><th>Hợp đồng</th><th>Giấy tờ bắt buộc</th><th>Tài khoản app</th><th /></tr></thead><tbody>
             {!list.data && !list.error ? <SkeletonRows cols={8} rows={8} person /> : null}
             {rows.map((e, i) => (<Fragment key={e.id}>
-              {grouped && (i === 0 || rows[i - 1]!.department?.name !== e.department?.name) ? <tr className="group-row"><td colSpan={8}>{e.department?.name ?? "Chưa có phòng ban"} <span className="muted">· {groupSize.get(e.department?.name ?? "")} người</span></td></tr> : null}
+              {grouped && (i === 0 || rows[i - 1]!.department?.name !== e.department?.name) ? <tr className="group-row"><td colSpan={8}>{e.department?.name ?? "Chưa có phòng ban"}<i className="vs" />{groupSize.get(e.department?.name ?? "")} người</td></tr> : null}
               <tr className={`clickable ${sel.has(e.id) ? "sel" : ""}`} onClick={() => router.push(`/employees/${e.id}`)}>
                 <td className="cbx" onClick={(ev) => ev.stopPropagation()}><input type="checkbox" className="cb" aria-label={`Chọn ${e.fullName}`} checked={sel.has(e.id)} onChange={() => toggle(e.id)} /></td>
                 <td><Person name={e.fullName} sub={e.code} seed={e.code} badge={e.status !== "active" ? <Status v={EMP_STATUS[e.status]} /> : undefined} /></td>

@@ -4,7 +4,7 @@
 import { useState } from "react";
 import type { ChecklistEntry, ChecklistEntryInput, ChecklistForm, ChecklistItem, ChecklistItemInput, ChecklistItemList, EmployeeChecklist, EmploymentType } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
-import { EMPLOYMENT, Empty, ErrorLine, Field, Icon, LoadError, Modal, MoreMenu, Status, fmtDate, tenantToday, useAction, useMe } from "../../_ui/kit";
+import { vs, EMPLOYMENT, Empty, ErrorLine, Field, Icon, LoadError, Modal, MoreMenu, Status, fmtDate, tenantToday, useAction, useMe } from "../../_ui/kit";
 import { Select, SkeletonLines, SkeletonRows } from "@kavor/web-ui";
 
 const FORM: Record<ChecklistForm, string> = { copy: "Nộp bản sao", original_checked: "Đã đối chiếu bản chính" };
@@ -113,7 +113,7 @@ export function EmployeeChecklistSection({ employeeId }: { employeeId: string })
               <div key={e.item.id}>
                 <span className={`tile s ${e.status ? "ok" : e.item.required && e.applies ? "warn" : ""}`}><Icon name={e.status ? "check" : "file"} size={15} /></span>
                 <span className="grow"><b>{e.item.name}</b>{e.item.required && e.applies ? <span className="source-tag">Bắt buộc</span> : null}{e.item.archived ? <span className="source-tag">Ngừng dùng</span> : null}
-                  <span className="muted sub">{e.status === "submitted" ? `Đã nộp · ${FORM[e.form!]} · ${fmtDate(e.submittedOn)}` : e.status === "waived" ? "Không áp dụng" : "Chưa nộp"}{e.note ? ` · ${e.note}` : ""}</span></span>
+                  <span className="muted sub">{e.status === "submitted" ? vs(`Đã nộp | ${FORM[e.form!]} | ${fmtDate(e.submittedOn)}`) : e.status === "waived" ? "Không áp dụng" : "Chưa nộp"}{e.note ? <><i className="vs" />{e.note}</> : null}</span></span>
                 {c.canEdit ? <span className="row-actions">
                   {!e.status ? <button className="btn small" disabled={!!busy} onClick={() => void run(e.item.id, async () =>
                     setData(await call<EmployeeChecklist>("POST", `employees/${employeeId}/checklist/${e.item.id}`, { status: "submitted", form: "copy" } satisfies ChecklistEntryInput)), `Đã ghi nhận ${e.item.name}`)}>Đánh dấu đã nộp</button> : null}

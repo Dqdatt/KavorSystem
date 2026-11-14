@@ -35,7 +35,7 @@ export default function OrganizationPage() {
   const tabs: Array<[Tab, string, number | undefined]> = [["tree", "Sơ đồ", undefined], ["unit", "Đơn vị", units.filter((u) => u.kind !== "position").length || undefined], ["title", "Chức danh", m?.positions]];
   return (
     <section className="page active">
-      <PageSub text={m ? `${num(m.legalEntities)} pháp nhân · ${num(m.branches)} chi nhánh · ${num(m.departments)} phòng ban, ${num(m.positions)} chức danh. Hiệu lực tại ${fmtDate(t?.today)}.` : null} />
+      <PageSub text={m ? `${num(m.legalEntities)} pháp nhân | ${num(m.branches)} chi nhánh | ${num(m.departments)} phòng ban, ${num(m.positions)} chức danh. Hiệu lực tại ${fmtDate(t?.today)}.` : null} />
       <PageActions>{t?.canManage ? <>{can(me, "employee.update") ? <button className="btn" onClick={() => setArranging(true)}><Icon name="org" /> Sắp xếp tự động</button> : null}
           <button className="btn primary" onClick={() => setEdit({ mode: "create", kind: tab === "title" ? "position" : "department" })}><Icon name="plus" /> {tab === "title" ? "Thêm chức danh" : "Thêm đơn vị"}</button></> : null}</PageActions>
       <div className="page-head"><div><div className="segmented" role="tablist">{tabs.map(([k, l, n]) => <button key={k} role="tab" aria-selected={tab === k} className={tab === k ? "active" : ""} onClick={() => go(k)}>{l}{n != null ? <span className="n">{n}</span> : null}</button>)}</div></div></div>
@@ -63,13 +63,13 @@ function Tree({ t, units, name, total, members, onOpen }: { t: OrgTree; units: O
         const tops = units.filter((d) => d.kind === "department" && d.branchId === br.id && !d.parentId);
         return (
           <div key={br.id} style={{ display: "flex", flexDirection: "column", alignItems: "center", width: "100%" }}>
-            <div className="orgline" /><span className="tag" style={{ padding: "6px 14px", borderRadius: 10 }}>{br.name} · chi nhánh</span>{tops.length ? <div className="orgline" /> : null}
+            <div className="orgline" /><span className="tag" style={{ padding: "6px 14px", borderRadius: 10 }}>{br.name}<i className="vs" />chi nhánh</span>{tops.length ? <div className="orgline" /> : null}
             {tops.length ? <div className="orgkids">{tops.map((d) => {
               const ms = members(d), kids = units.filter((c) => c.kind === "department" && c.parentId === d.id).length;
               return (
                 <button key={d.id} className="orgnode" onClick={() => onOpen(d)}>
                   <div className="spread"><b>{d.name}</b><span className="tag">{d.code}</span></div>
-                  <div className="muted" style={{ fontSize: 12.5, margin: "2px 0 12px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{d.head ? <>{d.head.name}{d.head.position ? <><i className="vs" />{d.head.position}</> : null}</> : "Chưa có trưởng đơn vị"}{kids ? ` · ${kids} phòng con` : ""}</div>
+                  <div className="muted" style={{ fontSize: 12.5, margin: "2px 0 12px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{d.head ? <>{d.head.name}{d.head.position ? <><i className="vs" />{d.head.position}</> : null}</> : ms.length ? "Chưa có trưởng đơn vị" : "Chưa có nhân sự"}{kids ? <><i className="vs" />{kids} phòng con</> : null}</div>
                   <div className="spread"><span className="stackav">{ms.slice(0, 4).map((e) => <Avatar key={e.id} name={e.fullName} seed={e.id} />)}{ms.length > 4 ? <span className="avatar rest">+{ms.length - 4}</span> : null}</span>
                     <span className="num" style={{ fontSize: 12.5 }}>{num(total(d))} người</span></div>
                 </button>

@@ -3,7 +3,7 @@ import { useState } from "react";
 import dynamic from "next/dynamic";
 import type { LocationDef, OrgOptions, PolicyAssignment, PolicyKind, PolicyScopeType, ShiftDef, ShiftVersion } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
-import { PageActions, Empty, ErrorLine, Field, Icon, LoadError, Modal, SCOPE, Status, can, fmtDate, tenantToday, useAction, useMe } from "../../_ui/kit";
+import { vs, Empty, ErrorLine, Field, Icon, LoadError, Modal, SCOPE, Status, can, fmtDate, tenantToday, useAction, useMe } from "../../_ui/kit";
 import { ReasonModal } from "../../_ui/reason-modal";
 import { Select, SkeletonLines, SkeletonRows } from "@kavor/web-ui";
 
@@ -23,23 +23,23 @@ export default function Page() {
   const [locForm, setLocForm] = useState<LocationDef | "new" | null>(null);
   const [creating, setCreating] = useState<{ kind: PolicyKind; targetId: string } | boolean>(false);
   const manage = can(me, "schedule.manage");
+  const equal = shifts.data?.length === locs.data?.length; // chỉ kéo bằng cao khi hai cột có số thẻ bằng nhau
   /* Địa điểm chưa có áp dụng đang/sắp hiệu lực thì không nhân viên nào chấm công được ở đó (app báo "chưa có địa điểm") */
   const applied = new Set((assigned.data ?? []).filter((a) => a.kind === "work_location" && (a.state === "active" || a.state === "scheduled")).map((a) => a.target.id));
   const reloadAll = () => { void shifts.reload(); void locs.reload(); void assigned.reload(); };
   return (
     <section className="page active">
       <LoadError error={shifts.error ?? locs.error} retry={reloadAll} />
-      <PageActions>{manage ? <><button className="btn" onClick={() => setLocForm("new")}><Icon name="plus" /> Thêm địa điểm</button><button className="btn primary" onClick={() => setShiftForm("new")}><Icon name="plus" /> Tạo ca</button></> : null}</PageActions>
-      <div className="grid two top">
-        <div className="col-stack">
+      <div className="grid two">
+        <div className={`col-stack${equal ? " fill" : ""}`}>
           {shifts.data && !shifts.data.length ? <article className="card"><Empty title="Chưa có mẫu ca" /></article> : null}
           {!shifts.data && !shifts.error ? <article className="card"><div className="card-body"><SkeletonLines lines={5} /></div></article> : null}
-          {(shifts.data ?? []).map((s) => <ShiftCard key={s.id} s={s} manage={manage} onNew={() => setShiftForm(s)} onChanged={() => void shifts.reload()} />)}
+          {(shifts.data ?? []).map((s, i) => <ShiftCard key={s.id} s={s} manage={manage} onCreate={i === 0 ? () => setShiftForm("new") : undefined} onNew={() => setShiftForm(s)} onChanged={() => void shifts.reload()} />)}
         </div>
-        <div className="col-stack">
+        <div className={`col-stack${equal ? " fill" : ""}`}>
           {locs.data && !locs.data.length ? <article className="card"><Empty title="Chưa có địa điểm chấm công" /></article> : null}
           {!locs.data && !locs.error ? <article className="card"><div className="card-body"><SkeletonLines lines={5} /></div></article> : null}
-          {(locs.data ?? []).map((l) => <LocationCard key={l.id} l={l} manage={manage} unapplied={l.active && !!assigned.data && !applied.has(l.id)} onNew={() => setLocForm(l)} onApply={() => setCreating({ kind: "work_location", targetId: l.id })} onChanged={() => void locs.reload()} />)}
+          {(locs.data ?? []).map((l, i) => <LocationCard key={l.id} l={l} manage={manage} onCreate={i === 0 ? () => setLocForm("new") : undefined} unapplied={l.active && !!assigned.data && !applied.has(l.id)} onNew={() => setLocForm(l)} onApply={() => setCreating({ kind: "work_location", targetId: l.id })} onChanged={() => void locs.reload()} />)}
         </div>
       </div>
       <Assignments data={assigned.data} error={assigned.error} reload={assigned.reload} manage={manage} onCreate={() => setCreating(true)} />
@@ -53,16 +53,16 @@ export default function Page() {
 const DAYS = ["", "T2", "T3", "T4", "T5", "T6", "T7", "CN"];
 const mins = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
 const shiftHours = (v: ShiftVersion) => (mins(v.end) - mins(v.start) - (v.breakStart && v.breakEnd ? mins(v.breakEnd) - mins(v.breakStart) : 0)) / 60;
-const shiftNote = (v: ShiftVersion) => `${v.start}–${v.end}${v.breakStart ? ` · nghỉ ${v.breakStart}–${v.breakEnd}` : ""}`;
+const shiftNote = (v: ShiftVersion) => `${v.start}–${v.end}${v.breakStart ? ` | nghỉ ${v.breakStart}–${v.breakEnd}` : ""}`;
 
-function ShiftCard({ s, manage, onNew, onChanged }: { s: ShiftDef; manage: boolean; onNew: () => void; onChanged: () => void }) {
+function ShiftCard({ s, manage, onCreate, onNew, onChanged }: { s: ShiftDef; manage: boolean; onCreate?: () => void; onNew: () => void; onChanged: () => void }) {
   const { run } = useAction();
   const v = s.current ?? s.next;
   const days = v?.workDays ?? [1, 2, 3, 4, 5];
   return (
     <article className="card">
-      <div className="card-head"><div><h3>{s.name} <span className="tag">{s.code}</span></h3><span className="small muted">{v ? <>Phiên bản {v.versionNo}<i className="vs" />từ {fmtDate(v.effectiveFrom)}{s.current ? "" : " · chưa hiệu lực"}</> : "Chưa có phiên bản hiệu lực"}</span></div>
-        {s.active ? <Status v={["Đang dùng", ""]} /> : <Status v={["Ngừng dùng", "muted"]} />}</div>
+      <div className="card-head"><div><h3>{s.name} <span className="tag">{s.code}</span></h3><span className="small muted">{v ? <>Phiên bản {v.versionNo}<i className="vs" />từ {fmtDate(v.effectiveFrom)}{s.current ? null : <><i className="vs" />chưa hiệu lực</>}</> : "Chưa có phiên bản hiệu lực"}</span></div>
+        <span className="row-actions">{s.active ? <Status v={["Đang dùng", ""]} /> : <Status v={["Ngừng dùng", "muted"]} />}{manage && onCreate ? <button className="btn small" onClick={onCreate}><Icon name="plus" />Tạo ca</button> : null}</span></div>
       <div className="card-body col">
         {v ? <>
           <div>
@@ -72,8 +72,8 @@ function ShiftCard({ s, manage, onNew, onChanged }: { s: ShiftDef; manage: boole
           <div className="spread"><div className="week">{[1, 2, 3, 4, 5, 6, 7].map((d) => <span key={d} className={days.includes(d) ? "on" : ""}>{DAYS[d]}</span>)}</div><span className="small sub">{days.length} ngày/tuần</span></div>
           <div className="params"><div className="param"><b className="num">{v.lateGraceMinutes} phút</b><span>Ân hạn đi muộn</span></div><div className="param"><b className="num">{v.earlyGraceMinutes} phút</b><span>Ân hạn về sớm</span></div></div>
         </> : null}
-        {s.next && s.current ? <p className="small" style={{ margin: 0 }}><span className="status info">Từ {fmtDate(s.next.effectiveFrom)}</span> {shiftNote(s.next)} · {s.next.workDays.map((d) => DAYS[d]).join(", ")}</p> : null}
-        {s.versions.length > 1 ? <ul className="version-list" style={{ margin: 0 }}>{s.versions.map((x) => <li key={x.id}>v{x.versionNo} · từ {fmtDate(x.effectiveFrom)} · {shiftNote(x)}{x.note ? ` — ${x.note}` : ""}</li>)}</ul> : null}
+        {s.next && s.current ? <p className="small" style={{ margin: 0 }}><span className="status info">Từ {fmtDate(s.next.effectiveFrom)}</span> {vs(shiftNote(s.next))}<i className="vs" />{s.next.workDays.map((d) => DAYS[d]).join(", ")}</p> : null}
+        {s.versions.length > 1 ? <ul className="version-list" style={{ margin: 0 }}>{s.versions.map((x) => <li key={x.id}>v{x.versionNo}<i className="vs" />từ {fmtDate(x.effectiveFrom)}<i className="vs" />{vs(shiftNote(x))}{x.note ? ` — ${x.note}` : ""}</li>)}</ul> : null}
         {manage ? <div className="row-actions">
           <button className="btn small" onClick={onNew}><Icon name="edit" />Phiên bản mới</button>
           <button className="btn small ghost" onClick={() => run(s.id, () => call("PATCH", `shifts/${s.id}`, { active: !s.active }), s.active ? "Đã ngừng dùng ca" : "Đã dùng lại ca").then(() => onChanged())}>{s.active ? "Ngừng dùng" : "Dùng lại"}</button>
@@ -83,14 +83,14 @@ function ShiftCard({ s, manage, onNew, onChanged }: { s: ShiftDef; manage: boole
   );
 }
 
-function LocationCard({ l, manage, unapplied, onNew, onApply, onChanged }: { l: LocationDef; manage: boolean; unapplied: boolean; onNew: () => void; onApply: () => void; onChanged: () => void }) {
+function LocationCard({ l, manage, unapplied, onCreate, onNew, onApply, onChanged }: { l: LocationDef; manage: boolean; unapplied: boolean; onCreate?: () => void; onNew: () => void; onApply: () => void; onChanged: () => void }) {
   const { run } = useAction();
   /* Chưa có phiên bản hiệu lực hôm nay (phiên bản đầu bắt đầu từ ngày sau) thì hiện phiên bản sắp tới, ghi rõ ngày */
   const v = l.current ?? l.next;
   return (
     <article className="card">
-      <div className="card-head"><div><h3>{l.name} <span className="tag">{l.code}</span></h3><span className="small muted">{[l.address, l.branch?.name].filter(Boolean).join(" · ") || "—"}{v ? <><i className="vs" />phiên bản {v.versionNo} từ {fmtDate(v.effectiveFrom)}</> : null}</span></div>
-        <span className="row-actions">{l.active ? <Status v={["Đang dùng", ""]} /> : <Status v={["Ngừng dùng", "muted"]} />}{unapplied ? <span className="status warn">Chưa áp dụng cho ai</span> : null}</span></div>
+      <div className="card-head"><div><h3>{l.name} <span className="tag">{l.code}</span></h3><span className="small muted">{vs([l.address, l.branch?.name].filter(Boolean).join(" | ") || "—")}{v ? <><i className="vs" />phiên bản {v.versionNo} từ {fmtDate(v.effectiveFrom)}</> : null}</span></div>
+        <span className="row-actions">{l.active ? <Status v={["Đang dùng", ""]} /> : <Status v={["Ngừng dùng", "muted"]} />}{unapplied ? <span className="status warn">Chưa áp dụng cho ai</span> : null}{manage && onCreate ? <button className="btn small" onClick={onCreate}><Icon name="plus" />Thêm địa điểm</button> : null}</span></div>
       <div className="card-body col">
         {v ? <>
           <MapView value={{ lat: v.latitude, lng: v.longitude }} radius={v.radiusM} onPick={() => undefined} readOnly />
