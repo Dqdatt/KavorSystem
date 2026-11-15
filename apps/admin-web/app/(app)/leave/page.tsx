@@ -162,7 +162,7 @@ function Overview({ b, entries, days, mo, today, day, pick, onFull, onOpen }: { 
 function Tiles({ b, loaded, now, plain }: { b: LeaveBoard | null; loaded: boolean; now: DayPerson[]; plain?: boolean }) {
   const m = b?.metrics;
   const granted = (b?.rows ?? []).reduce((n, r) => n + (r.balance ? r.balance.granted + r.balance.carry + r.balance.adjusted : 0), 0);
-  const expiring = m && m.expiringCarry > 0 && m.expiringOn ? ` · ${d1(m.expiringCarry)} ngày phép tồn đến ${fmtDate(m.expiringOn).slice(0, 5)}` : "";
+  const expiring = m && m.expiringCarry > 0 && m.expiringOn ? ` | ${d1(m.expiringCarry)} ngày phép tồn đến ${fmtDate(m.expiringOn).slice(0, 5)}` : "";
   /* Prototype: tab Tổng quan dùng thẻ .thk, tab Lịch nghỉ/Số dư dùng thẻ số liệu thường */
   if (plain) return (
     <div className="grid metrics">
@@ -175,7 +175,7 @@ function Tiles({ b, loaded, now, plain }: { b: LeaveBoard | null; loaded: boolea
   return (
       <div className="thks">
         <Thk label="Đang nghỉ hôm nay" tone="mint" icon="plane" value={<>{loaded ? now.length : "—"}<small> người</small></>} chip={loaded ? now.map((p) => given(p.e.fullName)).join(", ") || "Không ai nghỉ" : null} />
-        <Thk label="Phép còn lại toàn công ty" icon="calendar" value={<>{m ? d1(m.available) : "—"}<small> ngày</small></>} chip={m ? `Đã cấp ${d1(granted)} ngày${expiring}` : null} />
+        <Thk label="Phép còn lại toàn công ty" icon="calendar" value={<>{m ? d1(m.available) : "—"}<small> ngày</small></>} chip={m ? vs(`Đã cấp ${d1(granted)} ngày${expiring}`) : null} />
         <Thk label="Đã sử dụng" tone="ok" icon="checks" value={<>{m ? d1(m.used) : "—"}<small> ngày</small></>} chip={m && granted ? `${((m.used / granted) * 100).toLocaleString("vi-VN", { maximumFractionDigits: 1 })}% số phép đã cấp` : null} />
         <Thk label="Đang chờ duyệt" tone={m?.pending ? "warn" : ""} icon="clock" value={<>{m ? d1(m.pending) : "—"}<small> ngày</small></>} chip="đang giữ chỗ phép" />
       </div>
@@ -309,7 +309,7 @@ function LeaveDrawer({ id, year, canManage, onClose, onChanged }: { id: string; 
       </>) : (error ? null : <SkeletonLines lines={6} avatar />)}
       {e ? <div className="drawer-section"><h4>Đơn nghỉ năm {year}</h4>
         {e.requests.length ? <div className="card detail-list">{e.requests.map((r) => (
-          <div key={r.id} className="detail-row clickable" style={{ cursor: "pointer" }} onClick={() => setReq(r)}><span>{r.no} · {vs(requestSummary(r))}<small style={{ display: "block" }}>{fmtDateTime(r.submittedAt, tz)}</small></span><b><Status v={REQUEST_STATUS[r.status]} /></b></div>
+          <div key={r.id} className="detail-row clickable" style={{ cursor: "pointer" }} onClick={() => setReq(r)}><span>{r.no}<i className="vs" />{vs(requestSummary(r))}<small style={{ display: "block" }}>{fmtDateTime(r.submittedAt, tz)}</small></span><b><Status v={REQUEST_STATUS[r.status]} /></b></div>
         ))}</div> : <p className="muted" style={{ fontSize: 12 }}>Chưa có đơn nghỉ nào.</p>}
       </div> : null}
       {req ? <RequestModal r={req} onClose={() => setReq(null)} onDone={() => { void reload(); onChanged(); }} /> : null}

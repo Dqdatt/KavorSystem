@@ -3,7 +3,7 @@ import { Suspense, useMemo, useState, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { AdminAttendanceEvent, AdminDevice, AttendanceBoard, TimesheetBoard, TodayRow } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
-import { PageActions, PageSub, DEVICE, Empty, Icon, LoadError, Person, REJECT_REASON, Status, can, dur, fmtDate, fmtDateTime, fmtTime, longDate, meters, tenantToday, useAction, useMe } from "../../_ui/kit";
+import { vs, PageActions, PageSub, DEVICE, Empty, Icon, LoadError, Person, REJECT_REASON, Status, can, dur, fmtDate, fmtDateTime, fmtTime, longDate, meters, tenantToday, useAction, useMe } from "../../_ui/kit";
 import { ReasonModal } from "../../_ui/reason-modal";
 import { EmployeeMonth, MonthTab } from "./month";
 import { OvertimeTab } from "./overtime";
@@ -92,7 +92,7 @@ function Today({ tz, tenantId }: { tz: string; tenantId: string }) {
                 <td>{r.employee.department ?? "—"}</td>
                 <td className="num" title={r.shift?.name}>{r.shift ? `${r.shift.start}–${r.shift.end}` : "—"}</td>
                 <td className="num">{r.clockIn ? <><b>{fmtTime(r.clockIn.at, tz)}</b>{r.clockIn.offline ? <span className="source-tag">offline</span> : null}</> : "—"}</td>
-                <td className="num muted">{r.clockOut ? <>{fmtTime(r.clockOut.at, tz)}{r.early ? <small className="text-red"> · sớm {dur(r.clockOut.earlyMinutes)}</small> : null}{r.clockOut.offline ? <span className="source-tag">offline</span> : null}</> : "—"}</td>
+                <td className="num muted">{r.clockOut ? <>{fmtTime(r.clockOut.at, tz)}{r.early ? <small className="text-red"><i className="vs" />sớm {dur(r.clockOut.earlyMinutes)}</small> : null}{r.clockOut.offline ? <span className="source-tag">offline</span> : null}</> : "—"}</td>
                 <td><Status v={stateOf(r)} />{r.rejectedCount ? <span className="source-tag" title="Số lần bị từ chối">{r.rejectedCount} bị từ chối</span> : null}</td>
                 <td className="muted"><Icon name="chevR" size={16} /></td>
               </tr>
@@ -117,7 +117,7 @@ function Rejected({ tz, tenantId }: { tz: string; tenantId: string }) {
       <article className="card">
         <div className="toolbar"><span className="muted">Từ</span><input className="select" type="date" value={from} max={to} onChange={(e) => e.target.value && setFrom(e.target.value)} aria-label="Từ ngày" /><span className="muted">đến</span><input className="select" type="date" value={to} min={from} max={today} onChange={(e) => e.target.value && setTo(e.target.value)} aria-label="Đến ngày" /></div>
         {data && !data.length ? <Empty title="Không có bản ghi bị từ chối" text={`Mọi lần chấm công từ ${fmtDate(from).slice(0, 5)} đến ${fmtDate(to).slice(0, 5)} đều hợp lệ. Lần chấm ngoài vùng, GPS kém hoặc sai thiết bị sẽ hiện ở đây.`} /> : (
-          <div className="table-wrap"><table className="data-table" style={{ minWidth: 900 }}><thead><tr><th>Thời gian</th><th>Nhân viên</th><th>Loại</th><th>Lý do</th><th>Khoảng cách · sai số GPS</th><th>Địa điểm gần nhất</th><th>Thiết bị</th></tr></thead><tbody>
+          <div className="table-wrap"><table className="data-table" style={{ minWidth: 900 }}><thead><tr><th>Thời gian</th><th>Nhân viên</th><th>Loại</th><th>Lý do</th><th>Khoảng cách / sai số GPS</th><th>Địa điểm gần nhất</th><th>Thiết bị</th></tr></thead><tbody>
             {!data && !error ? <SkeletonRows cols={7} rows={6} /> : null}
             {(data ?? []).map((e) => (
               <tr key={e.id}>
@@ -125,7 +125,7 @@ function Rejected({ tz, tenantId }: { tz: string; tenantId: string }) {
                 <td><Person name={e.employee.fullName} sub={`${e.employee.code} | ${e.employee.department ?? "—"}`} seed={e.employee.code} /></td>
                 <td>{e.kind === "in" ? "Vào ca" : "Ra ca"}</td>
                 <td><span className="status bad">{REJECT_REASON[e.rejectReason ?? ""] ?? "Bị từ chối"}</span></td>
-                <td>{e.distanceM != null ? meters(e.distanceM) : "—"} · ±{e.accuracyM != null ? Math.round(e.accuracyM) : "—"}{"\u00a0"}m</td>
+                <td>{e.distanceM != null ? meters(e.distanceM) : "—"}<i className="vs" />±{e.accuracyM != null ? Math.round(e.accuracyM) : "—"}{"\u00a0"}m</td>
                 <td>{e.locationName ?? "—"}</td>
                 <td>{e.deviceModel ?? "—"}</td>
               </tr>
@@ -157,10 +157,10 @@ function Devices({ tz, tenantId }: { tz: string; tenantId: string }) {
             {(data ?? []).map((d) => (
               <tr key={d.id}>
                 <td><Person name={d.employee.fullName} sub={d.employee.code} seed={d.employee.code} /></td>
-                <td>{d.deviceModel ?? "—"}<br /><small className="muted">{d.platform === "ios" ? "iOS" : "Android"} {d.osVersion ?? ""} · app {d.appVersion ?? "—"}</small></td>
+                <td>{d.deviceModel ?? "—"}<br /><small className="muted">{d.platform === "ios" ? "iOS" : "Android"} {d.osVersion ?? ""}<i className="vs" />app {d.appVersion ?? "—"}</small></td>
                 <td>{fmtDateTime(d.registeredAt, tz)}</td>
                 <td>{fmtDateTime(d.lastSeenAt, tz)}</td>
-                <td><Status v={DEVICE[d.status]} />{d.decisionReason ? <><br /><small className="muted">{d.decisionReason}{d.decidedBy ? ` · ${d.decidedBy}` : ""}</small></> : null}</td>
+                <td><Status v={DEVICE[d.status]} />{d.decisionReason ? <><br /><small className="muted">{d.decisionReason}{d.decidedBy ? <><i className="vs" />{d.decidedBy}</> : null}</small></> : null}</td>
                 <td>{manage ? <span className="row-actions">
                   {d.status === "pending" ? <><button className="btn small primary" disabled={!!busy} onClick={() => run(d.id, () => call("POST", `devices/${d.id}/approve`, {}), `Đã duyệt ${d.deviceModel ?? "thiết bị"} cho ${d.employee.fullName}`).then(() => reload())}>{busy === d.id ? "Đang duyệt…" : "Duyệt"}</button><button className="btn small" onClick={() => setAsk({ d, action: "reject" })}>Từ chối</button></> : null}
                   {d.status === "active" ? <button className="btn small" onClick={() => setAsk({ d, action: "revoke" })}>Thu hồi</button> : null}

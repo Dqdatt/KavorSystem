@@ -128,12 +128,12 @@ function Company({ setAction, part }: { setAction: SetAction; part: "company" | 
         {/* Gói do Kavor gán (Kavor Console); nhân sự = hồ sơ chưa nghỉ việc */}
         <article className="card"><div className="card-head"><h3>Gói dịch vụ<Hint text="Do Kavor cấu hình theo hợp đồng" /></h3></div><div className="card-body">
           {(() => { const pl = data.tenant.plan, pct = Math.min(100, Math.round((pl.employees / Math.max(1, pl.employeeLimit)) * 100)), near = pl.employees >= pl.employeeLimit * NEAR_LIMIT_RATIO; return (
-            <div className="spread"><span><b>{pl.name}</b><span className="muted small-note" style={{ display: "block" }}>Đang dùng {pl.employees.toLocaleString("vi-VN")} trên {pl.employeeLimit.toLocaleString("vi-VN")} nhân sự{near ? <span className="text-amber"> · Sắp hết chỗ, liên hệ Kavor để nâng gói</span> : null}</span></span>
+            <div className="spread"><span><b>{pl.name}</b><span className="muted small-note" style={{ display: "block" }}>Đang dùng {pl.employees.toLocaleString("vi-VN")} trên {pl.employeeLimit.toLocaleString("vi-VN")} nhân sự{near ? <span className="text-amber"><i className="vs" />Sắp hết chỗ, liên hệ Kavor để nâng gói</span> : null}</span></span>
               <span className="ticks sm" aria-hidden="true">{Array.from({ length: Math.min(pl.employeeLimit, 50) }, (_, i) => <i key={i} className={i < Math.round((pct / 100) * Math.min(pl.employeeLimit, 50)) ? (near ? "w" : "a") : ""} />)}</span></div>
           ); })()}
         </div></article>
         <article className="card"><div className="card-head"><h3>Chính sách nền tảng</h3></div><div className="detail-list">
-          <SwitchRow label="Web cho nhân viên" note="Theo gói dịch vụ · chưa mở" checked={p.employeeWeb} locked />
+          <SwitchRow label="Web cho nhân viên" note="Theo gói dịch vụ | chưa mở" checked={p.employeeWeb} locked />
           <SwitchRow label="Bắt buộc xác thực hai lớp" note="Luôn bật với mọi tài khoản dùng web HR" checked={p.mfaRequired} locked />
           <SwitchRow label="Tự đồng bộ Google Sheets" note="Có khi bật module Tích hợp dữ liệu" checked={p.sheetsAutoSync} locked />
           <SwitchRow label="Xác nhận đã đọc bản tin quan trọng" note="Áp dụng khi bật module Bản tin" checked={f.newsReadReceipt} locked={!manage} onChange={(v) => setF({ ...f, newsReadReceipt: v })} />
@@ -192,7 +192,7 @@ function Company({ setAction, part }: { setAction: SetAction; part: "company" | 
 function SwitchRow({ label, note, checked, locked, onChange }: { label: string; note?: string; checked: boolean; locked?: boolean; onChange?: (v: boolean) => void }) {
   return (
     <div className="detail-row switch-row">
-      <span className="switch-copy"><b>{label}</b>{note ? <small>{note}</small> : null}</span>
+      <span className="switch-copy"><b>{label}</b>{note ? <small>{vs(note)}</small> : null}</span>
       <label className="switch" style={locked ? { opacity: 0.55 } : undefined}><input type="checkbox" checked={checked} disabled={locked} onChange={(e) => onChange?.(e.target.checked)} aria-label={label} /><i /></label>
     </div>
   );
@@ -216,7 +216,7 @@ function BrandImage({ kind, version, manage, onSaved }: { kind: BrandingKind; ve
         {version ? <img src={`/api/branding/${kind}?v=${version}`} alt={logo ? "Logo công ty" : "Ảnh bìa"} style={{ width: "100%", height: "100%", objectFit: logo ? "contain" : "cover" }} />
           : <span>{logo ? "Chưa có logo" : "Ảnh bìa mặc định của Kavor"}</span>}
       </div>
-      <p className="muted" style={{ fontSize: 12, margin: "6px 0" }}>{logo ? "Logo · vuông" : "Ảnh bìa hồ sơ · 320×124"}</p>
+      <p className="muted" style={{ fontSize: 12, margin: "6px 0" }}>{vs(logo ? "Logo | vuông" : "Ảnh bìa hồ sơ | 320×124")}</p>
       {manage ? (
         <div className="row-actions" style={{ justifyContent: "flex-start" }}>
           <input ref={input} type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={(e) => { void pick(e.target.files?.[0]); e.target.value = ""; }} />
@@ -302,7 +302,7 @@ function Rules({ setAction }: { setAction: SetAction }) {
                   <b style={{ fontSize: 12, color: "var(--muted)", textTransform: "uppercase", letterSpacing: ".04em" }}>Áp dụng</b>
                   {live.length ? live.map((a) => (
                     <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 0", borderBottom: "1px solid var(--line-soft)" }}>
-                      <span style={{ flex: 1 }}>{SCOPE[a.scopeType]}{a.scope ? `: ${a.scope.name}` : ""} <span className="muted">· {fmtDate(a.effectiveFrom)} → {a.effectiveTo ? fmtDate(a.effectiveTo) : "không thời hạn"}</span></span>
+                      <span style={{ flex: 1 }}>{SCOPE[a.scopeType]}{a.scope ? `: ${a.scope.name}` : ""}<span className="muted"><i className="vs" />{fmtDate(a.effectiveFrom)} → {a.effectiveTo ? fmtDate(a.effectiveTo) : "không thời hạn"}</span></span>
                       <Status v={ASSIGN_STATE[a.state]} />
                       {manage ? <button className="btn small" onClick={() => setEnding(a)}>{a.state === "scheduled" ? "Hủy" : "Kết thúc"}</button> : null}
                     </div>
@@ -339,7 +339,7 @@ function RuleForm({ rule, kind: initialKind, onClose, onSaved }: { rule: RulePol
     if (ok) onSaved();
   }
   return (
-    <Modal wide title={rule ? `Phiên bản mới · ${rule.name}` : "Tạo quy định"} sub={rule ? "Áp dụng từ ngày hiệu lực; trước ngày đó vẫn theo phiên bản cũ." : "Quy định mới chưa áp dụng cho ai cho tới khi bấm “Áp dụng cho nhóm”."} onClose={onClose}
+    <Modal wide title={rule ? `Phiên bản mới: ${rule.name}` : "Tạo quy định"} sub={rule ? "Áp dụng từ ngày hiệu lực; trước ngày đó vẫn theo phiên bản cũ." : "Quy định mới chưa áp dụng cho ai cho tới khi bấm “Áp dụng cho nhóm”."} onClose={onClose}
       foot={<><button className="btn ghost" onClick={onClose}>Hủy</button><button className="btn primary" disabled={!!busy} onClick={save}>{busy ? "Đang lưu…" : "Lưu"}</button></>}>
       <div className="form-grid">
         {!rule ? <>
@@ -350,7 +350,7 @@ function RuleForm({ rule, kind: initialKind, onClose, onSaved }: { rule: RulePol
         {RULE_KINDS[kind].fields.map((f) => f.type === "bool" ? (
           <label key={f.key} className="check-row field full"><input type="checkbox" checked={config[f.key] === true} onChange={(e) => setConfig({ ...config, [f.key]: e.target.checked })} /> {f.label}</label>
         ) : (
-          <Field key={f.key} label={`${f.label}${f.unit ? ` (${f.unit})` : ""}`} hint={`Từ ${f.min ?? 0} đến ${f.max}${f.note ? ` · ${f.note}` : ""}`}>
+          <Field key={f.key} label={`${f.label}${f.unit ? ` (${f.unit})` : ""}`} hint={vs(`Từ ${f.min ?? 0} đến ${f.max}${f.note ? ` | ${f.note}` : ""}`)}>
             <input type="number" min={f.min} max={f.max} value={String(config[f.key] ?? "")} onChange={(e) => { setConfig({ ...config, [f.key]: e.target.value === "" ? NaN : Number(e.target.value) }); setErr(null); }} />
           </Field>
         ))}
@@ -421,7 +421,7 @@ function Holidays({ setAction }: { setAction: SetAction }) {
         <div className="toolbar">
           <div className="segmented">{[thisYear, thisYear + 1].map((y) => <button key={y} className={year === y ? "active" : ""} onClick={() => setYear(y)}>Năm {y}</button>)}</div>
           <span className="toolbar-spacer" />
-          <span className="muted" style={{ fontSize: 12.5 }}>{data ? `${num(data.holidays.length)} ngày nghỉ · ${num(paidDays)} ngày hưởng lương` : ""}</span>
+          <span className="muted" style={{ fontSize: 12.5 }}>{data ? vs(`${num(data.holidays.length)} ngày nghỉ | ${num(paidDays)} ngày hưởng lương`) : ""}</span>
         </div>
         {data && !data.holidays.length ? <Empty title={`Chưa có ngày nghỉ nào năm ${year}`} /> : (
           <div className="table-wrap"><table className="data-table" style={{ minWidth: 760 }}><thead><tr><th>Ngày</th><th>Tên</th><th>Loại</th><th>Hưởng lương</th><th>Nguồn</th><th /></tr></thead><tbody>
@@ -499,12 +499,12 @@ function Privacy({ setAction }: { setAction: SetAction }) {
             <div className="card-body"><span className="progress" style={{ display: "block", ["--value" as string]: `${pct}%` }}><i /></span>
               {data.pending.length ? <>
                 <p className="muted" style={{ fontSize: 12.5, margin: "12px 0 6px" }}>Chưa đồng ý (app sẽ hỏi ở lần mở kế tiếp):</p>
-                <ul className="version-list" style={{ marginTop: 0 }}>{data.pending.map((p) => <li key={p.id}>{p.fullName} · {p.code}{p.lastVersionNo ? ` · đã đồng ý v${p.lastVersionNo}` : " · chưa đồng ý bản nào"}</li>)}</ul>
+                <ul className="version-list" style={{ marginTop: 0 }}>{data.pending.map((p) => <li key={p.id}>{p.fullName}<i className="vs" />{p.code}{p.lastVersionNo ? <><i className="vs" />đã đồng ý v{p.lastVersionNo}</> : <><i className="vs" />chưa đồng ý bản nào</>}</li>)}</ul>
               </> : <p className="muted" style={{ fontSize: 12.5, margin: "12px 0 0" }}>Mọi tài khoản đã đồng ý phiên bản hiện hành.</p>}
             </div>
           </article>
           <article className="card"><div className="card-head"><h3>Lịch sử phiên bản</h3></div><div className="detail-list">
-            {data.versions.map((v) => <div key={v.id} className="detail-row"><span>v{v.versionNo} · {fmtDate(v.publishedAt)}</span><b>{num(v.consents)} lượt đồng ý</b></div>)}
+            {data.versions.map((v) => <div key={v.id} className="detail-row"><span>v{v.versionNo}<i className="vs" />{fmtDate(v.publishedAt)}</span><b>{num(v.consents)} lượt đồng ý</b></div>)}
           </div></article>
         </div>
       </div>

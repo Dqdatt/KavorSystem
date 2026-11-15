@@ -208,7 +208,7 @@ export function EmployeeProfile({ id }: { id: string }) {
         <Section title="Thiết bị chấm công">
           {!e.devices.length ? <p className="muted" style={{ fontSize: 12.5, margin: 0 }}>Chưa đăng ký thiết bị.</p> : e.devices.map((d) => (
             <div key={d.id} className="kv-spread">
-              <span><b>{d.deviceModel ?? d.platform}</b> · {d.osVersion ?? d.platform}<small>Đăng ký {fmtDateTime(d.registeredAt, tz)}{d.decisionReason ? ` · ${d.decisionReason}` : ""}</small></span>
+              <span><b>{d.deviceModel ?? d.platform}</b><i className="vs" />{d.osVersion ?? d.platform}<small>Đăng ký {fmtDateTime(d.registeredAt, tz)}{d.decisionReason ? <><i className="vs" />{d.decisionReason}</> : null}</small></span>
               <span className="row-actions"><Status v={DEVICE[d.status]} />
                 {can(me, "attendance.device.manage") && d.status === "pending" ? <><button className="btn small primary" disabled={!!busy} onClick={() => void deviceAct(d, "approve")}>Duyệt</button><button className="btn small" onClick={() => void deviceAct(d, "reject")}>Từ chối</button></> : null}
                 {can(me, "attendance.device.manage") && d.status === "active" ? <button className="btn small" onClick={() => void deviceAct(d, "revoke")}>Thu hồi</button> : null}

@@ -912,7 +912,7 @@ export type RequestItem = RequestItemBase & ({ type: "explanation"; payload: Exp
 type RequestItemBase = {
   id: string; no: string; status: RequestStatus; submittedAt: string; completedAt: string | null;
   workDate: string | null;
-  requester: { id: string; code: string; fullName: string; department: string | null };
+  requester: { id: string; code: string; fullName: string; department: string | null; position: string | null };
   steps: RequestStep[];
   /* Giờ chấm công gốc của ngày được giải trình, để người duyệt so sánh */
   day: { rawIn: string | null; rawOut: string | null; shift: string | null } | null;
@@ -1108,7 +1108,8 @@ export type AnnouncementAdmin = {
 };
 /* units: chi nhánh/phòng ban để chọn người nhận */
 export type AnnouncementBoard = { items: AnnouncementAdmin[]; units: AnnouncementUnit[] };
-export type AnnouncementReader = { id: string; code: string; fullName: string; department: string | null; readAt: string | null };
+/* hasApp: nhân viên đã kích hoạt tài khoản app (có user), kể cả đang bị khóa */
+export type AnnouncementReader = { id: string; code: string; fullName: string; department: string | null; hasApp: boolean; readAt: string | null };
 export type AnnouncementDetail = { item: AnnouncementAdmin; readers: AnnouncementReader[] };
 export type AnnouncementInput = {
   category: AnnouncementCategory; title: string; body: string; authorLabel: string;

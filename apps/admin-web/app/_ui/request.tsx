@@ -86,7 +86,7 @@ function useRequestDetail(r: RequestItem, onDone: (r: RequestItem) => void, onCl
   rows.push(["Lý do", r.payload.reason || "—"]);
   if (r.type === "explanation" && r.day) rows.push(["Chấm công gốc", `${r.day.shift ?? "—"} | vào ${r.day.rawIn ?? "--:--"} | ra ${r.day.rawOut ?? "--:--"}`]);
   if (r.attachments.length || r.attachmentRequired) rows.push(["Minh chứng", r.attachments.length ? r.attachments.map((a) => (
-    <a key={a.id} className="btn small" style={{ margin: "0 0 4px 6px" }} href={`/api/requests/${r.id}/attachments/${a.id}`} target="_blank" rel="noreferrer"><Icon name="download" /> {a.name} · {kb(a.size)}</a>
+    <a key={a.id} className="btn small" style={{ margin: "0 0 4px 6px" }} href={`/api/requests/${r.id}/attachments/${a.id}`} target="_blank" rel="noreferrer"><Icon name="download" /> {a.name}<i className="vs" />{kb(a.size)}</a>
   )) : <Status v={["Bắt buộc | nhân viên chưa đính kèm", "bad"]} />]);
   const body = (
     <div className="sc">
@@ -99,7 +99,7 @@ function useRequestDetail(r: RequestItem, onDone: (r: RequestItem) => void, onCl
       </div>
       {pending && sla[1] === "bad" ? <div className="note"><Icon name="alert" /><span><b>Đơn đã quá hạn xử lý {sla[0].replace(/^Quá /, "")}.</b>{cur?.dueAt ? ` Hạn của bước này là ${fmtDateTime(cur.dueAt, tz)}.` : ""} Nhân viên vẫn đang chờ kết quả.</span></div> : null}
       <Link className="inset rsp" href={`/employees/${r.requester.id}`}>
-        <Person name={r.requester.fullName} seed={r.requester.code} sub={`${r.requester.department ?? "—"} | ${r.requester.code}`} />
+        <Person name={r.requester.fullName} seed={r.requester.code} sub={[r.requester.position, r.requester.department ?? "—", r.requester.code].filter(Boolean).join(" | ")} />
         <span className="rw small sub">Xem hồ sơ<Icon name="chevR" size={14} /></span>
       </Link>
       <div className="rd-grid">

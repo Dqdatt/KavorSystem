@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { IMPORT_FIELDS, MANAGEMENT_TIERS, type ManagementTier, type EmployeeImportResult, type EmployeeImportRow, type ImportField, type ImportOptions, type ImportUnit } from "@kavor/contracts";
 import { Hint, Select } from "@kavor/web-ui";
 import { call } from "../_lib/client";
-import { Empty, ErrorLine, Field, Icon, Modal, Status, useAction } from "./kit";
+import { vs, Empty, ErrorLine, Field, Icon, Modal, Status, useAction } from "./kit";
 
 const ACTION: Record<EmployeeImportRow["action"], [string, string]> = { create: ["Tạo mới", ""], exists: ["Đã có — bỏ qua", "muted"], fill: ["Bổ sung hồ sơ", "info"], skip: ["Bỏ qua", "muted"], error: ["Lỗi", "bad"] };
 const SOURCE: Record<string, string> = { manual: "bạn chọn", saved: "đã nhớ", header: "theo tên cột", content: "theo nội dung" };
@@ -36,7 +36,7 @@ function UnitTable({ title, units, catalog, onPick, onTier }: {
         <th>Trong file</th><th className="num" style={{ width: 70 }}>Người</th><th style={{ width: onTier ? "38%" : "55%" }}>Kavor dùng</th>{onTier ? <th style={{ width: "24%" }}>Cấp</th> : null}</tr></thead><tbody>
         {open.map((u) => (
           <tr key={u.key}>
-            <td style={{ whiteSpace: "normal" }}>{u.value}{u.suggested ? <span className="text-amber" style={{ fontSize: 12 }}> · Kavor đoán, kiểm tra lại</span> : null}</td>
+            <td style={{ whiteSpace: "normal" }}>{u.value}{u.suggested ? <span className="text-amber" style={{ fontSize: 12 }}><i className="vs" />Kavor đoán, kiểm tra lại</span> : null}</td>
             <td className="num">{u.live}{u.rows > u.live ? <span className="muted" style={{ fontSize: 12 }}> +{u.rows - u.live} nghỉ</span> : null}</td>
             <td style={{ whiteSpace: "normal" }}>{u.existing ? <span>{u.existing.name} ({u.existing.code})</span> : <Select value={u.choice} onChange={(e) => onPick(u.key, e.target.value)} aria-label={`${title} cho ${u.value}`}>
               <option value={`new:${u.key}`}>Tạo mới “{u.value}” ({u.newCode})</option>
@@ -123,7 +123,7 @@ export function ImportModal({ onClose, onDone }: { onClose: () => void; onDone: 
       {busy === "preview" || busy === "apply" ? <Working kind={busy} count={r?.totals.create} /> : null}
       {r && a ? <div style={busy ? { opacity: 0.45, pointerEvents: "none" } : undefined}>
         <div className="card detail-list" style={{ marginTop: 12 }}>
-          <div className="detail-row"><span>{r.fileName}</span><b>{r.totals.create - r.totals.createLeft} tạo mới{r.totals.createLeft ? ` (+${r.totals.createLeft} đã nghỉ)` : ""} {r.totals.fill ? ` · ${r.totals.fill} bổ sung hồ sơ` : ""} · {r.totals.exists} đã có · {r.totals.skip} bỏ qua · <span className={r.totals.error ? "text-red" : ""}>{r.totals.error} lỗi</span>{r.totals.warning ? <span className="text-amber"> · {r.totals.warning} cần xem</span> : null}</b></div>
+          <div className="detail-row"><span>{r.fileName}</span><b>{r.totals.create - r.totals.createLeft} tạo mới{r.totals.createLeft ? ` (+${r.totals.createLeft} đã nghỉ)` : ""} {r.totals.fill ? <><i className="vs" />{r.totals.fill} bổ sung hồ sơ</> : null}<i className="vs" />{r.totals.exists} đã có<i className="vs" />{r.totals.skip} bỏ qua<i className="vs" /><span className={r.totals.error ? "text-red" : ""}>{r.totals.error} lỗi</span>{r.totals.warning ? <span className="text-amber"><i className="vs" />{r.totals.warning} cần xem</span> : null}</b></div>
           <div className="detail-row"><span>Gói {r.capacity.planName}</span><b>{r.capacity.employees} + {r.totals.create - r.totals.createLeft} / {r.capacity.limit} nhân sự</b></div>
           <label className="detail-row check-row" style={{ margin: 0 }}><span><input type="checkbox" checked={opts.includeLeft !== false} disabled={!!busy} onChange={(e) => change({ ...opts, includeLeft: e.target.checked ? undefined : false })} /> Nhập cả nhân viên đã nghỉ để tra cứu</span><b className="muted" style={{ fontWeight: 500 }}>không tính vào gói, không gửi lời mời</b></label>
         </div>
@@ -135,7 +135,7 @@ export function ImportModal({ onClose, onDone }: { onClose: () => void; onDone: 
           {a.sheets.map((s) => (
             <label key={s.name} className="check-row" style={{ fontSize: 12, margin: "6px 0 0" }}>
               <input type="checkbox" checked={s.included} disabled={!s.selectable || !!busy} onChange={(e) => change({ ...opts, sheets: { ...opts.sheets, [s.name]: e.target.checked } })} />
-              {s.name} <span className="muted">· {s.rows} dòng{s.note ? ` · ${s.note}` : ""}</span>
+              {s.name}<span className="muted"><i className="vs" />{s.rows} dòng{s.note ? <><i className="vs" />{s.note}</> : null}</span>
             </label>
           ))}
         </div> : null}
@@ -154,7 +154,7 @@ export function ImportModal({ onClose, onDone }: { onClose: () => void; onDone: 
           <div className="table-wrap" style={{ marginTop: 8, maxHeight: 280, overflow: "auto" }}><table className="data-table" style={{ tableLayout: "fixed", width: "100%", minWidth: 0 }}><thead><tr><th>Cột trong file</th><th>Ví dụ</th><th>Kavor hiểu là</th></tr></thead><tbody>
             {cols.map((c) => (
               <tr key={c.key}>
-                <td>{c.header}</td><td className="muted" style={{ fontSize: 12, whiteSpace: "normal" }}>{c.samples.join(" · ") || "—"}</td>
+                <td>{c.header}</td><td className="muted" style={{ fontSize: 12, whiteSpace: "normal" }}>{vs(c.samples.join(" | ") || "—")}</td>
                 <td style={{ width: "40%", whiteSpace: "normal" }}><Select value={c.field ?? ""} onChange={(e) => change({ ...opts, columns: { ...opts.columns, [c.key]: e.target.value as ImportField | "" } })} aria-label={`Trường cho cột ${c.header}`}>
                   <option value="">Không dùng</option>
                   {(Object.keys(IMPORT_FIELDS) as ImportField[]).map((f) => <option key={f} value={f}>{IMPORT_FIELDS[f]}</option>)}
@@ -175,10 +175,10 @@ export function ImportModal({ onClose, onDone }: { onClose: () => void; onDone: 
             <option value="warning">Cần xem ({r.totals.warning})</option><option value="left">Đã nghỉ — lưu tra cứu ({r.totals.createLeft})</option><option value="skip">Bỏ qua / đã có ({r.totals.skip + r.totals.exists})</option>
           </Select>
         </div>
-        {rows.length ? <div className="table-wrap" style={{ marginTop: 8, maxHeight: 360, overflow: "auto" }}><table className="data-table" style={{ minWidth: 0 }}><thead><tr><th>Sheet · dòng</th><th>Mã · họ tên</th><th>Phòng ban · chức danh</th><th>Kết quả</th></tr></thead><tbody>
+        {rows.length ? <div className="table-wrap" style={{ marginTop: 8, maxHeight: 360, overflow: "auto" }}><table className="data-table" style={{ minWidth: 0 }}><thead><tr><th>Sheet / dòng</th><th>Mã / họ tên</th><th>Phòng ban / chức danh</th><th>Kết quả</th></tr></thead><tbody>
           {rows.map((x) => (
             <tr key={`${x.sheet}:${x.line}`}>
-              <td className="muted" style={{ fontSize: 12 }}>{x.sheet} · {x.line}</td><td><b>{x.code || "—"}</b> · {x.fullName || "—"}</td><td style={{ whiteSpace: "normal" }}>{x.department ?? "—"} · {x.position ?? "—"}{x.manager ? <div className="muted" style={{ fontSize: 12 }}>Quản lý: {x.manager}</div> : null}</td>
+              <td className="muted" style={{ fontSize: 12 }}>{x.sheet}<i className="vs" />{x.line}</td><td><b>{x.code || "—"}</b><i className="vs" />{x.fullName || "—"}</td><td style={{ whiteSpace: "normal" }}>{x.department ?? "—"}<i className="vs" />{x.position ?? "—"}{x.manager ? <div className="muted" style={{ fontSize: 12 }}>Quản lý: {x.manager}</div> : null}</td>
               <td style={{ whiteSpace: "normal" }}><Status v={x.action === "create" && x.left ? ["Lưu — đã nghỉ", "violet"] : ACTION[x.action]} />
                 {x.errors.length ? <div className="text-red" style={{ fontSize: 12, marginTop: 3 }}>{x.errors.join("; ")}</div> : null}
                 {x.warnings.length ? <div className={x.action === "create" ? "text-amber" : "muted"} style={{ fontSize: 12, marginTop: 3 }}>{x.warnings.join("; ")}</div> : null}</td>

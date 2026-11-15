@@ -31,7 +31,7 @@ export function SupportBanner() {
   const a = data.active[0];
   if (a) return (
     <div className="banner support-banner"><span className="banner-icon"><Icon name="lock" /></span>
-      <span className="banner-copy"><b>Kavor đang hỗ trợ công ty · {a.operator} · đến {fmtTime(a.expiresAt, me.tenant.timezone)}</b>
+      <span className="banner-copy"><b>Kavor đang hỗ trợ công ty<i className="vs" />{a.operator}<i className="vs" />đến {fmtTime(a.expiresAt, me.tenant.timezone)}</b>
         <span>Chỉ đọc: {scopeText(a.scopes)}. Mọi lần xem đều ghi vào nhật ký hoạt động.</span></span>
       {data.canApprove ? <Link className="btn" href="/settings?tab=support">Xem / thu hồi <Icon name="arrow" /></Link> : null}</div>
   );
@@ -55,12 +55,12 @@ export function SupportPanel() {
       <article className="card">
         <div className="card-head"><div><h3>Yêu cầu hỗ trợ từ Kavor<Hint text="Nhân viên Kavor không có quyền mặc định vào dữ liệu công ty. Mỗi yêu cầu nêu mã phiếu hỗ trợ, lý do, phạm vi và thời hạn; quyền tự hết hạn." /></h3></div></div>
         {data && !data.length ? <Empty title="Chưa có yêu cầu nào" text="Khi bạn liên hệ Kavor hỗ trợ, kỹ sư sẽ gửi yêu cầu truy cập để bạn duyệt tại đây." /> : (
-          <div className="table-wrap"><table className="data-table" style={{ minWidth: 900 }}><thead><tr><th>Kỹ sư Kavor</th><th>Phiếu hỗ trợ · lý do</th><th>Phạm vi (chỉ đọc)</th><th>Thời hạn</th><th>Trạng thái</th><th /></tr></thead><tbody>
+          <div className="table-wrap"><table className="data-table" style={{ minWidth: 900 }}><thead><tr><th>Kỹ sư Kavor</th><th>Phiếu hỗ trợ / lý do</th><th>Phạm vi (chỉ đọc)</th><th>Thời hạn</th><th>Trạng thái</th><th /></tr></thead><tbody>
             {!data && !error ? <SkeletonRows cols={6} rows={3} /> : null}
             {(data ?? []).map((s) => (
               <tr key={s.id}>
                 <td><b>{s.operator}</b><div className="muted" style={{ fontSize: 12 }}>gửi {fmtDateTime(s.requestedAt, tz)}</div></td>
-                <td style={{ whiteSpace: "normal", maxWidth: 280 }}><b>{s.ticket}</b> · {s.reason}</td>
+                <td style={{ whiteSpace: "normal", maxWidth: 280 }}><b>{s.ticket}</b><i className="vs" />{s.reason}</td>
                 <td style={{ whiteSpace: "normal" }}>{scopeText(s.scopes)}</td>
                 <td className="nowrap">{s.startsAt ? `${fmtTime(s.startsAt, tz)}–${fmtTime(s.endedAt ?? s.expiresAt, tz)}` : `${s.minutes} phút`}{s.decidedBy ? <div className="muted" style={{ fontSize: 12 }}>{s.decidedBy}</div> : null}</td>
                 <td><Status v={SSTATUS[s.status]} /></td>

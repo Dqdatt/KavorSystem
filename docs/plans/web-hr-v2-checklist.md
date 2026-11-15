@@ -42,13 +42,13 @@ Sổ phép nhân viên (P1394), chi tiết bài + người đọc (P1479), ma tr
 Bản online đã có `64b9461` và `127dbc4` (kiểm chuỗi trong JS đã build); API `/health` ok.
 | Màn | Kết quả |
 |---|---|
-| Đơn › chi tiết + luồng duyệt | Gần giống. Đã sửa: "Lý do" đứng trước "Chấm công gốc". Prototype có chức danh trong thẻ người gửi; API `requester` chưa có chức danh |
+| Đơn › chi tiết + luồng duyệt | Gần giống. Đã sửa: "Lý do" đứng trước "Chấm công gốc". Đã sửa: thẻ người gửi "chức danh | phòng ban | mã" (API `requester.position`) |
 | Cơ cấu › chi tiết đơn vị | Đã sửa: dòng phụ dùng vạch `|` (cả gốc sơ đồ "Pháp nhân | N nhân sự") |
-| Bản tin › chi tiết bài | Đã sửa: đầu = tiêu đề bài + "loại | người đăng | xuất bản …"; nhãn trạng thái và nút Sửa/Gỡ cùng một hàng; dòng "đã gửi" nằm trong khối Đã đọc; danh sách Chưa đọc bỏ nhãn "Chưa đọc" thừa. Chưa có: "Chưa có app" từng người, nút "Nhắc" (việc riêng), ghi chú mời kích hoạt |
+| Bản tin › chi tiết bài | Đã sửa: đầu = tiêu đề bài + "loại | người đăng | xuất bản …"; nhãn trạng thái và nút Sửa/Gỡ cùng một hàng; dòng "đã gửi" nằm trong khối Đã đọc; danh sách Chưa đọc bỏ nhãn "Chưa đọc" thừa. Đã sửa: "Chưa có app" từng người (API `hasApp` = đã kích hoạt, kể cả đang khóa). Chưa có: nút "Nhắc" (việc riêng), ghi chú mời kích hoạt |
 | Tài liệu | Đã sửa nhãn "Lượt truy cập tuần này". Online chưa có tài liệu nào → chi tiết tài liệu so ở local |
 | Vai trò › ma trận quyền | Bố cục giống; số liệu khác do dữ liệu thật (vùng nhạy cảm, không đụng) |
 | Hồ sơ › Thuế và bảo hiểm | Đã sửa: "Người phụ thuộc" ngay sau MST, trống = "0"; dòng phụ người phụ thuộc dùng vạch |
-| Mọi trang | Web còn ~50 chỗ dùng "·" ở dòng phụ/tiêu đề, prototype dùng vạch `|` — đổi dần theo từng màn |
+| Mọi trang | Đã sửa: "·" ở dòng phụ → vạch (`vs()` / `<i className="vs" />`); tiêu đề hộp "X: Tên". Giữ "·" ở ô chọn (prototype cũng vậy), toast, tooltip |
 
 ## Đợt so local 15/11/2026 (hộp thoại thao tác, tài khoản thử HD0007)
 | Màn | Kết quả |
@@ -63,7 +63,7 @@ Bản online đã có `64b9461` và `127dbc4` (kiểm chuỗi trong JS đã buil
 | Form người phụ thuộc | Đã sửa: tiêu đề "Thêm người phụ thuộc: Tên", dòng phụ, "Họ và tên", "Mã số thuế" + Không bắt buộc, nút "Thêm người phụ thuộc". Web giữ "Đến tháng"; Quan hệ là ô chữ (prototype: chọn) |
 | Nhập file nhân viên | Lệch lớn: prototype 3 bước (tải mẫu, kéo thả, xem trước); web chỉ ô chọn file. Gộp với việc "Tải mẫu .xlsx" |
 | Mời kích hoạt | Đã sửa: tiêu đề, dòng phụ "N nhân viên…", ghi chú xanh, danh sách thẻ người (8 + "và N người khác"), nút "Gửi N lời mời" |
-| Chi tiết tài liệu | Chưa so: local và online đều chưa có tài liệu (cần tải một file thử) |
+| Chi tiết tài liệu | Đã sửa: đầu = tên tài liệu + "danh mục, nhân viên", khối khóa–giá trị (thêm Số hiệu, Phiên bản "N | tải lên"), note sắp hết hạn. Web giữ hàng nút trên (Mở, Tải phiên bản mới, Sửa, Gỡ) và bảng phiên bản; chưa có khung xem trước (prototype chỉ minh họa) |
 
 ## Màn đã có ở web (cần so giao diện)
 Thanh bên, promo thiết lập, Tìm nhanh, Thông báo, Menu tài khoản, Đăng nhập, Tổng quan, Mời kích hoạt, Nhân viên (+ nhóm phòng ban, nhập file, thêm), Hồ sơ 7 tab (+ sửa, đổi lương, người phụ thuộc), Chấm công tháng một người, tải tài liệu, Lịch sử, Cơ cấu (sơ đồ, đơn vị, chức danh, chi tiết, thêm), Chấm công (hôm nay, bảng tháng, khóa kỳ, OT, bản ghi từ chối, thiết bị), Ca & địa điểm (tạo ca, địa điểm, áp dụng), Nghỉ phép 3 tab, Đơn 3 tab + chi tiết + luồng duyệt, Lương (bảng kỳ này, chốt, mức lương, phụ cấp, tính thử), Tài liệu 3 tab + danh mục, Bản tin 5 tab + tạo/xuất bản, Vai trò (+ gán), Cài đặt (doanh nghiệp, thiết lập, kỳ công & lương, quy định, ngày lễ, dữ liệu cá nhân, hỗ trợ).

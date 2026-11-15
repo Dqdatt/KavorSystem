@@ -140,7 +140,7 @@ function WorkflowModal({ onClose }: { onClose: () => void }) {
     await run("save", async () => setData(await call<WorkflowDef[]>("POST", `workflows/${type}/versions`, { steps: list, effectiveFrom: from, note: note || null })), "Đã lưu luồng duyệt mới");
   }
   return (
-    <Modal wide title={`Luồng duyệt · ${REQUEST_TYPE[type]}`} sub="Đơn đã gửi giữ luồng lúc gửi; luồng mới áp dụng cho đơn gửi từ ngày hiệu lực." onClose={onClose}
+    <Modal wide title={`Luồng duyệt: ${REQUEST_TYPE[type]}`} sub="Đơn đã gửi giữ luồng lúc gửi; luồng mới áp dụng cho đơn gửi từ ngày hiệu lực." onClose={onClose}
       foot={<><button className="btn ghost" onClick={onClose}>Đóng</button>{manage ? <button className="btn primary" disabled={!!busy || !steps} onClick={save}>{busy ? "Đang lưu…" : "Lưu phiên bản mới"}</button> : null}</>}>
       {error ? <LoadError error={error} retry={reload} /> : null}
       <div className="toolbar" style={{ padding: "0 0 10px" }}>

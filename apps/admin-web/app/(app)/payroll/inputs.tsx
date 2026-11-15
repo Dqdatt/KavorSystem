@@ -53,7 +53,7 @@ export function Inputs({ tabs }: { tabs: ReactNode }) {
       {s && !s.period.locked ? <div className="note-amber" style={{ marginBottom: 12 }}>Kỳ công chưa khóa nên số công còn thay đổi. Khóa ở <b>Chấm công → Bảng công tháng</b> rồi mới chốt.</div> : null}
       {s?.finalized ? (
         <div className="note-soft" style={{ marginBottom: 12, display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-          <span>{s.source === "final" ? "Đang xem bản đã chốt" : "Đang xem dữ liệu hiện tại (chưa chốt)"} · chốt lần {s.finalized.versions} lúc {fmtDateTime(s.finalized.at, me.tenant.timezone)}{s.finalized.by ? ` bởi ${s.finalized.by}` : ""}{s.finalized.note ? ` — ${s.finalized.note}` : ""}</span>
+          <span>{s.source === "final" ? "Đang xem bản đã chốt" : "Đang xem dữ liệu hiện tại (chưa chốt)"}<i className="vs" />chốt lần {s.finalized.versions} lúc {fmtDateTime(s.finalized.at, me.tenant.timezone)}{s.finalized.by ? ` bởi ${s.finalized.by}` : ""}{s.finalized.note ? ` — ${s.finalized.note}` : ""}</span>
           <button className="btn small" style={{ marginLeft: "auto" }} onClick={() => setLive(s.source === "final")}>{s.source === "final" ? "Xem dữ liệu hiện tại" : "Xem bản đã chốt"}</button>
         </div>
       ) : null}
@@ -93,7 +93,7 @@ function Row({ r, rates, cols, lumpSum }: { r: PayrollInputRow; rates: string[];
       <td>{EMPLOYMENT[r.employmentType]}</td>
       <td className="num">{r.baseSalary !== null ? <b>{money(r.baseSalary + r.allowance)}</b> : <span className="text-red">Chưa nhập</span>}
         {r.segments.length > 1 ? r.segments.map((g) => <div key={g.from} className="muted nowrap" style={{ fontSize: 12 }}>
-          {fmtDate(g.from).slice(0, 5)}–{fmtDate(g.to).slice(0, 5)}: {g.baseSalary !== null ? money(g.baseSalary + g.allowance) : "—"} · {EMPLOYMENT[g.employmentType]} · {num(g.credited)} công</div>) : null}</td>
+          {fmtDate(g.from).slice(0, 5)}–{fmtDate(g.to).slice(0, 5)}: {g.baseSalary !== null ? money(g.baseSalary + g.allowance) : "—"}<i className="vs" />{EMPLOYMENT[g.employmentType]}<i className="vs" />{num(g.credited)} công</div>) : null}</td>
       <td className="num">{r.baseSalary !== null ? money(r.baseSalary) : "—"}</td>
       <td className="num">{r.insuranceSalary !== null ? money(r.insuranceSalary) : <span className="muted">= lương CB</span>}</td>
       {cols.map((c) => { const v = r.items?.find((x) => x.itemId === c.id)?.amount; return <td key={c.id} className="num">{v ? money(v) : "—"}</td>; })}

@@ -520,12 +520,13 @@ export class RequestsService {
     const [{ data: es }, { data: actors }, { data: deps }] = await Promise.all([
       db.from("employees").select("id, employee_code, full_name").in("id", [...empIds]),
       actorIds.length ? db.from("employees").select("user_id, full_name").eq("tenant_id", v.tenantId).in("user_id", actorIds) : Promise.resolve({ data: [] }),
-      db.from("employee_assignments").select("employee_id, effective_to, departments(name)").eq("tenant_id", v.tenantId).eq("is_primary", true).in("employee_id", rows.map((r) => r.requester_employee_id)).order("effective_from", { ascending: false }),
+      db.from("employee_assignments").select("employee_id, effective_to, departments(name), positions(name)").eq("tenant_id", v.tenantId).eq("is_primary", true).in("employee_id", rows.map((r) => r.requester_employee_id)).order("effective_from", { ascending: false }),
     ]);
     const emp = new Map(((es ?? []) as Array<{ id: string; employee_code: string; full_name: string }>).map((e) => [e.id, e]));
     const actor = new Map(((actors ?? []) as Array<{ user_id: string; full_name: string }>).map((e) => [e.user_id, e.full_name]));
-    const dept = new Map<string, string>();
-    for (const d of (deps ?? []) as unknown as Array<{ employee_id: string; effective_to: string | null; departments: { name: string } | null }>) if (!d.effective_to && !dept.has(d.employee_id)) dept.set(d.employee_id, d.departments?.name ?? "");
+    const dept = new Map<string, { department: string | null; position: string | null }>();
+    for (const d of (deps ?? []) as unknown as Array<{ employee_id: string; effective_to: string | null; departments: { name: string } | null; positions: { name: string } | null }>)
+      if (!d.effective_to && !dept.has(d.employee_id)) dept.set(d.employee_id, { department: d.departments?.name || null, position: d.positions?.name || null });
     const ver = new Map(((vs ?? []) as Array<{ request_id: string; version_no: number; payload: ExplanationPayload | LeavePayload | OvertimePayload | AdvancePayload; policy_snapshot: { attachmentRequired?: boolean; day?: { rawIn: string | null; rawOut: string | null; shift: { name: string; start: string; end: string } | null } } }>)
       .map((x) => [`${x.request_id}|${x.version_no}`, x]));
     const sc = scPre ?? (tasks.some((t) => t.resolver !== "direct_manager" && t.status === "pending") ? await this.scopes(db, v) : { hr: new Set<string>(), payroll: new Set<string>() });
@@ -585,7 +586,7 @@ export class RequestsService {
         : { type: "explanation" as const, payload: (x?.payload ?? { kind: "other", clockIn: null, clockOut: null, reason: "" }) as ExplanationPayload };
       return {
         id: r.id, no: r.request_no, ...typed, status: r.status, submittedAt: r.submitted_at, completedAt: r.completed_at, workDate: r.work_date,
-        requester: { id: r.requester_employee_id, code: e?.employee_code ?? "", fullName: e?.full_name ?? "—", department: dept.get(r.requester_employee_id) || null },
+        requester: { id: r.requester_employee_id, code: e?.employee_code ?? "", fullName: e?.full_name ?? "—", department: dept.get(r.requester_employee_id)?.department ?? null, position: dept.get(r.requester_employee_id)?.position ?? null },
         steps, day: day ? { rawIn: day.rawIn, rawOut: day.rawOut, shift: day.shift ? `${day.shift.name} ${day.shift.start}–${day.shift.end}` : null } : null,
         myTaskId: mine?.id ?? null, canCancel: r.status === "pending" && r.requester_employee_id === v.employeeId,
         attachments: atts.get(r.id) ?? [], attachmentRequired: !!x?.policy_snapshot?.attachmentRequired,

@@ -122,13 +122,13 @@ export class AnnouncementsService {
     for (let n = 0; n < ids.length; n += 200) {
       const chunk = ids.slice(n, n + 200);
       const [emps, deps] = await Promise.all([
-        ctx.db.from("employees").select("id, employee_code, full_name").eq("tenant_id", ctx.tenantId).in("id", chunk),
+        ctx.db.from("employees").select("id, employee_code, full_name, user_id").eq("tenant_id", ctx.tenantId).in("id", chunk),
         ctx.db.from("employee_assignments").select("employee_id, effective_to, departments(name)").eq("tenant_id", ctx.tenantId).eq("is_primary", true).in("employee_id", chunk).order("effective_from", { ascending: false }),
       ]);
       if (emps.error) dbError(emps.error);
       const dep = new Map<string, string>();
       for (const d of (deps.data ?? []) as unknown as Array<{ employee_id: string; effective_to: string | null; departments: { name: string } | null }>) if (!d.effective_to && !dep.has(d.employee_id)) dep.set(d.employee_id, d.departments?.name ?? "");
-      for (const e of emps.data ?? []) readers.push({ id: e.id as string, code: e.employee_code as string, fullName: e.full_name as string, department: dep.get(e.id as string) || null, readAt: readAt.get(e.id as string) ?? null });
+      for (const e of emps.data ?? []) readers.push({ id: e.id as string, code: e.employee_code as string, fullName: e.full_name as string, department: dep.get(e.id as string) || null, hasApp: !!e.user_id, readAt: readAt.get(e.id as string) ?? null });
     }
     readers.sort((a, b) => Number(!!a.readAt) - Number(!!b.readAt) || a.code.localeCompare(b.code));
     return { item: item!, readers };

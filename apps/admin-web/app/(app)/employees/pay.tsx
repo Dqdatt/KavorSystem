@@ -176,7 +176,7 @@ function TaxModal({ pay, name, onClose, save }: { pay: EmployeePay; name: string
     await run("save", async () => { await save({ taxCode: t || null, unionMember: union, probationContract: contract || null, commitment08: commit, withholdingRequested: requested }); onClose(); }, "Đã lưu thông tin thuế");
   }
   return (
-    <Modal title={`Thuế & công đoàn · ${name}`} sub="Kế toán dùng để tính thuế TNCN, bảo hiểm khi thử việc và đoàn phí công đoàn." onClose={onClose}
+    <Modal title={`Thuế & công đoàn: ${name}`} sub="Kế toán dùng để tính thuế TNCN, bảo hiểm khi thử việc và đoàn phí công đoàn." onClose={onClose}
       foot={<><button className="btn ghost" onClick={onClose}>Hủy</button><button className="btn primary" disabled={!!busy} onClick={() => void go()}>{busy ? "Đang lưu…" : "Lưu"}</button></>}>
       <div className="form-grid">
         <Field label="Mã số thuế cá nhân"><input value={tax} onChange={(e) => setTax(e.target.value)} placeholder="8012345678" /></Field>

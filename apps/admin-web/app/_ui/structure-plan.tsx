@@ -5,7 +5,7 @@ import { Fragment, useEffect, useState } from "react";
 import { MANAGEMENT_TIERS, MANAGEMENT_TIERS_EN, type ManagementTier, type StructureInput, type StructurePlan } from "@kavor/contracts";
 import { Select } from "@kavor/web-ui";
 import { call } from "../_lib/client";
-import { ErrorLine, Modal, useAction } from "./kit";
+import { vs, ErrorLine, Modal, useAction } from "./kit";
 
 const TIERS = [1, 2, 3, 4] as ManagementTier[];
 
@@ -26,7 +26,7 @@ export function StructureModal({ onClose, onDone }: { onClose: () => void; onDon
       foot={<><button className="btn ghost" onClick={onClose}>Đóng</button>
         <button className="btn primary" disabled={!plan || !!busy || (!n.tiers && !n.managers && !n.grants)} onClick={() => run("apply", async () => {
           await call("POST", "organization/structure/apply", input); onDone(); onClose();
-        }, `Đã đổi cấp ${n.tiers} chức danh, gán quản lý ${n.managers} người, cấp quyền ${n.grants} người`)}>{busy === "apply" ? "Đang áp dụng…" : `Áp dụng: ${n.tiers} chức danh · ${n.managers} người · ${n.grants} quyền`}</button></>}>
+        }, `Đã đổi cấp ${n.tiers} chức danh, gán quản lý ${n.managers} người, cấp quyền ${n.grants} người`)}>{busy === "apply" ? "Đang áp dụng…" : vs(`Áp dụng: ${n.tiers} chức danh | ${n.managers} người | ${n.grants} quyền`)}</button></>}>
       {busy && !plan ? <div className="card" role="status" style={{ padding: 16, display: "grid", gap: 10 }}><b>Kavor đang phân tích cơ cấu…</b><div className="progress indeterminate"><i /></div></div> : null}
       <ErrorLine text={err} />
       {plan ? <div style={busy ? { opacity: 0.5, pointerEvents: "none" } : undefined}>
@@ -66,7 +66,7 @@ export function StructureModal({ onClose, onDone }: { onClose: () => void; onDon
                 <tr>
                   <td>{r.change || skipped ? <input type="checkbox" checked={!skipped} aria-label={`Áp dụng cho ${r.name}`}
                     onChange={(e) => load({ ...input, skip: e.target.checked ? input.skip.filter((x) => x !== r.employeeId) : [...input.skip, r.employeeId] })} /> : null}</td>
-                  <td style={{ whiteSpace: "normal" }}><b>{r.name}</b><div className="muted" style={{ fontSize: 12 }}>{r.position ?? "—"} · {r.tier ? MANAGEMENT_TIERS[r.tier] : "Nhân viên"}</div></td>
+                  <td style={{ whiteSpace: "normal" }}><b>{r.name}</b><div className="muted" style={{ fontSize: 12 }}>{r.position ?? "—"}<i className="vs" />{r.tier ? MANAGEMENT_TIERS[r.tier] : "Nhân viên"}</div></td>
                   <td style={{ whiteSpace: "normal" }} className={r.current && !r.currentOk ? "text-red" : r.current ? "" : "muted"}>{r.current?.name ?? "Chưa có"}{r.current && !r.currentOk ? <div style={{ fontSize: 12 }}>sai cấp</div> : null}</td>
                   <td style={{ whiteSpace: "normal" }}>{r.proposed && (r.change || skipped) ? <b>{r.proposed.name}</b> : r.proposed ? <span className="muted">{r.proposed.name}</span> : <span className="muted">—</span>}
                     {r.note ? <div className={r.proposed ? "muted" : "text-amber"} style={{ fontSize: 12 }}>{r.note}</div> : null}</td>

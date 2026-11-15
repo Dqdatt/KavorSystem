@@ -7,7 +7,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { DOCUMENT_CATEGORIES, type DocumentBoard, type DocumentCategory, type DocumentDetail, type DocumentExpiry, type DocumentMeta,
   type DocumentVisibility, type ChecklistGaps, type EmployeeDocument, type EmployeeListItem } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
-import { vs, PageActions, Drawer, Empty, ErrorLine, Field, Icon, LoadError, Modal, MoreMenu, Person, Status, fmtDate, fmtDateTime, num, useAction, useMe } from "../../_ui/kit";
+import { vs, PageActions, Dl, Drawer, Empty, ErrorLine, Field, Icon, LoadError, Modal, MoreMenu, Person, Status, fmtDate, fmtDateTime, num, useAction, useMe } from "../../_ui/kit";
 import Link from "next/link";
 import { ReasonModal } from "../../_ui/reason-modal";
 import { ChecklistCatalog } from "./checklist";
@@ -142,7 +142,7 @@ function DetailDrawer({ id, onClose, onChanged }: { id: string; onClose: () => v
   const done = (x: DocumentDetail) => { setData(x); onChanged(); };
   const a = d?.item;
   return (
-    <Drawer onClose={onClose} head={<><div><b>Chi tiết tài liệu</b><div className="muted">{a ? vs(`${DOCUMENT_CATEGORIES[a.category]} | v${a.current.versionNo}`) : "Đang tải…"}</div></div>
+    <Drawer onClose={onClose} head={<><div><b>{a ? a.title : "Chi tiết tài liệu"}</b><div className="muted">{a ? `${DOCUMENT_CATEGORIES[a.category]}, ${a.employee.fullName}` : "Đang tải…"}</div></div>
       {a ? <span style={{ marginLeft: "auto" }}><Status v={a.archivedAt ? ["Đã gỡ", "muted"] : VIS[a.visibility]} /></span> : null}</>}>
       <LoadError error={error} retry={reload} />
       {!a || !d ? (error ? null : <SkeletonLines lines={6} />) : (
@@ -153,22 +153,24 @@ function DetailDrawer({ id, onClose, onChanged }: { id: string; onClose: () => v
             {d.canManage ? <button className="btn small" onClick={() => setModal("edit")}>Sửa thông tin</button> : null}
             {d.canManage ? <button className="btn small danger" onClick={() => setModal("archive")}>Gỡ tài liệu</button> : null}
           </div>
-          <div className="profile-hero" style={{ paddingBottom: 12 }}><div><h3>{a.title}</h3><p>{[a.docNo, a.employee.fullName, a.employee.code].filter(Boolean).join(" · ")}</p></div></div>
-          <div className="card detail-list">
-            <div className="detail-row"><span>Nhân viên</span><b>{a.employee.fullName} · {a.employee.department ?? a.employee.code}</b></div>
-            <div className="detail-row"><span>Danh mục</span><b>{DOCUMENT_CATEGORIES[a.category]}</b></div>
-            <div className="detail-row"><span>Ngày hiệu lực</span><b>{fmtDate(a.issuedOn)}</b></div>
-            <div className="detail-row"><span>Hết hạn</span><b><Expiry d={a} /></b></div>
-            <div className="detail-row"><span>Quyền xem</span><b>{VIS[a.visibility][0]}</b></div>
-            <div className="detail-row"><span>Quét virus</span><b className="muted">{a.current.scanStatus === "not_scanned" ? "Chưa quét (chưa có dịch vụ)" : a.current.scanStatus === "clean" ? "Sạch" : "Có mã độc"}</b></div>
-            {a.archivedAt ? <div className="detail-row"><span>Đã gỡ</span><b>{fmtDateTime(a.archivedAt, tz)}{a.archiveReason ? ` — ${a.archiveReason}` : ""}</b></div> : null}
-          </div>
+          {a.expiry === "soon" || a.expiry === "expired" ? <div className="note-amber note-icon" style={{ marginBottom: 14 }}><Icon name="alert" /><span>{a.expiry === "soon" ? "Sắp hết hạn trong 30 ngày tới." : "Tài liệu đã hết hạn."}</span></div> : null}
+          <Dl rows={[
+            ["Danh mục", DOCUMENT_CATEGORIES[a.category]],
+            ["Nhân viên", <>{a.employee.fullName}<i className="vs" />{a.employee.department ?? a.employee.code}</>],
+            ...(a.docNo ? [["Số hiệu", a.docNo] as [string, string]] : []),
+            ["Hiệu lực", a.issuedOn ? fmtDate(a.issuedOn) : "—"],
+            ["Hết hạn", <Expiry d={a} />],
+            ["Quyền xem", VIS[a.visibility][0]],
+            ["Phiên bản", <>{a.current.versionNo}<i className="vs" />tải lên {fmtDate(a.current.createdAt)}</>],
+            ["Quét virus", <span className="muted">{a.current.scanStatus === "not_scanned" ? "Chưa quét (chưa có dịch vụ)" : a.current.scanStatus === "clean" ? "Sạch" : "Có mã độc"}</span>],
+            ...(a.archivedAt ? [["Đã gỡ", `${fmtDateTime(a.archivedAt, tz)}${a.archiveReason ? ` — ${a.archiveReason}` : ""}`] as [string, string]] : []),
+          ]} />
           <div className="drawer-section">
             <h4>Phiên bản ({num(d.versions.length)})</h4>
             <div className="table-wrap"><table className="data-table compact"><tbody>
               {d.versions.map((v) => (
                 <tr key={v.id}>
-                  <td style={{ whiteSpace: "normal" }}><b>v{v.versionNo}</b> · {v.fileName}<div className="muted" style={{ fontSize: 12 }}>{fmtDateTime(v.createdAt, tz)} · {kb(v.size)}{v.note ? ` · ${v.note}` : ""}</div></td>
+                  <td style={{ whiteSpace: "normal" }}><b>v{v.versionNo}</b><i className="vs" />{v.fileName}<div className="muted" style={{ fontSize: 12 }}>{fmtDateTime(v.createdAt, tz)}<i className="vs" />{kb(v.size)}{v.note ? <><i className="vs" />{v.note}</> : null}</div></td>
                   <td style={{ textAlign: "right" }}><a className="btn small" href={`/api/documents/${a.id}/file?version=${v.id}`} target="_blank" rel="noreferrer">Mở</a></td>
                 </tr>
               ))}
@@ -211,7 +213,7 @@ function FilePick({ file, setFile }: { file: File | null; setFile: (f: File | nu
     <Field label="File" full hint="PDF hoặc ảnh PNG, JPEG, WebP; tối đa 5 MB.">
       <input ref={input} type="file" accept="application/pdf,image/png,image/jpeg,image/webp" hidden onChange={(e) => { setFile(e.target.files?.[0] ?? null); e.target.value = ""; }} />
       <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-        {file ? <span className="source-tag" style={{ marginLeft: 0 }}>{file.name} · {kb(file.size)}</span> : <span className="muted" style={{ fontSize: 12 }}>Chưa chọn file</span>}
+        {file ? <span className="source-tag" style={{ marginLeft: 0 }}>{file.name}<i className="vs" />{kb(file.size)}</span> : <span className="muted" style={{ fontSize: 12 }}>Chưa chọn file</span>}
         <button type="button" className="btn small" onClick={() => input.current?.click()}><Icon name="upload" /> {file ? "Chọn file khác" : "Chọn file"}</button>
       </div>
     </Field>
@@ -294,7 +296,7 @@ function EditModal({ d, onClose, onDone }: { d: EmployeeDocument; onClose: () =>
     await run("save", async () => { onDone(await call<DocumentDetail>("PATCH", `documents/${d.id}`, { ...f, docNo: f.docNo?.trim() || null })); onClose(); }, "Đã lưu thông tin tài liệu");
   }
   return (
-    <Modal wide title={`Sửa thông tin · ${d.employee.fullName}`} sub="Đổi sang “Chỉ HR” thì nhân viên không còn xem/tải được ngay." onClose={onClose}
+    <Modal wide title={`Sửa thông tin: ${d.employee.fullName}`} sub="Đổi sang “Chỉ HR” thì nhân viên không còn xem/tải được ngay." onClose={onClose}
       foot={<><button className="btn ghost" onClick={onClose}>Hủy</button><button className="btn primary" disabled={!!busy} onClick={() => void save()}>{busy ? "Đang lưu…" : "Lưu"}</button></>}>
       <div className="form-grid"><MetaFields f={f} setF={setF} /></div>
       <ErrorLine text={err} />

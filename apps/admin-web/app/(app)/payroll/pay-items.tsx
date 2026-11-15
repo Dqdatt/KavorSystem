@@ -45,7 +45,7 @@ export function PayItems({ tabs }: { tabs: ReactNode }) {
             {!l && !error ? <SkeletonRows cols={7} rows={5} /> : null}
             {(l?.items ?? []).map((x) => (
               <tr key={x.id} className={x.archived ? "muted" : undefined}>
-                <td><b>{x.name}</b><div className="muted" style={{ fontSize: 12 }}>{x.kind === "bonus" ? "Thưởng" : "Phụ cấp"}{x.note ? ` · ${x.note}` : ""}</div></td>
+                <td><b>{x.name}</b><div className="muted" style={{ fontSize: 12 }}>{x.kind === "bonus" ? "Thưởng" : "Phụ cấp"}{x.note ? <><i className="vs" />{x.note}</> : null}</div></td>
                 <td>{PAY_MODE[x.payMode]}</td>
                 <td>{x.insurable ? "Có" : "Không"}</td>
                 <td>{x.taxMode === "partial" ? (x.taxFreeCap ? `Miễn đến ${money(x.taxFreeCap)}` : "Miễn một phần") : TAX_MODE[x.taxMode]}</td>
@@ -85,7 +85,7 @@ function PayItemModal({ item, onClose, save }: { item: PayItem | null; onClose: 
     }, item ? "Đã lưu khoản" : "Đã thêm khoản");
   }
   return (
-    <Modal title={item ? `Sửa khoản · ${item.name}` : "Thêm khoản phụ cấp/thưởng"} sub="Số tiền của từng người nhập ở hồ sơ nhân viên; mức mặc định chỉ để điền sẵn khi nhập lương." onClose={onClose}
+    <Modal title={item ? `Sửa khoản: ${item.name}` : "Thêm khoản phụ cấp/thưởng"} sub="Số tiền của từng người nhập ở hồ sơ nhân viên; mức mặc định chỉ để điền sẵn khi nhập lương." onClose={onClose}
       foot={<><button className="btn ghost" onClick={onClose}>Hủy</button><button className="btn primary" disabled={!!busy} onClick={() => void go()}>{busy ? "Đang lưu…" : "Lưu"}</button></>}>
       <div className="form-grid">
         <Field label="Tên khoản"><input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="Phụ cấp ăn trưa" /></Field>

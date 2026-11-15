@@ -148,7 +148,7 @@ function ShiftForm({ shift, onClose, onSaved }: { shift: ShiftDef | null; onClos
     if (ok) onSaved();
   }
   return (
-    <Modal title={shift ? `Phiên bản mới · ${shift.name}` : "Tạo mẫu ca"} sub={shift ? "Áp dụng từ ngày hiệu lực; công trước ngày đó vẫn tính theo phiên bản cũ." : "Ca mới chưa áp dụng cho ai cho tới khi tạo áp dụng."} onClose={onClose}
+    <Modal title={shift ? `Phiên bản mới: ${shift.name}` : "Tạo mẫu ca"} sub={shift ? "Áp dụng từ ngày hiệu lực; công trước ngày đó vẫn tính theo phiên bản cũ." : "Ca mới chưa áp dụng cho ai cho tới khi tạo áp dụng."} onClose={onClose}
       foot={<><button className="btn ghost" onClick={onClose}>Hủy</button><button className="btn primary" disabled={!!busy} onClick={save}>{busy ? "Đang lưu…" : "Lưu"}</button></>}>
       <div className="form-grid">
         {!shift ? <><Field label="Mã ca"><input value={f.code} onChange={set("code")} placeholder="HC" /></Field><Field label="Tên ca"><input value={f.name} onChange={set("name")} placeholder="Ca hành chính" /></Field></> : null}
@@ -198,7 +198,7 @@ function LocationForm({ loc, onClose, onSaved }: { loc: LocationDef | null; onCl
     if (ok) onSaved();
   }
   return (
-    <Modal wide title={loc ? `Phiên bản mới · ${loc.name}` : "Thêm địa điểm chấm công"} sub="Bán kính nên ≥ 50 m vì GPS điện thoại thường lệch 5–30 m trong nhà." onClose={onClose}
+    <Modal wide title={loc ? `Phiên bản mới: ${loc.name}` : "Thêm địa điểm chấm công"} sub="Bán kính nên ≥ 50 m vì GPS điện thoại thường lệch 5–30 m trong nhà." onClose={onClose}
       foot={<><button className="btn ghost" onClick={onClose}>Hủy</button><button className="btn primary" disabled={!!busy} onClick={save}>{busy ? "Đang lưu…" : "Lưu"}</button></>}>
       <div className="form-grid">
         {!loc ? <>

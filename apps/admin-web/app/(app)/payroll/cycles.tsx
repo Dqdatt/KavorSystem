@@ -5,7 +5,7 @@
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import type { PayComponent, PayrollAction, PayrollComputePreview, PayrollBoard, PayrollCycle, PayrollDetail, PayrollImportOutcome, PayrollIssue, PayrollResult, PayrollStatus, PayrollTransition } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
-import { PageActions, Empty, ErrorLine, Field, Icon, LoadError, Modal, Person, Status, can, fmtDate, fmtDateTime, num, tenantToday, useAction, useMe, useToast } from "../../_ui/kit";
+import { vs, PageActions, Empty, ErrorLine, Field, Icon, LoadError, Modal, Person, Status, can, fmtDate, fmtDateTime, num, tenantToday, useAction, useMe, useToast } from "../../_ui/kit";
 import { ReasonModal } from "../../_ui/reason-modal";
 import { money } from "../../_ui/request";
 import { Select, Hint } from "@kavor/web-ui";
@@ -138,10 +138,10 @@ function Detail({ d, onTemplate }: { d: PayrollDetail; onTemplate: () => void })
 
       <div className="grid two-one">
         <article className="card">
-          <div className="card-head"><div><h3>Danh sách lỗi cần xử lý</h3><p>{idx >= ORDER.indexOf("approved") ? "Kết quả đã khóa sau duyệt · cảnh báo chỉ để đối chiếu" : "Phải về 0 trước khi duyệt payroll · cảnh báo đối chiếu không chặn"}</p></div>
+          <div className="card-head"><div><h3>Danh sách lỗi cần xử lý</h3><p>{vs(idx >= ORDER.indexOf("approved") ? "Kết quả đã khóa sau duyệt | cảnh báo chỉ để đối chiếu" : "Phải về 0 trước khi duyệt payroll | cảnh báo đối chiếu không chặn")}</p></div>
             {issues.length ? <button className="btn small" onClick={() => download(`payroll-${c.month}-loi.csv`, [["muc_do", "ma", "dong", "cot", "employee_code", "chi_tiet"], ...issues.map((i) => [i.severity === "error" ? "Lỗi" : "Cảnh báo", i.code, i.row, i.column, i.employeeCode, i.message])])}>Tải file lỗi</button> : null}
           </div>
-          {!issues.length ? <Empty title={latest ? "Không có lỗi hay cảnh báo" : "Chưa nhập file kết quả"} text={latest ? `Lần nhập ${fmtDateTime(latest.createdAt, tz)} · ${latest.fileName}` : "Bấm “Import kết quả” và chọn file CSV; hệ thống kiểm tra trước khi cập nhật kỳ lương."} /> : (
+          {!issues.length ? <Empty title={latest ? "Không có lỗi hay cảnh báo" : "Chưa nhập file kết quả"} text={latest ? `Lần nhập ${fmtDateTime(latest.createdAt, tz)} | ${latest.fileName}` : "Bấm “Import kết quả” và chọn file CSV; hệ thống kiểm tra trước khi cập nhật kỳ lương."} /> : (
             <div className="table-wrap" style={{ maxHeight: 360 }}><table className="data-table"><thead><tr><th>Nhân viên</th><th>Nhóm lỗi</th><th>Chi tiết</th><th>Nguồn</th></tr></thead><tbody>
               {issues.map((i, n) => <IssueRow key={n} i={i} name={i.employeeCode ? names.get(i.employeeCode) : undefined} />)}
             </tbody></table></div>
@@ -156,7 +156,7 @@ function Detail({ d, onTemplate }: { d: PayrollDetail; onTemplate: () => void })
                 {[...d.events].reverse().map((e) => (
                   <div key={e.id} className="detail-row" style={{ gridTemplateColumns: "1fr auto" }}>
                     <span style={{ whiteSpace: "normal" }}><b style={{ color: "var(--ink)", textAlign: "left" }}>{EVENT[e.action] ?? e.action}</b>
-                      {e.employeeId ? ` · ${byId.get(e.employeeId)?.fullName ?? "nhân viên"}` : ""}{e.actorUserId === me.userId ? " · bạn" : ""}{e.reason ? ` — ${e.reason}` : ""}</span>
+                      {e.employeeId ? <><i className="vs" />{byId.get(e.employeeId)?.fullName ?? "nhân viên"}</> : null}{e.actorUserId === me.userId ? <><i className="vs" />bạn</> : null}{e.reason ? ` — ${e.reason}` : ""}</span>
                     <span className="nowrap">{fmtDateTime(e.createdAt, tz)}</span>
                   </div>
                 ))}
@@ -169,7 +169,7 @@ function Detail({ d, onTemplate }: { d: PayrollDetail; onTemplate: () => void })
       <article className="card">
         <div className="toolbar">
           <div className="segmented" role="tablist">{([["all", `Tất cả (${num(d.results.length)})`], ["need", `Cần rà soát (${num(d.results.filter((r) => flagged.has(r.employee.code)).length)})`]] as const).map(([k, l]) => <button key={k} role="tab" aria-selected={only === k} className={only === k ? "active" : ""} onClick={() => setOnly(k)}>{l}</button>)}</div>
-          {applied ? <span className="muted" style={{ fontSize: 12 }}>Lần nhập {fmtDateTime(applied.createdAt, tz)} · {applied.fileName}</span> : null}
+          {applied ? <span className="muted" style={{ fontSize: 12 }}>Lần nhập {fmtDateTime(applied.createdAt, tz)}<i className="vs" />{applied.fileName}</span> : null}
           <span className="toolbar-spacer" />
           <label className="search"><Icon name="search" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Tìm nhân viên…" /></label>
         </div>
@@ -196,11 +196,11 @@ function Detail({ d, onTemplate }: { d: PayrollDetail; onTemplate: () => void })
             {d.batches.map((b) => (
               <tr key={b.id}>
                 <td className="nowrap">{fmtDateTime(b.createdAt, tz)}</td>
-                <td style={{ whiteSpace: "normal" }}>{b.fileName}{b.createdBy === me.userId ? <span className="muted"> · bạn</span> : null}</td>
+                <td style={{ whiteSpace: "normal" }}>{b.fileName}{b.createdBy === me.userId ? <span className="muted"><i className="vs" />bạn</span> : null}</td>
                 <td className="num">{num(b.totalRows)}</td>
                 <td className="num">{num(b.errorRows)}</td>
                 <td className="num">{num(b.warnings.length)}</td>
-                <td><Status v={b.applied ? (b.id === applied?.id ? ["Đang áp dụng", ""] : ["Đã áp, đã thay", "muted"]) : ["Có lỗi · không áp", "bad"]} /></td>
+                <td><Status v={b.applied ? (b.id === applied?.id ? ["Đang áp dụng", ""] : ["Đã áp, đã thay", "muted"]) : ["Có lỗi | không áp", "bad"]} /></td>
               </tr>
             ))}
           </tbody></table></div>
@@ -213,13 +213,13 @@ function Detail({ d, onTemplate }: { d: PayrollDetail; onTemplate: () => void })
 
 function IssueRow({ i, name }: { i: PayrollIssue; name: string | undefined }) {
   // "cột employee_code" của cảnh báo thiếu nhân viên (không có dòng) chỉ lặp lại cột Nhân viên
-  const where = [i.row ? `dòng ${i.row}` : null, i.column && (i.row || i.column !== "employee_code") ? `cột ${i.column}` : null].filter(Boolean).join(" · ");
+  const where = [i.row ? `dòng ${i.row}` : null, i.column && (i.row || i.column !== "employee_code") ? `cột ${i.column}` : null].filter(Boolean).join(" | ");
   return (
     <tr>
       <td>{i.employeeCode ? (name ? <Person name={name} seed={i.employeeCode} sub={i.employeeCode} /> : <b>{i.employeeCode}</b>) : <span className="muted">Cả file</span>}</td>
       <td><Status v={[group(i.code), i.severity === "error" ? "bad" : "warn"]} /></td>
       <td style={{ whiteSpace: "normal" }}>{i.message}</td>
-      <td className="muted" style={{ whiteSpace: "normal" }}>{i.severity === "error" ? "File CSV" : "Kavor"}{where ? ` · ${where}` : ""}</td>
+      <td className="muted" style={{ whiteSpace: "normal" }}>{i.severity === "error" ? "File CSV" : "Kavor"}{where ? <><i className="vs" />{vs(where)}</> : null}</td>
     </tr>
   );
 }
@@ -230,13 +230,13 @@ function ResultModal({ r, month, onClose }: { r: PayrollResult; month: string; o
     <>
       <div className="card-head no-line" style={{ padding: "10px 0 2px" }}><h3>{title}</h3></div>
       <div className="card detail-list">
-        {items.map((i) => <div key={i.id} className="detail-row"><span>{i.label ?? i.name} <span className="muted">· {i.code}</span></span><b>{money(i.amount)}</b></div>)}
+        {items.map((i) => <div key={i.id} className="detail-row"><span>{i.label ?? i.name}<span className="muted"><i className="vs" />{i.code}</span></span><b>{money(i.amount)}</b></div>)}
         <div className="detail-row"><span><b style={{ color: "var(--ink)" }}>Tổng</b></span><b>{money(total)}</b></div>
       </div>
     </>
   );
   return (
-    <Modal title={`Phiếu lương ${mm(month)} · ${r.employee.fullName}`} sub={`${r.employee.code}${r.workDays === null ? "" : ` · ${r.workDays.toLocaleString("vi-VN")} ngày công`}`} onClose={onClose}
+    <Modal title={`Phiếu lương ${mm(month)}: ${r.employee.fullName}`} sub={`${r.employee.code}${r.workDays === null ? "" : ` | ${r.workDays.toLocaleString("vi-VN")} ngày công`}`} onClose={onClose}
       foot={<button className="btn ghost" onClick={onClose}>Đóng</button>}>
       {list("Thu nhập", part("earning"), r.gross)}
       {list("Khấu trừ", part("deduction"), r.deduction)}
@@ -288,7 +288,7 @@ function ImportModal({ d, onClose, onDone }: { d: PayrollDetail; onClose: () => 
     });
   }
   return (
-    <Modal title="Nhập kết quả lương" sub={`Kỳ ${mm(d.cycle.month)} · ${d.components.length} thành phần lương của công ty.`} onClose={onClose}
+    <Modal title="Nhập kết quả lương" sub={`Kỳ ${mm(d.cycle.month)} | ${d.components.length} thành phần lương của công ty.`} onClose={onClose}
       foot={<><button className="btn ghost" onClick={onClose}>Hủy</button><button className="btn primary" disabled={!!busy || !file} onClick={() => void start()}>{busy ? "Đang kiểm tra…" : "Bắt đầu kiểm tra"}</button></>}>
       <div className="detail-list card">
         <div className="detail-row"><span>Nguồn</span><b>File CSV (UTF-8) xuất từ Google Sheets</b></div>
@@ -299,7 +299,7 @@ function ImportModal({ d, onClose, onDone }: { d: PayrollDetail; onClose: () => 
       <button type="button" onClick={() => input.current?.click()} style={{ display: "block", width: "100%", marginTop: 12, padding: 14, border: "1px dashed var(--line-strong)", borderRadius: 11, textAlign: "center", color: "var(--muted)", background: "transparent", cursor: "pointer", font: "inherit" }}>
         <Icon name="upload" size={24} />
         <b style={{ display: "block", color: "var(--ink)", margin: "7px 0 3px" }}>{file ? file.name : "Chọn file CSV kết quả lương"}</b>
-        <span>{file ? `${num(Math.ceil(file.size / 1024))} KB · bấm để chọn file khác` : "Hệ thống sẽ validate trước khi cập nhật kỳ lương."}</span>
+        <span>{file ? vs(`${num(Math.ceil(file.size / 1024))} KB | bấm để chọn file khác`) : "Hệ thống sẽ validate trước khi cập nhật kỳ lương."}</span>
       </button>
       {d.cycle.status === "under_review" ? <p className="muted" style={{ margin: "10px 0 0", fontSize: 12 }}>Kỳ đang chờ duyệt: nhập lại thành công sẽ đưa kỳ về bước Đã nhập và cần gửi kiểm tra lại.</p> : null}
       <ErrorLine text={err} />
@@ -347,9 +347,9 @@ function ComputeModal({ month, onClose, onDone }: { month: string; onClose: () =
       <ErrorLine text={err} />
       {r ? <>
         <div className="card detail-list">
-          <div className="detail-row"><span>Bảng đầu vào</span><b>Chốt {fmtDateTime(r.sheetFinalizedAt, "Asia/Ho_Chi_Minh")} · {r.rows.length} người{r.skipped.length ? ` · bỏ qua ${r.skipped.length}` : ""}</b></div>
-          <div className="detail-row"><span>Cài đặt công ty · luật</span><b>Vùng {["I", "II", "III", "IV"][r.config.region - 1]} · thử việc {Math.round(r.config.probationRate * 100)}% lương cứng ({r.config.probationContract === "in_contract" ? "trong HĐLĐ, đóng BH" : "HĐ riêng, khấu trừ 10%"}) · đoàn phí {r.config.unionFee.collect ? "có thu" : "không thu"} · luật từ {fmtDate(r.lawFrom)}</b></div>
-          <div className="detail-row"><span>Tổng thu nhập · khấu trừ</span><b>{money(r.totals.gross)} · {money(r.totals.deduction)}</b></div>
+          <div className="detail-row"><span>Bảng đầu vào</span><b>Chốt {fmtDateTime(r.sheetFinalizedAt, "Asia/Ho_Chi_Minh")}<i className="vs" />{r.rows.length} người{r.skipped.length ? <><i className="vs" />bỏ qua {r.skipped.length}</> : null}</b></div>
+          <div className="detail-row"><span>Cài đặt công ty / luật</span><b>Vùng {["I", "II", "III", "IV"][r.config.region - 1]}<i className="vs" />thử việc {Math.round(r.config.probationRate * 100)}% lương cứng ({r.config.probationContract === "in_contract" ? "trong HĐLĐ, đóng BH" : "HĐ riêng, khấu trừ 10%"})<i className="vs" />đoàn phí {r.config.unionFee.collect ? "có thu" : "không thu"}<i className="vs" />luật từ {fmtDate(r.lawFrom)}</b></div>
+          <div className="detail-row"><span>Tổng thu nhập / khấu trừ</span><b>{money(r.totals.gross)}<i className="vs" />{money(r.totals.deduction)}</b></div>
           <div className="detail-row"><span>Tổng thực nhận</span><b style={{ fontSize: 15 }}>{money(r.totals.net)}</b></div>
           <div className="detail-row"><span>Chi phí công ty (gồm BH, KPCĐ)</span><b>{money(r.totals.employerCost)}</b></div>
         </div>
@@ -359,12 +359,12 @@ function ComputeModal({ month, onClose, onDone }: { month: string; onClose: () =
           <thead><tr><th>Nhân viên</th><th className="num">Công</th><th className="num">Thu nhập</th><th className="num">Khấu trừ</th><th className="num">Thực nhận</th></tr></thead><tbody>
           {r.rows.map((x) => (<Fragment key={x.employee.id}>
             <tr className="clickable" onClick={() => setOpen(open === x.employee.id ? null : x.employee.id)}>
-              <td><b>{x.employee.fullName}</b> <span className="muted" style={{ fontSize: 12 }}>{x.employee.code}{x.warnings.length ? ` · ${x.warnings.length} lưu ý` : ""}</span></td>
+              <td><b>{x.employee.fullName}</b> <span className="muted" style={{ fontSize: 12 }}>{x.employee.code}{x.warnings.length ? <><i className="vs" />{x.warnings.length} lưu ý</> : null}</span></td>
               <td className="num">{num(x.workDays)}</td><td className="num">{money(x.gross)}</td><td className="num">{money(x.deduction)}</td><td className="num"><b>{money(x.net)}</b></td>
             </tr>
             {open === x.employee.id ? <tr><td colSpan={5} style={{ whiteSpace: "normal", background: "var(--surface-2)" }}>
               {x.lines.map((l) => <div key={l.code} className="detail-row"><span>{l.kind === "deduction" ? "− " : ""}{l.name}<div className="muted" style={{ fontSize: 12 }}>{l.formula}</div></span><b>{money(l.amount)}</b></div>)}
-              {x.warnings.length ? <p className="text-amber" style={{ fontSize: 12.5, margin: "6px 0 0" }}>{x.warnings.join(" · ")}</p> : null}
+              {x.warnings.length ? <p className="text-amber" style={{ fontSize: 12.5, margin: "6px 0 0" }}>{vs(x.warnings.join(" | "))}</p> : null}
             </td></tr> : null}
           </Fragment>))}
         </tbody></table></div>

@@ -56,7 +56,7 @@ check "Nhân viên nhận thông báo có link bài" "$(call GET me/notification
 check "Mở bài = đã đọc" "$(call GET "me/announcements/$ID" "$EMP" | py "(d['title'], d['readAt'] is not None, d['attachment']['name'])")" "('Quy định mới cho Marketing', True, 'Quy-dinh.pdf')"
 check "Mở lại không ghi thêm lượt đọc" "$(call GET "me/announcements/$ID" "$EMP" >/dev/null; sql "select count(*) from public.announcement_reads where announcement_id='$ID'")" 1
 check "Nhân viên Hà Nội không mở được bài Marketing → 404" "$(status GET "me/announcements/$ID" "$HN")" 404
-check "Thống kê đã đọc 1/2, người chưa đọc đứng đầu" "$(call GET "admin/announcements/$ID" "$HR" | py "(d['item']['reads'], d['item']['recipients'], [r['code'] for r in d['readers']])")" "(1, 2, ['HDG0003', 'HD0142'])"
+check "Thống kê đã đọc 1/2, người chưa đọc (chưa có app) đứng đầu" "$(call GET "admin/announcements/$ID" "$HR" | py "(d['item']['reads'], d['item']['recipients'], [(r['code'], r['hasApp']) for r in d['readers']])")" "(1, 2, [('HDG0003', False), ('HD0142', True)])"
 
 echo "— Tải file từ app qua liên kết ký"
 P=$(call POST "me/announcements/$ID/file-link" "$EMP" | field data.path); need "Nhận liên kết tải" "$P"

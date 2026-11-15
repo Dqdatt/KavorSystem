@@ -69,7 +69,7 @@ function ItemForm({ item, onClose, onSaved }: { item: ChecklistItem | null; onCl
       item ? "Đã lưu giấy tờ" : "Đã thêm giấy tờ");
   }
   return (
-    <Modal title={item ? `Sửa · ${item.name}` : "Thêm giấy tờ"} onClose={onClose}
+    <Modal title={item ? `Sửa: ${item.name}` : "Thêm giấy tờ"} onClose={onClose}
       foot={<><button className="btn ghost" onClick={onClose}>Hủy</button><button className="btn primary" disabled={!!busy} onClick={() => void save()}>{busy ? "Đang lưu…" : "Lưu"}</button></>}>
       <div className="form-grid">
         <Field label="Tên giấy tờ" full><input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="Ví dụ: CCCD (bản sao)" /></Field>
@@ -105,7 +105,7 @@ export function EmployeeChecklistSection({ employeeId }: { employeeId: string })
           <div className="card-head">
             <div><h3>Giấy tờ hồ sơ</h3>
               <span style={{ fontSize: 12.5 }} className={c.missingRequired ? "text-amber" : "muted"}>{c.missingRequired ? `Còn thiếu ${c.missingRequired} giấy tờ bắt buộc` : "Đã đủ giấy tờ bắt buộc"}
-                {hidden ? <span className="muted"> · {hidden} mục không áp dụng cho {EMPLOYMENT[c.employmentType].toLowerCase()}</span> : null}</span></div>
+                {hidden ? <span className="muted"><i className="vs" />{hidden} mục không áp dụng cho {EMPLOYMENT[c.employmentType].toLowerCase()}</span> : null}</span></div>
             {required ? <span className="row-actions"><span className="ticks" aria-hidden="true">{Array.from({ length: required }, (_, i) => <i key={i} className={i < required - c.missingRequired ? "a" : ""} />)}</span><b className="num">{required - c.missingRequired}/{required}</b></span> : null}
           </div>
           <div className="check-list">

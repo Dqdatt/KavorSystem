@@ -6,7 +6,7 @@ import { useState } from "react";
 import type { AdvanceBoard, CompensationBoard, CompensationRow, RequestItem } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
 import { CompensationEditor } from "../employees/pay";
-import { Empty, Field, Icon, LoadError, Modal, Person, Status, fmtDate, fmtDateTime, useAction, useMe } from "../../_ui/kit";
+import { vs, Empty, Field, Icon, LoadError, Modal, Person, Status, fmtDate, fmtDateTime, useAction, useMe } from "../../_ui/kit";
 import { REQUEST_STATUS, RequestModal, money } from "../../_ui/request";
 import { Select, SkeletonRows } from "@kavor/web-ui";
 
@@ -53,7 +53,7 @@ export function Advances() {
                 <td className="num"><b>{r.type === "salary_advance" ? money(r.payload.amount) : "—"}</b></td>
                 <td className="nowrap">{fmtDateTime(r.submittedAt, me.tenant.timezone)}</td>
                 <td><Status v={state(r)} /></td>
-                <td className="muted" style={{ whiteSpace: "normal" }}>{r.type === "salary_advance" && r.payout ? `${fmtDateTime(r.payout.paidAt, me.tenant.timezone)}${r.payout.note ? ` · ${r.payout.note}` : ""}` : "—"}</td>
+                <td className="muted" style={{ whiteSpace: "normal" }}>{r.type === "salary_advance" && r.payout ? vs(`${fmtDateTime(r.payout.paidAt, me.tenant.timezone)}${r.payout.note ? ` | ${r.payout.note}` : ""}`) : "—"}</td>
                 <td onClick={(ev) => ev.stopPropagation()}>
                   {r.myTaskId ? <button className="btn small primary" onClick={() => setOpen(r)}>Xem & duyệt</button>
                     : r.type === "salary_advance" && r.status === "approved" && !r.payout ? <button className="btn small primary" onClick={() => setPaying(r)}>Xác nhận đã chi</button>
@@ -78,7 +78,7 @@ function PayModal({ r, onClose, onDone }: { r: RequestItem; onClose: () => void;
       foot={<><button className="btn ghost" onClick={onClose}>Để sau</button><button className="btn primary" disabled={!!busy}
         onClick={() => run("pay", async () => { await call("POST", `advances/${r.id}/paid`, { note: note.trim() || null }); onDone(); onClose(); }, "Đã xác nhận chi tạm ứng")}>{busy ? "Đang lưu…" : "Xác nhận đã chi"}</button></>}>
       <div className="card detail-list">
-        <div className="detail-row"><span>Nhân viên</span><b>{r.requester.fullName} · {r.requester.code}</b></div>
+        <div className="detail-row"><span>Nhân viên</span><b>{r.requester.fullName}<i className="vs" />{r.requester.code}</b></div>
         <div className="detail-row"><span>Số tiền</span><b>{r.type === "salary_advance" ? money(r.payload.amount) : "—"}</b></div>
         <div className="detail-row"><span>Trừ vào lương</span><b>{r.type === "salary_advance" ? `Tháng ${r.payload.month.slice(5)}/${r.payload.month.slice(0, 4)}` : "—"}</b></div>
       </div>
@@ -107,9 +107,9 @@ export function Salary() {
                 <td className="num">{r.fixedSalary ? <b>{money(r.fixedSalary)}</b> : <span className="muted">Chưa nhập</span>}</td>
                 <td className="num">{r.baseSalary ? money(r.baseSalary) : "—"}</td>
                 <td>{fmtDate(r.effectiveFrom)}</td>
-                <td className="muted" style={{ whiteSpace: "normal", fontSize: 12 }}>{r.history.slice(1, 3).map((h) => `${money(h.baseSalary + h.allowance)} từ ${fmtDate(h.effectiveFrom)}`).join(" · ") || "—"}</td>
+                <td className="muted" style={{ whiteSpace: "normal", fontSize: 12 }}>{vs(r.history.slice(1, 3).map((h) => `${money(h.baseSalary + h.allowance)} từ ${fmtDate(h.effectiveFrom)}`).join(" | ") || "—")}</td>
                 {/* Tài khoản HR đã duyệt từ đề nghị sửa hồ sơ (Kế toán chỉ đọc) */}
-                <td style={{ whiteSpace: "normal", fontSize: 12 }}>{r.bank ? <><b>{r.bank.accountNo ?? `•••• ${r.bank.last4}`}</b><div className="muted">{r.bank.bankName} · {r.bank.holder}</div></> : <span className="muted">Chưa có</span>}</td>
+                <td style={{ whiteSpace: "normal", fontSize: 12 }}>{r.bank ? <><b>{r.bank.accountNo ?? `•••• ${r.bank.last4}`}</b><div className="muted">{r.bank.bankName}<i className="vs" />{r.bank.holder}</div></> : <span className="muted">Chưa có</span>}</td>
                 <td>{b?.canManage ? <button className="btn small" onClick={() => setEdit(r)}>{r.baseSalary ? "Đổi lương" : "Nhập lương"}</button> : null}</td>
               </tr>
             ))}

@@ -135,13 +135,13 @@ export function EmployeeMonth({ id, month, onClose, onChanged }: { id: string; m
       {e ? <>
         <div className="params">
           <div className="param"><b>{num(e.summary.credited)}/{num(e.summary.standard)}</b><span>Ngày công</span></div>
-          <div className="param"><b style={e.summary.lateDays ? { color: "var(--amber)" } : undefined}>{num(e.summary.lateDays)}</b><span>Lần đi muộn{e.summary.lateMinutes ? ` · ${dur(e.summary.lateMinutes)}` : ""}</span></div>
+          <div className="param"><b style={e.summary.lateDays ? { color: "var(--amber)" } : undefined}>{num(e.summary.lateDays)}</b><span>{vs(`Lần đi muộn${e.summary.lateMinutes ? ` | ${dur(e.summary.lateMinutes)}` : ""}`)}</span></div>
           <div className="param"><b className={e.summary.missingDays ? "text-red" : ""}>{num(e.summary.missingDays)}</b><span>Thiếu công chưa giải trình</span></div>
         </div>
         <div className="drawer-section"><MonthMini days={e.days} today={tenantToday(tz)} /></div>
         {e.summary.overtimeApprovedMinutes ? <div className="card card-body" style={{ marginTop: 10, fontSize: 12 }}>
           Làm thêm được tính <b className={e.summary.overtimeShortDays ? "text-red" : ""}>{hrs(e.summary.overtimeMinutes)}/{hrs(e.summary.overtimeApprovedMinutes)} giờ</b> đã duyệt
-          {e.summary.overtimeShortDays ? <b className="text-red"> · {num(e.summary.overtimeShortDays)} ngày giờ chấm công không phủ hết giờ làm thêm</b> : null}
+          {e.summary.overtimeShortDays ? <b className="text-red"><i className="vs" />{num(e.summary.overtimeShortDays)} ngày giờ chấm công không phủ hết giờ làm thêm</b> : null}
           <div className="muted" style={{ fontSize: 12 }}>Chỉ tính phần trùng với giờ vào → ra đã ghi nhận; ngày chưa qua chưa tính.</div>
         </div> : null}
         <div className="drawer-section"><h4>Ngày cần xử lý</h4>
@@ -156,7 +156,7 @@ export function EmployeeMonth({ id, month, onClose, onChanged }: { id: string; m
         </div>
         <div className="drawer-section"><h4>Giải trình trong kỳ</h4>
           {e.requests.length ? <div className="card detail-list">{e.requests.map((r) => (
-            <div key={r.id} className="detail-row clickable" style={{ cursor: "pointer" }} onClick={() => setReq(r)}><span>{r.no} · {vs(requestSummary(r))}<small style={{ display: "block" }}>{fmtDateTime(r.submittedAt, tz)}</small></span><b><Status v={REQUEST_STATUS[r.status]} /></b></div>
+            <div key={r.id} className="detail-row clickable" style={{ cursor: "pointer" }} onClick={() => setReq(r)}><span>{r.no}<i className="vs" />{vs(requestSummary(r))}<small style={{ display: "block" }}>{fmtDateTime(r.submittedAt, tz)}</small></span><b><Status v={REQUEST_STATUS[r.status]} /></b></div>
           ))}</div> : <p className="muted" style={{ fontSize: 12 }}>Chưa có giải trình nào.</p>}
         </div>
       </> : (error ? null : <SkeletonLines lines={6} avatar />)}
@@ -169,8 +169,8 @@ export function EmployeeMonth({ id, month, onClose, onChanged }: { id: string; m
 function DayRow({ d, onRequest }: { d: TimesheetDay; onRequest: () => void }) {
   const t = (v: string | null, raw: string | null) => v ? <>{v}{d.adjusted && v !== raw ? <span className="source-tag" title={`Chấm công gốc: ${raw ?? "--:--"}`}>điều chỉnh</span> : null}</> : <span className="muted">--:--</span>;
   const note = d.kind === "holiday" ? <Status v={[d.holidayName ?? "Ngày lễ", "info"]} /> : d.kind === "off" ? <span className="muted">Ngày nghỉ</span>
-    : d.leave && !d.issue ? <Status v={[`${d.leave.typeName}${d.leave.half === "am" ? " · sáng" : d.leave.half === "pm" ? " · chiều" : ""} · ${d.leave.requestNo}`, "info"]} />
-    : d.request ? <button className="btn small" title={REQUEST_STATUS[d.request.status][0]} onClick={onRequest}>{d.request.no}{d.request.status === "pending" ? " · chờ" : ""}</button>
+    : d.leave && !d.issue ? <Status v={[`${d.leave.typeName}${d.leave.half === "am" ? " | sáng" : d.leave.half === "pm" ? " | chiều" : ""} | ${d.leave.requestNo}`, "info"]} />
+    : d.request ? <button className="btn small" title={REQUEST_STATUS[d.request.status][0]} onClick={onRequest}>{d.request.no}{d.request.status === "pending" ? <><i className="vs" />chờ</> : null}</button>
     : d.issue ? <Status v={ISSUE[d.issue] ?? [d.issue, "warn"]} /> : d.kind === "today" ? <span className="muted">Hôm nay</span> : null;
   return (
     <tr style={d.kind === "off" || d.kind === "holiday" || d.kind === "leave" ? { opacity: 0.6 } : undefined}>
@@ -188,5 +188,5 @@ const hrs = (min: number) => (Math.round(min / 6) / 10).toLocaleString("vi-VN");
 function OtTag({ ot }: { ot: NonNullable<TimesheetDay["overtime"]> }) {
   const short = ot.checked && ot.minutes < ot.approvedMinutes;
   const text = !ot.checked ? `OT ${hrs(ot.approvedMinutes)}\u00a0giờ đã duyệt` : short ? `OT ${hrs(ot.minutes)}/${hrs(ot.approvedMinutes)}\u00a0giờ` : `OT ${hrs(ot.minutes)}\u00a0giờ`;
-  return <span className={`source-tag${short ? " text-red" : ""}`} title={`${ot.requestNos.join(", ")}${short ? " · giờ chấm công không phủ hết giờ đã duyệt" : !ot.checked ? " · chưa đối chiếu chấm công" : ""}`}>{text} · {ot.ratePercent}%</span>;
+  return <span className={`source-tag${short ? " text-red" : ""}`} title={`${ot.requestNos.join(", ")}${short ? " · giờ chấm công không phủ hết giờ đã duyệt" : !ot.checked ? " · chưa đối chiếu chấm công" : ""}`}>{text}<i className="vs" />{ot.ratePercent}%</span>;
 }

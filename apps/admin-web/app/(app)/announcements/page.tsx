@@ -143,7 +143,7 @@ function DetailDrawer({ id, onClose, onEdit, onPublish, onChanged }: { id: strin
           </div>
           <div className="inset" style={{ marginBottom: 12 }}>
             <div style={{ fontSize: 13, lineHeight: 1.6 }}><RichText body={a.body} /></div>
-            {a.attachment ? <a className="btn small" style={{ marginTop: 12 }} href={`/api/announcements/${a.id}/attachment`} target="_blank" rel="noreferrer"><Icon name="file" /> {a.attachment.name} · {kb(a.attachment.size)}</a> : null}
+            {a.attachment ? <a className="btn small" style={{ marginTop: 12 }} href={`/api/announcements/${a.id}/attachment`} target="_blank" rel="noreferrer"><Icon name="file" /> {a.attachment.name}<i className="vs" />{kb(a.attachment.size)}</a> : null}
           </div>
           {sent ? (
             <div className="inset" style={{ marginBottom: 12, display: "grid", gap: 8 }}>
@@ -155,7 +155,7 @@ function DetailDrawer({ id, onClose, onEdit, onPublish, onChanged }: { id: strin
           ) : null}
           <div className="detail-list card" style={{ marginBottom: 14 }}>
             <div className="detail-row"><span>Người nhận</span><b>{vs(`${audienceText(a)} | ${num(a.recipients)} người`)}</b></div>
-            <div className="detail-row"><span>Hiển thị đến</span><b>{a.visibleUntil ? `${fmtDateTime(a.visibleUntil, tz)}${a.status === "expired" ? " · đã hết hạn, app không còn hiện" : ""}` : "Tới khi gỡ bài"}</b></div>
+            <div className="detail-row"><span>Hiển thị đến</span><b>{vs(a.visibleUntil ? `${fmtDateTime(a.visibleUntil, tz)}${a.status === "expired" ? " | đã hết hạn, app không còn hiện" : ""}` : "Tới khi gỡ bài")}</b></div>
             {sent && a.notify && a.notifiedAt ? null : <div className="detail-row"><span>Thông báo trong app</span><b>{!a.notify ? "Không gửi" : a.notifiedAt ? `Đã gửi ${fmtDateTime(a.notifiedAt, tz)}` : "Gửi khi xuất bản"}</b></div>}
             {a.archivedAt ? <div className="detail-row"><span>Đã gỡ</span><b>{fmtDateTime(a.archivedAt, tz)}</b></div> : null}
           </div>
@@ -169,7 +169,7 @@ function DetailDrawer({ id, onClose, onEdit, onPublish, onChanged }: { id: strin
               <div className="inset" style={{ padding: 0 }}><div className="table-wrap" style={{ maxHeight: 360 }}><table className="data-table compact"><tbody>
                 {readers.map((r) => (
                   <tr key={r.id}><td><Person name={r.fullName} seed={r.code} sub={[r.code, r.department].filter(Boolean).join(" | ")} /></td>
-                    <td className="nowrap" style={{ textAlign: "right" }}>{r.readAt ? <span className="muted">{fmtDateTime(r.readAt, tz)}</span> : showAll ? <Status v={["Chưa đọc", "warn"]} /> : null}</td></tr>
+                    <td className="nowrap" style={{ textAlign: "right" }}>{r.readAt ? <span className="muted">{fmtDateTime(r.readAt, tz)}</span> : <>{showAll ? <Status v={["Chưa đọc", "warn"]} /> : null}{!r.hasApp ? <span className="muted" style={{ fontSize: 12, marginLeft: showAll ? 8 : 0 }}>Chưa có app</span> : null}</>}</td></tr>
                 ))}
               </tbody></table></div></div>
             )}
@@ -258,7 +258,7 @@ function Editor({ a, units, onClose, onSaved }: { a: AnnouncementAdmin | null; u
         <Field label="File đính kèm (không bắt buộc)" full hint="PDF hoặc ảnh PNG, JPEG, WebP; tối đa 5 MB. Nhân viên mở được trên app.">
           <input ref={input} type="file" accept="application/pdf,image/png,image/jpeg,image/webp" hidden onChange={(e) => { setFile(e.target.files?.[0] ?? null); setDropFile(false); e.target.value = ""; }} />
           <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-            {file ? <span className="source-tag" style={{ marginLeft: 0 }}>{file.name} · {kb(file.size)}</span> : current ? <span className="source-tag" style={{ marginLeft: 0 }}>{current.name} · {kb(current.size)}</span> : <span className="muted" style={{ fontSize: 12 }}>Chưa có file</span>}
+            {file ? <span className="source-tag" style={{ marginLeft: 0 }}>{file.name}<i className="vs" />{kb(file.size)}</span> : current ? <span className="source-tag" style={{ marginLeft: 0 }}>{current.name}<i className="vs" />{kb(current.size)}</span> : <span className="muted" style={{ fontSize: 12 }}>Chưa có file</span>}
             <button type="button" className="btn small" onClick={() => input.current?.click()}><Icon name="upload" /> {file || current ? "Chọn file khác" : "Chọn file"}</button>
             {file || current ? <button type="button" className="btn small" onClick={() => { setFile(null); setDropFile(true); }}>Bỏ file</button> : null}
           </div>
