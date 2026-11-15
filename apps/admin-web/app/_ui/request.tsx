@@ -80,7 +80,8 @@ function useRequestDetail(r: RequestItem, onDone: (r: RequestItem) => void, onCl
     ["Hệ số", `${r.payload.ratePercent}%`],
     ...(r.attendance ? [["Chấm công thực tế", <OtAttendance key="ot" a={r.attendance} />] as [string, ReactNode]] : []),
   ] : r.type === "profile_change" ? r.payload.fields.map((f): [string, ReactNode] => [PROFILE_FIELDS[f],
-    <><span className="muted" style={{ textDecoration: "line-through", fontWeight: 500 }}>{vs(profileValue(f, r.payload.before))}</span> → {vs(profileValue(f, r.payload.after))}</>])
+    profileValue(f, r.payload.before) === "—" ? vs(profileValue(f, r.payload.after)) /* trước đó trống: "—" gạch ngang trông như dấu "═" */
+      : <><span className="muted" style={{ textDecoration: "line-through", fontWeight: 500 }}>{vs(profileValue(f, r.payload.before))}</span> → {vs(profileValue(f, r.payload.after))}</>])
     : r.workDate ? [["Ngày áp dụng", fmtDate(r.workDate)]] : [];
   if (r.type === "explanation" && r.day) rows.push(["Chấm công gốc", `${r.day.shift ?? "—"} | vào ${r.day.rawIn ?? "--:--"} | ra ${r.day.rawOut ?? "--:--"}`]);
   rows.push(["Lý do", r.payload.reason || "—"]);

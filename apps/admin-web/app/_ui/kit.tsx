@@ -20,7 +20,12 @@ const TONES = ["t0", "t1", "t2", "t3", "t4", "t5"] as const;
 export const avatarTone = (seed: string) => TONES[[...seed].reduce((a, c) => a + c.charCodeAt(0), 0) % TONES.length];
 export function Avatar({ name, seed, xl }: { name: string; seed?: string; xl?: boolean }) { return <span className={`avatar ${xl ? "xl " : ""}${avatarTone(seed ?? name)}`}>{initials(name)}</span>; }
 /* Dòng meta: " | " → vạch .vs như prototype (chuỗi dữ liệu/CSV/API giữ nguyên) */
-export const vs = (t: ReactNode) => typeof t === "string" ? t.split(" | ").map((x, i) => <Fragment key={i}>{i ? <i className="vs" /> : null}{x}</Fragment>) : t;
+/* Cụm ngắn giữ liền một dòng, vạch dính cụm trước: chỉ xuống dòng giữa các cụm, không tách "ĐOÀN | QUỐC ĐẠT" hay đẩy vạch ra đầu dòng.
+   shortcut: cụm > 40 ký tự (lời nhắn, ghi chú) vẫn tự xuống dòng bên trong để không tràn ô; đổi khi cần đo bề ngang thật */
+export const vs = (t: ReactNode) => typeof t === "string" && t.includes(" | ") ? t.split(" | ").map((x, i, a) => {
+  const sep = i < a.length - 1 ? <i className="vs" /> : null;
+  return <Fragment key={i}>{x.length <= 40 ? <span className="seg">{x}{sep}</span> : <>{x}<span className="seg">{sep}</span></>}{sep ? " " : null}</Fragment>;
+}) : t;
 export function Person({ name, sub, seed, badge }: { name: string; sub?: ReactNode; seed?: string; badge?: ReactNode }) {
   return <span className="person"><Avatar name={name} seed={seed} /><span className="person-copy"><b>{name}{badge ? <> {badge}</> : null}</b>{sub ? <span>{vs(sub)}</span> : null}</span></span>;
 }
@@ -207,7 +212,7 @@ export function Phrases({ text }: { text: string | null | undefined }) {
 
 /* Khối khóa–giá trị và thẻ có tiêu đề (web HR v2) */
 export function Dl({ rows }: { rows: Array<[string, ReactNode]> }) {
-  return <div className="dl">{rows.map(([k, v], i) => <Fragment key={i}><div className="k">{k}</div><div className="v">{vs(v)}</div></Fragment>)}</div>;
+  return <div className="dl">{rows.map(([k, v], i) => <Fragment key={i}><div className="k">{k}</div><div className="v">{typeof v === "string" && !v.includes(" | ") ? <Phrases text={v} /> : vs(v)}</div></Fragment>)}</div>;
 }
 /* Thẻ số liệu v2 (prototype .thk): nhãn, số lớn, chip phụ; icon vuông bên phải */
 export function Thk({ label, value, chip, tone = "", icon }: { label: string; value: ReactNode; chip?: ReactNode; tone?: "" | "mint" | "ok" | "warn"; icon: string }) {

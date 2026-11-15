@@ -32,7 +32,7 @@ export function OvertimeTab() {
         <article className="card metric-card"><span className="metric-icon"><Icon name="checks" /></span><span className="metric-copy"><span>Giờ OT đã duyệt</span><strong>{m ? h(m.approvedHours) : "—"}<small> giờ</small></strong><small>{cur ? `Trong tháng ${Number(cur.slice(5))}` : " "}</small></span></article>
         <article className="card metric-card"><span className="metric-icon amber"><Icon name="checks" /></span><span className="metric-copy"><span>Đang chờ duyệt</span><strong className={m?.pendingHours ? "tone-warn" : ""}>{m ? h(m.pendingHours) : "—"}<small> giờ</small></strong><small>{m ? vs(`${pend.length} đơn${pend.length === 1 ? ` | ${pend[0]!.no}` : ""}`) : " "}</small></span></article>
         <article className="card metric-card"><span className="metric-icon blue"><Icon name="clock" /></span><span className="metric-copy"><span>Nhân viên có OT</span><strong>{m ? m.employees : "—"}</strong><small>{b && m?.employees === 1 ? b.rows[0]?.employee.fullName : "Trong tháng"}</small></span></article>
-        <article className="card metric-card"><span className="metric-icon red"><Icon name="alert" /></span><span className="metric-copy"><span>Gần giới hạn</span><strong>{m ? m.nearLimit : "—"}</strong><small>{limit ? `Từ 80% của ${h(limit)} giờ/tháng` : "Từ 80% giới hạn tháng"}</small></span></article>
+        <article className="card metric-card"><span className="metric-icon red"><Icon name="alert" /></span><span className="metric-copy"><span>Gần giới hạn</span><strong>{m ? m.nearLimit : "—"}</strong><small>{limit ? `Từ 80% của ${h(limit)}\u00a0giờ/tháng` : "Từ 80% giới hạn tháng"}</small></span></article>
       </div>
       <div className="grid one-two">
         <article className="card">
@@ -47,9 +47,9 @@ export function OvertimeTab() {
                 const cap = r.monthLimit ?? 0;
                 return (
                   <div key={r.employee.id} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                    <div className="rsp"><Person name={r.employee.fullName} seed={r.employee.code} sub={r.employee.department ?? r.employee.code} /><b className="num">{cap ? `${h(r.approvedHours)} / ${h(cap)} giờ` : `${h(r.approvedHours)} giờ`}</b></div>
+                    <div className="rsp"><Person name={r.employee.fullName} seed={r.employee.code} sub={r.employee.department ?? r.employee.code} /><b className="num">{cap ? `${h(r.approvedHours)} / ${h(cap)}\u00a0giờ` : `${h(r.approvedHours)}\u00a0giờ`}</b></div>
                     {cap ? <Ticks n={Math.round(cap)} a={Math.round(r.approvedHours)} w={Math.round(r.pendingHours)} /> : null}
-                    <span className="muted" style={{ fontSize: 12.5 }}>{r.pendingHours ? <>{h(r.pendingHours)} giờ đang chờ duyệt<i className="vs" /></> : ""}Ngày thường {h(r.byKind.workday)} giờ<i className="vs" />nghỉ {h(r.byKind.weekend)}<i className="vs" />lễ {h(r.byKind.holiday)}<i className="vs" />cả năm {h(r.yearHours)} giờ</span>
+                    <span className="muted" style={{ fontSize: 12.5 }}>{r.pendingHours ? <>{h(r.pendingHours)}&nbsp;giờ đang chờ duyệt<i className="vs" /></> : ""}Ngày thường {h(r.byKind.workday)}&nbsp;giờ<i className="vs" />nghỉ {h(r.byKind.weekend)}<i className="vs" />lễ {h(r.byKind.holiday)}<i className="vs" />cả năm {h(r.yearHours)}&nbsp;giờ</span>
                   </div>
                 );
               })}
@@ -65,7 +65,7 @@ export function OvertimeTab() {
                 <tr key={r.id} className="clickable" onClick={() => setOpen(r)}>
                   <td><b className="num">{r.no}</b></td><td>{r.requester.fullName}</td><td>{vs(requestSummary(r))}</td>
                   <td>{r.type !== "overtime" || !r.attendance ? <span className="muted">—</span>
-                    : <span title={overtimeAttendanceText(r.attendance)}><Status v={[r.attendance.checked ? `khớp ${h(r.attendance.matchedMinutes / 60)}/${h(r.attendance.minutes / 60)} giờ OT` : "chưa đối chiếu", overtimeAttendanceShort(r.attendance) ? "bad" : r.attendance.checked ? "" : "muted"]} /></span>}</td>
+                    : <span title={overtimeAttendanceText(r.attendance)}><Status v={[r.attendance.checked ? `khớp ${h(r.attendance.matchedMinutes / 60)}/${h(r.attendance.minutes / 60)}\u00a0giờ OT` : "chưa đối chiếu", overtimeAttendanceShort(r.attendance) ? "bad" : r.attendance.checked ? "" : "muted"]} /></span>}</td>
                   <td><Status v={REQUEST_STATUS[r.status]} />{r.myTaskId ? <span className="source-tag">cần bạn duyệt</span> : null}</td>
                 </tr>
               ))}

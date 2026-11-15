@@ -94,7 +94,7 @@ function AnnouncementsPage() {
               </span>
               <span>
                 {sent ? <><span className="spread" style={{ marginBottom: 6, fontSize: 12.5 }}><span style={{ color: "var(--ink-2)" }}>Đã đọc</span><b className="num">{num(a.reads)}/{num(a.recipients)}<i className="vs" />{pct(a)}%</b></span><ReadTicks reads={a.reads} total={a.recipients} /></>
-                  : <span className="muted" style={{ fontSize: 12.5 }}>{num(a.recipients)} người nhận<i className="vs" />{audienceText(a)}</span>}
+                  : <span className="muted" style={{ fontSize: 12.5 }}>{num(a.recipients)}&nbsp;người nhận<i className="vs" />{audienceText(a)}</span>}
               </span>
             </button>
           );
@@ -300,7 +300,7 @@ function PublishModal({ a, onClose, onDone }: { a: AnnouncementAdmin; onClose: (
     }, mode === "later" ? "Đã hẹn giờ xuất bản" : "Đã xuất bản bài viết");
   }
   return (
-    <Modal title={`Xuất bản “${a.title}”`} sub={`${audienceText(a)} | ${num(a.recipients)} người nhận${a.notify ? " | gửi thông báo trong app" : ""}`} onClose={onClose}
+    <Modal title={`Xuất bản “${a.title}”`} sub={`${audienceText(a)} | ${num(a.recipients)}\u00a0người nhận${a.notify ? " | gửi thông báo trong app" : ""}`} onClose={onClose}
       foot={<><button className="btn" onClick={onClose}>Để sau</button><button className="btn primary" disabled={!!busy} onClick={() => void go()}>{busy ? "Đang xử lý…" : mode === "later" ? "Hẹn giờ" : "Xuất bản ngay"}</button></>}>
       <div style={{ display: "grid", gap: 10 }}>
         <label className="check-row"><input type="radio" name="when" checked={mode === "now"} onChange={() => setMode("now")} /> Xuất bản ngay</label>

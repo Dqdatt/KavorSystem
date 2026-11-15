@@ -444,7 +444,7 @@ a.nav-item, a.quick-item { text-decoration: none; }
 .metric-icon svg { width: 20px; height: 20px; }
 .metric-copy { min-width: 0; }
 .metric-copy span { display: block; color: var(--ink-2); font-size: 13px; font-weight: 600; }
-.metric-copy strong { display: block; margin-top: 2px; font-size: 32px; font-weight: 800; line-height: 1.15; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.metric-copy strong { display: block; white-space: nowrap; margin-top: 2px; font-size: 32px; font-weight: 800; line-height: 1.15; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
 .metric-copy small { display: block; margin-top: 4px; font-size: 12.5px; color: var(--muted); }
 /* Nhãn/dòng phụ của thẻ số liệu luôn một dòng (thẻ hẹp thì cắt "…" thay vì rớt chữ) */
 .metric-copy > span, .metric-copy > small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -962,7 +962,7 @@ button.metric-btn:hover { border-color: var(--accent-line); }
 }
 
 /* ---------- Lớp mới từ prototype v2 (các trang dùng ở bước sau) ---------- */
-.cap { font-size: 12px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); }
+.cap { white-space: nowrap; font-size: 12px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); }
 .kbd { font-size: 12px; font-weight: 700; border-radius: 6px; padding: 2px 6px; color: var(--muted); background: var(--surface-2); }
 /* Số lượng vẽ bằng vạch đếm được thay cho thanh tiến độ */
 .ticks { display: inline-flex; flex-wrap: wrap; row-gap: 4px; max-width: 100%; gap: 3px; align-items: stretch; height: 22px; vertical-align: middle; }
@@ -1011,10 +1011,10 @@ button.metric-btn:hover { border-color: var(--accent-line); }
 .emp-table tr.sel td { background: var(--brand-soft); }
 .emp-table tbody tr.group-row td { font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
 .emp-table td.cbx, .emp-table th.cbx { width: 36px; padding-right: 0; }
-.dl { display: grid; grid-template-columns: minmax(120px, 40%) 1fr; }
+.dl { display: grid; grid-template-columns: minmax(96px, max-content) 1fr; column-gap: 16px; }
 .dl > div { padding: 11px 0; border-bottom: 1px solid var(--line); font-size: 13.5px; }
 .dl > div:nth-last-child(-n+2) { border-bottom: 0; }
-.dl .k { color: var(--muted); }
+.dl .k { color: var(--muted); white-space: nowrap; }
 .dl .v { font-weight: 700; text-align: right; overflow-wrap: break-word; min-width: 0; }
 .legend { display: flex; gap: 16px; font-size: 12.5px; color: var(--ink-2); font-weight: 600; flex-wrap: wrap; }
 .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 7px; vertical-align: -1px; }
@@ -1141,8 +1141,11 @@ button.metric-btn:hover { border-color: var(--accent-line); }
 .toolbar .segmented .active .n { background: var(--brand-soft); color: var(--brand-ink); }
 
 /* ---------- Ca & địa điểm (v2): thanh giờ, ngày trong tuần, thẻ bản đồ, nhãn mã ---------- */
-.tag { display: inline-block; font-size: 12px; font-weight: 700; padding: 2px 7px; border-radius: 6px; background: var(--surface-3); color: var(--ink-2); vertical-align: 1px; }
+.tag { display: inline-block; white-space: nowrap; font-size: 12px; font-weight: 700; padding: 2px 7px; border-radius: 6px; background: var(--surface-3); color: var(--ink-2); vertical-align: 1px; }
 .vs { display: inline-block; width: 1px; height: .95em; margin: 0 .7em; background: currentColor; opacity: .28; vertical-align: -.14em; font-style: normal; }
+.seg { white-space: nowrap; }
+span.seg.seg { display: inline; font: inherit; color: inherit; margin: 0; } /* .seg trông như chữ quanh nó: thắng các rule ".x-copy span {…}" */
+.seg .vs { margin-right: .45em; }
 .spread { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-width: 0; }
 .card-body.col { display: flex; flex-direction: column; gap: 12px; }
 .shift-time { font-size: 22px; font-weight: 800; }

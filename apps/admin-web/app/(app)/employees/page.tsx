@@ -82,7 +82,7 @@ function EmployeesPage() {
           <button className={`tog ${group ? "on" : ""}`} aria-pressed={group} aria-label="Nhóm theo phòng ban" title="Nhóm theo phòng ban" onClick={() => setGroup(!group)}><Icon name="list" /></button>
         </div>
         {picked.length ? (
-          <div className="bulk"><span>{picked.length} người đã chọn</span><span className="toolbar-spacer" />
+          <div className="bulk"><span>{picked.length}&nbsp;người đã chọn</span><span className="toolbar-spacer" />
             {can(me, "membership.invite") ? <button className="btn small primary" onClick={() => setBulk(picked)}><Icon name="mail" /> Gửi lời mời</button> : null}
             <button className="btn small ghost" onClick={() => setSel(new Set())}>Bỏ chọn</button></div>
         ) : null}

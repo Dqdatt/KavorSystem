@@ -185,6 +185,6 @@ const hrs = (min: number) => (Math.round(min / 6) / 10).toLocaleString("vi-VN");
 /* OT của ngày: được tính/đã duyệt; thiếu thì tô cảnh báo */
 function OtTag({ ot }: { ot: NonNullable<TimesheetDay["overtime"]> }) {
   const short = ot.checked && ot.minutes < ot.approvedMinutes;
-  const text = !ot.checked ? `OT ${hrs(ot.approvedMinutes)} giờ đã duyệt` : short ? `OT ${hrs(ot.minutes)}/${hrs(ot.approvedMinutes)} giờ` : `OT ${hrs(ot.minutes)} giờ`;
+  const text = !ot.checked ? `OT ${hrs(ot.approvedMinutes)}\u00a0giờ đã duyệt` : short ? `OT ${hrs(ot.minutes)}/${hrs(ot.approvedMinutes)}\u00a0giờ` : `OT ${hrs(ot.minutes)}\u00a0giờ`;
   return <span className={`source-tag${short ? " text-red" : ""}`} title={`${ot.requestNos.join(", ")}${short ? " · giờ chấm công không phủ hết giờ đã duyệt" : !ot.checked ? " · chưa đối chiếu chấm công" : ""}`}>{text} · {ot.ratePercent}%</span>;
 }
