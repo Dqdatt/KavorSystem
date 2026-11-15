@@ -1,40 +1,42 @@
-# HANDOFF — 15/11/2026 (phiên 5)
+# HANDOFF — 15/11/2026 (phiên 6)
 
-**Mục tiêu phiên vừa rồi:** làm việc 1 của HANDOFF trước, tức script nạp dữ liệu thử `tools/demo-data.sh` chạy ổn định.
+**Mục tiêu phiên vừa rồi:** làm việc 1 của HANDOFF trước, tức nút "Nhắc" của HR (chấm công / giấy tờ / bản tin).
 
 ## Đã xong
-- `5859d59` đưa `tools/demo-data.sh` vào repo (bản nháp cũ nằm trong scratchpad /tmp của một phiên trước). Lỗi "Bad Request" là do bash 3.2 của macOS đọc sai `\"` trong `"$(call … "{\"k\":…}")"` rồi brace-expand body JSON; giờ `say` tự gọi `call` từ tham số và in thông điệp lỗi thật
-- Trên DB sạch cả 21 bước đều ok (đơn phép, sửa hồ sơ, tạm ứng đã chi, giấy tờ, MST, người phụ thuộc, khoản mẫu, kỳ lương 2026-10 đã gửi kiểm tra)
-- `verify-all --quick` đạt (typecheck, unit, pgTAP 586). `AGENTS.md:74` ghi cách chạy và cạm bẫy bash 3.2; `CLAUDE.md` có dòng biến môi trường
-- `/batdau`: dự án đã vào workflow từ trước, chỉ bổ sung dòng biến môi trường
+- `893bd7f`: migration `202612030001_reminders.sql` thêm 3 kind `reminder.*` và hàm `notify_reminders`. pgTAP `reminders.test.sql` có 11 test.
+- API có 3 route: `attendance/remind`, `checklist/remind`, `announcements/:id/remind`. Danh sách người được nhắc lấy từ `board` / `gaps` / `detail` sẵn có, theo phạm vi quyền. Mỗi lần nhắc ghi audit `reminder.sent`.
+- Web có 5 chỗ nút Nhắc, dùng hook `useRemind` trong `kit.tsx`. Chuông thông báo có icon fallback.
+- Mobile có icon cho 3 kind mới, kind lạ dùng icon fallback. Bấm thông báo mở màn chấm công / giấy tờ / bài.
+- `verify-all --quick` đạt (pgTAP 597). `notifications-smoke.sh` đạt. Đã bấm thử trên web local: nhắc giấy tờ và nhắc bản tin ra đúng thông báo và audit.
 
 ## Đang dở
-- Không có code dở. DB local vừa reset nên chưa có dữ liệu thử.
-- `docs/plans/roadmap-competitive.md` chưa track: do một phiên Claude viết 06/11/2026 (lộ trình cạnh tranh). Không commit khi người dùng chưa quyết.
+- Không có code dở. Chưa push, tức chưa deploy, migration online cũng chưa chạy.
+- Nhánh nhắc chấm công chưa được thử thật vì 15/11 là Chủ nhật: smoke chỉ chạy nhánh "không ai cần nhắc". Chạy smoke vào ngày làm việc để kiểm.
+- `docs/plans/roadmap-competitive.md` chưa track. Người dùng chưa quyết thì không commit.
 
 ## Quyết định đã chốt
-- Script dữ liệu thử chỉ dùng local, luôn chạy sau `db-reset`; không làm idempotent.
-- Lệnh `payroll/pay-items/templates` gửi `{}` = thêm tất cả khoản mẫu (đúng ý đồ của API).
-- Các quyết định của phiên 4 vẫn giữ: "·" giữ ở `<option>`/toast/tooltip; "Điểm mới" chỉ ghi điều web có thật; xong việc khớp prototype thì commit + push (= deploy) rồi so online, chưa xong thì chỉ commit.
+- Bỏ "nhắc ngày thiếu công cũ" trong ngăn kéo chấm công. Bỏ "Nhắc người duyệt", vì `notify_due_approvals` đã tự nhắc (TASKS có dòng tùy chọn).
+- Nút Nhắc là ngoại lệ duy nhất mà API tạo thông báo (ghi ở AGENTS.md). Nội dung thông báo viết trong SQL.
+- Mỗi người chỉ được nhắc 1 lần mỗi ngày cho mỗi loại (bản tin: mỗi bài), chặn trùng bằng `dedupe_key`. Người chưa có app hoặc đã nghỉ việc không nhận.
+- Quyết định của phiên 4–5 vẫn giữ nguyên: "·" giữ ở `<option>`/toast/tooltip; push = deploy, chỉ push khi người dùng bảo.
 
 ## Mẹo local
-- Xem UI với dữ liệu thử: `bash tools/db-reset.sh && bash tools/demo-data.sh` (API :4000 phải đang chạy). Script tự kích hoạt + MFA cho HD0007, HD0215; secret TOTP lấy từ `auth.mfa_factors` trong DB local.
-- Shell trên Mac là bash 3.2: gán `r=$(call …)` trước, đừng lồng JSON có `\"` trong `"$(…)"`.
-- `verify-all --quick` không reset DB: chạy `db-reset` trước, nếu không pgTAP có thể trượt vì fixture.
-- API local không tự nạp lại code: sửa API thì chạy lại `bash tools/dev-backend.sh`.
+- Muốn xem UI với dữ liệu thử: `bash tools/db-reset.sh && bash tools/demo-data.sh`. Dữ liệu thử chưa có danh mục giấy tờ, phải bấm "Thêm mẫu phổ biến" ở Tài liệu → Danh mục giấy tờ.
+- Đăng nhập web bằng HD0007 (thao.mai@haidang.vn, mật khẩu trong `tools/smoke-lib.sh`). Lấy mã TOTP: lấy secret bằng `docker exec … psql` (máy không có `psql`), rồi chạy `totp` của smoke-lib trong **bash**, không phải zsh.
+- Sửa API thì phải tắt API cũ ở terminal của người dùng rồi chạy lại `bash tools/dev-backend.sh`. Claude không được phép kill tiến trình đó. Trình xem trước không chạy được script ở Desktop.
 
 ## Nợ Ponytail
-- Mới: `tools/demo-data.sh` chạy lại khi chưa reset sẽ tạo trùng; khi nào cần nạp dữ liệu lên DB đang dùng thật thì làm idempotent.
-- Cũ: `kit.tsx` `vs()` cụm > 40 ký tự; `employees/page.tsx` DocTicks.
+- Không có `shortcut:` mới.
+- Nợ cũ: `demo-data.sh` chưa idempotent; `kit.tsx` `vs()` cụm > 40 ký tự; `employees/page.tsx` DocTicks.
 
 ## Việc tiếp theo
-1. Nút "Nhắc" (chấm công/giấy tờ/bản tin): endpoint HR + migration kind thông báo mới + icon fallback web/mobile `[opus high]`
-2. Màn nhạy cảm: Cho nghỉ việc, Tạm nghỉ, Xem số tài khoản — mỗi màn một kế hoạch `[opus xhigh]`
-3. Ctrl K tìm đơn theo mã, nút Ctrl K trên màn hẹp, "Xuất danh sách" chấm công hôm nay, "Người đang áp dụng", phân trang Ngày lễ `[sonnet]`
+1. Các màn nhạy cảm: Cho nghỉ việc, Tạm nghỉ, Xem số tài khoản. Mỗi màn làm một kế hoạch riêng `[opus xhigh]`.
+2. Ctrl K tìm đơn theo mã; nút Ctrl K trên màn hẹp; "Xuất danh sách" chấm công hôm nay; "Người đang áp dụng"; phân trang Ngày lễ `[sonnet]`.
+3. Thời hạn thử việc → "hết thử việc" ở khối Sắp tới `[opus high]`.
 
 ## File cần đọc đầu tiên
 - `docs/TASKS.md`
-- `AGENTS.md` (dòng thông báo: trigger SQL + `kind`, thông báo cục bộ mobile)
-- `supabase/migrations/202610260001_notifications.sql`
+- `AGENTS.md` (vùng nhạy cảm, hồ sơ, `employee.sensitive.read`)
 - `docs/plans/web-hr-v2-checklist.md`
-- `tools/smoke-lib.sh`
+- `apps/api/src/admin/employees.service.ts`
+- `apps/admin-web/app/(app)/employees/profile.tsx`
