@@ -14,4 +14,5 @@
 - [ ] Thời hạn thử việc trong hồ sơ → "hết thử việc" ở khối Sắp tới — [opus high]
 - [ ] Tìm đơn theo mã trong Ctrl K; nút Ctrl K trên màn hẹp; "Xuất danh sách" chấm công hôm nay; ô "Người đang áp dụng" (Ca & địa điểm); phân trang bảng Ngày lễ — [sonnet]
 - [ ] P3 lương: trang Lương theo prototype (tổng quỹ lương nhiều kỳ, cơ cấu quỹ, hộp Chốt bảng 4 bước); xem thanh 4 bước bằng Kế toán HD0215 — [opus xhigh]
+- [ ] Lệch prototype còn lại (đối chiếu "Điểm mới" 15/11): hồ sơ có thẻ tóm tắt cố định bên trái; Tính thử lương tự cập nhật + thanh phân bổ; đơn nghỉ hiện số dư phép; xem trước tài liệu (ov:docview) + yêu cầu tài liệu (docreq) — [opus high]
 - [ ] (Tùy chọn) Hộp nhập file: sửa dòng lỗi ngay trên bảng như prototype — cần API nhận dòng đã sửa; xem hộp ở màn hẹp — [opus high]
