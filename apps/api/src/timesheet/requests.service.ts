@@ -145,6 +145,9 @@ export class RequestsService {
     if (built.period.locked) throw conflict("Kỳ công này đã khóa, không gửi giải trình được. Liên hệ phòng Nhân sự.");
     if (!sheet.quota) throw conflict("Công ty chưa áp dụng quy định giải trình cho bạn.");
     if (!day || day.kind !== "work" || !day.issue) throw invalid("Ngày này không có bất thường cần giải trình.");
+    /* Chỉ đề nghị một giờ thì so với giờ đã chấm còn lại: tránh vào 20:30 / ra 19:51 mà vẫn đủ công */
+    if (clockIn && !clockOut && day.rawOut && day.rawOut <= clockIn) throw invalid(`Giờ vào đề nghị phải trước giờ ra đã chấm (${day.rawOut}).`);
+    if (clockOut && !clockIn && day.rawIn && clockOut <= day.rawIn) throw invalid(`Giờ ra đề nghị phải sau giờ vào đã chấm (${day.rawIn}).`);
     if (day.request && (day.request.status === "pending" || day.request.status === "approved")) throw conflict(`Ngày này đã có giải trình ${day.request.no}.`);
     if (sheet.quota.left <= 0) throw conflict(`Đã dùng hết ${sheet.quota.limit} lượt giải trình của kỳ này.`);
     if (!day.explainDeadline || clock.today > day.explainDeadline) throw conflict(`Đã quá hạn giải trình (hạn ${day.explainDeadline}).`);

@@ -10,8 +10,21 @@
 - iPhone "Dqdatt": đã cài Release trỏ API online, người dùng chưa mở thử.
 - Simulator iPhone 17e (1113F02A-…): đã boot. App Release trỏ API online build ở `apps/mobile/ios/build-sim`.
 
+## Test simulator online TSNV002 (phiên 9, chưa commit)
+Đã đi hết các màn: trang chủ, Bảng công + chi tiết ngày, Nghỉ phép, Đơn từ + GT-0003, Thông báo, Hồ sơ, Bảo mật, Bản tin. Không crash, không lỗi API.
+Đã sửa (verify-all --quick đạt; `timesheet-smoke` đạt trên API code mới cổng 4100):
+- `ui.tsx` `Btn`/`Note`: chữ ghép (`Xem đơn {req.no}`, ghi chú ở Nghỉ phép, form xin nghỉ, thẻ quyền vị trí) không được bọc `<Text>` nên bản Release hiện nút/hộp **trống chữ**. Giờ bọc mọi children không phải phần tử JSX.
+- `ui.tsx` `Ln`: giá trị dài ép nhãn co thành từng chữ ("Kết qu/ả/cô/ng"). Giá trị giờ tối đa 65% và xuống dòng.
+- API `createExplanation`: chỉ đề nghị giờ vào thì phải trước giờ ra đã chấm (và ngược lại). GT-0003 online đề nghị vào 20:30 / ra 19:51 vẫn được duyệt, ngày 04/11 tính **1 công**, giờ làm 0. Smoke có thêm 1 bước.
+Đã kiểm lại trên simulator bằng bản **local** (build `ios/build-sim-local`, API code mới cổng 4100, HD0142): nút "Xem đơn GT-0001" có chữ, "Kết quả công" xuống dòng đúng, hộp ⓘ Nghỉ phép có chữ.
+Simulator hiện cài bản local và đã xoá Keychain (`simctl keychain reset`). Muốn test online lại: build/launch bản online, người dùng tự gõ mật khẩu TSNV002, rồi **đăng ký lại thiết bị** (mã cài đặt mới, là ghi lên online, hỏi trước). API local cổng 4000 vẫn chạy code cũ: khởi động lại `dev-backend`.
+Còn mở (chưa sửa, cần người dùng quyết):
+- Trang chủ Chủ Nhật (ngày nghỉ theo `workDays`) vẫn hiện "Ca hành chính 08:00–17:00 · VÀO CA". Prototype không vẽ ngày nghỉ. Mobile bỏ qua `shift.workDays`.
+- Dữ liệu cũ: `computeDay` cho 1 công khi có đủ vào/ra kể cả vào > ra (04/11 của TSNV002). Đổi luật là việc lương.
+- Thông báo HS-0001: "Sửa hồ sơ Sửa email cá nhân…" lặp chữ.
+
 ## Đang dở — việc của phiên mới
-1. Test app trên simulator với tài khoản thử online **TSNV002**. Người dùng tự gõ mật khẩu trong khung simulator, vì Claude không nhập mật khẩu cho máy chủ không phải local. Đi qua: đăng nhập, Chấm công (bảng công tháng), Nghỉ phép (số dư, gửi đơn thì hỏi trước), Đơn từ, Thông báo, Hồ sơ. Lỗi nào thấy được thì sửa.
+1. Commit 3 bản sửa khi người dùng bảo (đã kiểm xong). Push = deploy, hỏi trước.
 2. Dữ liệu online là thật. Trên web HR online chỉ xem, không bấm lưu/gửi/xác nhận, nhất là "Gửi lời mời". Trên app thì thao tác ghi (chấm công, gửi đơn) phải hỏi người dùng trước.
 3. Lỗi 403 lúc mở Tổng quan web online, chưa rõ nguồn. Có thể do Realtime ("Mất kết nối cập nhật", Realtime chưa từng kiểm trên cloud).
 4. `docs/plans/roadmap-competitive.md` chưa track. Người dùng chưa quyết thì không commit.

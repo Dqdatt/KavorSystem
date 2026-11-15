@@ -62,6 +62,8 @@ B="{\"workDate\":\"$OKDAY\",\"kind\":\"other\",\"clockIn\":\"08:00\",\"reason\":
 check "Ngày không có bất thường → 400" "$(status POST me/requests/explanations "$EMP" "$B")" 400
 B="{\"workDate\":\"$OLDDAY\",\"kind\":\"other\",\"clockIn\":\"08:00\",\"clockOut\":\"17:00\",\"reason\":\"Thử ngày đã quá hạn\"}"
 check "Quá hạn giải trình → 409" "$(status POST me/requests/explanations "$EMP" "$B")" 409
+B="{\"workDate\":\"$LATEDAY\",\"kind\":\"late\",\"clockIn\":\"17:30\",\"reason\":\"Giờ vào sau giờ ra đã chấm\"}"
+check "Giờ vào đề nghị sau giờ ra đã chấm → 400" "$(status POST me/requests/explanations "$EMP" "$B")" 400
 B="{\"workDate\":\"$OUTDAY\",\"kind\":\"missing_out\",\"clockOut\":\"17:00\",\"reason\":\"Họp khách tới 17:00, quên chấm ra\"}"
 r=$(call POST me/requests/explanations "$EMP" "$B")
 RID=$(echo "$r" | field data.id); T1=$(echo "$r" | field data.steps.0.taskId); T2=$(echo "$r" | field data.steps.1.taskId)

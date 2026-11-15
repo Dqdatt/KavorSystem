@@ -64,7 +64,7 @@ export function Btn({ kind = "primary", sm, block, disabled, onPress, children, 
       <Pressable disabled={disabled || busy} onPress={onPress} onPressIn={press.onPressIn} onPressOut={press.onPressOut} accessibilityRole="button"
         style={[styles.btn, sm && styles.btnSm, kind === "primary" && styles.btnPrimary, kind === "ghost" && styles.btnGhost, kind === "danger" && styles.btnDanger, kind === "auth" && styles.btnAuth]}>
         {/* numberOfLines: bản Release Android có lúc ngắt dòng khi vẽ dù bề rộng đủ ("Đăng nhập" chỉ còn "Đăng") */}
-        {busy ? <Spinner color={color} /> : <>{icon}{typeof children === "string" ? <T numberOfLines={1} style={[styles.btnText, sm && { fontSize: 13 }, { color }]}>{children}</T> : children}</>}
+        {busy ? <Spinner color={color} /> : <>{icon}{!isValidElement(children) ? <T numberOfLines={1} style={[styles.btnText, sm && { fontSize: 13 }, { color }]}>{children}</T> : children}</>}
       </Pressable>
     </Animated.View>
   );
@@ -143,7 +143,7 @@ export function Note({ icon, children, warn, style }: { icon: IconName; children
   return (
     <View style={[styles.note, warn && styles.noteWarn, style]}>
       <Ic n={icon} s={18} w={1.8} color={C.ink2} style={{ marginTop: 1 }} />
-      <View style={{ flex: 1 }}>{typeof children === "string" ? <T style={styles.noteT}>{children}</T> : children}</View>
+      <View style={{ flex: 1 }}>{!isValidElement(children) ? <T style={styles.noteT}>{children}</T> : children}</View>
     </View>
   );
 }
@@ -356,7 +356,10 @@ export function Ln({ k, v, kind, sub, vStyle, kNode }: { k?: string; kNode?: Rea
         {kNode ?? <T style={[{ color: C.ink2 }, kind && { color: C.ink, fontFamily: F.bold }]}>{k}</T>}
         {sub ? <T style={{ color: C.ink3, fontSize: 11.5 }}>{sub}</T> : null}
       </View>
-      {typeof v === "string" ? <Num style={[{ fontFamily: F.medium, textAlign: "right" }, kind === "tot" && { fontFamily: F.bold }, kind === "net" && { fontFamily: F.bold, fontSize: 20, color: C.emerald }, vStyle]}>{v}</Num> : v}
+      {/* maxWidth: giá trị dài (vd "1 công · đã điều chỉnh theo GT-0003") xuống dòng, không ép nhãn co thành từng chữ */}
+      <View style={{ flexShrink: 1, maxWidth: "65%", alignItems: "flex-end" }}>
+        {typeof v === "string" ? <Num style={[{ fontFamily: F.medium, textAlign: "right" }, kind === "tot" && { fontFamily: F.bold }, kind === "net" && { fontFamily: F.bold, fontSize: 20, color: C.emerald }, vStyle]}>{v}</Num> : v}
+      </View>
     </View>
   );
 }
