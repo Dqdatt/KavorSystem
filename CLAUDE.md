@@ -30,4 +30,5 @@ Lương/tạm ứng/luật lương (`apps/api/src/payroll`, `advance`), phân qu
 
 ## Lưu ý
 - Push nhánh `claude/ecstatic-pascal-dblg7v` = deploy Render/Vercel (`docs/DEPLOY.md`) — chạy verify-all trước.
+- Biến môi trường: `.env.example` (API_*, SUPABASE_*, NEXT_PUBLIC_*, EXPO_PUBLIC_*); `pnpm dev:backend` tự ghi `apps/admin-web/.env.local`.
 - Không commit `.env`, key, thư mục build/native sinh ra. Việc đang mở: `docs/TASKS.md`.

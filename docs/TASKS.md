@@ -7,7 +7,7 @@
 - [x] Chặn ngừng ca/địa điểm còn áp dụng ở API (409) + hộp chặn/xác nhận trên web
 - [x] Hộp Nhập file nhân viên 3 bước như prototype (Tải mẫu .xlsx, kéo thả, xem trước) (91f93ad)
 - [x] Dọn lệch nhỏ: "·" → vạch |; chức danh người gửi (chi tiết đơn) + "Chưa có app" ở người đọc bài (thêm trường API); so chi tiết tài liệu
-- [ ] Script nạp dữ liệu thử ổn định (tools/demo-data.sh; bản nháp lỗi "Bad Request" ở vài bước khi chạy cả file) — [sonnet]
+- [x] Script nạp dữ liệu thử ổn định (tools/demo-data.sh; lỗi "Bad Request" do bash 3.2 brace-expand body JSON)
 - [x] Màn prototype có, web chưa có, chỉ UI: Điểm mới, Ghi chú phiên bản, "Hồ sơ của tôi", Thêm khoản phụ cấp mẫu
 - [ ] Màn prototype có, đụng vùng nhạy cảm: Cho nghỉ việc, Tạm nghỉ, Xem số tài khoản — mỗi màn một kế hoạch — [opus xhigh]
 - [ ] Nút "Nhắc" (chấm công/giấy tờ/bản tin): endpoint HR + migration kind thông báo mới + icon fallback web/mobile — [opus high]
