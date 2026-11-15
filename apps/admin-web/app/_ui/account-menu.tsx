@@ -1,5 +1,5 @@
 "use client";
-/* Menu tài khoản ở góc trên phải (bấm tên doanh nghiệp): thông tin người đăng nhập + vai trò, doanh nghiệp, Cài đặt doanh nghiệp,
+/* Menu tài khoản ở góc trên phải (bấm tên doanh nghiệp): thông tin người đăng nhập + vai trò, doanh nghiệp, Hồ sơ của tôi, Cài đặt doanh nghiệp,
    giao diện sáng/tối và Đăng xuất (trạng thái cập nhật trực tiếp nằm ở chân trang). Thay cho khối cuối thanh bên (phản hồi người dùng 11/11). */
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
@@ -50,6 +50,7 @@ export function AccountMenu() {
             <span className="metric-icon"><Icon name="brief" /></span>
             <span className="account-copy"><b>{me.tenant.name}</b><span>Mã công ty {me.tenant.code}</span></span>
           </div>
+          {me.employeeId && can(me, "employee.read") ? <Link role="menuitem" className="account-item" href={`/employees/${me.employeeId}`} onClick={done}><Icon name="user" />Hồ sơ của tôi</Link> : null}
           {settings ? <Link role="menuitem" className="account-item" href="/settings" onClick={done}><Icon name="settings" />Cài đặt doanh nghiệp</Link> : null}
           {settings ? <Link role="menuitem" className="account-item" href="/settings?tab=setup" onClick={done}><Icon name="checks" />Thiết lập ban đầu</Link> : null}
           {support ? <Link role="menuitem" className="account-item" href="/settings?tab=support" onClick={done}><Icon name="help" />Hỗ trợ Kavor</Link> : null}

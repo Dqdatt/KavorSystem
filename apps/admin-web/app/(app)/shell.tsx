@@ -7,6 +7,8 @@ import { useApi, useRealtimeStatus } from "../_lib/client";
 import { AccountMenu } from "../_ui/account-menu";
 import { Icon, MeContext, SubContext, ToastProvider, can, longDate } from "../_ui/kit";
 import { CmdK } from "../_ui/cmdk";
+import { Popover, TickList } from "../_ui/popover";
+import { PAGE_NOTES, RELEASE_DATE, RELEASE_ITEMS } from "../_ui/release-notes";
 import { NotificationBell } from "../_ui/notifications";
 import { SupportBanner } from "../_ui/support";
 
@@ -53,6 +55,8 @@ export function Shell({ me, children }: { me: AdminMe; children: ReactNode }) {
   const path = usePathname();
   const [menu, setMenu] = useState(false);
   const [cmd, setCmd] = useState(false);
+  const [pop, setPop] = useState<"ver" | "notes" | null>(null);
+  useEffect(() => setPop(null), [path]);
   const [mini, setMini] = useState(false);
   const [sub, setSub] = useState<string | null>(null);
   useEffect(() => { try { setMini(localStorage.getItem("kavor.sidebarMini") === "1"); } catch { /* chặn lưu trữ: giữ mặc định */ } }, []);
@@ -72,6 +76,8 @@ export function Shell({ me, children }: { me: AdminMe; children: ReactNode }) {
   const lastPath = useRef(path);
   useEffect(() => { if (lastPath.current !== path) { lastPath.current = path; void setupApi.reload(); } }, [path, setupApi]);
   const profile = path.startsWith("/employees/");
+  const notes = PAGE_NOTES[profile ? "/employees/[id]" : path] ?? [];
+  const title = profile ? "Hồ sơ nhân viên" : TITLES[path] ?? "Kavor HR";
   const active = (href: string) => (href === "/" ? path === "/" : path.startsWith(href));
 
   return (
@@ -115,15 +121,17 @@ export function Shell({ me, children }: { me: AdminMe; children: ReactNode }) {
           <section className="app-main">
             <header className="topbar">
               <button className="icon-btn mobile-menu" onClick={() => setMenu(true)} aria-label="Mở menu"><Icon name="menu" /></button>
-              <div className="title-copy"><h1>{profile ? "Hồ sơ nhân viên" : TITLES[path] ?? "Kavor HR"}</h1>
+              <div className="title-copy"><h1>{title}</h1>
                 {profile ? <span className="topbar-sub"><Link href="/employees">Nhân viên</Link>{sub ? <> / {sub}</> : null}</span> : <span className="topbar-sub">{sub ? sub.split(" | ").map((x, i) => <Fragment key={i}>{i ? <i className="vs" /> : null}{x}</Fragment>) : SUBS[path] ?? longDate(today(me.tenant.timezone))}</span>}</div>
               <div id="page-actions" className="page-actions" />
               <button className="search cmdk-btn" onClick={() => setCmd(true)} aria-label="Tìm kiếm"><Icon name="search" /><span className="grow trunc">Tìm nhanh…</span><span className="kbd">Ctrl K</span></button>
+              {notes.length ? <button className="icon-btn notes-btn" data-pop-btn aria-expanded={pop === "notes"} onClick={() => setPop(pop === "notes" ? null : "notes")} aria-label="Điểm mới ở màn này" title="Điểm mới ở màn này"><Icon name="spark" /></button> : null}
               <div className="top-actions">
                 <NotificationBell />
                 <AccountMenu />
               </div>
             </header>
+            {pop === "notes" && notes.length ? <Popover className="pop-notes" label="Điểm mới ở màn này" onClose={() => setPop(null)}><span className="cap">Điểm mới</span><h3>{title}</h3><TickList items={notes} /></Popover> : null}
             <div className="workspace"><SupportBanner />{children}</div>
             <footer className="foot">
               <span>© {new Date().getFullYear()} Kavor</span>
@@ -131,7 +139,8 @@ export function Shell({ me, children }: { me: AdminMe; children: ReactNode }) {
               {can(me, "support_access.approve") ? <Link href="/settings?tab=support">Liên hệ hỗ trợ</Link> : null}
               <span className="grow" />
               <span className={`realtime-dot ${live ? "on" : ""}`}><i />{live ? "Đang cập nhật trực tiếp" : "Mất kết nối cập nhật"}</span>
-              <span className="ver">Phiên bản {process.env.NEXT_PUBLIC_APP_VERSION}</span>
+              <button type="button" className="ver" data-pop-btn aria-expanded={pop === "ver"} onClick={() => setPop(pop === "ver" ? null : "ver")}>Phiên bản {process.env.NEXT_PUBLIC_APP_VERSION}</button>
+              {pop === "ver" ? <Popover className="pop-ver" label="Ghi chú phiên bản" onClose={() => setPop(null)}><span className="cap">Ghi chú phiên bản</span><h3>Kavor HR {process.env.NEXT_PUBLIC_APP_VERSION}</h3><span className="small muted">Cập nhật {RELEASE_DATE}</span><TickList items={RELEASE_ITEMS} small /></Popover> : null}
             </footer>
           </section>
         {cmd ? <CmdK pages={pages} onClose={() => setCmd(false)} /> : null}

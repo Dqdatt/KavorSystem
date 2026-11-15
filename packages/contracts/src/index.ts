@@ -988,6 +988,16 @@ export type PayItem = {
   sortOrder: number; note: string | null; archived: boolean;
 };
 export type PayItemInput = Omit<PayItem, "id" | "archived" | "sortOrder"> & { sortOrder?: number };
+/* Khoản mẫu phổ biến (hộp "Thêm khoản mẫu"): POST payroll/pay-items/templates { names?: string[] }, bỏ names = thêm hết; trùng tên khoản đang dùng thì bỏ qua */
+export const PAY_ITEM_TEMPLATES: ReadonlyArray<Pick<PayItem, "name" | "kind" | "payMode" | "taxMode" | "insurable">> = [
+  { name: "Phụ cấp ăn trưa", kind: "allowance", payMode: "by_workdays", taxMode: "meal", insurable: true },
+  { name: "Phụ cấp xăng xe", kind: "allowance", payMode: "by_workdays", taxMode: "taxable", insurable: true },
+  { name: "Phụ cấp điện thoại", kind: "allowance", payMode: "fixed", taxMode: "partial", insurable: true },
+  { name: "Phụ cấp trách nhiệm", kind: "allowance", payMode: "by_workdays", taxMode: "taxable", insurable: true },
+  { name: "Phụ cấp chức vụ", kind: "allowance", payMode: "by_workdays", taxMode: "taxable", insurable: true },
+  { name: "Phụ cấp nhà ở", kind: "allowance", payMode: "by_workdays", taxMode: "taxable", insurable: true },
+  { name: "Thưởng chuyên cần", kind: "bonus", payMode: "conditional", taxMode: "taxable", insurable: false },
+];
 export type PayItemList = { items: PayItem[]; canManage: boolean };
 export type CompensationItem = { itemId: string; name: string; amount: number };
 export type CompensationVersion = {

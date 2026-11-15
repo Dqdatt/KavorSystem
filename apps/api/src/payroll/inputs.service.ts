@@ -9,6 +9,7 @@
 import type {
   BankAccountView, CompensationItem, CompensationVersion, PayItem, PayItemList, EmployeeDependent, EmployeePay, EmploymentType, PayrollInputRow, PayrollInputSegment, PayrollInputSheet, TimesheetDay,
 } from "@kavor/contracts";
+import { PAY_ITEM_TEMPLATES } from "@kavor/contracts";
 import { conflict, invalid, notFound, type AdminContext } from "../admin/context.js";
 import { date, nullableText, number, oneOf, type Body } from "../admin/validate.js";
 import { bankView } from "../profile/profile.service.js";
@@ -35,15 +36,6 @@ const payItem = (r: ItemRow): PayItem => ({
 });
 /* Mẫu phổ biến (chỉ tên + cách tính gợi ý, không có số tiền) — doanh nghiệp sửa/xóa theo thực tế. Khoản cố định/theo công ghi trong HĐLĐ, trả đều
    mỗi kỳ mặc định tính đóng BHXH (Luật BHXH 2024 Điều 31, NĐ 158/2025 Điều 7); khoản có điều kiện (chuyên cần) không tính. */
-const TEMPLATES: Array<Partial<ItemRow> & { name: string }> = [
-  { name: "Phụ cấp ăn trưa", pay_mode: "by_workdays", tax_mode: "meal", insurable: true },
-  { name: "Phụ cấp xăng xe", pay_mode: "by_workdays", insurable: true },
-  { name: "Phụ cấp điện thoại", pay_mode: "fixed", tax_mode: "partial", insurable: true },
-  { name: "Phụ cấp trách nhiệm", pay_mode: "by_workdays", insurable: true },
-  { name: "Phụ cấp chức vụ", pay_mode: "by_workdays", insurable: true },
-  { name: "Phụ cấp nhà ở", pay_mode: "by_workdays", insurable: true },
-  { name: "Thưởng chuyên cần", kind: "bonus", pay_mode: "conditional" },
-];
 type CompItemRow = { compensation_id: string; item_id: string; amount: number; pay_items: { name: string; sort_order: number } | null };
 const version = (c: CompRow, items: Map<string, CompensationItem[]>): CompensationVersion => ({
   baseSalary: Number(c.base_salary), insuranceSalary: c.insurance_salary === null ? null : Number(c.insurance_salary), allowance: Number(c.allowance ?? 0),
@@ -150,16 +142,22 @@ export class PayrollInputs {
     return this.payItems(ctx);
   }
 
-  /* Thêm các khoản mẫu chưa có (theo tên) */
-  async addPayItemTemplates(ctx: AdminContext): Promise<PayItemList> {
+  /* Thêm các khoản mẫu chưa có (theo tên); names = chỉ các khoản được chọn trong hộp, bỏ trống = thêm hết */
+  async addPayItemTemplates(ctx: AdminContext, b: Body = {}): Promise<PayItemList> {
     ctx.requireTenantWide("compensation.manage");
+    let pick = PAY_ITEM_TEMPLATES;
+    if (b.names !== undefined) {
+      const names = b.names;
+      if (!Array.isArray(names) || !names.length || names.some((n) => typeof n !== "string" || !PAY_ITEM_TEMPLATES.some((t) => t.name === n))) throw invalid("Chọn ít nhất một khoản mẫu trong danh sách");
+      pick = PAY_ITEM_TEMPLATES.filter((t) => names.includes(t.name));
+    }
     const { data } = await ctx.db.from("pay_items").select("name, sort_order").eq("tenant_id", ctx.tenantId).is("archived_at", null);
     const have = new Set(((data ?? []) as Array<{ name: string }>).map((x) => x.name.trim().toLowerCase()));
     let order = Math.max(0, ...((data ?? []) as Array<{ sort_order: number }>).map((x) => x.sort_order));
-    const add = TEMPLATES.filter((t) => !have.has(t.name.toLowerCase())).map((t) => ({
+    const add = pick.filter((t) => !have.has(t.name.toLowerCase())).map((t) => ({
       /* Đủ mọi cột: chèn nhiều dòng qua PostgREST thì cột thiếu ở một dòng thành null */
-      tenant_id: ctx.tenantId, created_by: ctx.userId, sort_order: Math.min(1000, (order += 10)), name: t.name, kind: t.kind ?? "allowance",
-      pay_mode: t.pay_mode ?? "by_workdays", insurable: t.insurable ?? false, tax_mode: t.tax_mode ?? "taxable",
+      tenant_id: ctx.tenantId, created_by: ctx.userId, sort_order: Math.min(1000, (order += 10)), name: t.name, kind: t.kind,
+      pay_mode: t.payMode, insurable: t.insurable, tax_mode: t.taxMode,
     }));
     if (add.length) {
       const { error } = await ctx.db.from("pay_items").insert(add);

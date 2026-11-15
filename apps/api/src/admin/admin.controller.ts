@@ -306,7 +306,7 @@ export class AdminController {
   @Post("payroll/pay-items") @HttpCode(200)
   payItemCreate(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Body() b: Json) { return this.run(r, a, (s, c) => s.inputs.createPayItem(c, b)); }
   @Post("payroll/pay-items/templates") @HttpCode(200)
-  payItemTemplates(@Req() r: CorrelatedRequest, @Headers("authorization") a?: string) { return this.run(r, a, (s, c) => s.inputs.addPayItemTemplates(c)); }
+  payItemTemplates(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Body() b: Json) { return this.run(r, a, (s, c) => s.inputs.addPayItemTemplates(c, b ?? {})); }
   @Post("payroll/pay-items/:id") @HttpCode(200)
   payItemUpdate(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string, @Body() b: Json) { return this.run(r, a, (s, c) => s.inputs.updatePayItem(c, id, b)); }
   @Post("payroll/pay-items/:id/archive") @HttpCode(200)

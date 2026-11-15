@@ -3,7 +3,7 @@
    Lương cứng (thỏa thuận lúc phỏng vấn) = lương cơ bản + các khoản này; số tiền từng người nhập ở hồ sơ nhân viên → Lương.
    Mẫu phổ biến chỉ có tên + cách tính gợi ý, không có số tiền. Ngừng dùng thay cho xóa (phiên bản lương cũ vẫn trỏ tới). */
 import { useState, type ReactNode } from "react";
-import type { PayItem, PayItemInput, PayItemList, PayItemMode, PayItemTax } from "@kavor/contracts";
+import { PAY_ITEM_TEMPLATES, type PayItem, type PayItemInput, type PayItemList, type PayItemMode, type PayItemTax } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
 import { PageActions, Empty, ErrorLine, Field, Icon, LoadError, Modal, Status, useAction } from "../../_ui/kit";
 import { money } from "../../_ui/request";
@@ -22,6 +22,7 @@ const moneyInput = (s: string) => (s ? Number(digits(s)).toLocaleString("vi-VN")
 export function PayItems({ tabs }: { tabs: ReactNode }) {
   const { data: l, error, reload, setData } = useApi<PayItemList>("payroll/pay-items");
   const [edit, setEdit] = useState<PayItem | "new" | null>(null);
+  const [tpl, setTpl] = useState(false);
   const { busy, run } = useAction();
   const active = (l?.items ?? []).filter((x) => !x.archived);
   return (
@@ -29,8 +30,7 @@ export function PayItems({ tabs }: { tabs: ReactNode }) {
       <div className="page-head"><div>{tabs}</div><div id="tab-actions" className="tab-actions" /></div>
       <PageActions>
           {l?.canManage ? <>
-            <button className="btn" disabled={!!busy} onClick={() => void run("tpl", async () => setData(await call<PayItemList>("POST", "payroll/pay-items/templates", {})), "Đã thêm các khoản mẫu")}>
-              <Icon name="plus" /> Thêm khoản mẫu</button>
+            <button className="btn" onClick={() => setTpl(true)}><Icon name="plus" /> Thêm khoản mẫu</button>
             <button className="btn primary" onClick={() => setEdit("new")}><Icon name="plus" /> Thêm khoản</button>
           </> : null}
       </PageActions>
@@ -62,9 +62,35 @@ export function PayItems({ tabs }: { tabs: ReactNode }) {
         )}
       </article>
       {l && active.length ? <p className="muted" style={{ fontSize: 12, marginTop: 10 }}>Lương cứng = lương cơ bản + các khoản này. Số tiền từng người nhập ở hồ sơ nhân viên.</p> : null}
+      {tpl && l ? <TemplateModal have={active.map((x) => x.name)} onClose={() => setTpl(false)} save={async (names) => setData(await call<PayItemList>("POST", "payroll/pay-items/templates", { names }))} /> : null}
       {edit ? <PayItemModal item={edit === "new" ? null : edit} onClose={() => setEdit(null)}
         save={async (b) => setData(await call<PayItemList>("POST", edit === "new" ? "payroll/pay-items" : `payroll/pay-items/${edit.id}`, b))} /> : null}
     </>
+  );
+}
+
+/* Hộp "Thêm khoản mẫu" (prototype allow-sample): tick chọn khoản phổ biến; khoản đã có (trùng tên) không chọn được */
+function TemplateModal({ have, onClose, save }: { have: string[]; onClose: () => void; save: (names: string[]) => Promise<unknown> }) {
+  const exists = new Set(have.map((x) => x.trim().toLowerCase()));
+  const [sel, setSel] = useState(() => new Set(PAY_ITEM_TEMPLATES.filter((t) => !exists.has(t.name.toLowerCase())).map((t) => t.name)));
+  const { busy, run } = useAction();
+  const toggle = (n: string, on: boolean) => { const x = new Set(sel); if (on) x.add(n); else x.delete(n); setSel(x); };
+  return (
+    <Modal title="Thêm khoản mẫu" sub="Chọn các khoản phổ biến để thêm nhanh. Mức tiền chỉnh sau ở từng nhân viên." onClose={onClose}
+      foot={<><button className="btn ghost" onClick={onClose}>Hủy</button><button className="btn primary" disabled={!!busy || !sel.size}
+        onClick={() => void run("tpl", async () => { await save([...sel]); onClose(); }, `Đã thêm ${sel.size} khoản mẫu`)}>{busy ? "Đang thêm…" : "Thêm khoản đã chọn"}</button></>}>
+      <div style={{ display: "flex", flexDirection: "column" }}>
+        {PAY_ITEM_TEMPLATES.map((t) => {
+          const had = exists.has(t.name.toLowerCase());
+          return (
+            <label key={t.name} className="check-row" style={{ padding: "10px 4px", borderBottom: "1px solid var(--line)", opacity: had ? 0.6 : 1 }}>
+              <input type="checkbox" className="cb" disabled={had} checked={sel.has(t.name)} onChange={(e) => toggle(t.name, e.target.checked)} />
+              <b style={{ flex: 1, fontWeight: 600 }}>{t.name}</b><span className="muted" style={{ fontSize: 12 }}>{had ? "Đã có" : t.kind === "bonus" ? "Thưởng" : "Phụ cấp"}</span>
+            </label>
+          );
+        })}
+      </div>
+    </Modal>
   );
 }
 

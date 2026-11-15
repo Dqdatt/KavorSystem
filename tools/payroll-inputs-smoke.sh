@@ -17,8 +17,13 @@ EMP=$(activate HD0142 thao.ha@haidang.vn); need "Nhân viên Trần Thu Hà kíc
 echo "— Danh mục khoản phụ cấp/thưởng"
 check "Công ty mẫu chưa có khoản nào, HR quản lý được" "$(call GET admin/payroll/pay-items "$HR" | py "(len(d['items']), d['canManage'])")" "(0, True)"
 check "Quản lý trực tiếp không xem danh mục → 403" "$(status GET admin/payroll/pay-items "$MGR")" 403
+_s1=$(status POST admin/payroll/pay-items/templates "$HR" '{"names":["Khoản lạ"]}') || :
+check "Chọn khoản không có trong mẫu → 400" "$_s1" 400
+_s1=$(status POST admin/payroll/pay-items/templates "$HR" '{"names":[]}') || :
+check "Không chọn khoản nào → 400" "$_s1" 400
+check "Chỉ thêm 2 khoản được chọn" "$(call POST admin/payroll/pay-items/templates "$HR" '{"names":["Phụ cấp ăn trưa","Thưởng chuyên cần"]}' | py "sorted((x['name'], x['kind']) for x in d['items'])")" "[('Phụ cấp ăn trưa', 'allowance'), ('Thưởng chuyên cần', 'bonus')]"
 _t=$(call POST admin/payroll/pay-items/templates "$HR" '{}') || :
-check "Thêm mẫu phổ biến: 7 khoản, không có số tiền" "$(echo "$_t" | py "(len(d['items']), all(x['defaultAmount'] is None for x in d['items']))")" "(7, True)"
+check "Thêm mẫu phổ biến (phần còn lại): đủ 7 khoản, không có số tiền" "$(echo "$_t" | py "(len(d['items']), all(x['defaultAmount'] is None for x in d['items']))")" "(7, True)"
 check "Thêm mẫu lần hai không nhân đôi" "$(call POST admin/payroll/pay-items/templates "$HR" '{}' | py "len(d['items'])")" 7
 LUNCH=$(echo "$_t" | py "[x['id'] for x in d['items'] if x['name']=='Phụ cấp ăn trưa'][0]")
 B='{"name":"Phụ cấp ăn trưa","kind":"allowance","payMode":"by_workdays","insurable":false,"taxMode":"partial","taxFreeCap":730000,"defaultAmount":730000,"note":null}'
