@@ -1,54 +1,40 @@
-# HANDOFF — 15/11/2026 (phiên 8)
+# HANDOFF — 15/11/2026 (phiên 9)
 
-**Mục tiêu phiên vừa rồi:** màn "Tạm nghỉ" (việc nhạy cảm số 1 trong TASKS), deploy online, cài iPhone.
+**Mục tiêu phiên vừa rồi:** test app mobile trên simulator iPhone 17e với tài khoản online TSNV002, sửa lỗi thấy được.
 
 ## Đã xong
-- `8509125` đã push và deploy: Render, Vercel, migration online (reminders, offboarding, employee_pause). Bảng `employee_pauses`, `pause_employee`, `end_employee_pause`, `apply_due_pauses` (vòng quét 10 phút), trigger cắt khi ghi ngày cuối.
-- API `POST admin/employees/:id/pause` + `/pause/end`. Bảng công: ngày `paused` vẫn trong công chuẩn, 0 công. Phép năm trừ theo lý do (`timesheet/pause.ts`, NĐ 145/2020). Chặn chấm công (`ATT_PAUSED`) và đơn nghỉ trùng ngày tạm nghỉ.
-- Web: hộp Chuyển sang tạm nghỉ / Kết thúc tạm nghỉ. Mobile: ngày tạm nghỉ hiện như ngày nghỉ.
-- Kiểm thử local: verify-all đầy đủ đạt (pgTAP 638, 33 smoke, build, lint). Online chỉ xem: hộp Tạm nghỉ đúng prototype, bảng công/chấm công/số dư phép không lỗi.
-- iPhone "Dqdatt": đã cài Release trỏ API online, người dùng chưa mở thử.
-- Simulator iPhone 17e (1113F02A-…): đã boot. App Release trỏ API online build ở `apps/mobile/ios/build-sim`.
+- `8113500` (đã push, verify-all đầy đủ đạt, Vercel + CI đạt):
+  - `apps/mobile/src/ui.tsx` `Btn`/`Note`: chữ ghép (`Xem đơn {req.no}`, ghi chú Nghỉ phép, form xin nghỉ, thẻ quyền vị trí) bị trống trên bản Release. Giờ bọc mọi children không phải phần tử JSX trong `<Text>`.
+  - `ui.tsx` `Ln`: giá trị tối đa 65% bề ngang và xuống dòng, nhãn không bị ép thành từng chữ.
+  - API `createExplanation`: chỉ đề nghị một giờ thì phải hợp với giờ đã chấm (vào trước ra). Thêm bước trong `timesheet-smoke`.
+- Đã đi hết các màn online: trang chủ, Bảng công, Nghỉ phép, Đơn từ, Thông báo, Hồ sơ, Bảo mật, Bản tin. Không crash, không lỗi API.
+- Đã kiểm 3 bản sửa trên simulator bằng bản local (`ios/build-sim-local`, HD0142).
 
-## Test simulator online TSNV002 (phiên 9, chưa commit)
-Đã đi hết các màn: trang chủ, Bảng công + chi tiết ngày, Nghỉ phép, Đơn từ + GT-0003, Thông báo, Hồ sơ, Bảo mật, Bản tin. Không crash, không lỗi API.
-Đã sửa (verify-all --quick đạt; `timesheet-smoke` đạt trên API code mới cổng 4100):
-- `ui.tsx` `Btn`/`Note`: chữ ghép (`Xem đơn {req.no}`, ghi chú ở Nghỉ phép, form xin nghỉ, thẻ quyền vị trí) không được bọc `<Text>` nên bản Release hiện nút/hộp **trống chữ**. Giờ bọc mọi children không phải phần tử JSX.
-- `ui.tsx` `Ln`: giá trị dài ép nhãn co thành từng chữ ("Kết qu/ả/cô/ng"). Giá trị giờ tối đa 65% và xuống dòng.
-- API `createExplanation`: chỉ đề nghị giờ vào thì phải trước giờ ra đã chấm (và ngược lại). GT-0003 online đề nghị vào 20:30 / ra 19:51 vẫn được duyệt, ngày 04/11 tính **1 công**, giờ làm 0. Smoke có thêm 1 bước.
-Đã kiểm lại trên simulator bằng bản **local** (build `ios/build-sim-local`, API code mới cổng 4100, HD0142): nút "Xem đơn GT-0001" có chữ, "Kết quả công" xuống dòng đúng, hộp ⓘ Nghỉ phép có chữ.
-Simulator hiện cài bản local và đã xoá Keychain (`simctl keychain reset`). Muốn test online lại: build/launch bản online, người dùng tự gõ mật khẩu TSNV002, rồi **đăng ký lại thiết bị** (mã cài đặt mới, là ghi lên online, hỏi trước). API local cổng 4000 vẫn chạy code cũ: khởi động lại `dev-backend`.
-Còn mở (chưa sửa, cần người dùng quyết):
-- Trang chủ Chủ Nhật (ngày nghỉ theo `workDays`) vẫn hiện "Ca hành chính 08:00–17:00 · VÀO CA". Prototype không vẽ ngày nghỉ. Mobile bỏ qua `shift.workDays`.
-- Dữ liệu cũ: `computeDay` cho 1 công khi có đủ vào/ra kể cả vào > ra (04/11 của TSNV002). Đổi luật là việc lương.
-- Thông báo HS-0001: "Sửa hồ sơ Sửa email cá nhân…" lặp chữ.
+## Đang dở
+- Render không báo trạng thái về GitHub: xem Render → Events đã deploy `8113500` chưa.
+- Simulator đang cài bản **local** và Keychain đã bị xoá. Test online lại thì build bản online (lệnh ở Mẹo), người dùng tự gõ mật khẩu TSNV002, rồi **đăng ký lại thiết bị**. Đây là ghi lên online, phải hỏi trước. iPhone thật cũng cần build lại mới có bản sửa giao diện.
+- `docs/plans/roadmap-competitive.md` chưa track. Người dùng chưa quyết thì không commit.
+- Lỗi 403 lúc mở Tổng quan web online, chưa rõ nguồn (có thể do Realtime).
 
-## Đang dở — việc của phiên mới
-1. Commit 3 bản sửa khi người dùng bảo (đã kiểm xong). Push = deploy, hỏi trước.
-2. Dữ liệu online là thật. Trên web HR online chỉ xem, không bấm lưu/gửi/xác nhận, nhất là "Gửi lời mời". Trên app thì thao tác ghi (chấm công, gửi đơn) phải hỏi người dùng trước.
-3. Lỗi 403 lúc mở Tổng quan web online, chưa rõ nguồn. Có thể do Realtime ("Mất kết nối cập nhật", Realtime chưa từng kiểm trên cloud).
-4. `docs/plans/roadmap-competitive.md` chưa track. Người dùng chưa quyết thì không commit.
-
-## Quyết định đã chốt (phiên này)
-- Ngày tạm nghỉ **vẫn tính vào công chuẩn** (lương theo công tự giảm). Không bỏ khỏi công chuẩn như `not_employed`.
-- Phép năm: thai sản vẫn tính; ốm tối đa 60 ngày, không lương tối đa 30 ngày cộng dồn/năm; khác không tính. Tháng có phần được tính < 50% bị trừ. Khác prototype ("không tích lũy phép năm").
-- Thêm "Kết thúc tạm nghỉ" (prototype không có). Người tạm nghỉ vẫn đăng nhập app, chỉ bị chặn chấm công.
-- Có đơn nghỉ đã duyệt trong khoảng tạm nghỉ thì chặn, không tự hủy.
-
-## Mẹo
-- Build simulator: trong `apps/mobile`, `LANG=en_US.UTF-8 EXPO_PUBLIC_API_URL=https://kavor-api.onrender.com/api/v1 xcodebuild -workspace ios/Kavor.xcworkspace -scheme Kavor -configuration Release -destination 'generic/platform=iOS Simulator' -derivedDataPath ios/build-sim build`, rồi launch `ios/build-sim/Build/Products/Release-iphonesimulator/Kavor.app`.
-- `source tools/smoke-lib.sh` phải chạy trong **bash**. Trong zsh, biến `path` của `call()` ghi đè `PATH` nên mất `curl`.
-- Smoke: body JSON có dấu phẩy phải gán vào biến trước (bash 3.2).
-- Sửa API thì người dùng tự khởi động lại `bash tools/dev-backend.sh`.
+## Quyết định đã chốt
+- Dữ liệu online là thật: chỉ xem. Chấm công, gửi đơn, đăng ký thiết bị, "Gửi lời mời" đều phải hỏi người dùng. Mật khẩu online do người dùng tự gõ.
+- Kiểm bản sửa giao diện trên bản local, không dùng dữ liệu online.
+- Tạm nghỉ (phiên 8): ngày tạm nghỉ vẫn tính vào công chuẩn. Phép năm trừ theo lý do (NĐ 145/2020). Có "Kết thúc tạm nghỉ". Đơn nghỉ đã duyệt trùng khoảng thì chặn, không tự hủy.
 
 ## Nợ Ponytail
-- `shortcut:` mới ở `apps/api/src/timesheet/pause.ts`: quy tắc 50% đếm theo ngày lịch, ốm không cộng đơn nghỉ ốm lẻ.
+- Phiên này không có `shortcut:` mới. Còn nợ cũ ở `apps/api/src/timesheet/pause.ts`: quy tắc 50% đếm theo ngày lịch, nghỉ ốm không cộng đơn nghỉ ốm lẻ.
 
-## Việc tiếp theo (TASKS)
-1. Test/fix app simulator (ở trên) — `[opus high]`
-2. Lương người vào/nghỉ giữa kỳ: ngày ngoài hire..termination bị bỏ khỏi công chuẩn → trả đủ lương tháng — `[opus xhigh]`
-3. Màn "Xem số tài khoản" — `[opus xhigh]`
+## Việc tiếp theo
+1. Lương người vào làm hoặc nghỉ việc giữa kỳ: ngày ngoài khoảng hire..termination bị bỏ khỏi công chuẩn, nên vào làm 13/26 ngày vẫn đủ lương. Đề xuất cách tính để người dùng chốt trước, rồi mới sửa — `[opus xhigh]`
+2. Ngày có giờ vào > giờ ra (TSNV002 04/11) vẫn tính 1 công trong `computeDay`: người dùng chọn HR sửa tay hay đổi luật — `[opus xhigh]`
+3. Trang chủ mobile ngày nghỉ theo `shift.workDays` vẫn hiện ca + "Vào ca". Đề xuất vẫn cho chấm, đổi dòng ca thành "Hôm nay nghỉ" — `[opus high]`
+
+## Mẹo
+- Build simulator online: trong `apps/mobile`, `LANG=en_US.UTF-8 EXPO_PUBLIC_API_URL=https://kavor-api.onrender.com/api/v1 xcodebuild -workspace ios/Kavor.xcworkspace -scheme Kavor -configuration Release -destination 'generic/platform=iOS Simulator' -derivedDataPath ios/build-sim build`. Bản local: URL `http://localhost:4000/api/v1`, `-derivedDataPath ios/build-sim-local`.
+- Bản Release nuốt lỗi "chữ ngoài `<Text>`" (chỉ hiện trống). Component nhận chữ phải bọc `<Text>`.
+- `verify-all --quick` và `db-reset` không chạy song song: reset làm pgTAP mất kết nối.
 
 ## File cần đọc đầu tiên
-- `docs/TASKS.md`, `AGENTS.md` (mục Tạm nghỉ)
-- `apps/mobile/src/screens/attendance.tsx`, `apps/mobile/src/store.ts` (xử lý lỗi API)
+- `docs/TASKS.md`, `AGENTS.md` (mục Tạm nghỉ, bảng công)
+- `apps/api/src/timesheet/compute.ts` (`computeDay`, `not_employed`)
+- `apps/api/src/payroll/` (cách dùng công chuẩn)
