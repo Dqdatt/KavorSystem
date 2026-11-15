@@ -21,6 +21,9 @@ const AUDIT: Record<string, string> = {
   "privacy.consented": "Đồng ý điều khoản dữ liệu cá nhân",
   "request.submitted": "Gửi đơn", "request.cancelled": "Hủy đơn", "approval.approved": "Duyệt đơn", "approval.rejected": "Từ chối đơn",
   "leave.adjusted": "Điều chỉnh sổ phép", "leave.carry_imported": "Nhập phép tồn", "compensation.changed": "Đổi mức lương", "compensation.viewed": "Xem lương", "tax_profile.changed": "Sửa MST/công đoàn", "dependent.added": "Thêm người phụ thuộc", "dependent.changed": "Sửa người phụ thuộc", "dependent.removed": "Xóa người phụ thuộc", "salary_advance.paid": "Chi tạm ứng",
+  "checklist.updated": "Cập nhật giấy tờ hồ sơ", "document.created": "Thêm tài liệu", "document.updated": "Sửa thông tin tài liệu", "document.archived": "Gỡ tài liệu",
+  "document.version_added": "Tải phiên bản tài liệu mới", "document.downloaded": "Tải tài liệu", "documents.viewed": "Xem tài liệu", "payslip.viewed": "Xem phiếu lương", "payslips.viewed": "Xem phiếu lương",
+  "employee.imported": "Nhập hồ sơ từ file", "employee.invited_bulk": "Gửi lời mời kích hoạt", "employee.avatar_updated": "Đổi ảnh đại diện", "employee.avatar_removed": "Xóa ảnh đại diện",
   "device.registered": "Đăng ký thiết bị", "device.change_requested": "Yêu cầu dùng máy mới", "device.approved": "Duyệt thiết bị", "device.rejected": "Từ chối thiết bị", "device.revoked": "Thu hồi thiết bị",
 };
 
@@ -225,7 +228,7 @@ export function EmployeeProfile({ id }: { id: string }) {
           {!e.audit.length ? <p className="muted" style={{ fontSize: 12.5, margin: 0 }}>Chưa có thay đổi.</p> : (
             <div className="tl">{e.audit.slice(0, 15).map((a) => (
               <div key={a.id}><span className="pt" /><div className="kv-spread">
-                <span><b>{AUDIT[a.action] ?? a.action}</b><small>{[a.actor, a.reason].filter(Boolean).join(" — ")}</small></span>
+                <span><b>{AUDIT[a.action] ?? a.action}</b><small>{vs([a.actor, a.reason].filter(Boolean).join(" | "))}</small></span>
                 <small className="num">{fmtDateTime(a.createdAt, tz)}</small>
               </div></div>
             ))}</div>
@@ -358,7 +361,7 @@ function dayRange(d: number[]) {
 }
 
 /* Lịch mini của kỳ công (prototype .calmini): màu theo kết quả ngày */
-function MonthMini({ days, today }: { days: EmployeeTimesheet["days"]; today: string }) {
+export function MonthMini({ days, today }: { days: EmployeeTimesheet["days"]; today: string }) {
   const lead = days.length ? days[0]!.weekday - 1 : 0;
   const cls = (d: EmployeeTimesheet["days"][number]) => d.kind === "leave" ? "leave" : d.date > today ? (d.workday ? "fut" : "we") : !d.workday && !d.clockIn ? "we"
     : d.issue === "late" || d.issue === "late_early" || d.issue === "early" ? "late" : d.issue ? (d.request ? "exp" : "miss") : d.clockIn ? "ok" : "fut";

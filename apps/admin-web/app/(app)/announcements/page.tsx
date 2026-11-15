@@ -128,7 +128,7 @@ function DetailDrawer({ id, onClose, onEdit, onPublish, onChanged }: { id: strin
     run(key, async () => { await call("POST", `announcements/${id}/${path}`, {}); onChanged(); if (after) after(); else void reload(); }, ok);
 
   return (
-    <Drawer onClose={onClose} head={<><div><b>Chi tiết bài viết</b><div className="muted" style={{ fontSize: 12 }}>{a ? `${ANNOUNCEMENT_CATEGORIES[a.category]} · ${a.authorLabel}` : "Đang tải…"}</div></div>
+    <Drawer onClose={onClose} head={<><div><b>Chi tiết bài viết</b><div className="muted">{a ? `${ANNOUNCEMENT_CATEGORIES[a.category]} · ${a.authorLabel}` : "Đang tải…"}</div></div>
       {a ? <span style={{ marginLeft: "auto" }}><Status v={STATUS[a.status]} /></span> : null}</>}>
       <LoadError error={error} retry={reload} />
       {!a ? (error ? null : <SkeletonLines lines={6} />) : (

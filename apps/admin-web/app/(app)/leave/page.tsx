@@ -6,7 +6,7 @@ import { Suspense, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { LEAVE_TX_KINDS, type EmployeeLeave, type LeaveBalance, type LeaveBoard, type LeaveMonth, type LeaveMonthEntry, type RequestItem } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
-import { vs, PageActions, PageSub, Thk, Avatar, Drawer, Empty, ErrorLine, Field, Icon, LoadError, Person, Status, fmtDate, fmtDateTime, tenantToday, useAction, useMe } from "../../_ui/kit";
+import { vs, PageActions, PageSub, Thk, Avatar, Dl, Drawer, Empty, ErrorLine, Field, Icon, LoadError, Person, Status, fmtDate, fmtDateTime, tenantToday, useAction, useMe } from "../../_ui/kit";
 import { REQUEST_STATUS, RequestModal, requestSummary } from "../../_ui/request";
 import { Select, SkeletonLines, SkeletonRows, Hint } from "@kavor/web-ui";
 
@@ -287,7 +287,7 @@ function LeaveDrawer({ id, year, canManage, onClose, onChanged }: { id: string; 
   const [req, setReq] = useState<RequestItem | null>(null);
   const tz = me.tenant.timezone;
   return (
-    <Drawer onClose={onClose} head={<div><b>{e?.employee.fullName ?? "…"}</b><div className="muted" style={{ fontSize: 12 }}>{e ? vs(`${e.employee.code} | vào làm ${fmtDate(e.employee.hireDate)} | sổ phép ${year}`) : ""}</div></div>}>
+    <Drawer onClose={onClose} head={<div><b>Sổ phép: {e?.employee.fullName ?? "…"}</b><div className="muted">{e ? vs(`${e.employee.code} | vào làm ${fmtDate(e.employee.hireDate)} | năm ${year}`) : ""}</div></div>}>
       <LoadError error={error} retry={reload} />
       {e ? (!e.balance ? <Empty title="Chưa có sổ phép" text="Nhân viên chưa được áp dụng quy định phép năm, hoặc chưa vào làm trong năm này." /> : <>
         <div className="params">
@@ -297,17 +297,14 @@ function LeaveDrawer({ id, year, canManage, onClose, onChanged }: { id: string; 
         </div>
         <BalanceDetail b={e.balance} />
         {canManage ? <AdjustForm id={id} year={year} onDone={(x) => { setData(x); onChanged(); }} /> : null}
-        <div className="drawer-section"><h4>Biến động</h4>
-          <div className="card"><div className="table-wrap"><table className="data-table compact"><thead><tr><th>Ngày</th><th>Loại</th><th>Số ngày</th><th>Nội dung</th></tr></thead><tbody>
-            {e.ledger.map((t) => (
-              <tr key={t.id}>
-                <td className="nowrap">{fmtDate(t.effectiveOn).slice(0, 5)}</td>
-                <td className="nowrap">{LEAVE_TX_KINDS[t.kind]}</td>
-                <td className={`num ${t.amount < 0 ? "text-red" : ""}`}>{signed(t.amount)}</td>
-                <td style={{ whiteSpace: "normal" }}>{t.reason ?? "—"}{t.expiresOn ? ` · dùng đến ${fmtDate(t.expiresOn)}` : ""}{t.createdBy ? <small className="muted" style={{ display: "block" }}>{t.createdBy} · {fmtDateTime(t.createdAt, tz)}</small> : null}</td>
-              </tr>
-            ))}
-          </tbody></table></div></div>
+        <div className="drawer-section"><div className="cap" style={{ marginBottom: 12 }}>Biến động</div>
+          <div className="tl">{e.ledger.map((t) => (
+            <div key={t.id}><span className={`pt ${t.amount > 0 ? "done" : ""}`}>{t.amount > 0 ? <Icon name="plus" size={12} /> : null}</span>
+              <div className="spread" style={{ alignItems: "flex-start" }}>
+                <span><b style={{ fontWeight: 600 }}>{LEAVE_TX_KINDS[t.kind]}</b><span className="small muted" style={{ display: "block" }}>{vs([t.reason ?? "", t.expiresOn ? `dùng đến ${fmtDate(t.expiresOn)}` : "", t.createdBy ? `${t.createdBy} ${fmtDateTime(t.createdAt, tz)}` : ""].filter(Boolean).join(" | ") || "—")}</span></span>
+                <span className="num nowrap"><b>{signed(t.amount)}</b> <span className="small muted">{fmtDate(t.effectiveOn).slice(0, 5)}</span></span>
+              </div></div>
+          ))}</div>
         </div>
       </>) : (error ? null : <SkeletonLines lines={6} avatar />)}
       {e ? <div className="drawer-section"><h4>Đơn nghỉ năm {year}</h4>
@@ -322,15 +319,13 @@ function LeaveDrawer({ id, year, canManage, onClose, onChanged }: { id: string; 
 
 function BalanceDetail({ b }: { b: LeaveBalance }) {
   return (
-    <div className="drawer-section"><h4>Số dư</h4>
-      <div className="card detail-list">
-        <div className="detail-row"><span>{b.accrualMonthly ? "Đã tích lũy" : "Được cấp"}</span><b>{d1(b.granted)}/{d1(b.yearEntitlement)} ngày{b.accrualMonthly ? " · tích lũy đầu mỗi tháng" : ""}</b></div>
-        {b.carry ? <div className="detail-row"><span>Phép tồn năm trước</span><b>{d1(b.carry)} ngày{b.carryExpiresOn ? ` · dùng đến ${fmtDate(b.carryExpiresOn)}` : ""}{b.expired ? ` · đã hết hạn ${d1(b.expired)}` : ""}</b></div> : null}
-        {b.adjusted ? <div className="detail-row"><span>Điều chỉnh</span><b>{signed(b.adjusted)} ngày</b></div> : null}
-        <div className="detail-row"><span>Được nghỉ trước (âm)</span><b>{b.allowNegative ? `tối đa ${d1(b.allowNegative)} ngày, cần HR duyệt` : "Không"}</b></div>
-        <div className="detail-row"><span>Quy định áp dụng</span><b>{b.policy ? `${b.policy.name} · v${b.policy.versionNo}` : "—"}</b></div>
-      </div>
-    </div>
+    <div className="drawer-section"><Dl rows={[
+      [b.accrualMonthly ? "Đã tích lũy" : "Được cấp", `${d1(b.granted)}/${d1(b.yearEntitlement)} ngày${b.accrualMonthly ? " | tích lũy đầu mỗi tháng" : ""}`],
+      ...(b.carry ? [["Phép tồn năm trước", `${d1(b.carry)} ngày${b.carryExpiresOn ? ` | dùng đến ${fmtDate(b.carryExpiresOn)}` : ""}${b.expired ? ` | đã hết hạn ${d1(b.expired)}` : ""}`] as [string, string]] : []),
+      ...(b.adjusted ? [["Điều chỉnh", `${signed(b.adjusted)} ngày`] as [string, string]] : []),
+      ["Được nghỉ trước (âm phép)", b.allowNegative ? `Tối đa ${d1(b.allowNegative)} ngày, cần HR duyệt` : "Không"],
+      ["Quy định áp dụng", b.policy ? `${b.policy.name} | phiên bản ${b.policy.versionNo}` : "—"],
+    ]} /></div>
   );
 }
 
@@ -353,9 +348,10 @@ function AdjustForm({ id, year, onDone }: { id: string; year: number; onDone: (e
     if (ok) { setAmount(""); setReason(""); }
   }
   return (
-    <div className="drawer-section">
-      <button className="btn" aria-expanded={show} onClick={() => setShow(!show)}><Icon name={show ? "x" : "plus"} /> Điều chỉnh số dư</button>
-      {show ? <div className="card card-body" style={{ marginTop: 10 }}>
+    <div className="drawer-section inset" style={{ padding: 0 }}>
+      <button className="spread" aria-expanded={show} onClick={() => setShow(!show)} style={{ width: "100%", padding: "12px 14px", border: 0, background: "none", color: "inherit", font: "inherit", fontWeight: 600, cursor: "pointer" }}>
+        <span className="row"><Icon name="edit" size={16} />Điều chỉnh số dư</span><span style={{ display: "inline-flex", transform: show ? "rotate(180deg)" : undefined }}><Icon name="chevD" size={16} /></span></button>
+      {show ? <div style={{ padding: "0 14px 14px" }}>
         <div className="form-grid">
           <Field label="Số ngày (+/−)"><input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="Ví dụ 1 hoặc -0,5" /></Field>
           <Field label="Loại"><Select value={carry ? "carry" : "adjust"} onChange={(e) => setCarry(e.target.value === "carry")}><option value="adjust">Điều chỉnh</option><option value="carry">Phép tồn năm trước</option></Select></Field>

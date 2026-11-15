@@ -8,6 +8,7 @@ import type { AdminDevice, EmployeeTimesheet, RequestItem, TimesheetBoard, Times
 import { call, useApi } from "../../_lib/client";
 import { vs, Drawer, Empty, Field, Icon, LoadError, Modal, Person, Status, dur, fmtDate, fmtDateTime, num, tenantToday, useAction, useMe } from "../../_ui/kit";
 import { ReasonModal } from "../../_ui/reason-modal";
+import { MonthMini } from "../employees/profile";
 import { REQUEST_STATUS, RequestModal, requestSummary } from "../../_ui/request";
 import { Select, SkeletonLines, SkeletonRows } from "@kavor/web-ui";
 
@@ -129,7 +130,7 @@ export function EmployeeMonth({ id, month, onClose, onChanged }: { id: string; m
   const missing = (e?.days ?? []).filter((d) => (d.issue === "missing_in" || d.issue === "missing_out" || d.issue === "absent") && (!d.request || d.request.status === "rejected" || d.request.status === "cancelled"));
   const days = (e?.days ?? []).filter((d) => d.kind !== "future" && d.kind !== "not_employed").slice().reverse();
   return (
-    <Drawer onClose={onClose} head={<div><b>{e?.employee.fullName ?? "…"}</b><div className="muted" style={{ fontSize: 12 }}>{e ? vs(`${e.employee.code}${e.employee.department ? ` | ${e.employee.department}` : ""} | ${monthLabel(e.period.month)}`) : ""}</div></div>}>
+    <Drawer onClose={onClose} head={<div><b>{e?.employee.fullName ?? "…"}</b><div className="muted">{e ? vs(`${e.employee.code}${e.employee.department ? ` | ${e.employee.department}` : ""} | ${monthLabel(e.period.month)}`) : ""}</div></div>}>
       <LoadError error={error} retry={reload} />
       {e ? <>
         <div className="params">
@@ -137,6 +138,7 @@ export function EmployeeMonth({ id, month, onClose, onChanged }: { id: string; m
           <div className="param"><b style={e.summary.lateDays ? { color: "var(--amber)" } : undefined}>{num(e.summary.lateDays)}</b><span>Lần đi muộn{e.summary.lateMinutes ? ` · ${dur(e.summary.lateMinutes)}` : ""}</span></div>
           <div className="param"><b className={e.summary.missingDays ? "text-red" : ""}>{num(e.summary.missingDays)}</b><span>Thiếu công chưa giải trình</span></div>
         </div>
+        <div className="drawer-section"><MonthMini days={e.days} today={tenantToday(tz)} /></div>
         {e.summary.overtimeApprovedMinutes ? <div className="card card-body" style={{ marginTop: 10, fontSize: 12 }}>
           Làm thêm được tính <b className={e.summary.overtimeShortDays ? "text-red" : ""}>{hrs(e.summary.overtimeMinutes)}/{hrs(e.summary.overtimeApprovedMinutes)} giờ</b> đã duyệt
           {e.summary.overtimeShortDays ? <b className="text-red"> · {num(e.summary.overtimeShortDays)} ngày giờ chấm công không phủ hết giờ làm thêm</b> : null}

@@ -125,7 +125,7 @@ export function Modal({ title, sub, onClose, children, foot, wide }: { title: st
     <Layer><div className="modal-layer show">
       <div className="scrim" onClick={onClose} />
       <section className="modal" role="dialog" aria-modal="true" aria-label={title} style={wide ? { width: "min(760px, calc(100% - 28px))" } : undefined}>
-        <div className="modal-head"><div><h3>{title}</h3>{sub ? <p>{vs(sub)}</p> : null}</div><button className="modal-close" onClick={onClose} aria-label="Đóng">×</button></div>
+        <div className="modal-head"><div><h3>{title}</h3>{sub ? <p>{vs(sub)}</p> : null}</div><button className="modal-close" onClick={onClose} aria-label="Đóng"><Icon name="x" size={18} /></button></div>
         <div className="modal-body">{children}</div>
         {foot ? <div className="modal-foot">{foot}</div> : null}
       </section>
@@ -139,7 +139,7 @@ export function Drawer({ onClose, head, children, wide }: { onClose: () => void;
     <Layer><div className="modal-layer show">
       <div className="scrim" onClick={onClose} />
       <section className="modal detail-modal" role="dialog" aria-modal="true">
-        <div className="drawer-head"><button className="icon-btn" onClick={onClose} aria-label="Đóng"><Icon name="x" /></button>{head}</div>
+        <div className="drawer-head">{head}<button className="modal-close" onClick={onClose} aria-label="Đóng"><Icon name="x" size={18} /></button></div>
         <div className="drawer-body">{children}</div>
       </section>
     </div></Layer>
@@ -148,7 +148,7 @@ export function Drawer({ onClose, head, children, wide }: { onClose: () => void;
     <Layer><div className="drawer-layer show">
       <div className="scrim" onClick={onClose} />
       <aside className="drawer" role="dialog" aria-modal="true">
-        <div className="drawer-head"><button className="icon-btn" onClick={onClose} aria-label="Đóng"><Icon name="x" /></button>{head}</div>
+        <div className="drawer-head">{head}<button className="modal-close" onClick={onClose} aria-label="Đóng"><Icon name="x" size={18} /></button></div>
         <div className="drawer-body">{children}</div>
       </aside>
     </div></Layer>

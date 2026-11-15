@@ -663,7 +663,7 @@ p, li, small, td { text-wrap: pretty; }
 .modal-head { display: flex; align-items: flex-start; gap: 12px; padding: 24px 28px 8px; }
 .modal-head h3 { margin: 0; font-size: 20px; font-weight: 700; letter-spacing: -.015em; }
 .modal-head p { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
-.modal-close { margin-left: auto; width: 34px; height: 34px; flex: none; border: 0; border-radius: 10px; background: var(--surface-2); cursor: pointer; color: var(--muted); font-size: 18px; }
+.modal-close { margin-left: auto; width: 36px; height: 36px; flex: none; border: 0; border-radius: 10px; background: transparent; cursor: pointer; color: var(--ink-2); display: grid; place-items: center; }
 .modal-close:hover { background: var(--surface-3); color: var(--ink); }
 .modal-body { padding: 16px 28px 24px; }
 .modal-foot { position: sticky; bottom: 0; display: flex; justify-content: flex-end; gap: 10px; padding: 16px 28px 24px; background: var(--surface); }
@@ -683,8 +683,11 @@ p, li, small, td { text-wrap: pretty; }
 .profile-grid.one .card.detail-list > .detail-row:nth-last-child(2):nth-child(odd) { border-bottom: 0; }
 .profile-grid .drawer-section:first-child { margin-top: 0; }
 @media (max-width: 860px) { .profile-grid, .profile-grid.one .card.detail-list { grid-template-columns: minmax(0, 1fr); } }
-.drawer-head { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 12px; padding: 16px 20px; background: var(--surface); border-bottom: 1px solid var(--line-soft); }
-.drawer-head b { font-size: 15px; }
+/* Đầu hộp chi tiết như .modal-head của prototype: tiêu đề 20px, dòng phụ 13px, nút đóng bên phải */
+.drawer-head { position: sticky; top: 0; z-index: 2; display: flex; align-items: flex-start; gap: 12px; padding: 24px 28px 8px; background: var(--surface); }
+.drawer-head > div:first-child { flex: 1; min-width: 0; }
+.drawer-head > div:first-child > b { display: block; font-size: 20px; font-weight: 700; letter-spacing: -.015em; }
+.drawer-head > div:first-child > .muted { margin-top: 4px; font-size: 13px; }
 .drawer-body { padding: 16px 28px 24px; }
 .drawer-section { margin-top: 20px; }
 .drawer-section h4 { margin: 0 0 8px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
@@ -1498,7 +1501,7 @@ input:-webkit-autofill, input:-webkit-autofill:hover, input:-webkit-autofill:foc
 .cmdk .res b { font-weight: 600; }
 .cmdk .res .tile { width: 28px; height: 28px; }
 .cmdk .res .avatar { width: 28px; height: 28px; font-size: 12px; flex: none; }
-@media (max-width: 1280px) { .cmdk-btn { width: var(--control); padding: 0; justify-content: center; } .cmdk-btn span { display: none; } }
+@media (max-width: 1280px) { .topbar > .cmdk-btn { width: var(--control); padding: 0; justify-content: center; } .cmdk-btn span { display: none; } }
 .cmdk-btn .grow { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cmdk .res .grow { flex: 1; min-width: 0; }
 .cmdk .res .small { font-size: 13px; }

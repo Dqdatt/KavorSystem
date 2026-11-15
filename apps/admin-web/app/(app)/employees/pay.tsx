@@ -6,7 +6,7 @@
 import { useState, type ReactNode } from "react";
 import type { CompensationInput, CompensationVersion, DependentInput, EmployeeDependent, EmployeePay, EmploymentType, PayItemList, ProbationContract, TaxProfileInput } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
-import { Dl, EMPLOYMENT, ErrorLine, Field, Icon, Modal, Section, fmtDate, fmtDateTime, tenantToday, useAction, useMe } from "../../_ui/kit";
+import { Dl, EMPLOYMENT, ErrorLine, Field, Icon, Modal, Section, fmtDate, fmtDateTime, tenantToday, useAction, useMe, vs } from "../../_ui/kit";
 import { ReasonModal } from "../../_ui/reason-modal";
 import { money } from "../../_ui/request";
 import { Select, SkeletonLines } from "@kavor/web-ui";
@@ -28,7 +28,7 @@ export function EmployeePaySection({ employeeId, name }: { employeeId: string; n
     <>
       {error ? <p className="text-red" style={{ fontSize: 12.5 }}>{error.message}</p> : !p ? <SkeletonLines lines={4} /> : (
         <div className="grid two top">
-          <Section title="Lương hiện tại" action={p.canManage ? <button className="btn small" onClick={() => setEdit("salary")}><Icon name="pay" />{c ? "Đổi lương" : "Nhập lương"}</button> : null}>
+          <Section title="Lương hiện tại" action={p.canManage ? <button className="btn small" onClick={() => setEdit("salary")}><Icon name="edit" />{c ? "Đổi lương" : "Nhập lương"}</button> : null}>
             {c ? <>
               <div className="receipt">
                 <div className="ln"><span>Lương cơ bản</span><b className="num">{money(c.baseSalary)}</b></div>
@@ -68,14 +68,15 @@ export function EmployeePaySection({ employeeId, name }: { employeeId: string; n
             {p.history.length ? <Section title="Lịch sử lương" action={p.history.length > 3 ? <button className="btn small ghost" onClick={() => setAll(!all)}>{all ? "Thu gọn" : `Xem cả ${p.history.length} bản`}</button> : null}>
               <div className="tl">{(all ? p.history : p.history.slice(0, 3)).map((h) => (
                 <div key={h.effectiveFrom}><span className={`pt ${h.effectiveFrom === c?.effectiveFrom ? "done" : ""}`}>{h.effectiveFrom === c?.effectiveFrom ? <Icon name="check" size={12} /> : null}</span>
-                  <div style={{ fontSize: 13 }}>Từ {fmtDate(h.effectiveFrom)} · lương cứng {money(h.baseSalary + h.allowance)} (cơ bản {money(h.baseSalary)}{h.items.length ? h.items.map((x) => ` + ${x.name.toLowerCase()} ${money(x.amount)}`).join("") : h.allowance ? ` + phụ cấp ${money(h.allowance)}` : ""}){h.insuranceSalary ? ` · đóng BH ${money(h.insuranceSalary)}` : ""}
-                  {h.employmentType ? ` · ${EMPLOYMENT[h.employmentType]}` : ""}{h.note ? ` — ${h.note}` : ""} <span className="muted">(nhập {fmtDateTime(h.createdAt, me.tenant.timezone)})</span></div></div>
+                  <div><b className="num">{money(h.baseSalary + h.allowance)}</b><span className="small muted" style={{ display: "block" }}>{vs([`Từ ${fmtDate(h.effectiveFrom)}`, h.effectiveFrom === c?.effectiveFrom ? "mức hiện tại" : "",
+                    h.items.length || h.allowance ? `cơ bản ${money(h.baseSalary)}${h.items.length ? h.items.map((x) => ` + ${x.name.toLowerCase()} ${money(x.amount)}`).join("") : ` + phụ cấp ${money(h.allowance)}`}` : "",
+                    h.insuranceSalary ? `đóng BH ${money(h.insuranceSalary)}` : "", h.employmentType ? EMPLOYMENT[h.employmentType] : "", h.note ?? "", `nhập ${fmtDateTime(h.createdAt, me.tenant.timezone)}`].filter(Boolean).join(" | "))}</span></div></div>
               ))}</div>
             </Section> : null}
           </div>
         </div>
       )}
-      {edit === "salary" && p ? <CompensationModal title={`${c ? "Đổi" : "Nhập"} lương · ${name}`} current={c ?? null} fallbackType={p.employmentType} onClose={() => setEdit(null)}
+      {edit === "salary" && p ? <CompensationModal title={`${c ? "Đổi" : "Nhập"} lương: ${name}`} current={c ?? null} fallbackType={p.employmentType} onClose={() => setEdit(null)}
         save={async (b) => setData(await call<EmployeePay>("POST", `employees/${employeeId}/pay/compensation`, b))} /> : null}
       {edit === "tax" && p ? <TaxModal pay={p} name={name} onClose={() => setEdit(null)} save={async (b) => setData(await call<EmployeePay>("POST", `employees/${employeeId}/pay/tax`, b))} /> : null}
       {edit === "dep" ? <DependentModal dep={dep} name={name} onClose={() => setEdit(null)}
@@ -128,7 +129,7 @@ export function CompensationModal({ title, current, fallbackType, onClose, save 
   }
   return (
     <Modal title={title} sub="Bản cũ giữ nguyên trong lịch sử. Đổi giữa kỳ (ví dụ thử việc → chính thức) thì bảng lương đầu vào tự tách hai đoạn." onClose={onClose}
-      foot={<><button className="btn" onClick={onClose}>Hủy</button><button className="btn primary" disabled={!!busy || !cat} onClick={() => void go()}>{busy ? "Đang lưu…" : "Lưu"}</button></>}>
+      foot={<><button className="btn" onClick={onClose}>Hủy</button><button className="btn primary" disabled={!!busy || !cat} onClick={() => void go()}>{busy ? "Đang lưu…" : current ? "Lưu mức lương mới" : "Lưu"}</button></>}>
       <div className="form-grid">
         <Field label="Lương cơ bản (₫/tháng)" hint="Mức ghi trong hợp đồng, dùng đóng BHXH"><input inputMode="numeric" value={moneyInput(base)} onChange={(e) => setBase(digits(e.target.value))} placeholder="5.000.000" /></Field>
         <Field label="Hiệu lực từ"><input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></Field>

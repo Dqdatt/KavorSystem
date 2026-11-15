@@ -117,7 +117,7 @@ export function Salary() {
         )}
       </article>
       {/* Khoản phụ cấp của bản hiện hành đọc từ hồ sơ (danh sách tổng quan không kèm khoản) */}
-      {edit ? <CompensationEditor employeeId={edit.employee.id} title={`${edit.baseSalary ? "Đổi" : "Nhập"} lương · ${edit.employee.fullName}`} onClose={() => setEdit(null)}
+      {edit ? <CompensationEditor employeeId={edit.employee.id} title={`${edit.baseSalary ? "Đổi" : "Nhập"} lương: ${edit.employee.fullName}`} onClose={() => setEdit(null)}
         save={async (body) => setData(await call<CompensationBoard>("POST", `compensations/${edit.employee.id}`, body))} /> : null}
     </>
   );

@@ -142,7 +142,7 @@ function DetailDrawer({ id, onClose, onChanged }: { id: string; onClose: () => v
   const done = (x: DocumentDetail) => { setData(x); onChanged(); };
   const a = d?.item;
   return (
-    <Drawer onClose={onClose} head={<><div><b>Chi tiết tài liệu</b><div className="muted" style={{ fontSize: 12 }}>{a ? vs(`${DOCUMENT_CATEGORIES[a.category]} | v${a.current.versionNo}`) : "Đang tải…"}</div></div>
+    <Drawer onClose={onClose} head={<><div><b>Chi tiết tài liệu</b><div className="muted">{a ? vs(`${DOCUMENT_CATEGORIES[a.category]} | v${a.current.versionNo}`) : "Đang tải…"}</div></div>
       {a ? <span style={{ marginLeft: "auto" }}><Status v={a.archivedAt ? ["Đã gỡ", "muted"] : VIS[a.visibility]} /></span> : null}</>}>
       <LoadError error={error} retry={reload} />
       {!a || !d ? (error ? null : <SkeletonLines lines={6} />) : (
