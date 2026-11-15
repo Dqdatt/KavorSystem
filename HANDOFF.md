@@ -1,41 +1,41 @@
-# HANDOFF — 15/11/2026 (phiên 7)
+# HANDOFF — 15/11/2026 (phiên 8)
 
-**Mục tiêu phiên vừa rồi:** làm màn đầu tiên của việc 1 (các màn nhạy cảm) là "Cho nghỉ việc".
+**Mục tiêu phiên vừa rồi:** màn "Tạm nghỉ" (việc nhạy cảm số 1 trong TASKS), deploy online, cài iPhone.
 
 ## Đã xong
-- `abeb646`: migration `202612040001_offboarding.sql` (cột lý do/bàn giao/ghi chú). `offboard_employee`: ngày cuối đã qua → `terminated` + khóa membership ngay, chưa tới → `leaving`; hủy đơn tạm ứng chờ + đơn nghỉ chờ bắt đầu sau ngày cuối; chặn quản trị viên cuối, kỳ công đã khóa, ngày trước ngày vào làm.
-- `apply_due_terminations` (vòng quét 10 phút của API): qua ngày cuối → `terminated` + khóa; khóa luôn hồ sơ đã nghỉ mà tài khoản còn mở.
-- API có `GET|POST admin/employees/:id/offboard`. PATCH hồ sơ trả 409 nếu đặt `leaving`/`terminated`. Trước đây đổi thẳng sang `terminated` không khóa membership, nên RLS vẫn mở.
-- Web: mục "Cho nghỉ việc" ở menu ⋮ hồ sơ, hộp theo prototype, cảnh báo khi người nghỉ đang quản lý trực tiếp.
-- Kiểm thử: pgTAP 615/615 (`offboarding.test.sql` 18), `offboard-smoke.sh` và `console-ops-smoke.sh` đạt. Đã bấm thử trên web local.
+- `8509125` đã push và deploy: Render, Vercel, migration online (reminders, offboarding, employee_pause). Bảng `employee_pauses`, `pause_employee`, `end_employee_pause`, `apply_due_pauses` (vòng quét 10 phút), trigger cắt khi ghi ngày cuối.
+- API `POST admin/employees/:id/pause` + `/pause/end`. Bảng công: ngày `paused` vẫn trong công chuẩn, 0 công. Phép năm trừ theo lý do (`timesheet/pause.ts`, NĐ 145/2020). Chặn chấm công (`ATT_PAUSED`) và đơn nghỉ trùng ngày tạm nghỉ.
+- Web: hộp Chuyển sang tạm nghỉ / Kết thúc tạm nghỉ. Mobile: ngày tạm nghỉ hiện như ngày nghỉ.
+- Kiểm thử local: verify-all đầy đủ đạt (pgTAP 638, 33 smoke, build, lint). Online chỉ xem: hộp Tạm nghỉ đúng prototype, bảng công/chấm công/số dư phép không lỗi.
+- iPhone "Dqdatt": đã cài Release trỏ API online, người dùng chưa mở thử.
+- Simulator iPhone 17e (1113F02A-…): đã boot. App Release trỏ API online build ở `apps/mobile/ios/build-sim`.
 
-## Đang dở
-- Không có code dở. Chưa push (chưa deploy, migration online chưa chạy). Trước push chạy `bash tools/verify-all.sh` đầy đủ; phiên này mới chạy `--quick`.
-- `docs/plans/roadmap-competitive.md` chưa track. Người dùng chưa quyết thì không commit.
-- DB local: Võ Thảo Linh (HDG0005) đang "Sắp nghỉ" do bấm thử. Muốn sạch thì chạy `bash tools/db-reset.sh`.
+## Đang dở — việc của phiên mới
+1. Test app trên simulator với tài khoản thử online **TSNV002**. Người dùng tự gõ mật khẩu trong khung simulator, vì Claude không nhập mật khẩu cho máy chủ không phải local. Đi qua: đăng nhập, Chấm công (bảng công tháng), Nghỉ phép (số dư, gửi đơn thì hỏi trước), Đơn từ, Thông báo, Hồ sơ. Lỗi nào thấy được thì sửa.
+2. Dữ liệu online là thật. Trên web HR online chỉ xem, không bấm lưu/gửi/xác nhận, nhất là "Gửi lời mời". Trên app thì thao tác ghi (chấm công, gửi đơn) phải hỏi người dùng trước.
+3. Lỗi 403 lúc mở Tổng quan web online, chưa rõ nguồn. Có thể do Realtime ("Mất kết nối cập nhật", Realtime chưa từng kiểm trên cloud).
+4. `docs/plans/roadmap-competitive.md` chưa track. Người dùng chưa quyết thì không commit.
 
-## Quyết định đã chốt
-- `termination_date` = ngày làm việc cuối, vẫn tính công ngày đó. Nhãn web là "Ngày làm việc cuối", app khóa từ ngày hôm sau.
-- Bỏ "Quyết toán lương" của prototype vì chưa có kỳ lương riêng.
-- Chỉ hủy đơn nghỉ bắt đầu sau ngày cuối; đơn trong thời gian còn làm để người duyệt xử lý.
-- Người nghỉ đang quản lý: chỉ cảnh báo (chuyển người duyệt là việc tùy chọn trong TASKS). Quay lại làm qua "Sửa hồ sơ" thì xóa ngày cuối, tài khoản vẫn khóa tới khi HR mở.
+## Quyết định đã chốt (phiên này)
+- Ngày tạm nghỉ **vẫn tính vào công chuẩn** (lương theo công tự giảm). Không bỏ khỏi công chuẩn như `not_employed`.
+- Phép năm: thai sản vẫn tính; ốm tối đa 60 ngày, không lương tối đa 30 ngày cộng dồn/năm; khác không tính. Tháng có phần được tính < 50% bị trừ. Khác prototype ("không tích lũy phép năm").
+- Thêm "Kết thúc tạm nghỉ" (prototype không có). Người tạm nghỉ vẫn đăng nhập app, chỉ bị chặn chấm công.
+- Có đơn nghỉ đã duyệt trong khoảng tạm nghỉ thì chặn, không tự hủy.
 
-## Mẹo local
-- Smoke trên Mac: body JSON có `{…,…}` phải để vào biến trước. bash 3.2 tách chuỗi đó khi nằm trong `"$(…)"`.
-- Thử web: mở thẳng `http://localhost:3000` (không chạy được server thứ 2 cùng thư mục). HD0007: mật khẩu `PW` trong `tools/smoke-lib.sh`, TOTP lấy secret ở `auth.mfa_factors` rồi chạy `totp` trong bash.
-- Sửa API thì người dùng phải tự tắt API cũ và chạy lại `bash tools/dev-backend.sh`.
+## Mẹo
+- Build simulator: trong `apps/mobile`, `LANG=en_US.UTF-8 EXPO_PUBLIC_API_URL=https://kavor-api.onrender.com/api/v1 xcodebuild -workspace ios/Kavor.xcworkspace -scheme Kavor -configuration Release -destination 'generic/platform=iOS Simulator' -derivedDataPath ios/build-sim build`, rồi launch `ios/build-sim/Build/Products/Release-iphonesimulator/Kavor.app`.
+- `source tools/smoke-lib.sh` phải chạy trong **bash**. Trong zsh, biến `path` của `call()` ghi đè `PATH` nên mất `curl`.
+- Smoke: body JSON có dấu phẩy phải gán vào biến trước (bash 3.2).
+- Sửa API thì người dùng tự khởi động lại `bash tools/dev-backend.sh`.
 
 ## Nợ Ponytail
-- Không có `shortcut:` mới. Nợ cũ giữ nguyên: `demo-data.sh` chưa idempotent; `kit.tsx` `vs()`; `employees/page.tsx` DocTicks.
+- `shortcut:` mới ở `apps/api/src/timesheet/pause.ts`: quy tắc 50% đếm theo ngày lịch, ốm không cộng đơn nghỉ ốm lẻ.
 
-## Việc tiếp theo
-1. Màn "Tạm nghỉ" (prototype `ov:pause` ~dòng 1540): trạng thái `on_leave`, không tính công, không tích lũy phép. Lập kế hoạch riêng trước — `[opus xhigh]`
-2. Màn "Xem số tài khoản" (`employee.sensitive.read`, audit khi xem) — `[opus xhigh]`
-3. Chạy verify-all đầy đủ rồi push khi người dùng bảo — `[haiku]`
+## Việc tiếp theo (TASKS)
+1. Test/fix app simulator (ở trên) — `[opus high]`
+2. Lương người vào/nghỉ giữa kỳ: ngày ngoài hire..termination bị bỏ khỏi công chuẩn → trả đủ lương tháng — `[opus xhigh]`
+3. Màn "Xem số tài khoản" — `[opus xhigh]`
 
 ## File cần đọc đầu tiên
-- `docs/TASKS.md`
-- `AGENTS.md` (mục Cho nghỉ việc, hồ sơ, `employee.sensitive.read`)
-- `supabase/migrations/202612040001_offboarding.sql`
-- `apps/api/src/admin/employees.service.ts`
-- `apps/admin-web/app/(app)/employees/profile.tsx`
+- `docs/TASKS.md`, `AGENTS.md` (mục Tạm nghỉ)
+- `apps/mobile/src/screens/attendance.tsx`, `apps/mobile/src/store.ts` (xử lý lỗi API)
