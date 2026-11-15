@@ -16,6 +16,7 @@ import { holidaysOf } from "../company/company.service.js";
 import { datesBetween, isoWeekday, monthOf, periodOf } from "../timesheet/compute.js";
 import type { RequestsService, Viewer } from "../timesheet/requests.service.js";
 import type { TimesheetService } from "../timesheet/timesheet.service.js";
+import { loadPauses, pauseExcludedMonths } from "../timesheet/pause.js";
 
 type Db = SupabaseGateway["admin"];
 type Emp = { id: string; employee_code: string; full_name: string; hire_date: string; termination_date: string | null; user_id: string | null; employment_type: string };
@@ -64,7 +65,10 @@ export class LeaveService {
     const months = 13 - startMonth;
     const yearStart = `${year}-01-01`;
     const seniority = Number(c.seniorityYears ?? 0) > 0 ? Math.floor(Math.max(0, fullYears(emp.hire_date, yearStart)) / Number(c.seniorityYears)) * Number(c.seniorityBonusDays ?? 0) : 0;
-    const yearEntitlement = accrues ? half((annual * months) / 12) + seniority : 0;
+    /* Tháng tạm nghỉ không được tính là thời gian làm việc (pause.ts) bị trừ khỏi phép năm, chỉ xét tháng đã qua hết */
+    const excluded = accrues && year <= ty ? pauseExcludedMonths(await loadPauses(db, tenantId, [emp.id], `${year}-01-01`, `${year}-12-31`), year, today).filter((m) => m >= startMonth) : [];
+    const pauseCut = half((annual * excluded.length) / 12);
+    const yearEntitlement = accrues ? half((annual * months) / 12) - pauseCut + seniority : 0;
 
     await db.from("leave_accounts").upsert({ tenant_id: tenantId, employee_id: emp.id, leave_type_id: al.id, year }, { onConflict: "employee_id,leave_type_id,year", ignoreDuplicates: true });
     const { data: acc } = await db.from("leave_accounts").select("id").eq("employee_id", emp.id).eq("leave_type_id", al.id).eq("year", year).single();
@@ -91,6 +95,11 @@ export class LeaveService {
         const amt = half((annual * months) / 12);
         if (amt > 0) add.push({ kind: "grant", amount: amt, effective_on: startMonth === 1 ? yearStart : emp.hire_date, source_key: `grant:${year}`, reason: `Phép năm ${year}` });
       }
+      /* Sổ chỉ ghi thêm: bù phần chênh giữa mức trừ cần có và tổng các dòng trừ đã ghi (khoảng tạm nghỉ đổi thì tự cân lại) */
+      const cuts = tx.filter((t) => t.source_key.startsWith(`pause:${year}:`));
+      const delta = r2(-pauseCut - cuts.reduce((n, t) => n + t.amount, 0));
+      if (delta !== 0) add.push({ kind: "adjust", amount: delta, effective_on: year < ty ? `${year}-12-31` : today, source_key: `pause:${year}:${cuts.length + 1}`,
+        reason: excluded.length ? `Tạm nghỉ không tính phép năm: tháng ${excluded.join(", ")}/${year}` : `Hoàn lại phép do điều chỉnh tạm nghỉ năm ${year}` });
       if (seniority > 0 && !has.has(`seniority:${year}`)) add.push({ kind: "grant", amount: seniority, effective_on: yearStart, source_key: `seniority:${year}`, reason: `Phép thâm niên (${fullYears(emp.hire_date, yearStart)} năm làm việc)` });
     }
     /* Phép tồn năm trước: chuyển tối đa N ngày, dùng tới hết tháng quy định của năm nay */
@@ -212,6 +221,7 @@ export class LeaveService {
     const cal = await this.calendar(db, me.tenant_id, emp, placement, index, from, to);
     const days = cal.filter((d) => d.workday).map((d) => ({ date: d.date, half: halfDay, portion: halfDay === "full" ? 1 : 0.5 }));
     if (!days.length) throw invalid("Khoảng ngày đã chọn không có ngày làm việc nào (ngày nghỉ, ngày lễ không cần xin nghỉ).");
+    if ((await loadPauses(db, me.tenant_id, [emp.id], from, to)).length) throw conflict("Khoảng ngày đã chọn trùng thời gian tạm nghỉ, không cần xin nghỉ.");
     const total = days.reduce((n, d) => n + d.portion, 0);
     if (type.max_days != null && total > Number(type.max_days)) throw invalid(`${type.name} tối đa ${String(Number(type.max_days)).replace(".", ",")} ngày mỗi đơn.`);
 

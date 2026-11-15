@@ -151,6 +151,10 @@ export class AdminController {
   offboardPreview(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string) { return this.run(r, a, (s, c) => s.employees.offboardPreview(c, id)); }
   @Post("employees/:id/offboard") @HttpCode(200)
   offboard(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string, @Body() b: Json) { return this.run(r, a, (s, c) => s.employees.offboard(c, id, b)); }
+  @Post("employees/:id/pause") @HttpCode(200)
+  pause(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string, @Body() b: Json) { return this.run(r, a, (s, c) => s.employees.pause(c, id, b)); }
+  @Post("employees/:id/pause/end") @HttpCode(200)
+  endPause(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string, @Body() b: Json) { return this.run(r, a, (s, c) => s.employees.endPause(c, id, b)); }
   @Post("employees/:id/lock") @HttpCode(200)
   lock(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string, @Body() b: Json) {
     return this.run(r, a, (s, c) => s.employees.setLocked(c, id, true, nullableText(b, "reason", 300) ?? null));

@@ -1,14 +1,14 @@
 "use client";
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
-import type { AdminDevice, EmployeeDetail, EmployeeLeave, EmployeeStatus, EmployeeTimesheet, EmploymentType, ChecklistGaps, OffboardPreview, OffboardResult, OrgOptions, RequestItem, RequestQueue, TerminationReason } from "@kavor/contracts";
+import type { AdminDevice, EmployeeDetail, EmployeeLeave, EmployeeStatus, EmployeeTimesheet, EmploymentType, ChecklistGaps, OffboardPreview, OffboardResult, OrgOptions, PauseReason, PauseResult, RequestItem, RequestQueue, TerminationReason } from "@kavor/contracts";
 import { MANAGEMENT_TIERS, MANAGEMENT_TIERS_EN, managerTierOk, type AdminMe } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
 import { EmployeePaySection } from "./pay";
 import { EmployeeChecklistSection } from "../documents/checklist";
 import { vs,
   ACCOUNT, Avatar, DEVICE, Dl, EMP_STATUS, EMPLOYMENT, ErrorLine, Field, Icon, LoadError, Modal, MoreMenu, Phrases, REJECT_REASON, Section, Status, scopeText,
-  PageSub, ago, can, fmtDate, fmtDateTime, tenantToday, tenure, useAction, useMe,
+  PageSub, ago, can, fmtDate, fmtDateTime, tenantToday, tenure, useAction, useMe, useToast,
 } from "../../_ui/kit";
 import { ReasonModal } from "../../_ui/reason-modal";
 import { REQUEST_STATUS, REQUEST_TYPE, RequestModal, requestSummary } from "../../_ui/request";
@@ -27,6 +27,8 @@ const AUDIT: Record<string, string> = {
   "device.registered": "Đăng ký thiết bị", "device.change_requested": "Yêu cầu dùng máy mới", "device.approved": "Duyệt thiết bị", "device.rejected": "Từ chối thiết bị", "device.revoked": "Thu hồi thiết bị",
 };
 
+const PAUSE_REASON: Record<PauseReason, string> = { maternity: "Nghỉ thai sản", unpaid: "Nghỉ không lương", sick_long: "Nghỉ ốm dài ngày", other: "Khác" };
+const pauseRange = (p: { from: string; to: string | null }) => `từ ${fmtDate(p.from)} ${p.to ? `đến ${fmtDate(p.to)}` : "chưa rõ ngày về"}`;
 const REASON: Record<TerminationReason, string> = { resigned: "Xin nghỉ việc", contract_ended: "Hết hạn hợp đồng", dismissed: "Công ty cho nghỉ", other: "Khác" };
 
 /* Hồ sơ chia tab để mỗi phần có bố cục đều, không dồn cột */
@@ -51,6 +53,7 @@ export function EmployeeProfile({ id }: { id: string }) {
   const [ask, setAsk] = useState<null | { title: string; label: string; danger?: boolean; go: (reason: string) => Promise<unknown>; ok: string }>(null);
   const [editing, setEditing] = useState(false);
   const [offboard, setOffboard] = useState(false);
+  const [pauseOpen, setPauseOpen] = useState<null | "start" | "end">(null);
   const [tab, setTab] = useState<ProfileTab>("overview");
 
   /* Giấy tờ bắt buộc còn thiếu (danh mục công ty tự khai); tải lại khi rời tab Giấy tờ vì có thể vừa đánh dấu nộp */
@@ -66,6 +69,7 @@ export function EmployeeProfile({ id }: { id: string }) {
   const td = ts.data?.days.find((d) => d.date === today);
   const todayState: [string, string] | null = !td || td.kind === "future" || td.kind === "not_employed" ? null
     : td.kind === "leave" ? ["Nghỉ phép", "info"]
+    : td.kind === "paused" ? ["Tạm nghỉ", "muted"]
     : td.clockIn ? (td.lateMinutes > 0 ? ["Đi muộn", "warn"] : [td.clockOut ? "Đã xong ca" : "Đúng giờ", "ok"])
     : td.workday ? ["Chưa vào ca", "bad"] : ["Nghỉ", "muted"];
 
@@ -84,6 +88,8 @@ export function EmployeeProfile({ id }: { id: string }) {
     ...(e.account === "active" && canDisable ? [{ label: "Khóa tài khoản", icon: "lock", danger: true, onClick: () => setAsk({ title: `Khóa tài khoản ${e.fullName}?`, label: "Lý do khóa", danger: true, ok: "Đã khóa tài khoản — mọi phiên đăng nhập bị chặn ngay", go: (reason) => call("POST", `employees/${e.id}/lock`, { reason }) }) }] : []),
     ...(e.account === "active" && canDisable ? [{ label: "Đặt lại xác thực hai lớp", icon: "shield", onClick: () => setAsk({ title: `Đặt lại xác thực hai lớp của ${e.fullName}?`, label: "Lý do (ví dụ: mất điện thoại)", ok: "Đã đặt lại — lần đăng nhập web sau phải liên kết lại ứng dụng xác thực", go: (reason) => call("POST", `employees/${e.id}/mfa-reset`, { reason }) }) }] : []),
     ...(e.account === "locked" && can(me, "membership.disable") ? [{ label: "Mở khóa tài khoản", icon: "lock", onClick: () => void run("unlock", () => call("POST", `employees/${e.id}/unlock`, {}), "Đã mở khóa tài khoản").then(reload) }] : []),
+    ...(can(me, "employee.update") && e.status === "active" && !e.pause ? [{ label: "Chuyển sang tạm nghỉ", icon: "clock", onClick: () => setPauseOpen("start") }] : []),
+    ...(can(me, "employee.update") && e.pause ? [{ label: "Kết thúc tạm nghỉ", icon: "clock", onClick: () => setPauseOpen("end") }] : []),
     ...(can(me, "employee.update") && can(me, "membership.disable") && e.id !== me.employeeId && e.status !== "terminated" ? [{ label: "Cho nghỉ việc", icon: "logout", danger: true, onClick: () => setOffboard(true) }] : []),
   ];
   const needInvite = canInvite && e.status !== "terminated";
@@ -131,6 +137,7 @@ export function EmployeeProfile({ id }: { id: string }) {
               ["Quản lý trực tiếp", e.manager?.name ?? <span key="m" className="muted">Không có</span>],
               ["Ngày vào làm", <Fragment key="j">{fmtDate(e.hireDate)}<i className="vs" />{tenure(e.hireDate, today)}</Fragment>],
               ["Hợp đồng", EMPLOYMENT[e.employmentType]],
+              ...(e.pause ? [["Tạm nghỉ", `${PAUSE_REASON[e.pause.reason]} ${pauseRange(e.pause)}`] as [string, ReactNode]] : []),
               ...(e.terminationDate ? [["Ngày làm việc cuối", fmtDate(e.terminationDate)] as [string, ReactNode]] : []),
               ...(e.terminationReason ? [["Lý do nghỉ", REASON[e.terminationReason]] as [string, ReactNode]] : []),
               ...(e.terminationHandover !== null ? [["Bàn giao tài sản", e.terminationHandover ? "Đã bàn giao" : "Chưa bàn giao"] as [string, ReactNode]] : []),
@@ -204,8 +211,8 @@ export function EmployeeProfile({ id }: { id: string }) {
             <div className="table-wrap" style={{ marginTop: 10 }}><table className="data-table" style={{ minWidth: 0 }}><thead><tr><th>Ngày</th><th>Vào</th><th>Ra</th><th>Giờ làm</th><th>Kết quả</th></tr></thead><tbody>
               {ts.data.days.filter((d) => d.date <= today && d.kind !== "not_employed" && (d.workday || d.clockIn)).reverse().map((d) => (
                 <tr key={d.date}><td className="num"><b style={{ fontWeight: 600 }}>{fmtDate(d.date).slice(0, 5)}</b> <span className="muted small">{WD7[d.weekday]}</span></td>
-                  <td className="num">{d.kind === "leave" ? "—" : d.clockIn ?? "--:--"}</td><td className="num">{d.kind === "leave" ? "—" : d.clockOut ?? (d.date === today && d.clockIn ? "—" : "--:--")}</td>
-                  <td className="num">{d.workedMinutes ? (d.workedMinutes / 60).toLocaleString("vi-VN", { maximumFractionDigits: 1, minimumFractionDigits: 1 }) : d.kind === "leave" ? "—" : "0"}</td>
+                  <td className="num">{(d.kind === "leave" || d.kind === "paused") ? "—" : d.clockIn ?? "--:--"}</td><td className="num">{(d.kind === "leave" || d.kind === "paused") ? "—" : d.clockOut ?? (d.date === today && d.clockIn ? "—" : "--:--")}</td>
+                  <td className="num">{d.workedMinutes ? (d.workedMinutes / 60).toLocaleString("vi-VN", { maximumFractionDigits: 1, minimumFractionDigits: 1 }) : (d.kind === "leave" || d.kind === "paused") ? "—" : "0"}</td>
                   <td><Status v={dayResult(d, today)} /></td></tr>
               ))}
             </tbody></table></div>
@@ -245,8 +252,64 @@ export function EmployeeProfile({ id }: { id: string }) {
 
       {ask ? <ReasonModal {...ask} onClose={() => setAsk(null)} onDone={() => void reload()} /> : null}
       {editing && org.data ? <EmployeeForm org={org.data} employee={e} onClose={() => setEditing(false)} onSaved={() => { setEditing(false); void reload(); }} /> : null}
+      {pauseOpen === "start" ? <PauseModal e={e} onClose={() => setPauseOpen(null)} onDone={() => { setPauseOpen(null); void reload(); }} /> : null}
+      {pauseOpen === "end" && e.pause ? <EndPauseModal e={e} pause={e.pause} onClose={() => setPauseOpen(null)} onDone={() => { setPauseOpen(null); void reload(); }} /> : null}
       {offboard ? <OffboardModal e={e} onClose={() => setOffboard(false)} onDone={() => { setOffboard(false); void reload(); }} /> : null}
     </>
+  );
+}
+
+function PauseModal({ e, onClose, onDone }: { e: EmployeeDetail; onClose: () => void; onDone: () => void }) {
+  const me = useMe();
+  const today = tenantToday(me.tenant.timezone);
+  const [from, setFrom] = useState(today);
+  const [to, setTo] = useState("");
+  const [reason, setReason] = useState<PauseReason>("maternity");
+  const [note, setNote] = useState("");
+  const [err, setErr] = useState<string | null>(null);
+  const { busy, run } = useAction();
+  const toast = useToast();
+  const submit = async () => {
+    if (!from) { setErr("Chọn ngày bắt đầu tạm nghỉ."); return; }
+    if (to && to < from) { setErr("Ngày dự kiến phải sau ngày bắt đầu."); return; }
+    setErr(null);
+    let cancelled: string[] = [];
+    const ok = await run("pause", async () => { cancelled = (await call<PauseResult>("POST", `employees/${e.id}/pause`, { from, to: to || null, reason, note: note.trim() || null })).cancelled; });
+    if (ok) { toast(`Đã chuyển sang tạm nghỉ${cancelled.length ? ` · đã hủy đơn chờ: ${cancelled.join(", ")}` : ""}`); onDone(); }
+  };
+  return (
+    <Modal title={`Chuyển sang tạm nghỉ: ${e.fullName}`} sub="Thời gian tạm nghỉ không tính công. Phép năm tính theo lý do (thai sản vẫn tính; ốm tối đa 2 tháng, không lương tối đa 1 tháng mỗi năm)." onClose={onClose}
+      foot={<><button className="btn ghost" onClick={onClose}>Hủy</button><button className="btn primary" disabled={!!busy} onClick={submit}>{busy ? "Đang lưu…" : "Chuyển tạm nghỉ"}</button></>}>
+      <div className="form-grid">
+        <Field label="Từ ngày"><input type="date" value={from} onChange={(ev) => setFrom(ev.target.value)} /></Field>
+        <Field label="Đến ngày dự kiến" note="Để trống nếu chưa rõ"><input type="date" value={to} onChange={(ev) => setTo(ev.target.value)} /></Field>
+        <Field label="Lý do"><Select value={reason} onChange={(ev) => setReason(ev.target.value as PauseReason)}>{Object.entries(PAUSE_REASON).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</Select></Field>
+        <Field label="Ghi chú" full><input value={note} maxLength={500} onChange={(ev) => setNote(ev.target.value)} /></Field>
+      </div>
+      <ErrorLine text={err} />
+    </Modal>
+  );
+}
+
+function EndPauseModal({ e, pause, onClose, onDone }: { e: EmployeeDetail; pause: NonNullable<EmployeeDetail["pause"]>; onClose: () => void; onDone: () => void }) {
+  const me = useMe();
+  const [returnDate, setReturnDate] = useState(tenantToday(me.tenant.timezone));
+  const [err, setErr] = useState<string | null>(null);
+  const { busy, run } = useAction();
+  const submit = async () => {
+    if (!returnDate) { setErr("Chọn ngày đi làm lại."); return; }
+    setErr(null);
+    const ok = await run("pause-end", () => call("POST", `employees/${e.id}/pause/end`, { returnDate }), "Đã cập nhật tạm nghỉ");
+    if (ok) onDone();
+  };
+  return (
+    <Modal title={`Kết thúc tạm nghỉ: ${e.fullName}`} sub={`${PAUSE_REASON[pause.reason]} ${pauseRange(pause)}`} onClose={onClose}
+      foot={<><button className="btn ghost" onClick={onClose}>Hủy</button><button className="btn primary" disabled={!!busy} onClick={submit}>{busy ? "Đang lưu…" : "Kết thúc tạm nghỉ"}</button></>}>
+      <div className="form-grid">
+        <Field label="Ngày đi làm lại" note="Chọn ngày bắt đầu hoặc trước đó để hủy khoảng tạm nghỉ chưa bắt đầu"><input type="date" value={returnDate} onChange={(ev) => setReturnDate(ev.target.value)} /></Field>
+      </div>
+      <ErrorLine text={err} />
+    </Modal>
   );
 }
 
@@ -411,7 +474,7 @@ function dayRange(d: number[]) {
 /* Lịch mini của kỳ công (prototype .calmini): màu theo kết quả ngày */
 export function MonthMini({ days, today }: { days: EmployeeTimesheet["days"]; today: string }) {
   const lead = days.length ? days[0]!.weekday - 1 : 0;
-  const cls = (d: EmployeeTimesheet["days"][number]) => d.kind === "leave" ? "leave" : d.date > today ? (d.workday ? "fut" : "we") : !d.workday && !d.clockIn ? "we"
+  const cls = (d: EmployeeTimesheet["days"][number]) => d.kind === "leave" || d.kind === "paused" ? "leave" : d.date > today ? (d.workday ? "fut" : "we") : !d.workday && !d.clockIn ? "we"
     : d.issue === "late" || d.issue === "late_early" || d.issue === "early" ? "late" : d.issue ? (d.request ? "exp" : "miss") : d.clockIn ? "ok" : "fut";
   return (
     <div className="calmini">{["T2", "T3", "T4", "T5", "T6", "T7", "CN"].map((w) => <b key={w}>{w}</b>)}
@@ -423,6 +486,7 @@ export function MonthMini({ days, today }: { days: EmployeeTimesheet["days"]; to
 /* Kết quả một ngày cho bảng "Từng ngày" */
 function dayResult(d: EmployeeTimesheet["days"][number], today: string): [string, string] {
   if (d.kind === "leave") return ["Nghỉ phép", "info"];
+  if (d.kind === "paused") return ["Tạm nghỉ", "muted"];
   if (d.date === today && d.clockIn && !d.clockOut) return d.lateMinutes > 0 ? [`Đi muộn ${d.lateMinutes} phút`, "warn"] : ["Đang làm việc", ""];
   if (!d.workday && !d.clockIn) return ["Nghỉ", "muted"];
   if (d.issue === "late" || d.issue === "late_early") return [`Đi muộn ${d.lateMinutes} phút`, "warn"];

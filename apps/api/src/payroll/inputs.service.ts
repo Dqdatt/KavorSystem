@@ -370,6 +370,8 @@ export class PayrollInputs {
       if (last.baseSalary === null) warnings.push("Chưa nhập mức lương");
       if (segments.length > 1) warnings.push("Đổi lương/tình trạng trong kỳ");
       if (s.missingDays) warnings.push(`${s.missingDays} ngày thiếu công chưa giải trình`);
+      const paused = days.filter((d) => d.kind === "paused" && (d.workday || d.paidHoliday)).length;
+      if (paused) warnings.push(`Tạm nghỉ ${paused} ngày làm việc (không tính công)`);
       if (s.pendingRequests) warnings.push(`${s.pendingRequests} giải trình chờ duyệt`);
       if (!banks.has(e.id)) warnings.push("Chưa có tài khoản ngân hàng");
       return {

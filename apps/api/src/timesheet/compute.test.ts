@@ -141,3 +141,15 @@ test("ngày lễ rơi vào ngày làm việc theo ca: tính vào công chuẩn v
   const s = summarize([tue, sat, fut, day("2026-10-21", [["in", "08:00"], ["out", "17:00"]])].map((d) => ({ ...d, canExplain: false, explainDeadline: null })));
   assert.deepEqual([s.standard, s.credited], [3, 2]);
 });
+
+test("tạm nghỉ: giữ trong công chuẩn, 0 công kể cả ngày lễ, không tính thiếu", () => {
+  const p = day("2026-10-20", [], { paused: true });
+  assert.equal(p.kind, "paused");
+  assert.equal(p.credit, 0);
+  assert.equal(p.issue, null);
+  const holiday = day("2026-10-21", [], { paused: true, holiday: "Lễ" });
+  assert.equal(holiday.credit, 0);
+  const weekend = day("2026-10-18", [], { paused: true });
+  const s = summarize([p, holiday, weekend, day("2026-10-19", [["in", "08:00"], ["out", "17:00"]])].map((d) => ({ ...d, canExplain: false, explainDeadline: null })));
+  assert.deepEqual([s.standard, s.credited, s.missingDays], [3, 1, 0]);
+});

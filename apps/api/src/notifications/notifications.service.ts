@@ -46,12 +46,12 @@ export class NotificationsService {
     return this.feed(tenantId, employeeId);
   }
 
-  /* Nhắc hạn duyệt + thông báo bản tin hẹn giờ đã tới giờ + chuyển "Sắp nghỉ" qua ngày cuối thành đã nghỉ và khóa tài khoản:
+  /* Nhắc hạn duyệt + thông báo bản tin hẹn giờ đã tới giờ + chuyển "Sắp nghỉ" qua ngày cuối thành đã nghỉ và khóa tài khoản + đổi Tạm nghỉ theo ngày:
      chạy ngay khi khởi động rồi mỗi 10 phút (các hàm SQL tự chống chạy trùng) */
   startDueSweep() {
     if (this.timer) return;
     const run = () => {
-      for (const fn of ["notify_due_approvals", "notify_due_announcements", "apply_due_terminations"]) {
+      for (const fn of ["notify_due_approvals", "notify_due_announcements", "apply_due_terminations", "apply_due_pauses"]) {
         void this.sb.admin.rpc(fn).then(({ error }) => { if (error) console.error(`[${fn}]`, error.message); });
       }
     };

@@ -1,6 +1,6 @@
 /* Nhân viên và tài khoản đăng nhập (web HR/Admin). Mọi truy vấn đi qua phạm vi của người gọi; mọi thao tác ghi có audit. */
 import type {
-  AccountStatus, AdminDevice, BulkInviteResult, OffboardPreview, OffboardResult, TerminationReason, AdminOverview, AttendanceBoard, OverviewDay, AdminMe, AuditEntry, EmployeeDetail, EmployeeListItem, EmployeeStatus, EmployeeUpsert, EmploymentType, ManagementTier, OrgOptions, Ref, ScopeType,
+  AccountStatus, AdminDevice, BulkInviteResult, EmployeePause, OffboardPreview, OffboardResult, PauseResult, TerminationReason, AdminOverview, AttendanceBoard, OverviewDay, AdminMe, AuditEntry, EmployeeDetail, EmployeeListItem, EmployeeStatus, EmployeeUpsert, EmploymentType, ManagementTier, OrgOptions, Ref, ScopeType,
 } from "@kavor/contracts";
 import { MANAGEMENT_TIERS, managerTierOk } from "@kavor/contracts";
 import { AuthError } from "../auth/auth.service.js";
@@ -13,6 +13,7 @@ import type { AttendanceAdmin } from "./attendance-admin.service.js";
 import { addDays, EMAIL, date, nullableText, oneOf, req, text, uuid, type Body } from "./validate.js";
 import { loadPersonal } from "../profile/profile.service.js";
 import { assertEmployeeCapacity } from "../tenancy/plan.js";
+import { PAUSE_COLS, PAUSE_REASONS, type PauseRow } from "../timesheet/pause.js";
 
 const SCOPE_LABEL: Record<string, string> = { tenant: "Toàn công ty", legal_entity: "Pháp nhân", branch: "Chi nhánh", department: "Phòng ban", direct_reports: "Nhân viên trực tiếp", self: "Bản thân" };
 
@@ -34,11 +35,30 @@ const OFFBOARD_ERRORS: Record<string, [number, string]> = {
   PERIOD_LOCKED: [409, "Kỳ công chứa ngày sau ngày làm việc cuối đã khóa. Mở khóa kỳ công trước khi cho nghỉ việc."],
   LAST_TENANT_ADMIN: [409, "Đây là quản trị viên cuối cùng của công ty nên không thể cho nghỉ việc. Hãy gán thêm một quản trị viên công ty trước."],
 };
+const PAUSE_ERRORS: Record<string, [number, string]> = {
+  PAUSE_STATUS_INVALID: [409, "Chỉ chuyển tạm nghỉ cho nhân viên đang làm việc."],
+  PAUSE_REASON_INVALID: [400, "Lý do tạm nghỉ không hợp lệ."],
+  PAUSE_RANGE_INVALID: [400, "Ngày kết thúc phải từ ngày bắt đầu trở đi."],
+  PAUSE_BEFORE_HIRE: [400, "Ngày bắt đầu tạm nghỉ phải từ ngày vào làm trở đi."],
+  PAUSE_TOO_FAR: [400, "Ngày tạm nghỉ quá xa (bắt đầu trong vòng một năm, kết thúc trong vòng ba năm tới)."],
+  PAUSE_OVERLAP: [409, "Trùng với một khoảng tạm nghỉ khác của nhân viên."],
+  PAUSE_LEAVE_APPROVED: [409, "Có đơn nghỉ phép đã duyệt trong khoảng tạm nghỉ. Hủy hoặc điều chỉnh đơn đó trước."],
+  PAUSE_NOT_FOUND: [409, "Nhân viên không có khoảng tạm nghỉ nào đang diễn ra hoặc sắp tới."],
+  PAUSE_AFTER_TERMINATION: [400, "Ngày tạm nghỉ cuối không được sau ngày làm việc cuối."],
+  PERIOD_LOCKED: [409, "Kỳ công chứa ngày tạm nghỉ đã khóa. Mở khóa kỳ công trước."],
+};
+const toPause = (p: PauseRow): EmployeePause => ({ id: p.id, from: p.start_date, to: p.end_date, reason: p.reason, note: p.note });
 
 type Org = { names: Map<string, string>; deptBranch: Map<string, string | null>; branchEntity: Map<string, string>; ended: Set<string> };
 
 /* Bỏ dấu tiếng Việt để tìm "thu ha" ra "Thu Hà" */
 export const fold = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/g, "d").replace(/Đ/g, "D").toLowerCase();
+
+function pauseError(error: { message?: string }) {
+  const hit = Object.entries(PAUSE_ERRORS).find(([k]) => error.message?.includes(k));
+  if (!hit) return error;
+  return hit[1][0] === 400 ? invalid(hit[1][1]) : conflict(hit[1][1]);
+}
 
 export class EmployeesAdmin {
   constructor(private readonly sb: SupabaseGateway, private readonly mailer: Mailer, private readonly attendance: AttendanceAdmin) {}
@@ -182,10 +202,11 @@ export class EmployeesAdmin {
     const personal = personalMap.get(id)!;
     const roles = rolesMap.get(id) ?? [];
     /* Cấp bậc (theo chức danh) + số người đang báo cáo trực tiếp — để tách bạch với quyền trên Kavor */
-    const [{ data: pos }, { count: reports }] = await Promise.all([
+    const [{ data: pos }, { count: reports }, { data: pause }] = await Promise.all([
       p ? ctx.db.from("positions").select("management_tier").eq("id", p.position_id).maybeSingle() : Promise.resolve({ data: null }),
       ctx.db.from("employee_assignments").select("id", { count: "exact", head: true }).eq("tenant_id", ctx.tenantId).eq("manager_employee_id", id).eq("is_primary", true)
         .lte("effective_from", today).or(`effective_to.is.null,effective_to.gte.${today}`),
+      ctx.db.from("employee_pauses").select(PAUSE_COLS).eq("tenant_id", ctx.tenantId).eq("employee_id", id).or(`end_date.is.null,end_date.gte.${today}`).order("start_date").limit(1).maybeSingle(),
     ]);
     return {
       ...item!, personal, roles,
@@ -194,6 +215,7 @@ export class EmployeesAdmin {
       manager: p?.manager_employee_id ? { id: p.manager_employee_id, name: org.names.get(p.manager_employee_id) ?? "—" } : null,
       assignmentFrom: p?.effective_from ?? null, terminationDate: row.termination_date,
       terminationReason: row.termination_reason, terminationHandover: row.termination_handover, terminationNote: row.termination_note,
+      pause: pause ? toPause(pause as PauseRow) : null,
       devices, recentEvents, audit,
       policies: index.resolve(id, p, today),
     };
@@ -203,6 +225,8 @@ export class EmployeesAdmin {
   async create(ctx: AdminContext, b: Body): Promise<EmployeeDetail> {
     ctx.require("employee.create");
     const input = required(parseUpsert(b, false));
+    /* Tạm nghỉ cần khoảng ngày (bảng công, phép năm): tạo hồ sơ trước rồi chuyển tạm nghỉ */
+    if (input.status === "on_leave") throw conflict("Tạo hồ sơ trước, sau đó dùng “Chuyển sang tạm nghỉ”.");
     const org = await this.org(ctx);
     const placement = this.placementFor(org, input.departmentId, input.positionId);
     await this.assertPlacementAllowed(ctx, "employee.create", placement);
@@ -245,6 +269,8 @@ export class EmployeesAdmin {
     if (input.status !== undefined && input.status !== before.status) {
       /* Nghỉ việc phải qua offboard (hủy đơn chờ, khóa tài khoản); sửa hồ sơ chỉ đưa người sắp nghỉ/đã nghỉ quay lại làm việc */
       if (input.status === "terminated" || input.status === "leaving") throw conflict("Dùng “Cho nghỉ việc” ở hồ sơ nhân viên để ghi ngày làm việc cuối.");
+      /* Trạng thái tạm nghỉ đi theo khoảng ngày (bảng công, phép năm), đổi tay sẽ lệch */
+      if (input.status === "on_leave" || before.status === "on_leave") throw conflict("Dùng “Chuyển sang tạm nghỉ” / “Kết thúc tạm nghỉ” ở hồ sơ nhân viên.");
       /* Hồ sơ đã nghỉ quay lại làm việc thì tính lại vào giới hạn nhân sự của gói; tài khoản đã khóa thì HR mở khóa riêng */
       if (before.status === "terminated") await assertEmployeeCapacity(ctx.db, ctx.tenantId);
       Object.assign(patch, { status: input.status, termination_date: null, termination_reason: null, termination_handover: null, termination_note: null });
@@ -329,6 +355,33 @@ export class EmployeesAdmin {
     await ctx.audit("employee.offboarded", "employee", id, snapshot(before),
       { status: r.status, termination_date: lastDay, termination_reason: reason, termination_handover: handover, cancelled_requests: r.cancelled }, note);
     return r;
+  }
+
+  /* ---------- Tạm nghỉ ---------- */
+  /* Hàm SQL kiểm khoảng ngày, hủy đơn nghỉ chờ trong khoảng và đổi trạng thái trong một giao dịch */
+  async pause(ctx: AdminContext, id: string, b: Body): Promise<PauseResult> {
+    await ctx.requireEmployee("employee.update", id);
+    if (id === ctx.actor?.id) throw conflict("Bạn không thể tự chuyển mình sang tạm nghỉ.");
+    const from = date(b, "from")!, to = date(b, "to", true) ?? null;
+    const reason = oneOf(b, "reason", PAUSE_REASONS)!;
+    const note = nullableText(b, "note", 500) ?? null;
+    const before = await this.row(ctx, id);
+    const { data, error } = await ctx.db.rpc("pause_employee", { p_tenant: ctx.tenantId, p_employee: id, p_from: from, p_to: to, p_reason: reason, p_note: note, p_user: ctx.userId });
+    if (error) throw pauseError(error);
+    const r = data as PauseResult & { id: string };
+    await ctx.audit("employee.paused", "employee", id, { status: before.status }, { status: r.status, pause: { from, to, reason }, cancelled_requests: r.cancelled }, note);
+    return { status: r.status, cancelled: r.cancelled };
+  }
+
+  async endPause(ctx: AdminContext, id: string, b: Body): Promise<PauseResult> {
+    await ctx.requireEmployee("employee.update", id);
+    const returnDate = date(b, "returnDate")!;
+    const before = await this.row(ctx, id);
+    const { data, error } = await ctx.db.rpc("end_employee_pause", { p_tenant: ctx.tenantId, p_employee: id, p_return: returnDate });
+    if (error) throw pauseError(error);
+    const r = data as { status: PauseResult["status"]; removed: boolean };
+    await ctx.audit(r.removed ? "employee.pause_cancelled" : "employee.pause_ended", "employee", id, { status: before.status }, { status: r.status, return_date: returnDate });
+    return { status: r.status, cancelled: [] };
   }
 
   /* ---------- Tài khoản ---------- */

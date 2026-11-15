@@ -44,6 +44,8 @@ export type DayInput = {
   date: string;
   today: string;
   employed: boolean;
+  /* Ngày nằm trong khoảng tạm nghỉ */
+  paused?: boolean;
   holiday: string | null;
   shift: (ShiftInfo & { workDays: number[] }) | null;
   events: DayEvent[];
@@ -105,6 +107,8 @@ export function computeDay(i: DayInput): Omit<TimesheetDay, "canExplain" | "expl
   const leave = workday ? i.leave ?? null : null;
   const empty = { lateMinutes: 0, earlyMinutes: 0, workedMinutes: 0, credit: 0, issue: null, workday, leave, paidHoliday };
   if (!i.employed) return { ...base, kind: "not_employed", ...empty, workday: false, paidHoliday: false };
+  /* Tạm nghỉ: giữ trong công chuẩn (lương theo công giảm tương ứng), 0 công kể cả ngày lễ, không tính vắng */
+  if (i.paused) return { ...base, kind: "paused", ...empty, leave: null };
   if (leave?.half === "full") {
     /* Nghỉ cả ngày: không cần chấm công; có lương thì tính 1 công (kể cả ngày tương lai đã được duyệt) */
     return { ...base, kind: "leave", ...empty, credit: leave.paid && i.date <= i.today ? 1 : 0 };
@@ -142,7 +146,7 @@ export function computeDay(i: DayInput): Omit<TimesheetDay, "canExplain" | "expl
 
 /* Trạng thái ô của ngày trên lưới bảng công (cùng quy tắc "chưa giải trình" với summarize) */
 export function gridCell(d: TimesheetDay): GridCell {
-  if (d.kind === "off" || d.kind === "holiday") return "off";
+  if (d.kind === "off" || d.kind === "holiday" || d.kind === "paused") return "off";
   if (d.kind === "leave") return "leave";
   if (d.kind === "future" || d.kind === "not_employed" || (d.kind === "today" && !d.clockIn)) return "fut";
   if (d.issue === "missing_in" || d.issue === "missing_out" || d.issue === "absent") return d.request && d.request.status !== "rejected" && d.request.status !== "cancelled" ? "exp" : "miss";

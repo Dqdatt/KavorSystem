@@ -10,6 +10,10 @@ simulator hay iPhone** vì phiên cloud không có Mac). Người dùng giao "c�
 ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AGENT_PLAYBOOK.md`; kiểm tra toàn bộ bằng `bash tools/verify-all.sh`.
 
 ## Đã xong
+- Tạm nghỉ (15/11, Claude Desktop): migration `202612050001_employee_pause.sql` (bảng `employee_pauses`, `pause_employee`, `end_employee_pause`,
+  `apply_due_pauses`, trigger cắt khi ghi ngày cuối), pgTAP 23, API `POST admin/employees/:id/pause|pause/end`, ngày `paused` trong bảng công,
+  trừ phép năm theo lý do (NĐ 145/2020), chặn chấm công/đơn nghỉ, smoke `pause-smoke.sh`, web hộp Tạm nghỉ + Kết thúc tạm nghỉ.
+  Khác prototype: phép năm không trừ hết mà theo lý do; thêm "Kết thúc tạm nghỉ"; người tạm nghỉ vẫn đăng nhập app.
 - Cho nghỉ việc (15/11, Claude Desktop): migration `202612040001_offboarding.sql` (lý do/bàn giao/ghi chú, `offboard_employee`,
   `apply_due_terminations`), pgTAP 18, API `GET|POST admin/employees/:id/offboard`, PATCH chặn đặt nghỉ việc trực tiếp, smoke `offboard-smoke.sh`,
   web: mục "Cho nghỉ việc" ở menu ⋮ hồ sơ + hộp theo prototype. Khác prototype: bỏ "Quyết toán lương" (chưa có kỳ lương riêng); nhãn "Ngày làm việc cuối";

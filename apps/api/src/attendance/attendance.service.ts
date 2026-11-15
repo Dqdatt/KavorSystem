@@ -7,6 +7,7 @@ import {
 import { AuthError, type EmployeeRow } from "../auth/auth.service.js";
 import type { SupabaseGateway } from "../auth/supabase.js";
 import { PolicyIndex, loadPlacements, minutesOf } from "./policy.js";
+import { loadPauses } from "../timesheet/pause.js";
 
 type DeviceRow = { id: string; status: DeviceInfo["status"]; platform: DeviceInfo["platform"]; device_model: string | null; os_version: string | null; registered_at: string; installation_id: string; decision_reason: string | null };
 export type EventRow = {
@@ -141,6 +142,7 @@ export class AttendanceService {
     }
 
     const day = localParts(occurred, s.timezone).date;
+    if ((await loadPauses(db, emp.tenant_id, [emp.id], day, day)).length) throw new AuthError(ATTENDANCE_ERRORS.paused, "Bạn đang tạm nghỉ nên không cần chấm công ngày này.", 409);
     const { index, policies } = await this.policies(emp, day);
     const accepted = (await this.eventsOn(emp, day, s)).filter((e) => e.status === "accepted");
     const hasIn = accepted.some((e) => e.kind === "in"), hasOut = accepted.some((e) => e.kind === "out");

@@ -76,8 +76,8 @@ function tsModel(d: TimesheetDay, filtered?: boolean): RowModel {
     : d.leave && d.kind !== "leave" ? [`${d.leave.typeName} buổi ${d.leave.half === "am" ? "sáng" : "chiều"}`, "mute"]
     : d.overtime ? otNote(d.overtime) : null;
   return {
-    dayNum: d.date.slice(8, 10), wd: WD_ISO[d.weekday]!, today: d.kind === "today", leave: d.kind === "holiday" || d.kind === "leave",
-    leaveLabel: d.kind === "leave" ? d.leave?.typeName ?? "Nghỉ phép" : d.holidayName ?? "Nghỉ lễ",
+    dayNum: d.date.slice(8, 10), wd: WD_ISO[d.weekday]!, today: d.kind === "today", leave: d.kind === "holiday" || d.kind === "leave" || d.kind === "paused",
+    leaveLabel: d.kind === "paused" ? "Tạm nghỉ" : d.kind === "leave" ? d.leave?.typeName ?? "Nghỉ phép" : d.holidayName ?? "Nghỉ lễ",
     inV: d.clockIn, outV: d.clockOut, inOk: !d.lateMinutes, outOk: !d.earlyMinutes,
     flagIn: d.kind === "work" && !d.clockIn, flagOut: d.kind === "work" && !d.clockOut,
     hrs: d.workedMinutes ? gh(d.workedMinutes) : d.kind === "leave" && d.leave?.paid ? gh(shiftMin) : "--:--", hrsColor: !d.workedMinutes ? C.ink3 : d.workedMinutes >= shiftMin ? C.ok : C.bad,

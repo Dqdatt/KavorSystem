@@ -7,6 +7,7 @@ import { conflict, invalid, notFound, type AdminContext } from "./context.js";
 import { addDays, uuids, type Body } from "./validate.js";
 import { holidaysOf } from "../company/company.service.js";
 import { isoWeekday } from "../timesheet/compute.js";
+import { loadPauses, pauseOn, PAUSE_LABEL } from "../timesheet/pause.js";
 
 type DeviceRow = {
   id: string; employee_id: string; platform: AdminDevice["platform"]; device_model: string | null; os_version: string | null; app_version: string | null;
@@ -85,7 +86,7 @@ export class AttendanceAdmin {
     if (error) throw error;
     const emps = ((data ?? []) as unknown as Emp[]).filter((e) => e.status !== "terminated");
     const ids = emps.map((e) => e.id);
-    const [index, placements, events, pending, depts, leaves, holidays] = await Promise.all([
+    const [index, placements, events, pending, depts, leaves, holidays, pauses] = await Promise.all([
       PolicyIndex.load(ctx.db, ctx.tenantId),
       loadPlacements(ctx.db, ctx.tenantId, date, ids),
       this.rawEvents(ctx, ids, date, date, s.timezone),
@@ -93,6 +94,7 @@ export class AttendanceAdmin {
       ctx.db.from("departments").select("id, name").eq("tenant_id", ctx.tenantId),
       ids.length ? ctx.db.from("leave_days").select("employee_id, half, requests!inner(status), leave_types(name)").eq("tenant_id", ctx.tenantId).eq("leave_date", date).eq("requests.status", "approved").in("employee_id", ids) : { data: [], error: null },
       holidaysOf(ctx.db, ctx.tenantId, Number(date.slice(0, 4))),
+      loadPauses(ctx.db, ctx.tenantId, ids, date, date),
     ]);
     if (leaves.error) throw leaves.error;
     const leaveOf = new Map(((leaves.data ?? []) as unknown as Array<{ employee_id: string; half: LeaveHalf; leave_types: { name: string } | null }>).map((l) => [l.employee_id, { typeName: l.leave_types?.name ?? "Nghỉ phép", half: l.half }]));
@@ -102,7 +104,10 @@ export class AttendanceAdmin {
       const p = placements.get(e.id) ?? null;
       const shift = index.resolve(e.id, p, date).shift;
       const off = !!shift && (!shift.workDays.includes(isoWeekday(date)) || holidays.some((h) => h.date === date));
-      return { ...boardRow(e, p ? deptName.get(p.department_id) ?? null : null, shift, byEmp.get(e.id) ?? [], index, s.timezone, date, now, off), leave: leaveOf.get(e.id) ?? null };
+      /* Tạm nghỉ hiện như nghỉ cả ngày: không tính chưa chấm, không bị nhắc */
+      const pause = pauseOn(pauses, e.id, date);
+      return { ...boardRow(e, p ? deptName.get(p.department_id) ?? null : null, shift, byEmp.get(e.id) ?? [], index, s.timezone, date, now, off),
+        leave: pause ? { typeName: PAUSE_LABEL[pause.reason], half: "full" as const } : leaveOf.get(e.id) ?? null };
     });
     const idSet = new Set(ids);
     return {

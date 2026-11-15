@@ -7,6 +7,7 @@ import { PolicyIndex, loadPlacements, type Placement } from "../attendance/polic
 import { addDays } from "../admin/validate.js";
 import { periodStartDayOf } from "../admin/settings.service.js";
 import { holidaysOf } from "../company/company.service.js";
+import { loadPauses, pauseOn } from "./pause.js";
 import { computeDay, datesBetween, explainDeadline, isoWeekday, monthOf, periodOf, periodView, summarize, type DayAdjustment, type DayEvent, type DayLeave, type DayOvertimeEntry } from "./compute.js";
 
 type Db = SupabaseGateway["admin"];
@@ -54,7 +55,7 @@ export class TimesheetService {
     const sheets = new Map<string, EmployeeSheet>();
     if (!ids.length) return { ...clock, period, sheets, index, lock };
 
-    const [events, adjustments, requests, holidayList, leaveDays, otRows] = await Promise.all([
+    const [events, adjustments, requests, holidayList, leaveDays, otRows, pauses] = await Promise.all([
       this.events(db, tenantId, ids, start, end, clock.timezone),
       this.adjustments(db, tenantId, ids, start, end),
       db.from("requests").select("id, request_no, requester_employee_id, work_date, status, submitted_at").eq("tenant_id", tenantId).eq("request_type", "explanation").in("requester_employee_id", ids).gte("work_date", start).lte("work_date", end).order("submitted_at"),
@@ -63,6 +64,7 @@ export class TimesheetService {
         .in("employee_id", ids).gte("leave_date", start).lte("leave_date", end).eq("requests.status", "approved"),
       db.from("overtime_entries").select("employee_id, work_date, start_time, end_time, minutes, rate_percent, requests!inner(request_no, status)").eq("tenant_id", tenantId)
         .in("employee_id", ids).gte("work_date", start).lte("work_date", end).eq("requests.status", "approved"),
+      loadPauses(db, tenantId, ids, start, end),
     ]);
     const ots = new Map<string, DayOvertimeEntry[]>();
     for (const o of (otRows.data ?? []) as unknown as Array<{ employee_id: string; work_date: string; start_time: string; end_time: string; minutes: number; rate_percent: number; requests: { request_no: string } }>) {
@@ -100,7 +102,7 @@ export class TimesheetService {
       const isWorkday = (d: string) => { const s = shiftAt(d); return !!s && s.workDays.includes(isoWeekday(d)) && !holiday.has(d); };
       const days: TimesheetDay[] = dates.map((d) => {
         const base = computeDay({
-          date: d, today: clock.today, employed: d >= emp.hire_date && (!emp.termination_date || d <= emp.termination_date),
+          date: d, today: clock.today, employed: d >= emp.hire_date && (!emp.termination_date || d <= emp.termination_date), paused: !!pauseOn(pauses, emp.id, d),
           holiday: holiday.get(d) ?? null, shift: shiftAt(d), events: events.get(`${emp.id}|${d}`) ?? [], adjustment: adj.get(`${emp.id}|${d}`) ?? null,
           request: reqs.get(`${emp.id}|${d}`) ?? null, leave: leaves.get(`${emp.id}|${d}`) ?? null, overtime: ots.get(`${emp.id}|${d}`),
         });

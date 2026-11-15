@@ -10,7 +10,10 @@
 - [x] Script nạp dữ liệu thử ổn định (tools/demo-data.sh; lỗi "Bad Request" do bash 3.2 brace-expand body JSON)
 - [x] Màn prototype có, web chưa có, chỉ UI: Điểm mới, Ghi chú phiên bản, "Hồ sơ của tôi", Thêm khoản phụ cấp mẫu
 - [x] Cho nghỉ việc: `offboard_employee` + vòng quét qua ngày cuối + hộp web (hủy đơn chờ, khóa tài khoản)
-- [ ] Màn prototype có, đụng vùng nhạy cảm: Tạm nghỉ, Xem số tài khoản — mỗi màn một kế hoạch — [opus xhigh]
+- [x] Tạm nghỉ: `employee_pauses` + ngày `paused` trong bảng công + trừ phép năm theo lý do + hộp web
+- [ ] Màn "Xem số tài khoản" (`employee.sensitive.read`, audit khi xem) — [opus xhigh]
+- [ ] Lương người vào/nghỉ giữa kỳ: ngày ngoài hire..termination bị bỏ khỏi công chuẩn (`compute.ts` not_employed) → vào làm 13/26 ngày vẫn đủ lương tháng; chốt cách tính công chuẩn rồi sửa — [opus xhigh]
+- [ ] (Tùy chọn) Tạm nghỉ: mobile báo "Đang tạm nghỉ" ở màn chấm công; tính 50% theo ngày làm việc của ca thay vì ngày lịch; tạm ứng khi đang tạm nghỉ — [opus high]
 - [ ] (Tùy chọn) Chuyển người duyệt khi quản lý trực tiếp nghỉ việc (bước "Quản lý trực tiếp" giao đích danh, hiện chỉ cảnh báo) — [opus high]
 - [x] Nút "Nhắc" (chấm công/giấy tờ/bản tin): `notify_reminders` + 3 endpoint HR + nút web + icon fallback web/mobile
 - [ ] (Tùy chọn) "Nhắc người duyệt" ở chi tiết đơn chờ duyệt (prototype có; hiện chỉ nhắc tự động theo hạn) — [opus high]

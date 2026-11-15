@@ -180,6 +180,7 @@ export const ATTENDANCE_ERRORS = {
   clockSkew: "ATT_CLOCK_SKEW",
   noLocation: "ATT_NO_LOCATION",
   consentRequired: "ATT_CONSENT_REQUIRED",
+  paused: "ATT_PAUSED",
 } as const;
 
 /* Khoảng cách hai tọa độ (mét), công thức haversine */
@@ -304,6 +305,13 @@ export type EmployeeOffboard = { lastDay: string; reason: TerminationReason; han
 export type OffboardResult = { status: "leaving" | "terminated"; cancelled: string[] };
 /* Trước khi cho nghỉ: đơn của người này đang chờ (tạm ứng, ngày bắt đầu của đơn nghỉ) và số bước đang chờ người này duyệt */
 export type OffboardPreview = { pendingAdvances: number; pendingLeaveStarts: string[]; pendingApprovals: number };
+/* Tạm nghỉ: to = ngày tạm nghỉ cuối (null = chưa rõ). Không tính công; phép năm tính theo lý do (NĐ 145/2020 Điều 65) */
+export type PauseReason = "maternity" | "unpaid" | "sick_long" | "other";
+export type EmployeePause = { id: string; from: string; to: string | null; reason: PauseReason; note: string | null };
+export type EmployeePauseInput = { from: string; to?: string | null; reason: PauseReason; note?: string | null };
+export type PauseResult = { status: EmployeeStatus; cancelled: string[] };
+/* Kết thúc tạm nghỉ: ngày đi làm lại; từ ngày bắt đầu trở về trước thì hủy khoảng tạm nghỉ */
+export type PauseEnd = { returnDate: string };
 /* ---------- Hồ sơ cá nhân + đề nghị sửa (HR duyệt; Kế toán đọc lại tài khoản đã duyệt) ---------- */
 export type ProfileField = "phone" | "personalEmail" | "address" | "emergency" | "bank";
 export const PROFILE_FIELDS: Record<ProfileField, string> = { phone: "Điện thoại", personalEmail: "Email cá nhân", address: "Địa chỉ", emergency: "Liên hệ khẩn cấp", bank: "Tài khoản ngân hàng" };
@@ -390,6 +398,8 @@ export type EmployeeDetail = EmployeeListItem & {
   terminationReason: TerminationReason | null;
   terminationHandover: boolean | null;
   terminationNote: string | null;
+  /* Khoảng tạm nghỉ đang diễn ra hoặc sắp tới gần nhất */
+  pause: EmployeePause | null;
   devices: AdminDevice[];
   policies: ResolvedPolicies;
   recentEvents: AdminAttendanceEvent[];
@@ -822,7 +832,8 @@ export type RecoveryInput = {
 /* ---------- Bảng công tháng, giải trình, luồng duyệt ---------- */
 /* Kỳ công gọi theo tháng kết thúc: "2026-10" với ngày bắt đầu 26 là 26/09–25/10 */
 export type TimesheetPeriod = { month: string; start: string; end: string; locked: boolean; lockedAt: string | null };
-export type DayKind = "work" | "off" | "holiday" | "today" | "future" | "not_employed" | "leave";
+/* paused: ngày tạm nghỉ — vẫn nằm trong công chuẩn nếu là ngày làm việc theo ca, 0 công, không cần chấm công */
+export type DayKind = "work" | "off" | "holiday" | "today" | "future" | "not_employed" | "leave" | "paused";
 export type DayIssue = "missing_in" | "missing_out" | "absent" | "late" | "early" | "late_early";
 export type TimesheetDay = {
   date: string;
