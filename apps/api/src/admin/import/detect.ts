@@ -16,7 +16,7 @@ const SYN: Record<ImportField, string[]> = {
   last_name: ["=ho", "last name", "surname", "family name", "=ho nhan vien"],
   middle_name: ["ten dem", "ten lot", "middle name"],
   first_name: ["=ten", "first name", "given name"],
-  work_email: ["email cong ty", "work email", "email cong viec", "work_email", "=email", "=e mail", "=mail", "dia chi email", "thu dien tu", "email address", "email ca nhan|1", "personal email|1", "gmail|1"],
+  work_email: ["email cong ty", "email dang nhap", "login email", "work email", "email cong viec", "work_email", "=email", "=e mail", "=mail", "dia chi email", "thu dien tu", "email address", "email ca nhan|1", "personal email|1", "gmail|1"],
   phone: ["sdt", "so dien thoai", "dien thoai", "=dt", "dtdd", "di dong", "=phone", "phone number", "mobile", "so dt", "sdt lien he", "tel", "telephone", "cell phone"],
   hire_date: ["ngay vao lam", "ngay bat dau lam viec", "ngay bat dau", "ngay nhan viec", "ngay vao cong ty", "ngay vao", "ngay tuyen dung", "hire date", "start date", "joining date", "date of joining", "join date", "hire_date", "ngay lam viec dau tien", "ngay thu viec"],
   official_date: ["ngay chinh thuc", "ngay len chinh thuc", "ngay ky hd chinh thuc", "official date", "ngay ky hop dong chinh thuc", "probation end date"],

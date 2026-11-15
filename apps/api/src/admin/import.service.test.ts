@@ -191,3 +191,12 @@ test("giai đoạn 2: hồ sơ chi tiết — nhận cột, chuẩn hóa giấy 
   assert.deepEqual(b.rows[1]!.errors, [], "giá trị hồ sơ sai không chặn dòng");
   assert.ok(["Ngày sinh", "Giới tính", "Số CCCD/CMND", "Số sổ BHXH", "Mã số thuế", "Số tài khoản", "Lương cơ bản"].every((l) => b.rows[1]!.warnings.some((w) => w.includes(l))));
 });
+
+test("file mẫu tải về (tools/make-import-template.py): mọi cột nhận theo tên cột, 2 dòng không lỗi", async () => {
+  const { readFileSync } = await import("node:fs");
+  const b = run(readSpreadsheet("mau.xlsx", readFileSync(new URL("../../../admin-web/public/mau-nhap-nhan-vien.xlsx", import.meta.url))));
+  assert.deepEqual(b.fileErrors, []);
+  assert.ok(b.columns.every((c) => c.field && c.source === "header"), JSON.stringify(b.columns.filter((c) => !c.field || c.source !== "header").map((c) => c.header)));
+  assert.equal(b.columns.length, 11);
+  assert.deepEqual(b.rows.map((r) => [r.code, r.hireDate, r.type, r.managerCode, r.errors]), [["NV001", "2024-03-01", "official", null, []], ["NV002", "2025-06-15", "probation", "NV001", []]]);
+});

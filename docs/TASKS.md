@@ -5,7 +5,7 @@
 - [x] Rà hồ sơ tab Lương/Giấy tờ/Đơn từ/Lịch sử, hộp thoại, ngăn kéo chấm công + sổ phép (127dbc4)
 - [x] So tiếp luồng duyệt, chi tiết đơn vị/bài viết, khóa kỳ, vai trò, hộp ngừng, người phụ thuộc, mời kích hoạt + kiểm online (e7d90e3 + đợt sau)
 - [x] Chặn ngừng ca/địa điểm còn áp dụng ở API (409) + hộp chặn/xác nhận trên web
-- [ ] Hộp Nhập file nhân viên 3 bước như prototype (Tải mẫu .xlsx, kéo thả, xem trước) — [opus high]
+- [x] Hộp Nhập file nhân viên 3 bước như prototype (Tải mẫu .xlsx, kéo thả, xem trước) — [opus high]
 - [ ] Dọn lệch nhỏ: ~50 chỗ "·" → vạch |; chức danh người gửi (chi tiết đơn) + "Chưa có app" ở người đọc bài (thêm trường API); so chi tiết tài liệu — [sonnet]
 - [ ] Script nạp dữ liệu thử ổn định (tools/demo-data.sh; bản nháp lỗi "Bad Request" ở vài bước khi chạy cả file) — [sonnet]
 - [ ] Màn prototype có, web chưa có, chỉ UI: Điểm mới, Ghi chú phiên bản, "Hồ sơ của tôi", Thêm khoản phụ cấp mẫu — [opus high]

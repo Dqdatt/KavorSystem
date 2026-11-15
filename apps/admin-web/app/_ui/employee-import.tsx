@@ -1,11 +1,11 @@
 "use client";
 /* Nhập nhân viên từ file bất kỳ (docs/plans/employee-import.md): chọn .xlsx/.csv như công ty đang dùng → Kavor tự nhận sheet, cột, phòng ban,
    chức danh → HR xem trước, đổi chỗ nào chưa đúng (đổi là xem trước lại) → nhập. Cách khớp được nhớ cho lần sau. */
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { IMPORT_FIELDS, MANAGEMENT_TIERS, type ManagementTier, type EmployeeImportResult, type EmployeeImportRow, type ImportField, type ImportOptions, type ImportUnit } from "@kavor/contracts";
 import { Hint, Select } from "@kavor/web-ui";
 import { call } from "../_lib/client";
-import { Empty, ErrorLine, Field, Modal, Status, useAction } from "./kit";
+import { Empty, ErrorLine, Field, Icon, Modal, Status, useAction } from "./kit";
 
 const ACTION: Record<EmployeeImportRow["action"], [string, string]> = { create: ["Tạo mới", ""], exists: ["Đã có — bỏ qua", "muted"], fill: ["Bổ sung hồ sơ", "info"], skip: ["Bỏ qua", "muted"], error: ["Lỗi", "bad"] };
 const SOURCE: Record<string, string> = { manual: "bạn chọn", saved: "đã nhớ", header: "theo tên cột", content: "theo nội dung" };
@@ -77,12 +77,14 @@ export function ImportModal({ onClose, onDone }: { onClose: () => void; onDone: 
   const [r, setR] = useState<EmployeeImportResult | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
+  const [over, setOver] = useState(false);
+  const input = useRef<HTMLInputElement>(null);
   const { busy, run } = useAction();
   const preview = (f: { name: string; data: string }, o: ImportOptions) =>
     run("preview", async () => setR(await call<EmployeeImportResult>("POST", "employees/import", { fileName: f.name, file: f.data, options: o, dryRun: true })));
   async function pick(f: File | undefined) {
-    setR(null); setErr(null); setOpts({});
     if (!f) return;
+    setR(null); setErr(null); setOpts({}); setFile(null);
     if (f.size > 5_000_000) { setErr("File tối đa 5 MB."); return; }
     const next = { name: f.name, data: await toBase64(f) };
     setFile(next);
@@ -94,18 +96,30 @@ export function ImportModal({ onClose, onDone }: { onClose: () => void; onDone: 
   const cols = (a?.columns ?? []).filter((c) => !c.later);
   const later = (a?.columns ?? []).filter((c) => c.later);
   return (
-    <Modal wide title="Nhập nhân viên từ file" sub="Chọn file Excel/CSV công ty đang dùng — không cần sửa theo mẫu. Kavor tự nhận cột, bạn kiểm tra rồi nhập." onClose={onClose}
+    <Modal wide title="Nhập nhân viên từ file" sub="3 bước: tải mẫu (nếu cần), tải file lên, xem trước. Kavor kiểm tra lỗi trước khi tạo hồ sơ." onClose={onClose}
       foot={<><button className="btn ghost" onClick={onClose}>Đóng</button>
         <button className="btn primary" disabled={!(r && !r.fileErrors.length && !r.totals.error && (r.totals.create > 0 || r.totals.fill > 0)) || !!busy} onClick={() => run("apply", async () => {
           const res = await call<EmployeeImportResult>("POST", "employees/import", { fileName: file!.name, file: file!.data, options: opts, dryRun: false });
           setR(res); onDone(); onClose();
         }, `Đã nhập ${r?.totals.create ?? 0} hồ sơ`)}>{busy === "apply" ? "Đang nhập…" : r && !r.totals.create && r.totals.fill ? `Bổ sung ${r.totals.fill} hồ sơ` : `Nhập ${r?.totals.create ?? 0} hồ sơ`}</button></>}>
-      <div className="form-grid">
-        <Field label="File nhân viên" full hint="Excel (.xlsx) hoặc CSV, nhiều sheet cũng được. Cần ít nhất họ tên, phòng ban và ngày vào làm; mã nhân viên, email, chức danh không có thì Kavor tự xử lý.">
-          <input type="file" accept=".xlsx,.csv,.tsv,.txt,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv" onChange={(e) => void pick(e.target.files?.[0])} />
-        </Field>
-      </div>
-      <ErrorLine text={err} />
+      <div className="tl">
+        <div><span className="pt done"><Icon name="check" size={12} /></span><div>
+          <b>Tải file mẫu</b><p className="sub small" style={{ margin: "2px 0 8px" }}>Không bắt buộc — file công ty đang dùng cũng nhập được, Kavor tự nhận cột.</p>
+          <a className="btn small" href="/mau-nhap-nhan-vien.xlsx" download><Icon name="download" /> Tải mẫu .xlsx</a>
+        </div></div>
+        <div><span className={`pt ${file ? "done" : "now"}`}>{file ? <Icon name="check" size={12} /> : null}</span><div style={{ minWidth: 0 }}>
+          <b>Tải file đã điền</b><p className="sub small" style={{ margin: "2px 0 0" }}>Excel (.xlsx) hoặc CSV, nhiều sheet cũng được. Cần ít nhất họ tên, phòng ban và ngày vào làm; mã nhân viên, email, chức danh không có thì Kavor tự xử lý.</p>
+          <input ref={input} type="file" hidden accept=".xlsx,.csv,.tsv,.txt,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv" onChange={(e) => { void pick(e.target.files?.[0]); e.target.value = ""; }} />
+          <button type="button" className={`empty-state dropzone${over ? " over" : ""}`} disabled={!!busy} onClick={() => input.current?.click()}
+            onDragOver={(e) => { e.preventDefault(); setOver(true); }} onDragLeave={() => setOver(false)} onDrop={(e) => { e.preventDefault(); setOver(false); if (!busy) void pick(e.dataTransfer.files[0]); }}>
+            <span className="ring"><Icon name="upload" size={22} /></span>
+            <b>{file ? file.name : "Kéo thả file Excel vào đây"}</b>
+            <span className="muted small">{file ? "Bấm hoặc kéo file khác để thay" : "hoặc bấm để chọn file — tối đa 5 MB"}</span>
+          </button>
+          <ErrorLine text={err} />
+        </div></div>
+        <div><span className={`pt ${r && (r.fileErrors.length || r.totals.error) ? "bad" : r ? "now" : ""}`} /><div style={{ minWidth: 0 }}>
+          <b>Xem trước và xác nhận</b><p className="sub small" style={{ margin: "2px 0 0" }}>Dòng lỗi được tô đỏ kèm lý do — sửa trong file rồi tải lại.</p>
       {busy === "preview" || busy === "apply" ? <Working kind={busy} count={r?.totals.create} /> : null}
       {r && a ? <div style={busy ? { opacity: 0.45, pointerEvents: "none" } : undefined}>
         <div className="card detail-list" style={{ marginTop: 12 }}>
@@ -172,6 +186,8 @@ export function ImportModal({ onClose, onDone }: { onClose: () => void; onDone: 
           ))}
         </tbody></table></div> : r.fileErrors.length ? null : <Empty title="Không có dòng phù hợp" />}
       </div> : null}
+        </div></div>
+      </div>
     </Modal>
   );
 }

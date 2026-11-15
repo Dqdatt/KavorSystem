@@ -1099,6 +1099,8 @@ button.metric-btn:hover { border-color: var(--accent-line); }
 .rd-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
 .inset { background: var(--surface-2); border-radius: 14px; padding: 14px 16px; }
 .tl .now-t { color: var(--amber); font-weight: 600; }
+.dropzone { width: 100%; margin-top: 8px; padding: 22px; border: 1.5px dashed var(--line-strong); border-radius: 12px; background: transparent; font: inherit; cursor: pointer; }
+.dropzone:hover, .dropzone.over { border-color: var(--accent); }
 .status.t i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex: none; }
 .status.t-gt { background: var(--t-gt-bg); color: var(--t-gt); } .status.t-np { background: var(--t-np-bg); color: var(--t-np); }
 .status.t-ot { background: var(--t-ot-bg); color: var(--t-ot); } .status.t-tu { background: var(--t-tu-bg); color: var(--t-tu); }
