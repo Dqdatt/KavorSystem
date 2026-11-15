@@ -87,7 +87,7 @@ export function Inputs({ tabs }: { tabs: ReactNode }) {
 function Row({ r, rates, cols, lumpSum }: { r: PayrollInputRow; rates: string[]; cols: Array<{ id: string }>; lumpSum: boolean }) {
   return (
     <tr>
-      <td><Person name={r.employee.fullName} seed={r.employee.code} sub={[r.employee.code, r.employee.department].filter(Boolean).join(" · ")} /></td>
+      <td><Person name={r.employee.fullName} seed={r.employee.code} sub={[r.employee.code, r.employee.department].filter(Boolean).join(" | ")} /></td>
       <td>{r.warnings.length ? <span className="warn-cell"><Status v={[r.warnings.length > 1 ? `${r.warnings.length} cảnh báo` : r.warnings[0]!, "warn"]} />
         {r.warnings.length > 1 ? <Hint label="Xem cảnh báo" text={<>{r.warnings.map((w) => <div key={w}>• {w}</div>)}</>} /> : null}</span> : <Status v={["Đủ", ""]} />}</td>
       <td>{EMPLOYMENT[r.employmentType]}</td>

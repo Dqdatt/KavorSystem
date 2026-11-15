@@ -44,16 +44,16 @@ export function EmployeePaySection({ employeeId, name }: { employeeId: string; n
               <Dl rows={[
                 ["Tình trạng lao động", type(c)],
                 ["Mã số thuế cá nhân", p.taxCode ?? <span className="muted">Chưa có</span>],
+                ["Người phụ thuộc", p.activeDependents ? `${p.activeDependents} người đang giảm trừ` : "0"],
                 ["Đoàn viên công đoàn", p.unionMember ? "Có" : "Không"],
                 ...(p.probationContract || type(c) === "Thử việc" ? [["Hình thức thử việc", p.probationContract === "in_contract" ? "Trong HĐLĐ (đóng BH)" : p.probationContract === "separate" ? "Hợp đồng thử việc riêng" : "Theo quy chế công ty"] as [string, ReactNode]] : []),
                 ...(p.commitment08 || p.withholdingRequested ? [["Khấu trừ thuế 10%", p.commitment08 ? "Có cam kết 08/CK-TNCN — không khấu trừ" : "Khấu trừ cả khi dưới ngưỡng (theo yêu cầu)"] as [string, ReactNode]] : []),
-                ["Người phụ thuộc", p.activeDependents ? `${p.activeDependents} người đang giảm trừ` : "Không"],
               ]} />
               {p.dependents.length ? (
             <div className="card" style={{ marginTop: 12 }}><div className="table-wrap"><table className="data-table compact"><tbody>
               {p.dependents.map((d) => (
                 <tr key={d.id}>
-                  <td><b>{d.fullName}</b><div className="muted" style={{ fontSize: 12 }}>{d.relation}{d.birthDate ? ` · sinh ${fmtDate(d.birthDate)}` : ""}{d.taxCode ? ` · MST ${d.taxCode}` : ""}</div></td>
+                  <td><b>{d.fullName}</b><div className="muted" style={{ fontSize: 12 }}>{vs([d.relation, d.birthDate ? `sinh ${fmtDate(d.birthDate)}` : "", d.taxCode ? `MST ${d.taxCode}` : ""].filter(Boolean).join(" | "))}</div></td>
                   <td className="nowrap">{monthText(d.fromMonth)} → {monthText(d.toMonth)}</td>
                   <td className="nowrap" style={{ textAlign: "right" }}>{p.canManage ? <>
                     <button className="btn small" onClick={() => { setDep(d); setEdit("dep"); }}>Sửa</button>{" "}

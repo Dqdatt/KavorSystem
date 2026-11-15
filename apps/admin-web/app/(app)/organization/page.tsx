@@ -58,7 +58,7 @@ function Tree({ t, units, name, total, members, onOpen }: { t: OrgTree; units: O
   if (!units.some((u) => u.kind === "department")) return <article className="card"><Empty title="Chưa có phòng ban" text="Thêm pháp nhân, chi nhánh rồi phòng ban để xếp nhân viên." /></article>;
   return (
     <section className="card"><div className="card-body"><div className="orgtree">
-      <div className="orgroot">{le?.name ?? name}<div style={{ opacity: .85, fontWeight: 400, fontSize: 12.5 }}>Pháp nhân · {num(t.metrics.employees)} nhân sự</div></div>
+      <div className="orgroot">{le?.name ?? name}<div style={{ opacity: .85, fontWeight: 400, fontSize: 12.5 }}>Pháp nhân<i className="vs" />{num(t.metrics.employees)} nhân sự</div></div>
       {branches.map((br) => {
         const tops = units.filter((d) => d.kind === "department" && d.branchId === br.id && !d.parentId);
         return (
@@ -86,7 +86,7 @@ function UnitDetail({ u, t, members, total, loaded, onClose, onEdit, onEnd }: { 
   const br = t.units.find((x) => x.id === u.branchId);
   const titles = new Set(members.map((e) => e.position?.name).filter(Boolean)).size;
   return (
-    <Modal title={u.name} sub={`${ORG_UNIT_KINDS[u.kind]} · mã ${u.code}${br ? ` · thuộc ${br.name}` : ""}`} onClose={onClose}
+    <Modal title={u.name} sub={`${ORG_UNIT_KINDS[u.kind]} | mã ${u.code}${br ? ` | thuộc ${br.name}` : ""}`} onClose={onClose}
       foot={t.canManage && u.active ? <><button className="btn danger" onClick={onEnd}>Ngừng đơn vị</button><button className="btn" onClick={onEdit}>Sửa đơn vị</button></> : undefined}>
       <div className="params" style={{ gridTemplateColumns: "repeat(2, minmax(0, 1fr))", marginBottom: 14 }}>
         <div className="param"><b className="num">{num(total)}</b><span>Nhân sự</span></div>

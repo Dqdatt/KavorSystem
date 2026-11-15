@@ -64,7 +64,7 @@ function DocumentsPage() {
         <article className="card metric-card"><span className="metric-icon"><Icon name="file" /></span><span className="metric-copy"><span>Tổng tài liệu</span><strong>{m ? num(m.total) : "—"}</strong><small>{num(used)} danh mục</small></span></article>
         <article className="card metric-card"><span className="metric-icon amber"><Icon name="alert" /></span><span className="metric-copy"><span>Sắp hết hạn</span><strong>{m ? num(m.expiringSoon) : "—"}</strong><small>Trong 30 ngày{m?.expired ? <><i className="vs" />{num(m.expired)} đã hết hạn</> : ""}</small></span></article>
         <article className="card metric-card"><span className="metric-icon red"><Icon name="alert" /></span><span className="metric-copy">{gaps.data?.requiredCount ? <><span>Thiếu giấy tờ bắt buộc</span><strong className={missing ? "text-red" : ""}>{num(missing ?? 0)}</strong><small>nhân viên</small></> : <><span>Thiếu hồ sơ</span><strong>{m ? num(m.missingContract) : "—"}</strong><small>nhân viên chưa có hợp đồng</small></>}</span></article>
-        <article className="card metric-card"><span className="metric-icon blue"><Icon name="lock" /></span><span className="metric-copy"><span>Truy cập tuần này</span><strong>{m ? num(m.downloadsWeek) : "—"}</strong><small>Đã ghi nhật ký</small></span></article>
+        <article className="card metric-card"><span className="metric-icon blue"><Icon name="lock" /></span><span className="metric-copy"><span>Lượt truy cập tuần này</span><strong>{m ? num(m.downloadsWeek) : "—"}</strong><small>Đã ghi nhật ký</small></span></article>
       </div>
       {tab === "miss" ? <Missing gaps={gaps} /> : tab === "cat" ? <ChecklistCatalog /> : (
       <article className="card">
@@ -86,7 +86,7 @@ function DocumentsPage() {
               <tr key={d.id} className="clickable" onClick={() => open(d.id)}>
                 <td style={{ whiteSpace: "normal" }}><span className="row" style={{ display: "flex", alignItems: "center", gap: 12 }}><span className="tile brand"><Icon name="file" /></span>
                   <span><b style={{ fontWeight: 600, display: "block" }}>{d.title}</b><span className="muted" style={{ fontSize: 12.5 }}>{vs([DOCUMENT_CATEGORIES[d.category], `v${d.current.versionNo}`, d.current.fileName, d.docNo].filter(Boolean).join(" | "))}{d.archivedAt ? <><i className="vs" />Đã gỡ</> : null}</span></span></span></td>
-                <td><Person name={d.employee.fullName} seed={d.employee.code} sub={[d.employee.code, d.employee.department].filter(Boolean).join(" · ")} /></td>
+                <td><Person name={d.employee.fullName} seed={d.employee.code} sub={[d.employee.code, d.employee.department].filter(Boolean).join(" | ")} /></td>
                 <td className="num nowrap">{fmtDate(d.issuedOn)}</td>
                 <td className="nowrap"><Expiry d={d} /></td>
                 <td><Status v={d.archivedAt ? ["Đã gỡ", "muted"] : VIS[d.visibility]} /></td>
@@ -123,7 +123,7 @@ function Missing({ gaps }: { gaps: ReturnType<typeof useApi<ChecklistGaps>> }) {
           {!gaps.data && !gaps.error ? <SkeletonRows cols={3} rows={5} /> : null}
           {rows.map((r) => (
             <tr key={r.employeeId} className="clickable" onClick={() => router.push(`/employees/${r.employeeId}`)}>
-              <td>{r.e ? <Person name={r.e.fullName} seed={r.e.id} sub={[r.e.code, r.e.department?.name].filter(Boolean).join(" · ")} /> : <span className="muted">—</span>}</td>
+              <td>{r.e ? <Person name={r.e.fullName} seed={r.e.id} sub={[r.e.code, r.e.department?.name].filter(Boolean).join(" | ")} /> : <span className="muted">—</span>}</td>
               <td style={{ whiteSpace: "normal" }}><span style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>{r.missing.map((x) => <span key={x} className="tag">{x}</span>)}</span></td>
               <td className="act">{r.e ? <Link className="btn small" href={`/employees/${r.employeeId}`} onClick={(e) => e.stopPropagation()}>Mở hồ sơ</Link> : null}</td>
             </tr>

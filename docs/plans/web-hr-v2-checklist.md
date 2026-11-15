@@ -38,7 +38,19 @@ Sổ phép nhân viên (P1394), chi tiết bài + người đọc (P1479), ma tr
 | Sổ phép | Đã sửa: tiêu đề "Sổ phép: Tên", "năm 2026", khối khóa–giá trị, thanh gập Điều chỉnh, Biến động dạng dòng thời gian |
 | Trang Lương (kỳ này) | Lệch lớn (quỹ lương nhiều kỳ, cơ cấu quỹ) — việc riêng [opus xhigh] |
 
-Chưa so đợt này: luồng duyệt, chi tiết đơn vị, chi tiết bài viết, chi tiết tài liệu, khóa kỳ công, chốt bảng lương, gán/thu hồi vai trò, ngừng ca/địa điểm/đơn vị, người phụ thuộc, nhập file, mời kích hoạt; bản online.
+## Đợt so online 15/11/2026 (kavor-system.vercel.app, chỉ xem: dữ liệu thật, không bấm lưu/gửi)
+Bản online đã có `64b9461` và `127dbc4` (kiểm chuỗi trong JS đã build); API `/health` ok.
+| Màn | Kết quả |
+|---|---|
+| Đơn › chi tiết + luồng duyệt | Gần giống. Đã sửa: "Lý do" đứng trước "Chấm công gốc". Prototype có chức danh trong thẻ người gửi; API `requester` chưa có chức danh |
+| Cơ cấu › chi tiết đơn vị | Đã sửa: dòng phụ dùng vạch `|` (cả gốc sơ đồ "Pháp nhân | N nhân sự") |
+| Bản tin › chi tiết bài | Đã sửa: đầu = tiêu đề bài + "loại | người đăng | xuất bản …"; nhãn trạng thái và nút Sửa/Gỡ cùng một hàng; dòng "đã gửi" nằm trong khối Đã đọc; danh sách Chưa đọc bỏ nhãn "Chưa đọc" thừa. Chưa có: "Chưa có app" từng người, nút "Nhắc" (việc riêng), ghi chú mời kích hoạt |
+| Tài liệu | Đã sửa nhãn "Lượt truy cập tuần này". Online chưa có tài liệu nào → chi tiết tài liệu so ở local |
+| Vai trò › ma trận quyền | Bố cục giống; số liệu khác do dữ liệu thật (vùng nhạy cảm, không đụng) |
+| Hồ sơ › Thuế và bảo hiểm | Đã sửa: "Người phụ thuộc" ngay sau MST, trống = "0"; dòng phụ người phụ thuộc dùng vạch |
+| Mọi trang | Web còn ~50 chỗ dùng "·" ở dòng phụ/tiêu đề, prototype dùng vạch `|` — đổi dần theo từng màn |
+
+Còn phải so ở local (cần bấm mở hộp thoại thao tác): khóa kỳ công, chốt bảng lương, gán/thu hồi vai trò, ngừng ca/địa điểm/đơn vị, form người phụ thuộc, nhập file, mời kích hoạt, chi tiết tài liệu.
 
 ## Màn đã có ở web (cần so giao diện)
 Thanh bên, promo thiết lập, Tìm nhanh, Thông báo, Menu tài khoản, Đăng nhập, Tổng quan, Mời kích hoạt, Nhân viên (+ nhóm phòng ban, nhập file, thêm), Hồ sơ 7 tab (+ sửa, đổi lương, người phụ thuộc), Chấm công tháng một người, tải tài liệu, Lịch sử, Cơ cấu (sơ đồ, đơn vị, chức danh, chi tiết, thêm), Chấm công (hôm nay, bảng tháng, khóa kỳ, OT, bản ghi từ chối, thiết bị), Ca & địa điểm (tạo ca, địa điểm, áp dụng), Nghỉ phép 3 tab, Đơn 3 tab + chi tiết + luồng duyệt, Lương (bảng kỳ này, chốt, mức lương, phụ cấp, tính thử), Tài liệu 3 tab + danh mục, Bản tin 5 tab + tạo/xuất bản, Vai trò (+ gán), Cài đặt (doanh nghiệp, thiết lập, kỳ công & lương, quy định, ngày lễ, dữ liệu cá nhân, hỗ trợ).

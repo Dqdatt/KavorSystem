@@ -128,13 +128,13 @@ function DetailDrawer({ id, onClose, onEdit, onPublish, onChanged }: { id: strin
     run(key, async () => { await call("POST", `announcements/${id}/${path}`, {}); onChanged(); if (after) after(); else void reload(); }, ok);
 
   return (
-    <Drawer onClose={onClose} head={<><div><b>Chi tiết bài viết</b><div className="muted">{a ? `${ANNOUNCEMENT_CATEGORIES[a.category]} · ${a.authorLabel}` : "Đang tải…"}</div></div>
-      {a ? <span style={{ marginLeft: "auto" }}><Status v={STATUS[a.status]} /></span> : null}</>}>
+    <Drawer onClose={onClose} head={<div><b>{a?.title ?? "Chi tiết bài viết"}</b><div className="muted">{a ? vs(`${ANNOUNCEMENT_CATEGORIES[a.category]} | ${a.authorLabel} | ${a.publishAt ? `${a.status === "scheduled" ? "hẹn xuất bản" : "xuất bản"} ${fmtDateTime(a.publishAt, tz)}` : "chưa xuất bản"}`) : "Đang tải…"}</div></div>}>
       <LoadError error={error} retry={reload} />
       {!a ? (error ? null : <SkeletonLines lines={6} />) : (
         <>
-          <div className="row-actions" style={{ justifyContent: "flex-start", marginBottom: 14 }}>
-            {a.status !== "archived" ? <button className="btn small" onClick={() => onEdit(a)}>Sửa bài</button> : null}
+          <div className="row-actions" style={{ justifyContent: "flex-start", flexWrap: "wrap", marginBottom: 14 }}>
+            <Status v={STATUS[a.status]} />{a.important ? <Status v={["Quan trọng", "bad"]} /> : null}{a.pinned ? <Status v={["Đã ghim", "muted"]} /> : null}<span style={{ flex: 1 }} />
+            {a.status !== "archived" ? <button className="btn small" onClick={() => onEdit(a)}><Icon name="edit" />Sửa bài</button> : null}
             {a.status === "draft" ? <button className="btn small primary" onClick={() => onPublish(a)}>Xuất bản…</button> : null}
             {a.status === "scheduled" ? <button className="btn small" onClick={() => onPublish(a)}>Đổi giờ hẹn</button> : null}
             {a.status === "scheduled" ? <button className="btn small" disabled={!!busy} onClick={() => void act("unschedule", "unschedule", "Đã hủy hẹn, bài về nháp")}>Hủy hẹn</button> : null}
@@ -142,8 +142,6 @@ function DetailDrawer({ id, onClose, onEdit, onPublish, onChanged }: { id: strin
             {a.status === "draft" || a.status === "scheduled" ? <button className="btn small danger" onClick={() => setConfirm("remove")}>Xóa</button> : null}
           </div>
           <div className="inset" style={{ marginBottom: 12 }}>
-            <div className="muted" style={{ fontSize: 12.5 }}>{a.publishAt ? `${a.status === "scheduled" ? "Hẹn xuất bản" : "Xuất bản"} ${fmtDateTime(a.publishAt, tz)}` : "Chưa xuất bản"}{a.important ? <><i className="vs" />Quan trọng</> : null}{a.pinned ? <><i className="vs" />Đã ghim</> : null}</div>
-            <h3 style={{ margin: "6px 0 12px", fontSize: 16 }}>{a.title}</h3>
             <div style={{ fontSize: 13, lineHeight: 1.6 }}><RichText body={a.body} /></div>
             {a.attachment ? <a className="btn small" style={{ marginTop: 12 }} href={`/api/announcements/${a.id}/attachment`} target="_blank" rel="noreferrer"><Icon name="file" /> {a.attachment.name} · {kb(a.attachment.size)}</a> : null}
           </div>
@@ -151,13 +149,14 @@ function DetailDrawer({ id, onClose, onEdit, onPublish, onChanged }: { id: strin
             <div className="inset" style={{ marginBottom: 12, display: "grid", gap: 8 }}>
               <div className="spread"><b>Đã đọc {num(a.reads)}/{num(a.recipients)}</b><span className="num muted">{pct(a)}%</span></div>
               <ReadTicks reads={a.reads} total={a.recipients} lg />
-              <span className="muted" style={{ fontSize: 12.5 }}>Mỗi vạch là một nhóm người nhận · mở bài trên app được tính là đã đọc</span>
+              <span className="muted" style={{ fontSize: 12.5 }}>{a.recipients > 30 ? "Mỗi vạch là một nhóm người nhận" : "Mỗi vạch là một người nhận"}<i className="vs" />mở bài trên app được tính là đã đọc</span>
+              {a.notify && a.notifiedAt ? <span className="muted" style={{ fontSize: 12.5 }}>Thông báo trong app đã gửi {fmtDateTime(a.notifiedAt, tz)}</span> : null}
             </div>
           ) : null}
           <div className="detail-list card" style={{ marginBottom: 14 }}>
-            <div className="detail-row"><span>Người nhận</span><b>{audienceText(a)} · {num(a.recipients)} người</b></div>
+            <div className="detail-row"><span>Người nhận</span><b>{vs(`${audienceText(a)} | ${num(a.recipients)} người`)}</b></div>
             <div className="detail-row"><span>Hiển thị đến</span><b>{a.visibleUntil ? `${fmtDateTime(a.visibleUntil, tz)}${a.status === "expired" ? " · đã hết hạn, app không còn hiện" : ""}` : "Tới khi gỡ bài"}</b></div>
-            <div className="detail-row"><span>Thông báo trong app</span><b>{!a.notify ? "Không gửi" : a.notifiedAt ? `Đã gửi ${fmtDateTime(a.notifiedAt, tz)}` : "Gửi khi xuất bản"}</b></div>
+            {sent && a.notify && a.notifiedAt ? null : <div className="detail-row"><span>Thông báo trong app</span><b>{!a.notify ? "Không gửi" : a.notifiedAt ? `Đã gửi ${fmtDateTime(a.notifiedAt, tz)}` : "Gửi khi xuất bản"}</b></div>}
             {a.archivedAt ? <div className="detail-row"><span>Đã gỡ</span><b>{fmtDateTime(a.archivedAt, tz)}</b></div> : null}
           </div>
           <div>
@@ -169,8 +168,8 @@ function DetailDrawer({ id, onClose, onEdit, onPublish, onChanged }: { id: strin
             {!readers.length ? <Empty title={showAll ? "Không có người nhận phù hợp" : "Mọi người đã đọc"} /> : (
               <div className="inset" style={{ padding: 0 }}><div className="table-wrap" style={{ maxHeight: 360 }}><table className="data-table compact"><tbody>
                 {readers.map((r) => (
-                  <tr key={r.id}><td><Person name={r.fullName} seed={r.code} sub={[r.code, r.department].filter(Boolean).join(" · ")} /></td>
-                    <td className="nowrap" style={{ textAlign: "right" }}>{r.readAt ? <span className="muted">{fmtDateTime(r.readAt, tz)}</span> : <Status v={["Chưa đọc", "warn"]} />}</td></tr>
+                  <tr key={r.id}><td><Person name={r.fullName} seed={r.code} sub={[r.code, r.department].filter(Boolean).join(" | ")} /></td>
+                    <td className="nowrap" style={{ textAlign: "right" }}>{r.readAt ? <span className="muted">{fmtDateTime(r.readAt, tz)}</span> : showAll ? <Status v={["Chưa đọc", "warn"]} /> : null}</td></tr>
                 ))}
               </tbody></table></div></div>
             )}

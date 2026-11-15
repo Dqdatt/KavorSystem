@@ -83,8 +83,8 @@ function useRequestDetail(r: RequestItem, onDone: (r: RequestItem) => void, onCl
     profileValue(f, r.payload.before) === "—" ? vs(profileValue(f, r.payload.after)) /* trước đó trống: "—" gạch ngang trông như dấu "═" */
       : <><span className="muted" style={{ textDecoration: "line-through", fontWeight: 500 }}>{vs(profileValue(f, r.payload.before))}</span> → {vs(profileValue(f, r.payload.after))}</>])
     : r.workDate ? [["Ngày áp dụng", fmtDate(r.workDate)]] : [];
-  if (r.type === "explanation" && r.day) rows.push(["Chấm công gốc", `${r.day.shift ?? "—"} | vào ${r.day.rawIn ?? "--:--"} | ra ${r.day.rawOut ?? "--:--"}`]);
   rows.push(["Lý do", r.payload.reason || "—"]);
+  if (r.type === "explanation" && r.day) rows.push(["Chấm công gốc", `${r.day.shift ?? "—"} | vào ${r.day.rawIn ?? "--:--"} | ra ${r.day.rawOut ?? "--:--"}`]);
   if (r.attachments.length || r.attachmentRequired) rows.push(["Minh chứng", r.attachments.length ? r.attachments.map((a) => (
     <a key={a.id} className="btn small" style={{ margin: "0 0 4px 6px" }} href={`/api/requests/${r.id}/attachments/${a.id}`} target="_blank" rel="noreferrer"><Icon name="download" /> {a.name} · {kb(a.size)}</a>
   )) : <Status v={["Bắt buộc | nhân viên chưa đính kèm", "bad"]} />]);
