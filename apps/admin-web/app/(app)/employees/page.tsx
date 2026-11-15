@@ -3,7 +3,7 @@ import { Fragment, Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { BulkInviteResult, ChecklistGaps, EmployeeListItem, OrgOptions } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
-import { PageActions, PageSub, ACCOUNT, EMP_STATUS, EMPLOYMENT, Empty, Icon, LoadError, Modal, Person, Status, can, fmtDate, tenantToday, tenure, useAction, useMe } from "../../_ui/kit";
+import { PageActions, PageSub, ACCOUNT, EMP_STATUS, EMPLOYMENT, Empty, Icon, LoadError, Modal, Person, Status, can, fmtDate, tenantToday, tenure, useAction, useMe, useRemind } from "../../_ui/kit";
 import { ImportModal } from "../../_ui/employee-import";
 import { Select, SkeletonRows } from "@kavor/web-ui";
 import { EmployeeForm } from "./profile";
@@ -25,6 +25,7 @@ function EmployeesPage() {
   const [adding, setAdding] = useState(false);
   const [importing, setImporting] = useState(false);
   const [bulk, setBulk] = useState<EmployeeListItem[] | null>(null);
+  const rm = useRemind();
   const openId = params.get("id");
   /* /employees?new=1 (nút "Thêm nhân viên" ở Tổng quan) mở form thêm */
   const wantNew = params.get("new") === "1" && can(me, "employee.create");
@@ -84,6 +85,7 @@ function EmployeesPage() {
         {picked.length ? (
           <div className="bulk"><span>{picked.length}&nbsp;người đã chọn</span><span className="toolbar-spacer" />
             {can(me, "membership.invite") ? <button className="btn small primary" onClick={() => setBulk(picked)}><Icon name="mail" /> Gửi lời mời</button> : null}
+            {can(me, "document.read") ? <button className="btn small" disabled={!!rm.busy} onClick={() => void rm.remind("docs", "checklist/remind", { employeeIds: picked.map((e) => e.id) })}><Icon name="bell" /> Nhắc bổ sung giấy tờ</button> : null}
             <button className="btn small ghost" onClick={() => setSel(new Set())}>Bỏ chọn</button></div>
         ) : null}
         {list.data && !rows.length ? <Empty title="Không có nhân viên phù hợp" text="Thử bỏ bớt bộ lọc hoặc tìm theo mã nhân viên." /> : (

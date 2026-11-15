@@ -2,8 +2,9 @@
 /* Thành phần giao diện theo đúng class của Kavor HR Admin Prototype.html (app/kavor-desktop.css) */
 import { Fragment, createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import type { AccountStatus, AdminMe, DeviceStatus, EmployeeStatus, EmploymentType } from "@kavor/contracts";
+import type { AccountStatus, AdminMe, DeviceStatus, EmployeeStatus, EmploymentType, ReminderResult } from "@kavor/contracts";
 import { Hint } from "@kavor/web-ui";
+import { call } from "../_lib/client";
 import { ICONS } from "./icons";
 
 export function Icon({ name, size, className }: { name: string; size?: number; className?: string }) {
@@ -199,6 +200,21 @@ export function useAction() {
     try { await fn(); if (ok) toast(ok); return true; } catch (e) { toast((e as Error).message, "error"); return false; } finally { setBusy(null); }
   }, [toast]);
   return { busy, run };
+}
+
+/* Nút "Nhắc": gọi API nhắc rồi báo theo {sent,total}. one = nhắc đúng một người (tên + việc); unread = bản tin ("chưa đọc") */
+export function useRemind() {
+  const toast = useToast();
+  const { busy, run } = useAction();
+  const remind = (key: string, path: string, body: object, opt: { one?: { name: string; what: string }; unread?: boolean } = {}) => run(key, async () => {
+    const { sent, total } = await call<ReminderResult>("POST", path, body);
+    const { one, unread } = opt;
+    toast(!total ? "Không có ai cần nhắc."
+      : one ? (sent ? `Đã nhắc ${one.name} ${one.what}` : `${one.name} đã được nhắc hôm nay hoặc chưa có app.`)
+      : sent === total ? `Đã nhắc ${sent} người${unread ? " chưa đọc" : ""}`
+      : `Đã nhắc ${sent}/${total} người. Số còn lại đã được nhắc hôm nay hoặc chưa có app.`);
+  });
+  return { busy, remind };
 }
 
 /* Giá trị dài (địa chỉ, "chi nhánh · pháp nhân"): xuống dòng giữa các cụm (sau dấu phẩy / dấu chấm giữa), không tách tên riêng như "Quảng | Ngãi".

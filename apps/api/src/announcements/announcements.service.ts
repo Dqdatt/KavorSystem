@@ -2,7 +2,7 @@
    Nhân viên đọc bài gửi tới mình (announcement.read); mở bài = đã đọc. Người nhận tính bằng hàm SQL announcement_recipients
    (cùng hàm RLS dùng). Một file đính kèm/bài; app mở file qua liên kết ký ngắn hạn. Audit không chép nội dung bài. */
 import { ANNOUNCEMENT_MAX_BYTES, type AnnouncementAdmin, type AnnouncementAttachment, type AnnouncementBoard, type AnnouncementCategory,
-  type AnnouncementDetail, type AnnouncementReader, type AnnouncementStatus, type AnnouncementUnit, type MyAnnouncement, type MyAnnouncements } from "@kavor/contracts";
+  type AnnouncementDetail, type AnnouncementReader, type AnnouncementStatus, type AnnouncementUnit, type MyAnnouncement, type MyAnnouncements, type ReminderResult } from "@kavor/contracts";
 import { AuthError, type EmployeeRow } from "../auth/auth.service.js";
 import type { SupabaseGateway } from "../auth/supabase.js";
 import { conflict, forbidden, invalid, notFound, type AdminContext } from "../admin/context.js";
@@ -39,6 +39,7 @@ function dbError(e: unknown): never {
   if (message.includes("ANNOUNCEMENT_NOT_FOUND")) throw notFound("bài viết");
   if (message.includes("ANNOUNCEMENT_AUDIENCE_REQUIRED")) throw invalid("Chọn ít nhất một chi nhánh hoặc phòng ban nhận bài.");
   if (message.includes("ANNOUNCEMENT_UNIT_INVALID")) throw invalid("Chi nhánh/phòng ban nhận bài không thuộc công ty.");
+  if (message.includes("ANNOUNCEMENT_NOT_REMINDABLE")) throw conflict("Chỉ nhắc được bài đang hiển thị (đã xuất bản, chưa gỡ, chưa hết hạn).");
   if (/ANNOUNCEMENT_(ARCHIVED|PUBLISHED|NOT_PUBLISHABLE)/.test(message)) throw conflict("Bài viết đã xuất bản hoặc đã gỡ, không thực hiện được thao tác này.");
   throw new AuthError("INTERNAL_ERROR", "Không xử lý được bản tin. Vui lòng thử lại.", 500, true);
 }
@@ -192,6 +193,16 @@ export class AnnouncementsService {
     if (error) dbError(error);
     await ctx.audit("announcement.published", "announcement", r.id, { status: status(r) }, { scheduled: !!at, notify: r.notify });
     return this.item(ctx, r.id);
+  }
+
+  /* Nút "Nhắc N người chưa đọc": người nhận có app, chưa mở bài; mỗi người một lần mỗi ngày */
+  async remind(ctx: AdminContext, id: string): Promise<ReminderResult> {
+    const { item, readers } = await this.detail(ctx, id);
+    const { data, error } = await ctx.db.rpc("notify_reminders", { p_tenant: ctx.tenantId, p_kind: "reminder.announcement", p_items: null, p_ref: item.id });
+    if (error) dbError(error);
+    const out = { sent: (data as number) ?? 0, total: readers.filter((r) => !r.readAt && r.hasApp).length };
+    await ctx.audit("reminder.sent", "announcement", item.id, null, { kind: "reminder.announcement", ...out });
+    return out;
   }
 
   /* Bài hẹn giờ chưa tới giờ → về nháp */

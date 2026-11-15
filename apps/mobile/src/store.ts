@@ -1722,6 +1722,7 @@ export const ACT = {
   },
   /* Bấm một thông báo: đơn cần duyệt → màn duyệt; kết quả đơn → chi tiết đơn; máy → Bảo mật và thiết bị */
   notifOpen: (n: AppNotification) => {
+    const dest = REMINDER_GO[n.kind]; if (dest) { go(dest); return; }
     if (!n.link) return;
     if (n.link.type === "device") { go("security"); return; }
     if (n.link.type === "announcement") { ACT.openNews(n.link.id); return; }
@@ -1744,6 +1745,9 @@ export const ACT = {
   openApp: () => { S.stack = ["home"]; render("fade"); },
   resetDay: () => { S.clockIn = null; S.clockOut = null; S.widgetState = "idle"; emit(); toast("Đã xóa chấm công hôm nay"); },
 };
+
+/* Nhắc từ HR không có link: đưa thẳng về màn tương ứng (reminder.announcement đã có link bản tin) */
+export const REMINDER_GO: Partial<Record<string, Route>> = { "reminder.attendance": "clock", "reminder.documents": "docs" };
 
 export function advError() {
   if (REMOTE) {

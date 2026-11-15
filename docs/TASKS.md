@@ -10,7 +10,8 @@
 - [x] Script nạp dữ liệu thử ổn định (tools/demo-data.sh; lỗi "Bad Request" do bash 3.2 brace-expand body JSON)
 - [x] Màn prototype có, web chưa có, chỉ UI: Điểm mới, Ghi chú phiên bản, "Hồ sơ của tôi", Thêm khoản phụ cấp mẫu
 - [ ] Màn prototype có, đụng vùng nhạy cảm: Cho nghỉ việc, Tạm nghỉ, Xem số tài khoản — mỗi màn một kế hoạch — [opus xhigh]
-- [ ] Nút "Nhắc" (chấm công/giấy tờ/bản tin): endpoint HR + migration kind thông báo mới + icon fallback web/mobile — [opus high]
+- [x] Nút "Nhắc" (chấm công/giấy tờ/bản tin): `notify_reminders` + 3 endpoint HR + nút web + icon fallback web/mobile
+- [ ] (Tùy chọn) "Nhắc người duyệt" ở chi tiết đơn chờ duyệt (prototype có; hiện chỉ nhắc tự động theo hạn) — [opus high]
 - [ ] Thời hạn thử việc trong hồ sơ → "hết thử việc" ở khối Sắp tới — [opus high]
 - [ ] Tìm đơn theo mã trong Ctrl K; nút Ctrl K trên màn hẹp; "Xuất danh sách" chấm công hôm nay; ô "Người đang áp dụng" (Ca & địa điểm); phân trang bảng Ngày lễ — [sonnet]
 - [ ] P3 lương: trang Lương theo prototype (tổng quỹ lương nhiều kỳ, cơ cấu quỹ, hộp Chốt bảng 4 bước); xem thanh 4 bước bằng Kế toán HD0215 — [opus xhigh]

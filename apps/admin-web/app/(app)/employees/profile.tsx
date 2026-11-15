@@ -220,7 +220,7 @@ export function EmployeeProfile({ id }: { id: string }) {
       </> : null}
 
       {tab === "pay" && can(me, "compensation.read") ? <EmployeePaySection employeeId={e.id} name={e.fullName} /> : null}
-      {tab === "papers" && can(me, "document.read") ? <EmployeeChecklistSection employeeId={e.id} /> : null}
+      {tab === "papers" && can(me, "document.read") ? <EmployeeChecklistSection employeeId={e.id} name={e.fullName} /> : null}
       {tab === "requests" && can(me, "request.read") ? <EmployeeRequests employeeId={e.id} /> : null}
 
       {tab === "history" && can(me, "audit.read") ? (

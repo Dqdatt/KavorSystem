@@ -7,7 +7,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { ANNOUNCEMENT_CATEGORIES, ANNOUNCEMENT_MAX_BYTES, type AnnouncementAdmin, type AnnouncementBoard, type AnnouncementCategory,
   type AnnouncementDetail, type AnnouncementInput, type AnnouncementStatus, type AnnouncementUnit } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
-import { vs, PageActions, Drawer, Empty, ErrorLine, Field, Icon, LoadError, Modal, Person, Status, fmtDateTime, num, useAction, useMe } from "../../_ui/kit";
+import { vs, PageActions, Drawer, Empty, ErrorLine, Field, Icon, LoadError, Modal, Person, Status, fmtDateTime, can, num, useAction, useMe, useRemind } from "../../_ui/kit";
 import { Select, SkeletonLines, SkeletonRows } from "@kavor/web-ui";
 import { RichText, RichTextEditor } from "../../_ui/rich-text";
 
@@ -114,6 +114,7 @@ function DetailDrawer({ id, onClose, onEdit, onPublish, onChanged }: { id: strin
   const tz = me.tenant.timezone;
   const { data: d, error, reload } = useApi<AnnouncementDetail>(`announcements/${id}`);
   const { busy, run } = useAction();
+  const rm = useRemind();
   const [confirm, setConfirm] = useState<"archive" | "remove" | null>(null);
   const [rq, setRq] = useState("");
   const [allReaders, setAllReaders] = useState(false);
@@ -122,6 +123,7 @@ function DetailDrawer({ id, onClose, onEdit, onPublish, onChanged }: { id: strin
   /* Chưa đọc xếp theo phòng ban; bài chưa gửi chưa có ai đọc nên hiện cả danh sách */
   const showAll = allReaders || !sent;
   const unread = (d?.readers ?? []).filter((r) => !r.readAt).length;
+  const nudge = (d?.readers ?? []).filter((r) => !r.readAt && r.hasApp).length;
   const readers = (d?.readers ?? []).filter((r) => (showAll || !r.readAt) && (!rq.trim() || `${r.fullName} ${r.code}`.toLowerCase().includes(rq.trim().toLowerCase())))
     .sort((x, y) => (x.department ?? "").localeCompare(y.department ?? "", "vi") || x.fullName.localeCompare(y.fullName, "vi"));
   const act = (key: string, path: string, ok: string, after?: () => void) =>
@@ -160,7 +162,8 @@ function DetailDrawer({ id, onClose, onEdit, onPublish, onChanged }: { id: strin
             {a.archivedAt ? <div className="detail-row"><span>Đã gỡ</span><b>{fmtDateTime(a.archivedAt, tz)}</b></div> : null}
           </div>
           <div>
-            <div className="spread" style={{ marginBottom: 8 }}><span className="cap">{showAll ? `Người nhận (${num(d.readers.length)})` : `Chưa đọc (${num(unread)})`}</span><span className="muted" style={{ fontSize: 12.5 }}>Xếp theo phòng ban</span></div>
+            <div className="spread" style={{ marginBottom: 8 }}><span className="cap">{showAll ? `Người nhận (${num(d.readers.length)})` : `Chưa đọc (${num(unread)})`}</span><span className="muted" style={{ fontSize: 12.5 }}>Xếp theo phòng ban</span>
+              {a.status === "published" && nudge && can(me, "announcement.publish") ? <button className="btn small" disabled={!!rm.busy} onClick={() => void rm.remind("remind", `announcements/${id}/remind`, {}, { unread: true })}><Icon name="bell" />Nhắc {nudge} người chưa đọc</button> : null}</div>
             <div className="toolbar" style={{ padding: "0 0 8px", border: 0, minHeight: 0 }}>
               <label className="search" style={{ flex: 1 }}><Icon name="search" /><input value={rq} onChange={(e) => setRq(e.target.value)} placeholder="Tìm người nhận…" /></label>
               <label className="check-row"><input type="checkbox" checked={allReaders} onChange={(e) => setAllReaders(e.target.checked)} /> Hiện cả người đã đọc</label>

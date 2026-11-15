@@ -1,10 +1,10 @@
 /* Chấm công phía HR: bảng hôm nay, bản ghi bị từ chối, thiết bị (duyệt/từ chối/thu hồi). */
-import type { AdminAttendanceEvent, AdminDevice, AttendanceBoard, LeaveHalf, OverviewDay, TodayRow } from "@kavor/contracts";
+import type { AdminAttendanceEvent, AdminDevice, AttendanceBoard, LeaveHalf, OverviewDay, ReminderResult, TodayRow } from "@kavor/contracts";
 import type { SupabaseGateway } from "../auth/supabase.js";
 import { EVENT_COLS, localParts, tenantSettings, toAttendanceEvent, type EventRow } from "../attendance/attendance.service.js";
 import { PolicyIndex, loadPlacements, minutesOf } from "../attendance/policy.js";
 import { conflict, invalid, notFound, type AdminContext } from "./context.js";
-import { addDays } from "./validate.js";
+import { addDays, uuids, type Body } from "./validate.js";
 import { holidaysOf } from "../company/company.service.js";
 import { isoWeekday } from "../timesheet/compute.js";
 
@@ -64,6 +64,15 @@ export class AttendanceAdmin {
     await ctx.audit(`device.${action === "approve" ? "approved" : action === "reject" ? "rejected" : "revoked"}`, "employee_device", deviceId,
       { status: before.status, decision_reason: before.decision_reason }, { status: a.status, decision_reason: a.decision_reason, employee_id: a.employee_id }, reason);
     return (await this.toDevices(ctx, [a]))[0]!;
+  }
+
+  /* Nút "Nhắc": người trong phạm vi hôm nay chưa chấm vào (trừ nghỉ phép cả ngày); employeeIds giới hạn thêm */
+  async remind(ctx: AdminContext, b: Body): Promise<ReminderResult> {
+    const only = uuids(b, "employeeIds", 2000);
+    const { rows } = await this.board(ctx);
+    const items = rows.filter((r) => (r.state === "not_started" || r.state === "absent") && r.leave?.half !== "full" && (!only || only.includes(r.employee.id)))
+      .map((r) => ({ id: r.employee.id, detail: r.shift ? `Ca ${r.shift.name} ${r.shift.start}–${r.shift.end}` : null }));
+    return sendReminders(ctx, "reminder.attendance", items);
   }
 
   /* ---------- Bảng hôm nay ---------- */
@@ -233,4 +242,14 @@ function groupBy<T>(rows: T[], key: (r: T) => string) {
   const m = new Map<string, T[]>();
   for (const r of rows) m.set(key(r), [...(m.get(key(r)) ?? []), r]);
   return m;
+}
+
+/* Gọi notify_reminders (người chưa có app / đã nhắc hôm nay bị bỏ qua) và ghi audit */
+export async function sendReminders(ctx: AdminContext, kind: "reminder.attendance" | "reminder.documents", items: Array<{ id: string; detail: string | null }>): Promise<ReminderResult> {
+  if (!items.length) return { sent: 0, total: 0 };
+  const { data, error } = await ctx.db.rpc("notify_reminders", { p_tenant: ctx.tenantId, p_kind: kind, p_items: items });
+  if (error) throw error;
+  const out = { sent: (data as number) ?? 0, total: items.length };
+  await ctx.audit("reminder.sent", "tenant", ctx.tenantId, null, { kind, ...out });
+  return out;
 }

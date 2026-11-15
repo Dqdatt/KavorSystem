@@ -1,9 +1,10 @@
 /* Danh mục giấy tờ hồ sơ (docs/plans/payroll-tenant-rules.md mục 4). Công ty tự khai danh mục (document.manage toàn công ty); HR tích từng
    nhân viên đã nộp gì (document.upload trong phạm vi), xem theo document.read. Không có trạng thái giữ bản chính (BLLĐ 2019 Điều 17).
    Nhật ký: checklist_item.created/updated, checklist.updated (không chép nội dung giấy tờ). */
-import type { ChecklistEntry, ChecklistForm, ChecklistGaps, ChecklistItem, ChecklistItemList, ChecklistStatus, EmployeeChecklist, EmploymentType } from "@kavor/contracts";
+import type { ChecklistEntry, ChecklistForm, ChecklistGaps, ChecklistItem, ChecklistItemList, ChecklistStatus, EmployeeChecklist, EmploymentType, ReminderResult } from "@kavor/contracts";
 import { conflict, invalid, notFound, type AdminContext } from "../admin/context.js";
-import { date, nullableText, number, oneOf, type Body } from "../admin/validate.js";
+import { date, nullableText, number, oneOf, uuids, type Body } from "../admin/validate.js";
+import { sendReminders } from "../admin/attendance-admin.service.js";
 
 type ItemRow = { id: string; name: string; required: boolean; employment_types: EmploymentType[] | null; purpose: string | null; sort_order: number; archived_at: string | null };
 type StatusRow = { employee_id: string; item_id: string; status: ChecklistStatus; form: ChecklistForm | null; submitted_on: string | null; note: string | null; updated_at: string };
@@ -214,5 +215,12 @@ export class ChecklistService {
       return { employeeId: e.id, missing: mine.filter((r) => !done.has(`${e.id}:${r.id}`)).map((r) => r.name), required: mine.length };
     }).filter((r) => r.missing.length);
     return { rows: out, itemCount: rows.length, requiredCount: req.length };
+  }
+
+  /* Nút "Nhắc": người trong phạm vi còn thiếu giấy tờ bắt buộc; employeeIds giới hạn thêm */
+  async remind(ctx: AdminContext, b: Body): Promise<ReminderResult> {
+    const only = uuids(b, "employeeIds", 2000);
+    const { rows } = await this.gaps(ctx);
+    return sendReminders(ctx, "reminder.documents", rows.filter((r) => !only || only.includes(r.employeeId)).map((r) => ({ id: r.employeeId, detail: r.missing.join(", ") })));
   }
 }

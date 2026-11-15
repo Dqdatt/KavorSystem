@@ -11,6 +11,7 @@ const ICON: Record<NotificationKind, [string, string]> = {
   "approval.pending": ["checks", ""], "approval.due": ["clock", "amber"], "request.approved": ["checks", ""], "request.rejected": ["alert", "red"],
   "device.approved": ["phone", "blue"], "device.rejected": ["phone", "red"], "advance.paid": ["pay", ""],
   "payslip.published": ["pay", ""], "announcement.published": ["news", "violet"],
+  "reminder.attendance": ["clock", "amber"], "reminder.documents": ["file", "amber"], "reminder.announcement": ["news", "violet"],
 };
 
 export function NotificationBell() {
@@ -46,7 +47,7 @@ export function NotificationBell() {
           <div className="notification-list">
             {!data?.items.length ? <p className="muted" style={{ padding: "8px 2px", fontSize: 12 }}>Chưa có thông báo. Đơn cần bạn duyệt và đơn sắp quá hạn sẽ hiện ở đây.</p>
               : data.items.slice(0, 20).map((n) => {
-                const [icon, tone] = ICON[n.kind];
+                const [icon, tone] = ICON[n.kind] ?? ["bell", ""];
                 return (
                   <button key={n.id} className={`notification ${n.readAt ? "" : "unread"}`} onClick={() => pick(n)}>
                     <span className={`metric-icon ${tone}`}><Icon name={icon} /></span>

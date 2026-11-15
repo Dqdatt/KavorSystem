@@ -7,7 +7,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { DOCUMENT_CATEGORIES, type DocumentBoard, type DocumentCategory, type DocumentDetail, type DocumentExpiry, type DocumentMeta,
   type DocumentVisibility, type ChecklistGaps, type EmployeeDocument, type EmployeeListItem } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
-import { vs, PageActions, Dl, Drawer, Empty, ErrorLine, Field, Icon, LoadError, Modal, MoreMenu, Person, Status, fmtDate, fmtDateTime, num, useAction, useMe } from "../../_ui/kit";
+import { vs, PageActions, Dl, Drawer, Empty, ErrorLine, Field, Icon, LoadError, Modal, MoreMenu, Person, Status, fmtDate, fmtDateTime, num, useAction, useMe, useRemind } from "../../_ui/kit";
 import Link from "next/link";
 import { ReasonModal } from "../../_ui/reason-modal";
 import { ChecklistCatalog } from "./checklist";
@@ -107,16 +107,18 @@ function DocumentsPage() {
 }
 export default function Page() { return <Suspense><DocumentsPage /></Suspense>; }
 
-/* Tab "Thiếu hồ sơ": ai thiếu giấy tờ bắt buộc nào (từ checklist/gaps). Chưa có API "Nhắc" nên không có nút nhắc. */
+/* Tab "Thiếu hồ sơ": ai thiếu giấy tờ bắt buộc nào (từ checklist/gaps). */
 function Missing({ gaps }: { gaps: ReturnType<typeof useApi<ChecklistGaps>> }) {
   const me = useMe();
   const router = useRouter();
+  const { busy, remind } = useRemind();
   const emps = useApi<EmployeeListItem[]>("employees?status=working&account=all", { tables: ["employees"], tenantId: me.tenant.id });
   const by = new Map((emps.data ?? []).map((e) => [e.id, e]));
   const rows = (gaps.data?.rows ?? []).map((r) => ({ ...r, e: by.get(r.employeeId) })).sort((a, b) => b.missing.length - a.missing.length || (a.e?.fullName ?? "").localeCompare(b.e?.fullName ?? "", "vi"));
   return (
     <section className="card">
-      <div className="toolbar"><span className="muted" style={{ fontSize: 13 }}>{gaps.data ? `${num(rows.length)} nhân viên còn thiếu giấy tờ bắt buộc` : "Đang tải…"}</span></div>
+      <div className="toolbar"><span className="muted" style={{ fontSize: 13 }}>{gaps.data ? `${num(rows.length)} nhân viên còn thiếu giấy tờ bắt buộc` : "Đang tải…"}</span>
+        <span className="toolbar-spacer" />{rows.length ? <button className="btn small" disabled={!!busy} onClick={() => void remind("all", "checklist/remind", {})}><Icon name="bell" />{busy === "all" ? "Đang gửi…" : "Nhắc tất cả"}</button> : null}</div>
       <LoadError error={gaps.error ?? emps.error} retry={() => { void gaps.reload(); void emps.reload(); }} />
       {gaps.data && !rows.length ? <Empty title="Không ai thiếu giấy tờ bắt buộc" text={gaps.data.itemCount ? undefined : "Công ty chưa khai danh mục giấy tờ (tab Danh mục giấy tờ)."} /> : (
         <div className="table-wrap"><table className="data-table" style={{ minWidth: 640 }}><thead><tr><th>Nhân viên</th><th>Còn thiếu</th><th /></tr></thead><tbody>
@@ -125,7 +127,7 @@ function Missing({ gaps }: { gaps: ReturnType<typeof useApi<ChecklistGaps>> }) {
             <tr key={r.employeeId} className="clickable" onClick={() => router.push(`/employees/${r.employeeId}`)}>
               <td>{r.e ? <Person name={r.e.fullName} seed={r.e.id} sub={[r.e.code, r.e.department?.name].filter(Boolean).join(" | ")} /> : <span className="muted">—</span>}</td>
               <td style={{ whiteSpace: "normal" }}><span style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>{r.missing.map((x) => <span key={x} className="tag">{x}</span>)}</span></td>
-              <td className="act">{r.e ? <Link className="btn small" href={`/employees/${r.employeeId}`} onClick={(e) => e.stopPropagation()}>Mở hồ sơ</Link> : null}</td>
+              <td className="act">{r.e ? <><button className="btn small" disabled={!!busy} onClick={(ev) => { ev.stopPropagation(); void remind(r.employeeId, "checklist/remind", { employeeIds: [r.employeeId] }, { one: { name: r.e!.fullName, what: "bổ sung giấy tờ" } }); }}><Icon name="bell" />Nhắc</button> <Link className="btn small" href={`/employees/${r.employeeId}`} onClick={(e) => e.stopPropagation()}>Mở hồ sơ</Link></> : null}</td>
             </tr>
           ))}
         </tbody></table></div>

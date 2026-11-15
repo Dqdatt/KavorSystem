@@ -1361,7 +1361,8 @@ export type EmployeeLeave = { employee: LeaveRow["employee"]; year: number; bala
 export type LeaveAdjustInput = { year: number; amount: number; reason: string; carry?: boolean; expiresOn?: string | null };
 
 /* ---------- Thông báo trong app ---------- */
-export type NotificationKind = "approval.pending" | "approval.due" | "request.approved" | "request.rejected" | "device.approved" | "device.rejected" | "advance.paid" | "payslip.published" | "announcement.published";
+export type NotificationKind = "approval.pending" | "approval.due" | "request.approved" | "request.rejected" | "device.approved" | "device.rejected" | "advance.paid" | "payslip.published" | "announcement.published"
+  | "reminder.attendance" | "reminder.documents" | "reminder.announcement";
 export type AppNotification = {
   id: string; kind: NotificationKind; title: string; body: string; createdAt: string; readAt: string | null;
   link: { type: "request" | "device" | "payslip" | "announcement"; id: string; no: string | null } | null;
@@ -1371,6 +1372,10 @@ export type AppNotification = {
 export type NotificationFeed = { items: AppNotification[]; unread: number };
 /* ids rỗng/không có: đánh dấu tất cả đã đọc */
 export type NotificationRead = { ids?: string[] };
+/* Nút "Nhắc" của HR: employeeIds bỏ trống = mọi người cần nhắc trong phạm vi. total = số người cần nhắc trong lô,
+   sent = số thông báo mới (người đã được nhắc hôm nay hoặc chưa có app không tính) */
+export type ReminderInput = { employeeIds?: string[] };
+export type ReminderResult = { sent: number; total: number };
 
 /* Ô lưới ngày × người: off = ngày nghỉ/lễ, exp = đã có giải trình/điều chỉnh, fut = chưa tới/chưa có dữ liệu */
 export type GridCell = "ok" | "late" | "miss" | "leave" | "exp" | "off" | "fut";

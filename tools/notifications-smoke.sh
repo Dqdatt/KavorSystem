@@ -78,4 +78,36 @@ check "Đánh dấu một thông báo" "$(call POST me/notifications/read "$EMP"
 check "Đánh dấu tất cả" "$(call POST me/notifications/read "$EMP" '{}' | py "d['unread']")" 0
 check "Web HR đánh dấu đã đọc" "$(call POST admin/notifications/read "$HR" '{}' | py "d['unread']")" 0
 check "Cần đăng nhập" "$(status GET me/notifications)" 401
+
+# Nhắc việc từ HR. Giả định: hôm nay là ngày làm việc của HD0142 (attendance_events đã truncate nên chưa chấm vào);
+# vào cuối tuần/lễ bước nhắc chấm công sẽ cho sent=0. Giấy tờ bắt buộc tạo mới (seed có thể chưa có).
+EMPID=60000000-0000-4000-8000-000000000142
+has() { call GET me/notifications "$EMP" | py "'$1' in [i['kind'] for i in d['items']]"; }
+B="{\"employeeIds\":[\"$EMPID\"]}"
+echo "— HR nhắc chấm công"
+# Ngày nghỉ/lễ của HD0142 thì không có ai cần nhắc
+due=$(call GET admin/attendance/board "$HR" | py "[r['state'] for r in d['rows'] if r['employee']['id'] == '$EMPID' and not (r['leave'] and r['leave']['half'] == 'full')] in (['not_started'], ['absent'])")
+if [ "$due" = True ]; then
+  check "Nhắc chấm công: gửi 1 người" "$(call POST admin/attendance/remind "$HR" "$B" | py "(d['sent'], d['total'])")" "(1, 1)"
+  check "Nhân viên thấy reminder.attendance" "$(has reminder.attendance)" True
+  check "Nhắc lại cùng ngày → không trùng" "$(call POST admin/attendance/remind "$HR" "$B" | py "d['sent']")" 0
+else
+  check "Hôm nay HD0142 không cần chấm → không nhắc" "$(call POST admin/attendance/remind "$HR" "$B" | py "(d['sent'], d['total'])")" "(0, 0)"
+fi
+check "Nhân viên thường không được nhắc → 403" "$(status POST admin/attendance/remind "$EMP" "$B")" 403
+
+echo "— HR nhắc giấy tờ"
+check "Tạo giấy tờ bắt buộc" "$(status POST admin/checklist/items "$HR" '{"name":"Smoke giấy tờ nhắc việc","required":true}')" 201
+check "Nhắc giấy tờ: gửi 1 người" "$(call POST admin/checklist/remind "$HR" "$B" | py "(d['sent'], d['total'] >= d['sent'])")" "(1, True)"
+check "Nhân viên thấy reminder.documents" "$(has reminder.documents)" True
+check "Nhắc giấy tờ lại → không trùng" "$(call POST admin/checklist/remind "$HR" "$B" | py "d['sent']")" 0
+
+echo "— HR nhắc đọc bản tin"
+r=$(call POST admin/announcements "$HR" '{"category":"notice","title":"Smoke nhắc đọc","body":"Bài thử nhắc đọc.","audience":"tenant"}'); AN=$(echo "$r" | field data.id); need "Tạo bài nháp" "$AN"
+check "Bài nháp nhắc → 409" "$(status POST "admin/announcements/$AN/remind" "$HR")" 409
+call POST "admin/announcements/$AN/publish" "$HR" '{}' >/dev/null
+r=$(call POST "admin/announcements/$AN/remind" "$HR")
+check "Bài đã xuất bản: nhắc người chưa đọc" "$(echo "$r" | py "(d['sent'] >= 1, d['total'] >= d['sent'])")" "(True, True)"
+check "Nhân viên thấy reminder.announcement" "$(has reminder.announcement)" True
+check "Nhắc bài lại → không trùng" "$(call POST "admin/announcements/$AN/remind" "$HR" | py "d['sent']")" 0
 echo "Tất cả bước thông báo đều đạt."

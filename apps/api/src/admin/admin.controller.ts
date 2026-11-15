@@ -161,6 +161,8 @@ export class AdminController {
   board(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Query("date") d?: string) {
     return this.run(r, a, (s, c) => s.attendance.board(c, d ? date({ date: d }, "date") : undefined));
   }
+  @Post("attendance/remind") @HttpCode(200)
+  attendanceRemind(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Body() b: Json) { return this.run(r, a, (s, c) => s.attendance.remind(c, b)); }
   @Get("attendance/rejected")
   rejected(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Query("from") from?: string, @Query("to") to?: string) {
     return this.run(r, a, (s, c) => s.attendance.rejected(c, from ? date({ from }, "from") : undefined, to ? date({ to }, "to") : undefined));
@@ -348,6 +350,8 @@ export class AdminController {
   announcementUpdate(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string, @Body() b: Json) { return this.run(r, a, (s, c) => s.announcements.update(c, id, b)); }
   @Post("announcements/:id/publish") @HttpCode(200)
   announcementPublish(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string, @Body() b: Json) { return this.run(r, a, (s, c) => s.announcements.publish(c, id, b)); }
+  @Post("announcements/:id/remind") @HttpCode(200)
+  announcementRemind(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string) { return this.run(r, a, (s, c) => s.announcements.remind(c, id)); }
   @Post("announcements/:id/unschedule") @HttpCode(200)
   announcementUnschedule(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string) { return this.run(r, a, (s, c) => s.announcements.unschedule(c, id)); }
   @Post("announcements/:id/archive") @HttpCode(200)
@@ -382,6 +386,8 @@ export class AdminController {
   checklistArchive(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string, @Body() b: Json) { return this.run(r, a, (s, c) => s.checklist.archive(c, id, b)); }
   @Get("checklist/gaps")
   checklistGaps(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined) { return this.run(r, a, (s, c) => s.checklist.gaps(c)); }
+  @Post("checklist/remind") @HttpCode(200)
+  checklistRemind(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Body() b: Json) { return this.run(r, a, (s, c) => s.checklist.remind(c, b)); }
   @Get("employees/:id/checklist")
   employeeChecklist(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string) { return this.run(r, a, (s, c) => s.checklist.employee(c, id)); }
   @Post("employees/:id/checklist/:itemId") @HttpCode(200)

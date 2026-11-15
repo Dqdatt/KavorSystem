@@ -3,7 +3,7 @@ import { Suspense, useMemo, useState, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { AdminAttendanceEvent, AdminDevice, AttendanceBoard, TimesheetBoard, TodayRow } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
-import { vs, PageActions, PageSub, DEVICE, Empty, Icon, LoadError, Person, REJECT_REASON, Status, can, dur, fmtDate, fmtDateTime, fmtTime, longDate, meters, tenantToday, useAction, useMe } from "../../_ui/kit";
+import { vs, PageActions, PageSub, DEVICE, Empty, Icon, LoadError, Person, REJECT_REASON, Status, can, dur, fmtDate, fmtDateTime, fmtTime, longDate, meters, tenantToday, useAction, useMe, useRemind } from "../../_ui/kit";
 import { ReasonModal } from "../../_ui/reason-modal";
 import { EmployeeMonth, MonthTab } from "./month";
 import { OvertimeTab } from "./overtime";
@@ -58,6 +58,7 @@ function Today({ tz, tenantId }: { tz: string; tenantId: string }) {
   const initial = useSearchParams().get("filter");
   const [filter, setFilter] = useState<"all" | Key>(initial && initial in ORDER ? (initial as Key) : "all");
   const [open, setOpen] = useState<string | null>(null);
+  const { busy, remind } = useRemind();
   const { data: b, error, reload } = useApi<AttendanceBoard>(`attendance/board?date=${date}`, { tables: ["attendance_events", "employee_devices", "leave_days"], tenantId });
   const all = b?.rows ?? [];
   const count = (k: Key) => all.filter((r) => keyOf(r) === k).length;
@@ -94,7 +95,9 @@ function Today({ tz, tenantId }: { tz: string; tenantId: string }) {
                 <td className="num">{r.clockIn ? <><b>{fmtTime(r.clockIn.at, tz)}</b>{r.clockIn.offline ? <span className="source-tag">offline</span> : null}</> : "—"}</td>
                 <td className="num muted">{r.clockOut ? <>{fmtTime(r.clockOut.at, tz)}{r.early ? <small className="text-red"><i className="vs" />sớm {dur(r.clockOut.earlyMinutes)}</small> : null}{r.clockOut.offline ? <span className="source-tag">offline</span> : null}</> : "—"}</td>
                 <td><Status v={stateOf(r)} />{r.rejectedCount ? <span className="source-tag" title="Số lần bị từ chối">{r.rejectedCount} bị từ chối</span> : null}</td>
-                <td className="muted"><Icon name="chevR" size={16} /></td>
+                <td className="act muted">{date === tenantToday(tz) && (r.state === "not_started" || r.state === "absent") && r.leave?.half !== "full"
+                  ? <button className="btn small" disabled={!!busy} onClick={(ev) => { ev.stopPropagation(); void remind(r.employee.id, "attendance/remind", { employeeIds: [r.employee.id] }, { one: { name: r.employee.fullName, what: "chấm công" } }); }}><Icon name="bell" />Nhắc</button>
+                  : <Icon name="chevR" size={16} />}</td>
               </tr>
             ))}
           </tbody></table></div>

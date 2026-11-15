@@ -58,6 +58,14 @@ export function uuid(b: Body, k: string, optional = false): string | undefined {
   return v;
 }
 
+/* Danh sách id (bỏ trùng); không gửi = undefined */
+export function uuids(b: Body, k: string, max: number): string[] | undefined {
+  const v = b?.[k];
+  if (v === undefined || v === null) return undefined;
+  if (!Array.isArray(v) || v.length > max || v.some((x) => typeof x !== "string" || !/^[0-9a-f-]{36}$/i.test(x))) throw bad(k, `tối đa ${max} mã hợp lệ`);
+  return [...new Set(v as string[])];
+}
+
 export const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 /* Thêm/bớt ngày cho chuỗi YYYY-MM-DD */
 export function addDays(d: string, n: number) { return new Date(Date.parse(`${d}T00:00:00Z`) + n * 86400_000).toISOString().slice(0, 10); }

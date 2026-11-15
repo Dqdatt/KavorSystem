@@ -4,7 +4,7 @@
 import { useState } from "react";
 import type { ChecklistEntry, ChecklistEntryInput, ChecklistForm, ChecklistItem, ChecklistItemInput, ChecklistItemList, EmployeeChecklist, EmploymentType } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
-import { vs, EMPLOYMENT, Empty, ErrorLine, Field, Icon, LoadError, Modal, MoreMenu, Status, fmtDate, tenantToday, useAction, useMe } from "../../_ui/kit";
+import { vs, EMPLOYMENT, Empty, ErrorLine, Field, Icon, LoadError, Modal, MoreMenu, Status, fmtDate, tenantToday, useAction, useMe, useRemind } from "../../_ui/kit";
 import { Select, SkeletonLines, SkeletonRows } from "@kavor/web-ui";
 
 const FORM: Record<ChecklistForm, string> = { copy: "Nộp bản sao", original_checked: "Đã đối chiếu bản chính" };
@@ -89,10 +89,11 @@ function ItemForm({ item, onClose, onSaved }: { item: ChecklistItem | null; onCl
 }
 
 /* ---------- Tab "Giấy tờ" trong hồ sơ nhân viên ---------- */
-export function EmployeeChecklistSection({ employeeId }: { employeeId: string }) {
+export function EmployeeChecklistSection({ employeeId, name }: { employeeId: string; name: string }) {
   const { data: c, error, reload, setData } = useApi<EmployeeChecklist>(`employees/${employeeId}/checklist`);
   const [edit, setEdit] = useState<ChecklistEntry | null>(null);
   const { busy, run } = useAction();
+  const rm = useRemind();
   const shown = (c?.entries ?? []).filter((e) => e.applies || e.status);
   const hidden = (c?.entries.length ?? 0) - shown.length;
   const required = shown.filter((e) => e.item.required && e.applies).length;
@@ -106,7 +107,7 @@ export function EmployeeChecklistSection({ employeeId }: { employeeId: string })
             <div><h3>Giấy tờ hồ sơ</h3>
               <span style={{ fontSize: 12.5 }} className={c.missingRequired ? "text-amber" : "muted"}>{c.missingRequired ? `Còn thiếu ${c.missingRequired} giấy tờ bắt buộc` : "Đã đủ giấy tờ bắt buộc"}
                 {hidden ? <span className="muted"><i className="vs" />{hidden} mục không áp dụng cho {EMPLOYMENT[c.employmentType].toLowerCase()}</span> : null}</span></div>
-            {required ? <span className="row-actions"><span className="ticks" aria-hidden="true">{Array.from({ length: required }, (_, i) => <i key={i} className={i < required - c.missingRequired ? "a" : ""} />)}</span><b className="num">{required - c.missingRequired}/{required}</b></span> : null}
+            {required ? <span className="row-actions">{c.missingRequired ? <button className="btn small" disabled={!!rm.busy} onClick={() => void rm.remind("one", "checklist/remind", { employeeIds: [employeeId] }, { one: { name, what: "bổ sung giấy tờ" } })}><Icon name="bell" />Nhắc nhân viên</button> : null}<span className="ticks" aria-hidden="true">{Array.from({ length: required }, (_, i) => <i key={i} className={i < required - c.missingRequired ? "a" : ""} />)}</span><b className="num">{required - c.missingRequired}/{required}</b></span> : null}
           </div>
           <div className="check-list">
             {shown.map((e) => (
