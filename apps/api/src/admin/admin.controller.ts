@@ -147,6 +147,10 @@ export class AdminController {
   inviteMany(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Body() b: Json) { return this.run(r, a, (s, c) => s.employees.inviteMany(c, b)); }
   @Post("employees/:id/invite") @HttpCode(200)
   invite(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string) { return this.run(r, a, (s, c) => s.employees.invite(c, id)); }
+  @Get("employees/:id/offboard")
+  offboardPreview(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string) { return this.run(r, a, (s, c) => s.employees.offboardPreview(c, id)); }
+  @Post("employees/:id/offboard") @HttpCode(200)
+  offboard(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string, @Body() b: Json) { return this.run(r, a, (s, c) => s.employees.offboard(c, id, b)); }
   @Post("employees/:id/lock") @HttpCode(200)
   lock(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string, @Body() b: Json) {
     return this.run(r, a, (s, c) => s.employees.setLocked(c, id, true, nullableText(b, "reason", 300) ?? null));

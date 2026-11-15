@@ -1,6 +1,6 @@
 /* Nhân viên và tài khoản đăng nhập (web HR/Admin). Mọi truy vấn đi qua phạm vi của người gọi; mọi thao tác ghi có audit. */
 import type {
-  AccountStatus, AdminDevice, BulkInviteResult, AdminOverview, AttendanceBoard, OverviewDay, AdminMe, AuditEntry, EmployeeDetail, EmployeeListItem, EmployeeStatus, EmployeeUpsert, EmploymentType, ManagementTier, OrgOptions, Ref, ScopeType,
+  AccountStatus, AdminDevice, BulkInviteResult, OffboardPreview, OffboardResult, TerminationReason, AdminOverview, AttendanceBoard, OverviewDay, AdminMe, AuditEntry, EmployeeDetail, EmployeeListItem, EmployeeStatus, EmployeeUpsert, EmploymentType, ManagementTier, OrgOptions, Ref, ScopeType,
 } from "@kavor/contracts";
 import { MANAGEMENT_TIERS, managerTierOk } from "@kavor/contracts";
 import { AuthError } from "../auth/auth.service.js";
@@ -19,11 +19,21 @@ const SCOPE_LABEL: Record<string, string> = { tenant: "Toàn công ty", legal_en
 export type EmployeeRowFull = {
   id: string; tenant_id: string; employee_code: string; full_name: string; work_email: string | null; phone: string | null;
   hire_date: string; termination_date: string | null; employment_type: EmploymentType; status: EmployeeStatus; user_id: string | null;
+  termination_reason: TerminationReason | null; termination_handover: boolean | null; termination_note: string | null;
   invited_at: string | null; invite_count: number; created_at: string;
 };
-export const EMP_COLS = "id, tenant_id, employee_code, full_name, work_email, phone, hire_date, termination_date, employment_type, status, user_id, invited_at, invite_count, created_at";
+export const EMP_COLS = "id, tenant_id, employee_code, full_name, work_email, phone, hire_date, termination_date, employment_type, status, user_id, invited_at, invite_count, created_at, termination_reason, termination_handover, termination_note";
 export const EMPLOYMENT_TYPES = ["probation", "official", "contractor", "intern"] as const;
 export const EMPLOYEE_STATUSES = ["preboarding", "active", "suspended", "on_leave", "leaving", "terminated"] as const;
+const TERMINATION_REASONS = ["resigned", "contract_ended", "dismissed", "other"] as const;
+/* Lỗi của offboard_employee → thông báo cho HR (400: nhập sai, 409: trạng thái không cho phép) */
+const OFFBOARD_ERRORS: Record<string, [number, string]> = {
+  EMPLOYEE_ALREADY_TERMINATED: [409, "Nhân viên đã nghỉ việc."],
+  OFFBOARD_BEFORE_HIRE: [400, "Ngày làm việc cuối phải từ ngày vào làm trở đi."],
+  OFFBOARD_TOO_FAR: [400, "Ngày làm việc cuối chỉ được trong vòng một năm tới."],
+  PERIOD_LOCKED: [409, "Kỳ công chứa ngày sau ngày làm việc cuối đã khóa. Mở khóa kỳ công trước khi cho nghỉ việc."],
+  LAST_TENANT_ADMIN: [409, "Đây là quản trị viên cuối cùng của công ty nên không thể cho nghỉ việc. Hãy gán thêm một quản trị viên công ty trước."],
+};
 
 type Org = { names: Map<string, string>; deptBranch: Map<string, string | null>; branchEntity: Map<string, string>; ended: Set<string> };
 
@@ -183,6 +193,7 @@ export class EmployeesAdmin {
       legalEntity: p ? { id: p.legal_entity_id, name: org.names.get(p.legal_entity_id) ?? "—" } : null,
       manager: p?.manager_employee_id ? { id: p.manager_employee_id, name: org.names.get(p.manager_employee_id) ?? "—" } : null,
       assignmentFrom: p?.effective_from ?? null, terminationDate: row.termination_date,
+      terminationReason: row.termination_reason, terminationHandover: row.termination_handover, terminationNote: row.termination_note,
       devices, recentEvents, audit,
       policies: index.resolve(id, p, today),
     };
@@ -232,10 +243,11 @@ export class EmployeesAdmin {
     if (input.hireDate !== undefined && input.hireDate !== before.hire_date) patch.hire_date = input.hireDate;
     if (input.employmentType !== undefined && input.employmentType !== before.employment_type) patch.employment_type = input.employmentType;
     if (input.status !== undefined && input.status !== before.status) {
-      /* Hồ sơ đã nghỉ quay lại làm việc thì tính lại vào giới hạn nhân sự của gói */
+      /* Nghỉ việc phải qua offboard (hủy đơn chờ, khóa tài khoản); sửa hồ sơ chỉ đưa người sắp nghỉ/đã nghỉ quay lại làm việc */
+      if (input.status === "terminated" || input.status === "leaving") throw conflict("Dùng “Cho nghỉ việc” ở hồ sơ nhân viên để ghi ngày làm việc cuối.");
+      /* Hồ sơ đã nghỉ quay lại làm việc thì tính lại vào giới hạn nhân sự của gói; tài khoản đã khóa thì HR mở khóa riêng */
       if (before.status === "terminated") await assertEmployeeCapacity(ctx.db, ctx.tenantId);
-      patch.status = input.status;
-      patch.termination_date = input.status === "terminated" ? (date(b, "terminationDate", true) ?? today) : null;
+      Object.assign(patch, { status: input.status, termination_date: null, termination_reason: null, termination_handover: null, termination_note: null });
     }
     if (Object.keys(patch).length) {
       const { error } = await ctx.db.from("employees").update(patch).eq("id", id).eq("tenant_id", ctx.tenantId);
@@ -277,6 +289,46 @@ export class EmployeesAdmin {
       await ctx.audit("employee.updated", "employee", id, { ...snapshot(before), placement: placementChange?.before ?? undefined }, { ...after, placement: placementChange?.after ?? undefined });
     }
     return this.detail(ctx, id);
+  }
+
+  /* ---------- Cho nghỉ việc ---------- */
+  async offboardPreview(ctx: AdminContext, id: string): Promise<OffboardPreview> {
+    await ctx.requireEmployee("employee.update", id);
+    const [reqs, tasks] = await Promise.all([
+      ctx.db.from("requests").select("request_type, work_date").eq("tenant_id", ctx.tenantId).eq("requester_employee_id", id).eq("status", "pending").in("request_type", ["salary_advance", "leave"]),
+      /* Bước "Quản lý trực tiếp" giao đích danh người này; bước HR/Kế toán tự tìm người duyệt còn làm */
+      ctx.db.from("approval_tasks").select("id", { count: "exact", head: true }).eq("tenant_id", ctx.tenantId).eq("assignee_employee_id", id).eq("resolver", "direct_manager").in("status", ["pending", "waiting"]),
+    ]);
+    if (reqs.error) throw reqs.error;
+    if (tasks.error) throw tasks.error;
+    const rows = (reqs.data ?? []) as Array<{ request_type: string; work_date: string | null }>;
+    return {
+      pendingAdvances: rows.filter((r) => r.request_type === "salary_advance").length,
+      pendingLeaveStarts: rows.flatMap((r) => (r.request_type === "leave" && r.work_date ? [r.work_date] : [])),
+      pendingApprovals: tasks.count ?? 0,
+    };
+  }
+
+  /* Ghi ngày làm việc cuối; hàm SQL hủy đơn chờ và khóa tài khoản (ngay, hoặc khi qua ngày cuối) trong một giao dịch */
+  async offboard(ctx: AdminContext, id: string, b: Body): Promise<OffboardResult> {
+    ctx.require("membership.disable");
+    await ctx.requireEmployee("employee.update", id);
+    if (id === ctx.actor?.id) throw conflict("Bạn không thể tự cho mình nghỉ việc.");
+    const lastDay = date(b, "lastDay")!;
+    const reason = oneOf(b, "reason", TERMINATION_REASONS)!;
+    const handover = b?.handover === true;
+    const note = nullableText(b, "note", 500) ?? null;
+    const before = await this.row(ctx, id);
+    const { data, error } = await ctx.db.rpc("offboard_employee", { p_tenant: ctx.tenantId, p_employee: id, p_last_day: lastDay, p_reason: reason, p_handover: handover, p_note: note });
+    if (error) {
+      const hit = Object.entries(OFFBOARD_ERRORS).find(([k]) => error.message?.includes(k));
+      if (hit) throw hit[1][0] === 400 ? invalid(hit[1][1]) : hit[0] === "LAST_TENANT_ADMIN" ? new AuthError(hit[0], hit[1][1], 409) : conflict(hit[1][1]);
+      throw error;
+    }
+    const r = data as OffboardResult;
+    await ctx.audit("employee.offboarded", "employee", id, snapshot(before),
+      { status: r.status, termination_date: lastDay, termination_reason: reason, termination_handover: handover, cancelled_requests: r.cancelled }, note);
+    return r;
   }
 
   /* ---------- Tài khoản ---------- */

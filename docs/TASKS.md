@@ -9,7 +9,9 @@
 - [x] Dọn lệch nhỏ: "·" → vạch |; chức danh người gửi (chi tiết đơn) + "Chưa có app" ở người đọc bài (thêm trường API); so chi tiết tài liệu
 - [x] Script nạp dữ liệu thử ổn định (tools/demo-data.sh; lỗi "Bad Request" do bash 3.2 brace-expand body JSON)
 - [x] Màn prototype có, web chưa có, chỉ UI: Điểm mới, Ghi chú phiên bản, "Hồ sơ của tôi", Thêm khoản phụ cấp mẫu
-- [ ] Màn prototype có, đụng vùng nhạy cảm: Cho nghỉ việc, Tạm nghỉ, Xem số tài khoản — mỗi màn một kế hoạch — [opus xhigh]
+- [x] Cho nghỉ việc: `offboard_employee` + vòng quét qua ngày cuối + hộp web (hủy đơn chờ, khóa tài khoản)
+- [ ] Màn prototype có, đụng vùng nhạy cảm: Tạm nghỉ, Xem số tài khoản — mỗi màn một kế hoạch — [opus xhigh]
+- [ ] (Tùy chọn) Chuyển người duyệt khi quản lý trực tiếp nghỉ việc (bước "Quản lý trực tiếp" giao đích danh, hiện chỉ cảnh báo) — [opus high]
 - [x] Nút "Nhắc" (chấm công/giấy tờ/bản tin): `notify_reminders` + 3 endpoint HR + nút web + icon fallback web/mobile
 - [ ] (Tùy chọn) "Nhắc người duyệt" ở chi tiết đơn chờ duyệt (prototype có; hiện chỉ nhắc tự động theo hạn) — [opus high]
 - [ ] Thời hạn thử việc trong hồ sơ → "hết thử việc" ở khối Sắp tới — [opus high]

@@ -1,7 +1,7 @@
 "use client";
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
-import type { AdminDevice, EmployeeDetail, EmployeeLeave, EmployeeStatus, EmployeeTimesheet, EmploymentType, ChecklistGaps, OrgOptions, RequestItem, RequestQueue } from "@kavor/contracts";
+import type { AdminDevice, EmployeeDetail, EmployeeLeave, EmployeeStatus, EmployeeTimesheet, EmploymentType, ChecklistGaps, OffboardPreview, OffboardResult, OrgOptions, RequestItem, RequestQueue, TerminationReason } from "@kavor/contracts";
 import { MANAGEMENT_TIERS, MANAGEMENT_TIERS_EN, managerTierOk, type AdminMe } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
 import { EmployeePaySection } from "./pay";
@@ -15,7 +15,7 @@ import { REQUEST_STATUS, REQUEST_TYPE, RequestModal, requestSummary } from "../.
 import { Select, SkeletonLines } from "@kavor/web-ui";
 
 const AUDIT: Record<string, string> = {
-  "employee.created": "Tạo hồ sơ", "employee.updated": "Sửa hồ sơ", "employee.invited": "Gửi lời mời kích hoạt", "account.locked": "Khóa tài khoản", "account.unlocked": "Mở khóa tài khoản",
+  "employee.created": "Tạo hồ sơ", "employee.updated": "Sửa hồ sơ", "employee.offboarded": "Cho nghỉ việc", "employee.terminated": "Qua ngày làm việc cuối, chuyển đã nghỉ việc", "employee.invited": "Gửi lời mời kích hoạt", "account.locked": "Khóa tài khoản", "account.unlocked": "Mở khóa tài khoản",
   "auth.activated": "Nhân viên kích hoạt tài khoản", "auth.activation.otp_sent": "Gửi OTP kích hoạt", "auth.login": "Đăng nhập", "auth.login_failed": "Đăng nhập sai mật khẩu", "auth.password_reset": "Đặt lại mật khẩu",
   "auth.mfa_enrolled": "Bật xác thực hai lớp", "auth.mfa_verified": "Xác thực hai lớp khi đăng nhập web", "auth.mfa_reset": "Đặt lại xác thực hai lớp",
   "privacy.consented": "Đồng ý điều khoản dữ liệu cá nhân",
@@ -26,6 +26,8 @@ const AUDIT: Record<string, string> = {
   "employee.imported": "Nhập hồ sơ từ file", "employee.invited_bulk": "Gửi lời mời kích hoạt", "employee.avatar_updated": "Đổi ảnh đại diện", "employee.avatar_removed": "Xóa ảnh đại diện",
   "device.registered": "Đăng ký thiết bị", "device.change_requested": "Yêu cầu dùng máy mới", "device.approved": "Duyệt thiết bị", "device.rejected": "Từ chối thiết bị", "device.revoked": "Thu hồi thiết bị",
 };
+
+const REASON: Record<TerminationReason, string> = { resigned: "Xin nghỉ việc", contract_ended: "Hết hạn hợp đồng", dismissed: "Công ty cho nghỉ", other: "Khác" };
 
 /* Hồ sơ chia tab để mỗi phần có bố cục đều, không dồn cột */
 type ProfileTab = "overview" | "personal" | "attendance" | "pay" | "papers" | "requests" | "history";
@@ -48,6 +50,7 @@ export function EmployeeProfile({ id }: { id: string }) {
   const { busy, run } = useAction();
   const [ask, setAsk] = useState<null | { title: string; label: string; danger?: boolean; go: (reason: string) => Promise<unknown>; ok: string }>(null);
   const [editing, setEditing] = useState(false);
+  const [offboard, setOffboard] = useState(false);
   const [tab, setTab] = useState<ProfileTab>("overview");
 
   /* Giấy tờ bắt buộc còn thiếu (danh mục công ty tự khai); tải lại khi rời tab Giấy tờ vì có thể vừa đánh dấu nộp */
@@ -81,6 +84,7 @@ export function EmployeeProfile({ id }: { id: string }) {
     ...(e.account === "active" && canDisable ? [{ label: "Khóa tài khoản", icon: "lock", danger: true, onClick: () => setAsk({ title: `Khóa tài khoản ${e.fullName}?`, label: "Lý do khóa", danger: true, ok: "Đã khóa tài khoản — mọi phiên đăng nhập bị chặn ngay", go: (reason) => call("POST", `employees/${e.id}/lock`, { reason }) }) }] : []),
     ...(e.account === "active" && canDisable ? [{ label: "Đặt lại xác thực hai lớp", icon: "shield", onClick: () => setAsk({ title: `Đặt lại xác thực hai lớp của ${e.fullName}?`, label: "Lý do (ví dụ: mất điện thoại)", ok: "Đã đặt lại — lần đăng nhập web sau phải liên kết lại ứng dụng xác thực", go: (reason) => call("POST", `employees/${e.id}/mfa-reset`, { reason }) }) }] : []),
     ...(e.account === "locked" && can(me, "membership.disable") ? [{ label: "Mở khóa tài khoản", icon: "lock", onClick: () => void run("unlock", () => call("POST", `employees/${e.id}/unlock`, {}), "Đã mở khóa tài khoản").then(reload) }] : []),
+    ...(can(me, "employee.update") && can(me, "membership.disable") && e.id !== me.employeeId && e.status !== "terminated" ? [{ label: "Cho nghỉ việc", icon: "logout", danger: true, onClick: () => setOffboard(true) }] : []),
   ];
   const needInvite = canInvite && e.status !== "terminated";
 
@@ -127,7 +131,10 @@ export function EmployeeProfile({ id }: { id: string }) {
               ["Quản lý trực tiếp", e.manager?.name ?? <span key="m" className="muted">Không có</span>],
               ["Ngày vào làm", <Fragment key="j">{fmtDate(e.hireDate)}<i className="vs" />{tenure(e.hireDate, today)}</Fragment>],
               ["Hợp đồng", EMPLOYMENT[e.employmentType]],
-              ...(e.terminationDate ? [["Ngày nghỉ việc", fmtDate(e.terminationDate)] as [string, ReactNode]] : []),
+              ...(e.terminationDate ? [["Ngày làm việc cuối", fmtDate(e.terminationDate)] as [string, ReactNode]] : []),
+              ...(e.terminationReason ? [["Lý do nghỉ", REASON[e.terminationReason]] as [string, ReactNode]] : []),
+              ...(e.terminationHandover !== null ? [["Bàn giao tài sản", e.terminationHandover ? "Đã bàn giao" : "Chưa bàn giao"] as [string, ReactNode]] : []),
+              ...(e.terminationNote ? [["Ghi chú nghỉ việc", e.terminationNote] as [string, ReactNode]] : []),
             ]} />
             {e.directReports && !e.roles.some((r) => ["manager", "tenant_admin", "hr_ops"].includes(r.code)) ? <p className="text-amber" style={{ fontSize: 12.5, margin: "10px 0 0" }}>
               Đang quản lý {e.directReports} người nhưng chưa có quyền duyệt: chưa xem đơn, bảng công của cấp dưới trên web. <Link href="/roles">Gán vai trò Quản lý</Link> hoặc dùng Sắp xếp tự động ở Cơ cấu tổ chức.</p> : null}
@@ -238,7 +245,48 @@ export function EmployeeProfile({ id }: { id: string }) {
 
       {ask ? <ReasonModal {...ask} onClose={() => setAsk(null)} onDone={() => void reload()} /> : null}
       {editing && org.data ? <EmployeeForm org={org.data} employee={e} onClose={() => setEditing(false)} onSaved={() => { setEditing(false); void reload(); }} /> : null}
+      {offboard ? <OffboardModal e={e} onClose={() => setOffboard(false)} onDone={() => { setOffboard(false); void reload(); }} /> : null}
     </>
+  );
+}
+
+function OffboardModal({ e, onClose, onDone }: { e: EmployeeDetail; onClose: () => void; onDone: () => void }) {
+  const me = useMe();
+  const today = tenantToday(me.tenant.timezone);
+  const [lastDay, setLastDay] = useState(e.terminationDate ?? today);
+  const [reason, setReason] = useState<TerminationReason>(e.terminationReason ?? "resigned");
+  const [handover, setHandover] = useState(e.terminationHandover ?? false);
+  const [note, setNote] = useState(e.terminationNote ?? "");
+  const [err, setErr] = useState<string | null>(null);
+  const preview = useApi<OffboardPreview>(`employees/${e.id}/offboard`);
+  const { busy, run } = useAction();
+  const leaves = preview.data?.pendingLeaveStarts.filter((d) => d > lastDay).length ?? 0;
+  const adv = preview.data?.pendingAdvances ?? 0;
+  const approvals = preview.data?.pendingApprovals ?? 0;
+  const cancelText = !preview.data ? "Đơn tạm ứng và đơn nghỉ phép bắt đầu sau ngày làm việc cuối đang chờ duyệt sẽ bị hủy."
+    : adv + leaves > 0 ? `Sẽ hủy ${[adv > 0 ? `${adv} đơn tạm ứng` : "", leaves > 0 ? `${leaves} đơn nghỉ phép bắt đầu sau ngày làm việc cuối` : ""].filter(Boolean).join(" và ")} đang chờ duyệt. Đơn nghỉ trong thời gian còn làm vẫn chờ người duyệt xử lý.`
+    : "Đơn tạm ứng và đơn nghỉ phép bắt đầu sau ngày làm việc cuối đang chờ duyệt sẽ bị hủy. Hiện người này không có đơn nào như vậy.";
+  const submit = async () => {
+    if (!lastDay) { setErr("Chọn ngày làm việc cuối."); return; }
+    setErr(null);
+    const msg = lastDay < today ? "Đã ghi nhận nghỉ việc, tài khoản đã khóa" : `Đã ghi nhận nghỉ việc sau ngày ${fmtDate(lastDay)}`;
+    const ok = await run("offboard", () => call<OffboardResult>("POST", `employees/${e.id}/offboard`, { lastDay, reason, handover, note: note.trim() || null }), msg);
+    if (ok) onDone();
+  };
+  return (
+    <Modal title={`Cho nghỉ việc: ${e.fullName}`} sub="Hồ sơ và dữ liệu chấm công, lương được giữ lại. Tài khoản app bị khóa từ ngày sau ngày làm việc cuối." onClose={onClose}
+      foot={<><button className="btn ghost" onClick={onClose}>Hủy</button><button className="btn primary" disabled={!!busy} onClick={submit}>{busy ? "Đang lưu…" : "Xác nhận nghỉ việc"}</button></>}>
+      <div className="form-grid">
+        <Field label="Ngày làm việc cuối" note="Vẫn tính công ngày này"><input type="date" value={lastDay} onChange={(ev) => setLastDay(ev.target.value)} /></Field>
+        <Field label="Lý do"><Select value={reason} onChange={(ev) => setReason(ev.target.value as TerminationReason)}>{Object.entries(REASON).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</Select></Field>
+        <Field label="Bàn giao tài sản và tài khoản"><Select value={handover ? "yes" : "no"} onChange={(ev) => setHandover(ev.target.value === "yes")}><option value="no">Chưa bàn giao</option><option value="yes">Đã bàn giao</option></Select></Field>
+        <Field label="Ghi chú" full><input value={note} maxLength={500} placeholder="Ví dụ: đã nhận quyết định nghỉ việc" onChange={(ev) => setNote(ev.target.value)} /></Field>
+      </div>
+      <p className="muted" style={{ fontSize: 12.5, margin: "12px 0 0" }}>{lastDay && lastDay < today ? "Ngày cuối đã qua: hồ sơ chuyển Đã nghỉ việc và tài khoản bị khóa ngay." : `Đến hết ngày ${fmtDate(lastDay)} nhân viên vẫn dùng app, hồ sơ hiện Sắp nghỉ. Sang ngày hôm sau hệ thống tự chuyển Đã nghỉ việc và khóa tài khoản.`}</p>
+      <div className="note" style={{ marginTop: 12 }}><Icon name="alert" /><span>{cancelText}</span></div>
+      {e.directReports > 0 || approvals > 0 ? <div className="note" style={{ marginTop: 12 }}><Icon name="alert" /><span>{[e.directReports > 0 ? `Đang quản lý trực tiếp ${e.directReports} người` : "", approvals > 0 ? `còn ${approvals} bước chờ người này duyệt` : ""].filter(Boolean).join(", ")}. Đổi quản lý trực tiếp của các nhân viên này (Sửa hồ sơ hoặc Cơ cấu tổ chức) trước ngày làm việc cuối để đơn mới không bị kẹt.</span></div> : null}
+      <ErrorLine text={err} />
+    </Modal>
   );
 }
 
@@ -318,7 +366,7 @@ export function EmployeeForm({ org, employee, onClose, onSaved }: { org: OrgOpti
         </Field>
         <Field label="Ngày vào làm"><input type="date" value={f.hireDate} onChange={set("hireDate")} /></Field>
         <Field label="Loại hợp đồng"><Select value={f.employmentType} onChange={set("employmentType")}>{Object.entries(EMPLOYMENT).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</Select></Field>
-        {employee ? <Field label="Trạng thái làm việc"><Select value={f.status} onChange={set("status")}>{Object.entries(EMP_STATUS).map(([k, v]) => <option key={k} value={k}>{v[0]}</option>)}</Select></Field> : null}
+        {employee ? <Field label="Trạng thái làm việc" note="Cho nghỉ việc: menu ⋮ ở đầu hồ sơ."><Select value={f.status} onChange={set("status")}>{Object.entries(EMP_STATUS).filter(([k]) => (k !== "leaving" && k !== "terminated") || k === employee.status).map(([k, v]) => <option key={k} value={k}>{v[0]}</option>)}</Select></Field> : null}
         {placementChanged ? <Field label="Hiệu lực thay đổi phòng ban/chức danh từ"><input type="date" value={f.effectiveFrom} onChange={set("effectiveFrom")} /></Field> : null}
         {!employee ? <label className="check-row" style={{ gridColumn: "1 / -1" }}><input type="checkbox" checked={f.sendInvite} onChange={(e) => setF({ ...f, sendInvite: e.target.checked })} /> Gửi email mời kích hoạt ngay</label> : null}
       </div>

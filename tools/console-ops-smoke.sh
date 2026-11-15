@@ -35,7 +35,9 @@ r=$(call POST admin/employees "$TB" "$(emp BX0004)")
 check "Nhân viên thứ 4 bị chặn: đủ giới hạn gói" "$(echo "$r" | field error.code)" EMPLOYEE_LIMIT_REACHED
 check "Thông báo nêu giới hạn và cách xử lý" "$(echo "$r" | field error.message | grep -c 'đủ 3 nhân sự của gói Starter')" 1
 B3=$(sql "select id from public.employees where employee_code='BX0003' and tenant_id='$TB_ID'")
-check "Chuyển BX0003 sang đã nghỉ" "$(call PATCH "admin/employees/$B3" "$TB" '{"status":"terminated"}' | py "d['status']")" terminated
+check "Lùi ngày vào làm BX0003 để có ngày làm việc cuối hôm qua" "$(status PATCH "admin/employees/$B3" "$TB" "{\"hireDate\":\"$(today -30)\"}")" 200
+B="{\"lastDay\":\"$(today -1)\",\"reason\":\"resigned\",\"handover\":true}"  # body để biến riêng: bash 3.2 tách {…,…} trong "$(…)"
+check "Cho BX0003 nghỉ việc từ hôm qua" "$(call POST "admin/employees/$B3/offboard" "$TB" "$B" | py "d['status']")" terminated
 check "Nghỉ việc giải phóng chỗ: thêm BX0004 được" "$(status POST admin/employees "$TB" "$(emp BX0004)")" 201
 check "Đưa BX0003 quay lại làm việc khi đã đủ → bị chặn" "$(call PATCH "admin/employees/$B3" "$TB" '{"status":"active"}' | field error.code)" EMPLOYEE_LIMIT_REACHED
 check "Tổng quan Console: 1 tenant gần giới hạn" "$(call GET console/overview "$OP" | py "d['nearLimitTenants']")" 1

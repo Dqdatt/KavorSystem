@@ -10,6 +10,10 @@ simulator hay iPhone** vì phiên cloud không có Mac). Người dùng giao "c�
 ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AGENT_PLAYBOOK.md`; kiểm tra toàn bộ bằng `bash tools/verify-all.sh`.
 
 ## Đã xong
+- Cho nghỉ việc (15/11, Claude Desktop): migration `202612040001_offboarding.sql` (lý do/bàn giao/ghi chú, `offboard_employee`,
+  `apply_due_terminations`), pgTAP 18, API `GET|POST admin/employees/:id/offboard`, PATCH chặn đặt nghỉ việc trực tiếp, smoke `offboard-smoke.sh`,
+  web: mục "Cho nghỉ việc" ở menu ⋮ hồ sơ + hộp theo prototype. Khác prototype: bỏ "Quyết toán lương" (chưa có kỳ lương riêng); nhãn "Ngày làm việc cuối";
+  chỉ hủy đơn nghỉ bắt đầu sau ngày cuối; cảnh báo khi người nghỉ đang quản lý/đang có bước chờ duyệt.
 - Web HR v2 — P2 các trang còn lại (13–14/11, Claude Desktop, agent laptrinh theo `docs/plans/web-hr-v2-port.md`, tự chụp đối chiếu
   prototype 1440 px + đo 390 px): Chấm công (`0e7400c`: Hôm nay đầu, lưới ngày × người — API `cells`, board `leave/onLeave`), Ca & địa điểm +
   Nghỉ phép (`d0be6e5`: một trang; 3 tab + API `GET admin/leave/calendar`), Cơ cấu + Tài liệu + Bản tin (`8f4db46`), Tổng quan + Cài đặt

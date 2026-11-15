@@ -33,9 +33,9 @@ values ('f6000000-0000-4000-8000-000000000001', '10000000-0000-4000-8000-0000000
 insert into public.announcement_reads (announcement_id, tenant_id, employee_id)
 values ('f6000000-0000-4000-8000-000000000001', '10000000-0000-4000-8000-000000000001', '60000000-0000-4000-8000-000000000007');
 select ok(public.notify_reminders('10000000-0000-4000-8000-000000000001', 'reminder.announcement', null, 'f6000000-0000-4000-8000-000000000001') >= 1, 'Nhắc người chưa đọc bài');
-select is((select title || ' | ' || link_type from public.notifications where recipient_employee_id = '60000000-0000-4000-8000-000000000142' and kind = 'reminder.announcement'),
+select is((select title || ' | ' || link_type from public.notifications where recipient_employee_id = '60000000-0000-4000-8000-000000000142' and kind = 'reminder.announcement' and link_id = 'f6000000-0000-4000-8000-000000000001'),
   'Nhắc đọc bản tin: Lịch nghỉ Tết | announcement', 'Hà chưa đọc → được nhắc, mở được bài');
-select ok(not exists (select 1 from public.notifications where recipient_employee_id = '60000000-0000-4000-8000-000000000007' and kind = 'reminder.announcement'),
+select ok(not exists (select 1 from public.notifications where recipient_employee_id = '60000000-0000-4000-8000-000000000007' and kind = 'reminder.announcement' and link_id = 'f6000000-0000-4000-8000-000000000001'),
   'Người đã đọc không bị nhắc');
 select throws_ok($$ select public.notify_reminders('10000000-0000-4000-8000-000000000001', 'reminder.announcement', null, 'f6000000-0000-4000-8000-000000000002') $$,
   'P0001', 'ANNOUNCEMENT_NOT_REMINDABLE', 'Bài chưa xuất bản thì không nhắc');

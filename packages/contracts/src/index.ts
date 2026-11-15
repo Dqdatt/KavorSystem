@@ -298,6 +298,12 @@ export type AdminMe = {
 export type AccountStatus = "not_invited" | "invited" | "active" | "locked";
 export type EmploymentType = "probation" | "official" | "contractor" | "intern";
 export type EmployeeStatus = "preboarding" | "active" | "suspended" | "on_leave" | "leaving" | "terminated";
+export type TerminationReason = "resigned" | "contract_ended" | "dismissed" | "other";
+/* Cho nghỉ việc: lastDay là ngày làm việc cuối (vẫn tính công ngày đó); tài khoản app khóa từ ngày hôm sau */
+export type EmployeeOffboard = { lastDay: string; reason: TerminationReason; handover: boolean; note?: string | null };
+export type OffboardResult = { status: "leaving" | "terminated"; cancelled: string[] };
+/* Trước khi cho nghỉ: đơn của người này đang chờ (tạm ứng, ngày bắt đầu của đơn nghỉ) và số bước đang chờ người này duyệt */
+export type OffboardPreview = { pendingAdvances: number; pendingLeaveStarts: string[]; pendingApprovals: number };
 /* ---------- Hồ sơ cá nhân + đề nghị sửa (HR duyệt; Kế toán đọc lại tài khoản đã duyệt) ---------- */
 export type ProfileField = "phone" | "personalEmail" | "address" | "emergency" | "bank";
 export const PROFILE_FIELDS: Record<ProfileField, string> = { phone: "Điện thoại", personalEmail: "Email cá nhân", address: "Địa chỉ", emergency: "Liên hệ khẩn cấp", bank: "Tài khoản ngân hàng" };
@@ -381,6 +387,9 @@ export type EmployeeDetail = EmployeeListItem & {
   manager: Ref | null;
   assignmentFrom: string | null;
   terminationDate: string | null;
+  terminationReason: TerminationReason | null;
+  terminationHandover: boolean | null;
+  terminationNote: string | null;
   devices: AdminDevice[];
   policies: ResolvedPolicies;
   recentEvents: AdminAttendanceEvent[];
