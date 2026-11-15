@@ -178,7 +178,7 @@ function DetailDrawer({ id, onClose, onEdit, onPublish, onChanged }: { id: strin
       )}
       {confirm && a ? (
         <Modal title={confirm === "archive" ? `Gỡ bài “${a.title}”?` : `Xóa bài “${a.title}”?`} onClose={() => setConfirm(null)}
-          foot={<><button className="btn" onClick={() => setConfirm(null)}>Hủy</button><button className="btn danger" disabled={!!busy}
+          foot={<><button className="btn ghost" onClick={() => setConfirm(null)}>Hủy</button><button className="btn danger" disabled={!!busy}
             onClick={() => void act(confirm, confirm, confirm === "archive" ? "Đã gỡ bài" : "Đã xóa bài", confirm === "remove" ? onClose : undefined).then(() => setConfirm(null))}>{busy ? "Đang xử lý…" : confirm === "archive" ? "Gỡ bài" : "Xóa"}</button></>}>
           <p style={{ margin: 0, fontSize: 12.5 }}>{confirm === "archive" ? "Nhân viên không còn thấy bài; thống kê đã đọc vẫn được giữ. Không hoàn tác được." : "Bài chưa ai thấy nên được xóa hẳn, kể cả file đính kèm."}</p>
         </Modal>
@@ -228,7 +228,7 @@ function Editor({ a, units, onClose, onSaved }: { a: AnnouncementAdmin | null; u
   const current = !dropFile && !file ? a?.attachment : null;
   return (
     <Modal wide title={a ? "Sửa bài viết" : "Tạo bài viết"} sub={a && a.status === "published" ? "Bài đang hiện: nội dung sửa xong hiện ngay cho người nhận." : undefined} onClose={onClose}
-      foot={<><button className="btn" onClick={onClose}>Hủy</button>
+      foot={<><button className="btn ghost" onClick={onClose}>Hủy</button>
         <button className={`btn ${draftish ? "" : "primary"}`} disabled={!!busy} onClick={() => void save(false)}>{busy ? "Đang lưu…" : draftish ? "Lưu nháp" : "Lưu thay đổi"}</button>
         {draftish ? <button className="btn primary" disabled={!!busy} onClick={() => void save(true)}>Lưu & xuất bản…</button> : null}</>}>
       <div className="form-grid">
@@ -300,7 +300,7 @@ function PublishModal({ a, onClose, onDone }: { a: AnnouncementAdmin; onClose: (
   }
   return (
     <Modal title={`Xuất bản “${a.title}”`} sub={`${audienceText(a)} | ${num(a.recipients)}\u00a0người nhận${a.notify ? " | gửi thông báo trong app" : ""}`} onClose={onClose}
-      foot={<><button className="btn" onClick={onClose}>Để sau</button><button className="btn primary" disabled={!!busy} onClick={() => void go()}>{busy ? "Đang xử lý…" : mode === "later" ? "Hẹn giờ" : "Xuất bản ngay"}</button></>}>
+      foot={<><button className="btn ghost" onClick={onClose}>Để sau</button><button className="btn primary" disabled={!!busy} onClick={() => void go()}>{busy ? "Đang xử lý…" : mode === "later" ? "Hẹn giờ" : "Xuất bản ngay"}</button></>}>
       <div style={{ display: "grid", gap: 10 }}>
         <label className="check-row"><input type="radio" name="when" checked={mode === "now"} onChange={() => setMode("now")} /> Xuất bản ngay</label>
         <label className="check-row"><input type="radio" name="when" checked={mode === "later"} onChange={() => setMode("later")} /> Hẹn giờ (giờ công ty)</label>

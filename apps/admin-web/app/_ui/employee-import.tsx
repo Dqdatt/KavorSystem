@@ -95,7 +95,7 @@ export function ImportModal({ onClose, onDone }: { onClose: () => void; onDone: 
   const later = (a?.columns ?? []).filter((c) => c.later);
   return (
     <Modal wide title="Nhập nhân viên từ file" sub="Chọn file Excel/CSV công ty đang dùng — không cần sửa theo mẫu. Kavor tự nhận cột, bạn kiểm tra rồi nhập." onClose={onClose}
-      foot={<><button className="btn" onClick={onClose}>Đóng</button>
+      foot={<><button className="btn ghost" onClick={onClose}>Đóng</button>
         <button className="btn primary" disabled={!(r && !r.fileErrors.length && !r.totals.error && (r.totals.create > 0 || r.totals.fill > 0)) || !!busy} onClick={() => run("apply", async () => {
           const res = await call<EmployeeImportResult>("POST", "employees/import", { fileName: file!.name, file: file!.data, options: opts, dryRun: false });
           setR(res); onDone(); onClose();

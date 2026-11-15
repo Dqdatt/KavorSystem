@@ -129,7 +129,7 @@ export function CompensationModal({ title, current, fallbackType, onClose, save 
   }
   return (
     <Modal title={title} sub="Bản cũ giữ nguyên trong lịch sử. Đổi giữa kỳ (ví dụ thử việc → chính thức) thì bảng lương đầu vào tự tách hai đoạn." onClose={onClose}
-      foot={<><button className="btn" onClick={onClose}>Hủy</button><button className="btn primary" disabled={!!busy || !cat} onClick={() => void go()}>{busy ? "Đang lưu…" : current ? "Lưu mức lương mới" : "Lưu"}</button></>}>
+      foot={<><button className="btn ghost" onClick={onClose}>Hủy</button><button className="btn primary" disabled={!!busy || !cat} onClick={() => void go()}>{busy ? "Đang lưu…" : current ? "Lưu mức lương mới" : "Lưu"}</button></>}>
       <div className="form-grid">
         <Field label="Lương cơ bản (₫/tháng)" hint="Mức ghi trong hợp đồng, dùng đóng BHXH"><input inputMode="numeric" value={moneyInput(base)} onChange={(e) => setBase(digits(e.target.value))} placeholder="5.000.000" /></Field>
         <Field label="Hiệu lực từ"><input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></Field>
@@ -177,7 +177,7 @@ function TaxModal({ pay, name, onClose, save }: { pay: EmployeePay; name: string
   }
   return (
     <Modal title={`Thuế & công đoàn · ${name}`} sub="Kế toán dùng để tính thuế TNCN, bảo hiểm khi thử việc và đoàn phí công đoàn." onClose={onClose}
-      foot={<><button className="btn" onClick={onClose}>Hủy</button><button className="btn primary" disabled={!!busy} onClick={() => void go()}>{busy ? "Đang lưu…" : "Lưu"}</button></>}>
+      foot={<><button className="btn ghost" onClick={onClose}>Hủy</button><button className="btn primary" disabled={!!busy} onClick={() => void go()}>{busy ? "Đang lưu…" : "Lưu"}</button></>}>
       <div className="form-grid">
         <Field label="Mã số thuế cá nhân"><input value={tax} onChange={(e) => setTax(e.target.value)} placeholder="8012345678" /></Field>
         <Field label="Đoàn viên công đoàn">
@@ -217,15 +217,15 @@ function DependentModal({ dep, name, onClose, save }: { dep: EmployeeDependent |
     }, dep ? "Đã lưu người phụ thuộc" : "Đã thêm người phụ thuộc");
   }
   return (
-    <Modal title={`${dep ? "Sửa" : "Thêm"} người phụ thuộc · ${name}`} sub="Tính giảm trừ gia cảnh từ tháng bắt đầu đến tháng kết thúc (để trống = đang tính)." onClose={onClose}
-      foot={<><button className="btn" onClick={onClose}>Hủy</button><button className="btn primary" disabled={!!busy} onClick={() => void go()}>{busy ? "Đang lưu…" : "Lưu"}</button></>}>
+    <Modal title={`${dep ? "Sửa" : "Thêm"} người phụ thuộc: ${name}`} sub="Dùng để giảm trừ gia cảnh khi tính thuế TNCN." onClose={onClose}
+      foot={<><button className="btn ghost" onClick={onClose}>Hủy</button><button className="btn primary" disabled={!!busy} onClick={() => void go()}>{busy ? "Đang lưu…" : dep ? "Lưu" : "Thêm người phụ thuộc"}</button></>}>
       <div className="form-grid">
-        <Field label="Họ tên"><input value={f.fullName} onChange={set("fullName")} placeholder="Nguyễn Minh Khang" /></Field>
+        <Field label="Họ và tên"><input value={f.fullName} onChange={set("fullName")} placeholder="Nguyễn Minh Khang" /></Field>
         <Field label="Quan hệ"><input value={f.relation} onChange={set("relation")} placeholder="Con, Cha, Mẹ, Vợ/Chồng…" /></Field>
         <Field label="Ngày sinh"><input type="date" value={f.birthDate} onChange={set("birthDate")} /></Field>
-        <Field label="Mã số thuế người phụ thuộc"><input value={f.taxCode} onChange={set("taxCode")} placeholder="Không bắt buộc" /></Field>
+        <Field label="Mã số thuế" hint="Không bắt buộc"><input value={f.taxCode} onChange={set("taxCode")} placeholder="10 chữ số" /></Field>
         <Field label="Giảm trừ từ tháng"><input type="month" value={f.fromMonth} onChange={set("fromMonth")} /></Field>
-        <Field label="Đến tháng"><input type="month" value={f.toMonth} onChange={set("toMonth")} /></Field>
+        <Field label="Đến tháng" hint="Để trống = đang giảm trừ"><input type="month" value={f.toMonth} onChange={set("toMonth")} /></Field>
       </div>
       <ErrorLine text={err} />
     </Modal>

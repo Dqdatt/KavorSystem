@@ -70,7 +70,7 @@ function ItemForm({ item, onClose, onSaved }: { item: ChecklistItem | null; onCl
   }
   return (
     <Modal title={item ? `Sửa · ${item.name}` : "Thêm giấy tờ"} onClose={onClose}
-      foot={<><button className="btn" onClick={onClose}>Hủy</button><button className="btn primary" disabled={!!busy} onClick={() => void save()}>{busy ? "Đang lưu…" : "Lưu"}</button></>}>
+      foot={<><button className="btn ghost" onClick={onClose}>Hủy</button><button className="btn primary" disabled={!!busy} onClick={() => void save()}>{busy ? "Đang lưu…" : "Lưu"}</button></>}>
       <div className="form-grid">
         <Field label="Tên giấy tờ" full><input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="Ví dụ: CCCD (bản sao)" /></Field>
         <Field label="Bắt buộc">
@@ -144,7 +144,7 @@ function EntryForm({ employeeId, entry, onClose, onSaved }: { employeeId: string
   }
   return (
     <Modal title={entry.item.name} sub={entry.item.purpose ? `Mục đích: ${entry.item.purpose}` : undefined} onClose={onClose}
-      foot={<><button className="btn" onClick={onClose}>Hủy</button><button className="btn primary" disabled={!!busy} onClick={() => void save()}>{busy ? "Đang lưu…" : "Lưu"}</button></>}>
+      foot={<><button className="btn ghost" onClick={onClose}>Hủy</button><button className="btn primary" disabled={!!busy} onClick={() => void save()}>{busy ? "Đang lưu…" : "Lưu"}</button></>}>
       <div className="form-grid">
         <Field label="Tình trạng">
           <Select value={status} onChange={(e) => setStatus(e.target.value as typeof status)}>

@@ -101,7 +101,7 @@ function RoleDetail({ r, canAssign, hint, onAssign, onDone }: { r: RoleInfo; can
           ))}
         </div></div> : <Empty title="Chưa ai giữ vai trò này" text={r.code === "auditor" ? "Gán khi cần người chỉ xem dữ liệu, ví dụ kiểm toán nội bộ." : "Gán cho ít nhất một người để luồng duyệt không bị dừng."} />}
       </section>
-      {revoking ? <RevokeModal r={r} a={revoking} onClose={() => setRevoking(null)} onDone={onDone} /> : null}
+      {revoking ? <RevokeModal r={r} a={revoking} onClose={() => setRevoking(null)} onDone={onDone} onAssign={() => { setRevoking(null); onAssign(); }} /> : null}
     </div>
   );
 }
@@ -128,15 +128,15 @@ function AssignModal({ board, roleCode, onClose, onDone }: { board: RolesBoard; 
   }
   return (
     <Modal title="Gán vai trò" onClose={onClose}
-      foot={<><button className="btn" onClick={onClose}>Hủy</button><button className="btn primary" disabled={!!busy} onClick={save}>{busy ? "Đang lưu…" : "Gán vai trò"}</button></>}>
+      foot={<><button className="btn ghost" onClick={onClose}>Hủy</button><button className="btn primary" disabled={!!busy} onClick={save}>{busy ? "Đang lưu…" : "Gán vai trò"}</button></>}>
       <div className="form-grid">
         <Field label="Tìm nhân viên" full><input value={f.q} onChange={set("q")} placeholder="Lọc theo tên hoặc mã…" /></Field>
-        <Field label="Nhân viên" full><Select value={f.employeeId} onChange={set("employeeId")}><option value="">Chọn…</option>{emps.map((e) => <option key={e.id} value={e.id}>{e.name} · {e.code}</option>)}</Select></Field>
+        <Field label="Nhân viên" full><Select value={f.employeeId} onChange={set("employeeId")}><option value="">Chọn nhân viên</option>{emps.map((e) => <option key={e.id} value={e.id}>{e.name} · {e.code}</option>)}</Select></Field>
         <Field label="Vai trò"><Select value={f.roleCode} onChange={set("roleCode")}>{board.roles.map((r) => <option key={r.code} value={r.code}>{r.name}</option>)}</Select></Field>
         <Field label="Phạm vi"><Select value={scopeType} onChange={set("scopeType")}>{role.allowedScopes.map((s) => <option key={s} value={s}>{SCOPE[s]}</option>)}</Select></Field>
         {units ? <Field label={SCOPE[scopeType]!} full><Select value={f.scopeId} onChange={set("scopeId")}><option value="">Chọn…</option>{units.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}</Select></Field> : null}
         <Field label="Hiệu lực từ"><input type="date" min={board.today} value={f.effectiveFrom} onChange={set("effectiveFrom")} /></Field>
-        <Field label="Đến (không bắt buộc)"><input type="date" min={f.effectiveFrom} value={f.effectiveTo} onChange={set("effectiveTo")} /></Field>
+        <Field label="Đến" hint="Không bắt buộc"><input type="date" min={f.effectiveFrom} value={f.effectiveTo} onChange={set("effectiveTo")} /></Field>
       </div>
       {held.length ? <p className="muted" style={{ fontSize: 12, margin: "12px 0 0" }}>
         Đang giữ: <b>{held.join(", ")}</b>. {role.name} sẽ được thêm, các vai trò đang giữ vẫn giữ nguyên.</p> : null}
@@ -147,12 +147,20 @@ function AssignModal({ board, roleCode, onClose, onDone }: { board: RolesBoard; 
   );
 }
 
-function RevokeModal({ r, a, onClose, onDone }: { r: RoleInfo; a: RoleAssignmentRow; onClose: () => void; onDone: (b: RolesBoard) => void }) {
+function RevokeModal({ r, a, onClose, onDone, onAssign }: { r: RoleInfo; a: RoleAssignmentRow; onClose: () => void; onDone: (b: RolesBoard) => void; onAssign: () => void }) {
   const [reason, setReason] = useState("");
   const { busy, run } = useAction();
+  /* Báo trước như prototype; chặn thật ở DB (LAST_TENANT_ADMIN) */
+  const sole = r.code === "tenant_admin" && a.state === "active" && !r.assignments.some((x) => x.state === "active" && x.employee.id !== a.employee.id);
+  if (sole) return (
+    <Modal title="Thu hồi vai trò" sub={`${a.employee.fullName} | ${r.name}`} onClose={onClose}
+      foot={<><button className="btn ghost" onClick={onClose}>Đóng</button><button className="btn primary" onClick={onAssign}><Icon name="plus" />Gán người khác</button></>}>
+      <div className="note-amber note-icon"><Icon name="alert" /><span>Đây là quản trị viên duy nhất của công ty. Gán vai trò này cho ít nhất một người khác trước khi thu hồi.</span></div>
+    </Modal>
+  );
   return (
     <Modal title={`Thu hồi ${r.name} của ${a.employee.fullName}?`} sub={`Phạm vi ${a.scopeName}. Có hiệu lực ngay ở thao tác kế tiếp của người đó.`} onClose={onClose}
-      foot={<><button className="btn" onClick={onClose}>Hủy</button><button className="btn danger" disabled={!!busy} onClick={() => run("revoke", async () => { onDone(await call<RolesBoard>("POST", `roles/assignments/${a.id}/revoke`, { reason: reason.trim() || null })); onClose(); }, "Đã thu hồi vai trò")}>{busy ? "Đang xử lý…" : "Thu hồi"}</button></>}>
+      foot={<><button className="btn ghost" onClick={onClose}>Hủy</button><button className="btn danger" disabled={!!busy} onClick={() => run("revoke", async () => { onDone(await call<RolesBoard>("POST", `roles/assignments/${a.id}/revoke`, { reason: reason.trim() || null })); onClose(); }, "Đã thu hồi vai trò")}>{busy ? "Đang xử lý…" : "Thu hồi"}</button></>}>
       <Field label="Lý do (không bắt buộc)" full><input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Ví dụ: Hết kiêm nhiệm" /></Field>
     </Modal>
   );

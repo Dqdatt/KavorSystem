@@ -23,7 +23,7 @@ export function StructureModal({ onClose, onDone }: { onClose: () => void; onDon
   const n = plan?.changes ?? { tiers: 0, managers: 0, grants: 0 };
   return (
     <Modal wide title="Sắp xếp cấp bậc và quản lý tự động" sub="Kavor đề xuất theo tên chức danh và phòng ban. Xem lại, đổi chỗ chưa đúng rồi áp dụng một lần — không phải sửa từng người." onClose={onClose}
-      foot={<><button className="btn" onClick={onClose}>Đóng</button>
+      foot={<><button className="btn ghost" onClick={onClose}>Đóng</button>
         <button className="btn primary" disabled={!plan || !!busy || (!n.tiers && !n.managers && !n.grants)} onClick={() => run("apply", async () => {
           await call("POST", "organization/structure/apply", input); onDone(); onClose();
         }, `Đã đổi cấp ${n.tiers} chức danh, gán quản lý ${n.managers} người, cấp quyền ${n.grants} người`)}>{busy === "apply" ? "Đang áp dụng…" : `Áp dụng: ${n.tiers} chức danh · ${n.managers} người · ${n.grants} quyền`}</button></>}>

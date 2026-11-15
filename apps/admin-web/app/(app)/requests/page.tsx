@@ -141,7 +141,7 @@ function WorkflowModal({ onClose }: { onClose: () => void }) {
   }
   return (
     <Modal wide title={`Luồng duyệt · ${REQUEST_TYPE[type]}`} sub="Đơn đã gửi giữ luồng lúc gửi; luồng mới áp dụng cho đơn gửi từ ngày hiệu lực." onClose={onClose}
-      foot={<><button className="btn" onClick={onClose}>Đóng</button>{manage ? <button className="btn primary" disabled={!!busy || !steps} onClick={save}>{busy ? "Đang lưu…" : "Lưu phiên bản mới"}</button> : null}</>}>
+      foot={<><button className="btn ghost" onClick={onClose}>Đóng</button>{manage ? <button className="btn primary" disabled={!!busy || !steps} onClick={save}>{busy ? "Đang lưu…" : "Lưu phiên bản mới"}</button> : null}</>}>
       {error ? <LoadError error={error} retry={reload} /> : null}
       <div className="toolbar" style={{ padding: "0 0 10px" }}>
         {(data ?? []).map((w) => <button key={w.requestType} className={`filter-chip ${type === w.requestType ? "active" : ""}`} onClick={() => setType(w.requestType)}>{REQUEST_TYPE[w.requestType]}</button>)}

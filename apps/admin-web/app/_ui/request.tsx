@@ -144,7 +144,7 @@ export function RequestModal({ r, onClose, onDone }: { r: RequestItem; onClose: 
   const { body, bar, why } = useRequestDetail(r, onDone, onClose);
   return (
     <Modal wide title={`Chi tiết đơn ${r.no}`} sub={r.myTaskId ? undefined : why?.text} onClose={onClose}
-      foot={<>{r.myTaskId ? bar : <button className="btn" onClick={onClose}>Đóng</button>}</>}>
+      foot={<>{r.myTaskId ? bar : <button className="btn ghost" onClick={onClose}>Đóng</button>}</>}>
       {body}
     </Modal>
   );

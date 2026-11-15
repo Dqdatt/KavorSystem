@@ -81,12 +81,23 @@ export class ScheduleAdmin {
     const name = text(b, "name", { min: 2, max: 80, optional: true });
     if (name !== undefined) patch.name = name;
     if (typeof b?.active === "boolean") patch.active = b.active;
+    if (patch.active === false && before.active) await this.assertNotInUse(ctx, "shift", shiftId, "Ca");
     if (Object.keys(patch).length) {
       const { error } = await ctx.db.from("shift_definitions").update(patch).eq("id", shiftId);
       if (error) throw error;
       await ctx.audit("shift.updated", "shift", shiftId, before, { ...before, ...patch });
     }
     return this.shiftById(ctx, shiftId);
+  }
+
+  /* Ngừng ca/địa điểm còn áp dụng (đang hoặc sắp hiệu lực) làm người được áp dụng mất ca/điểm chấm công → bắt áp dụng cái khác hoặc kết thúc trước */
+  private async assertNotInUse(ctx: AdminContext, kind: "shift" | "work_location", targetId: string, label: string) {
+    const today = await this.today(ctx);
+    const { data, error } = await ctx.db.from("policy_assignments").select("effective_from, effective_to").eq("tenant_id", ctx.tenantId).eq("kind", kind).eq("target_id", targetId);
+    if (error) throw error;
+    /* effective_to < effective_from = đã hủy; effective_to < hôm nay = đã kết thúc */
+    const live = ((data ?? []) as Array<{ effective_from: string; effective_to: string | null }>).filter((a) => a.effective_to == null || (a.effective_to >= a.effective_from && a.effective_to >= today)).length;
+    if (live) throw conflict(`${label} đang có ${live} lượt áp dụng còn hoặc sắp hiệu lực. Áp dụng ${label.toLowerCase()} khác hoặc kết thúc các lượt áp dụng này trước khi ngừng.`);
   }
 
   private async shiftById(ctx: AdminContext, id: string) {
@@ -176,6 +187,7 @@ export class ScheduleAdmin {
       patch.branch_id = branchId;
     }
     if (typeof b?.active === "boolean") patch.active = b.active;
+    if (patch.active === false && before.active) await this.assertNotInUse(ctx, "work_location", locationId, "Địa điểm");
     if (Object.keys(patch).length) {
       const { error } = await ctx.db.from("work_locations").update(patch).eq("id", locationId);
       if (error) throw error;

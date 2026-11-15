@@ -22,6 +22,7 @@ export default function Page() {
   const [shiftForm, setShiftForm] = useState<ShiftDef | "new" | null>(null);
   const [locForm, setLocForm] = useState<LocationDef | "new" | null>(null);
   const [creating, setCreating] = useState<{ kind: PolicyKind; targetId: string } | boolean>(false);
+  const [stopping, setStopping] = useState<{ kind: "shift" | "work_location"; id: string; name: string } | null>(null);
   const manage = can(me, "schedule.manage");
   const equal = shifts.data?.length === locs.data?.length; // chỉ kéo bằng cao khi hai cột có số thẻ bằng nhau
   /* Địa điểm chưa có áp dụng đang/sắp hiệu lực thì không nhân viên nào chấm công được ở đó (app báo "chưa có địa điểm") */
@@ -34,19 +35,40 @@ export default function Page() {
         <div className={`col-stack${equal ? " fill" : ""}`}>
           {shifts.data && !shifts.data.length ? <article className="card"><Empty title="Chưa có mẫu ca" /></article> : null}
           {!shifts.data && !shifts.error ? <article className="card"><div className="card-body"><SkeletonLines lines={5} /></div></article> : null}
-          {(shifts.data ?? []).map((s, i) => <ShiftCard key={s.id} s={s} manage={manage} onCreate={i === 0 ? () => setShiftForm("new") : undefined} onNew={() => setShiftForm(s)} onChanged={() => void shifts.reload()} />)}
+          {(shifts.data ?? []).map((s, i) => <ShiftCard key={s.id} s={s} manage={manage} onCreate={i === 0 ? () => setShiftForm("new") : undefined} onNew={() => setShiftForm(s)} onStop={() => setStopping({ kind: "shift", id: s.id, name: s.name })} onChanged={() => void shifts.reload()} />)}
         </div>
         <div className={`col-stack${equal ? " fill" : ""}`}>
           {locs.data && !locs.data.length ? <article className="card"><Empty title="Chưa có địa điểm chấm công" /></article> : null}
           {!locs.data && !locs.error ? <article className="card"><div className="card-body"><SkeletonLines lines={5} /></div></article> : null}
-          {(locs.data ?? []).map((l, i) => <LocationCard key={l.id} l={l} manage={manage} onCreate={i === 0 ? () => setLocForm("new") : undefined} unapplied={l.active && !!assigned.data && !applied.has(l.id)} onNew={() => setLocForm(l)} onApply={() => setCreating({ kind: "work_location", targetId: l.id })} onChanged={() => void locs.reload()} />)}
+          {(locs.data ?? []).map((l, i) => <LocationCard key={l.id} l={l} manage={manage} onCreate={i === 0 ? () => setLocForm("new") : undefined} unapplied={l.active && !!assigned.data && !applied.has(l.id)} onNew={() => setLocForm(l)} onStop={() => setStopping({ kind: "work_location", id: l.id, name: l.name })} onApply={() => setCreating({ kind: "work_location", targetId: l.id })} onChanged={() => void locs.reload()} />)}
         </div>
       </div>
       <Assignments data={assigned.data} error={assigned.error} reload={assigned.reload} manage={manage} onCreate={() => setCreating(true)} />
       {shiftForm ? <ShiftForm shift={shiftForm === "new" ? null : shiftForm} onClose={() => setShiftForm(null)} onSaved={() => { setShiftForm(null); void shifts.reload(); }} /> : null}
       {locForm ? <LocationForm loc={locForm === "new" ? null : locForm} onClose={() => setLocForm(null)} onSaved={() => { setLocForm(null); reloadAll(); }} /> : null}
+      {stopping ? <StopModal t={stopping} live={(assigned.data ?? []).filter((a) => a.kind === stopping.kind && a.target.id === stopping.id && (a.state === "active" || a.state === "scheduled")).length}
+        onClose={() => setStopping(null)} onApply={() => { setStopping(null); setCreating(true); }} onDone={() => { setStopping(null); reloadAll(); }} /> : null}
       {creating ? <AssignmentForm preset={typeof creating === "object" ? creating : undefined} onClose={() => setCreating(false)} onSaved={() => { setCreating(false); void assigned.reload(); }} /> : null}
     </section>
+  );
+}
+
+/* Như prototype (cf:shift / cf:loc): còn áp dụng thì chặn, chỉ cho áp dụng cái khác; API cũng chặn (409) */
+function StopModal({ t, live, onClose, onApply, onDone }: { t: { kind: "shift" | "work_location"; id: string; name: string }; live: number; onClose: () => void; onApply: () => void; onDone: () => void }) {
+  const { busy, run } = useAction();
+  const shift = t.kind === "shift", what = shift ? "ca" : "địa điểm";
+  const title = shift ? `Ngừng dùng ${t.name}` : `Ngừng địa điểm ${t.name}`;
+  if (live) return (
+    <Modal title={title} sub={`${shift ? "Ca" : "Địa điểm"} đang có ${live} lượt áp dụng còn hoặc sắp hiệu lực.`} onClose={onClose}
+      foot={<><button className="btn ghost" onClick={onClose}>Đóng</button><button className="btn primary" onClick={onApply}>Áp dụng {what} khác</button></>}>
+      <div className="note-amber note-icon"><Icon name="alert" /><span>Cần áp dụng {what} khác hoặc kết thúc các lượt áp dụng này trước khi ngừng.</span></div>
+    </Modal>
+  );
+  return (
+    <Modal title={title} onClose={onClose}
+      foot={<><button className="btn ghost" onClick={onClose}>Hủy</button><button className="btn danger" disabled={!!busy} onClick={() => void run("stop", async () => { await call("PATCH", `${shift ? "shifts" : "locations"}/${t.id}`, { active: false }); onDone(); }, shift ? "Đã ngừng dùng ca" : "Đã ngừng dùng địa điểm")}>{busy ? "Đang lưu…" : "Xác nhận ngừng"}</button></>}>
+      <div className="note info"><Icon name="info" /><span>Có hiệu lực ngay và có thể dùng lại sau.</span></div>
+    </Modal>
   );
 }
 
@@ -55,7 +77,7 @@ const mins = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
 const shiftHours = (v: ShiftVersion) => (mins(v.end) - mins(v.start) - (v.breakStart && v.breakEnd ? mins(v.breakEnd) - mins(v.breakStart) : 0)) / 60;
 const shiftNote = (v: ShiftVersion) => `${v.start}–${v.end}${v.breakStart ? ` | nghỉ ${v.breakStart}–${v.breakEnd}` : ""}`;
 
-function ShiftCard({ s, manage, onCreate, onNew, onChanged }: { s: ShiftDef; manage: boolean; onCreate?: () => void; onNew: () => void; onChanged: () => void }) {
+function ShiftCard({ s, manage, onCreate, onNew, onStop, onChanged }: { s: ShiftDef; manage: boolean; onCreate?: () => void; onNew: () => void; onStop: () => void; onChanged: () => void }) {
   const { run } = useAction();
   const v = s.current ?? s.next;
   const days = v?.workDays ?? [1, 2, 3, 4, 5];
@@ -76,14 +98,14 @@ function ShiftCard({ s, manage, onCreate, onNew, onChanged }: { s: ShiftDef; man
         {s.versions.length > 1 ? <ul className="version-list" style={{ margin: 0 }}>{s.versions.map((x) => <li key={x.id}>v{x.versionNo}<i className="vs" />từ {fmtDate(x.effectiveFrom)}<i className="vs" />{vs(shiftNote(x))}{x.note ? ` — ${x.note}` : ""}</li>)}</ul> : null}
         {manage ? <div className="row-actions">
           <button className="btn small" onClick={onNew}><Icon name="edit" />Phiên bản mới</button>
-          <button className="btn small ghost" onClick={() => run(s.id, () => call("PATCH", `shifts/${s.id}`, { active: !s.active }), s.active ? "Đã ngừng dùng ca" : "Đã dùng lại ca").then(() => onChanged())}>{s.active ? "Ngừng dùng" : "Dùng lại"}</button>
+          <button className="btn small ghost" onClick={() => s.active ? onStop() : void run(s.id, () => call("PATCH", `shifts/${s.id}`, { active: true }), "Đã dùng lại ca").then(() => onChanged())}>{s.active ? "Ngừng dùng" : "Dùng lại"}</button>
         </div> : null}
       </div>
     </article>
   );
 }
 
-function LocationCard({ l, manage, unapplied, onCreate, onNew, onApply, onChanged }: { l: LocationDef; manage: boolean; unapplied: boolean; onCreate?: () => void; onNew: () => void; onApply: () => void; onChanged: () => void }) {
+function LocationCard({ l, manage, unapplied, onCreate, onNew, onApply, onStop, onChanged }: { l: LocationDef; manage: boolean; unapplied: boolean; onCreate?: () => void; onNew: () => void; onApply: () => void; onStop: () => void; onChanged: () => void }) {
   const { run } = useAction();
   /* Chưa có phiên bản hiệu lực hôm nay (phiên bản đầu bắt đầu từ ngày sau) thì hiện phiên bản sắp tới, ghi rõ ngày */
   const v = l.current ?? l.next;
@@ -104,7 +126,7 @@ function LocationCard({ l, manage, unapplied, onCreate, onNew, onApply, onChange
         {!l.current && l.next ? <p className="small" style={{ margin: 0 }}><span className="status warn">Chưa hiệu lực</span></p> : null}
         {manage ? <div className="row-actions">{unapplied ? <button className="btn small primary" onClick={onApply}>Áp dụng</button> : null}
           <button className="btn small" onClick={onNew}><Icon name="edit" />Phiên bản mới</button>
-          <button className="btn small ghost" onClick={() => run(l.id, () => call("PATCH", `locations/${l.id}`, { active: !l.active }), l.active ? "Đã ngừng dùng địa điểm" : "Đã dùng lại địa điểm").then(() => onChanged())}>{l.active ? "Ngừng" : "Dùng lại"}</button></div> : null}
+          <button className="btn small ghost" onClick={() => l.active ? onStop() : void run(l.id, () => call("PATCH", `locations/${l.id}`, { active: true }), "Đã dùng lại địa điểm").then(() => onChanged())}>{l.active ? "Ngừng" : "Dùng lại"}</button></div> : null}
       </div>
     </article>
   );
@@ -127,7 +149,7 @@ function ShiftForm({ shift, onClose, onSaved }: { shift: ShiftDef | null; onClos
   }
   return (
     <Modal title={shift ? `Phiên bản mới · ${shift.name}` : "Tạo mẫu ca"} sub={shift ? "Áp dụng từ ngày hiệu lực; công trước ngày đó vẫn tính theo phiên bản cũ." : "Ca mới chưa áp dụng cho ai cho tới khi tạo áp dụng."} onClose={onClose}
-      foot={<><button className="btn" onClick={onClose}>Hủy</button><button className="btn primary" disabled={!!busy} onClick={save}>{busy ? "Đang lưu…" : "Lưu"}</button></>}>
+      foot={<><button className="btn ghost" onClick={onClose}>Hủy</button><button className="btn primary" disabled={!!busy} onClick={save}>{busy ? "Đang lưu…" : "Lưu"}</button></>}>
       <div className="form-grid">
         {!shift ? <><Field label="Mã ca"><input value={f.code} onChange={set("code")} placeholder="HC" /></Field><Field label="Tên ca"><input value={f.name} onChange={set("name")} placeholder="Ca hành chính" /></Field></> : null}
         <Field label="Giờ vào"><input type="time" value={f.start} onChange={set("start")} /></Field>
@@ -177,7 +199,7 @@ function LocationForm({ loc, onClose, onSaved }: { loc: LocationDef | null; onCl
   }
   return (
     <Modal wide title={loc ? `Phiên bản mới · ${loc.name}` : "Thêm địa điểm chấm công"} sub="Bán kính nên ≥ 50 m vì GPS điện thoại thường lệch 5–30 m trong nhà." onClose={onClose}
-      foot={<><button className="btn" onClick={onClose}>Hủy</button><button className="btn primary" disabled={!!busy} onClick={save}>{busy ? "Đang lưu…" : "Lưu"}</button></>}>
+      foot={<><button className="btn ghost" onClick={onClose}>Hủy</button><button className="btn primary" disabled={!!busy} onClick={save}>{busy ? "Đang lưu…" : "Lưu"}</button></>}>
       <div className="form-grid">
         {!loc ? <>
           <Field label="Mã địa điểm"><input value={f.code} onChange={set("code")} placeholder="HCM-Q3" /></Field>
@@ -252,7 +274,7 @@ function AssignmentForm({ preset, onClose, onSaved }: { preset?: { kind: PolicyK
   }
   return (
     <Modal wide title="Áp dụng ca / địa điểm" sub={f.kind === "work_location" ? "Ở cùng một tầng có thể áp dụng nhiều địa điểm; nhân viên chấm công ở địa điểm gần nhất." : "Mỗi nhân viên theo ca của tầng ưu tiên cao nhất khớp với họ."} onClose={onClose}
-      foot={<><button className="btn" onClick={onClose}>Hủy</button><button className="btn primary" disabled={!!busy} onClick={save}>{busy ? "Đang lưu…" : "Áp dụng"}</button></>}>
+      foot={<><button className="btn ghost" onClick={onClose}>Hủy</button><button className="btn primary" disabled={!!busy} onClick={save}>{busy ? "Đang lưu…" : "Áp dụng"}</button></>}>
       <div className="form-grid">
         <Field label="Loại"><Select value={f.kind} onChange={set("kind")}><option value="shift">Ca làm</option><option value="work_location">Địa điểm chấm công</option></Select></Field>
         <Field label={f.kind === "shift" ? "Ca" : "Địa điểm"}><Select value={f.targetId} onChange={set("targetId")}><option value="">Chọn…</option>{targets.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}</Select></Field>

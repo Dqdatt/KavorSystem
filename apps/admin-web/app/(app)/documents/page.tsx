@@ -240,7 +240,7 @@ function UploadModal({ onClose, onDone }: { onClose: () => void; onDone: (d: Doc
   }
   return (
     <Modal wide title="Tải tài liệu" sub={`Lưu vào hồ sơ nhân viên của ${me.tenant.name}; mỗi lần thay file là một phiên bản mới.`} onClose={onClose}
-      foot={<><button className="btn" onClick={onClose}>Hủy</button><button className="btn primary" disabled={!!busy} onClick={() => void save()}>{busy ? "Đang tải lên…" : "Tải lên"}</button></>}>
+      foot={<><button className="btn ghost" onClick={onClose}>Hủy</button><button className="btn primary" disabled={!!busy} onClick={() => void save()}>{busy ? "Đang tải lên…" : "Tải lên"}</button></>}>
       <div className="form-grid">
         <Field label="Nhân viên" full>
           <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1.4fr)", gap: 8 }}>
@@ -273,7 +273,7 @@ function VersionModal({ id, onClose, onDone }: { id: string; onClose: () => void
   }
   return (
     <Modal title="Tải phiên bản mới" sub="Bản cũ vẫn được giữ trong lịch sử; nhân viên thấy bản mới nhất." onClose={onClose}
-      foot={<><button className="btn" onClick={onClose}>Hủy</button><button className="btn primary" disabled={!!busy} onClick={() => void save()}>{busy ? "Đang tải lên…" : "Tải lên"}</button></>}>
+      foot={<><button className="btn ghost" onClick={onClose}>Hủy</button><button className="btn primary" disabled={!!busy} onClick={() => void save()}>{busy ? "Đang tải lên…" : "Tải lên"}</button></>}>
       <div className="form-grid">
         <FilePick file={file} setFile={setFile} />
         <Field label="Ghi chú phiên bản (không bắt buộc)" full><input value={note} maxLength={500} onChange={(e) => setNote(e.target.value)} placeholder="Ví dụ: Phụ lục điều chỉnh lương" /></Field>
@@ -295,7 +295,7 @@ function EditModal({ d, onClose, onDone }: { d: EmployeeDocument; onClose: () =>
   }
   return (
     <Modal wide title={`Sửa thông tin · ${d.employee.fullName}`} sub="Đổi sang “Chỉ HR” thì nhân viên không còn xem/tải được ngay." onClose={onClose}
-      foot={<><button className="btn" onClick={onClose}>Hủy</button><button className="btn primary" disabled={!!busy} onClick={() => void save()}>{busy ? "Đang lưu…" : "Lưu"}</button></>}>
+      foot={<><button className="btn ghost" onClick={onClose}>Hủy</button><button className="btn primary" disabled={!!busy} onClick={() => void save()}>{busy ? "Đang lưu…" : "Lưu"}</button></>}>
       <div className="form-grid"><MetaFields f={f} setF={setF} /></div>
       <ErrorLine text={err} />
     </Modal>

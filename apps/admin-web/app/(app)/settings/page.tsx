@@ -340,7 +340,7 @@ function RuleForm({ rule, kind: initialKind, onClose, onSaved }: { rule: RulePol
   }
   return (
     <Modal wide title={rule ? `Phiên bản mới · ${rule.name}` : "Tạo quy định"} sub={rule ? "Áp dụng từ ngày hiệu lực; trước ngày đó vẫn theo phiên bản cũ." : "Quy định mới chưa áp dụng cho ai cho tới khi bấm “Áp dụng cho nhóm”."} onClose={onClose}
-      foot={<><button className="btn" onClick={onClose}>Hủy</button><button className="btn primary" disabled={!!busy} onClick={save}>{busy ? "Đang lưu…" : "Lưu"}</button></>}>
+      foot={<><button className="btn ghost" onClick={onClose}>Hủy</button><button className="btn primary" disabled={!!busy} onClick={save}>{busy ? "Đang lưu…" : "Lưu"}</button></>}>
       <div className="form-grid">
         {!rule ? <>
           <Field label="Loại quy định"><Select value={kind} onChange={(e) => { const k = e.target.value as RuleKind; setKind(k); setConfig(defaults(k)); setErr(null); }}>{(Object.keys(RULE_KINDS) as RuleKind[]).map((k) => <option key={k} value={k}>{RULE_KINDS[k].label}</option>)}</Select></Field>
@@ -378,7 +378,7 @@ function RuleAssign({ rule, onClose, onSaved }: { rule: RulePolicy; onClose: () 
   }
   return (
     <Modal wide title={`Áp dụng ${rule.name}`} sub="Nhân viên theo quy định của tầng ưu tiên cao nhất khớp với họ; tra theo ngày, không sao chép vào hồ sơ." onClose={onClose}
-      foot={<><button className="btn" onClick={onClose}>Hủy</button><button className="btn primary" disabled={!!busy} onClick={save}>{busy ? "Đang lưu…" : "Áp dụng"}</button></>}>
+      foot={<><button className="btn ghost" onClick={onClose}>Hủy</button><button className="btn primary" disabled={!!busy} onClick={save}>{busy ? "Đang lưu…" : "Áp dụng"}</button></>}>
       <div className="form-grid">
         <Field label="Tầng"><Select value={f.scopeType} onChange={set("scopeType")}>{(["tenant", "legal_entity", "branch", "department", "employee"] as const).map((s) => <option key={s} value={s}>{SCOPE[s]}</option>)}</Select></Field>
         {f.scopeType !== "tenant" ? <Field label="Đối tượng"><Select value={f.scopeId} onChange={set("scopeId")}><option value="">Chọn…</option>{(scopes ?? []).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</Select></Field> : <div />}
@@ -460,7 +460,7 @@ function HolidayForm({ onClose, onSaved }: { onClose: () => void; onSaved: (year
   }
   return (
     <Modal title="Thêm ngày nghỉ riêng" sub="Chỉ thêm được từ hôm nay trở đi; ngày đã qua đã vào bảng công." onClose={onClose}
-      foot={<><button className="btn" onClick={onClose}>Hủy</button><button className="btn primary" disabled={!!busy} onClick={save}>{busy ? "Đang lưu…" : "Thêm"}</button></>}>
+      foot={<><button className="btn ghost" onClick={onClose}>Hủy</button><button className="btn primary" disabled={!!busy} onClick={save}>{busy ? "Đang lưu…" : "Thêm"}</button></>}>
       <div className="form-grid">
         <Field label="Ngày"><input type="date" min={today} value={f.date} onChange={(e) => setF({ ...f, date: e.target.value })} /></Field>
         <Field label="Loại"><Select value={f.kind} onChange={(e) => setF({ ...f, kind: e.target.value as "company" | "compensatory" })}><option value="company">Nghỉ riêng công ty</option><option value="compensatory">Nghỉ bù</option></Select></Field>
@@ -524,7 +524,7 @@ function PrivacyForm({ current, onClose, onSaved }: { current: PrivacyOverview["
   }
   return (
     <Modal wide title={`Công bố phiên bản ${(current?.versionNo ?? 0) + 1}`} sub="Phiên bản đã công bố không sửa được. Mọi nhân viên phải đồng ý lại ở lần mở app kế tiếp." onClose={onClose}
-      foot={<><button className="btn" onClick={onClose}>Hủy</button><button className="btn primary" disabled={!!busy} onClick={save}>{busy ? "Đang công bố…" : "Công bố"}</button></>}>
+      foot={<><button className="btn ghost" onClick={onClose}>Hủy</button><button className="btn primary" disabled={!!busy} onClick={save}>{busy ? "Đang công bố…" : "Công bố"}</button></>}>
       <div className="form-grid">
         <Field label="Tiêu đề" full><input value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} /></Field>
         <Field label="Nội dung" full><textarea rows={14} value={f.content} onChange={(e) => { setF({ ...f, content: e.target.value }); setErr(null); }} /></Field>

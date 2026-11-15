@@ -86,7 +86,7 @@ function PayItemModal({ item, onClose, save }: { item: PayItem | null; onClose: 
   }
   return (
     <Modal title={item ? `Sửa khoản · ${item.name}` : "Thêm khoản phụ cấp/thưởng"} sub="Số tiền của từng người nhập ở hồ sơ nhân viên; mức mặc định chỉ để điền sẵn khi nhập lương." onClose={onClose}
-      foot={<><button className="btn" onClick={onClose}>Hủy</button><button className="btn primary" disabled={!!busy} onClick={() => void go()}>{busy ? "Đang lưu…" : "Lưu"}</button></>}>
+      foot={<><button className="btn ghost" onClick={onClose}>Hủy</button><button className="btn primary" disabled={!!busy} onClick={() => void go()}>{busy ? "Đang lưu…" : "Lưu"}</button></>}>
       <div className="form-grid">
         <Field label="Tên khoản"><input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="Phụ cấp ăn trưa" /></Field>
         <Field label="Loại">

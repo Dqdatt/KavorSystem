@@ -119,13 +119,17 @@ function BulkInvite({ rows, onClose, onDone }: { rows: EmployeeListItem[]; onClo
   const { busy, run } = useAction();
   const [r, setR] = useState<BulkInviteResult | null>(null);
   return (
-    <Modal title={`Gửi lời mời kích hoạt cho ${rows.length} người?`} sub="Mỗi người nhận một email hướng dẫn kích hoạt Kavor bằng mã nhân viên và email công ty. Người không đủ điều kiện sẽ được bỏ qua." onClose={onClose}
-      foot={r ? <button className="btn primary" onClick={onClose}>Xong</button> : <><button className="btn" onClick={onClose}>Hủy</button>
-        <button className="btn primary" disabled={!!busy} onClick={() => run("bulk", async () => { const x = await call<BulkInviteResult>("POST", "employees/invite", { employeeIds: rows.map((e) => e.id) }); setR(x); onDone(); }, "Đã gửi lời mời")}>{busy ? "Đang gửi…" : "Gửi lời mời"}</button></>}>
+    <Modal title="Gửi lời mời kích hoạt app" sub={`${rows.length} nhân viên sẽ nhận email hướng dẫn kích hoạt Kavor bằng mã nhân viên và email công ty.`} onClose={onClose}
+      foot={r ? <button className="btn primary" onClick={onClose}>Xong</button> : <><button className="btn ghost" onClick={onClose}>Hủy</button>
+        <button className="btn primary" disabled={!!busy} onClick={() => run("bulk", async () => { const x = await call<BulkInviteResult>("POST", "employees/invite", { employeeIds: rows.map((e) => e.id) }); setR(x); onDone(); }, "Đã gửi lời mời")}><Icon name="send" />{busy ? "Đang gửi…" : `Gửi ${rows.length} lời mời`}</button></>}>
       {r ? <div className="card detail-list">
         <div className="detail-row"><span>Đã gửi</span><b>{r.sent}</b></div>
         {r.skipped.map((x, i) => <div key={i} className="detail-row"><span>{x.code}</span><b style={{ whiteSpace: "normal" }}>{x.reason}</b></div>)}
-      </div> : <p className="muted" style={{ fontSize: 12, margin: 0 }}>{rows.slice(0, 8).map((e) => `${e.fullName} (${e.code})`).join(", ")}{rows.length > 8 ? ` và ${rows.length - 8} người khác` : ""}.</p>}
+      </div> : <>
+        <div className="note info" style={{ marginBottom: 12 }}><Icon name="info" /><span>Người chưa có email công ty hoặc không đủ điều kiện sẽ được bỏ qua và liệt kê lại để bạn bổ sung.</span></div>
+        <div className="card check-list">{rows.slice(0, 8).map((e) => <div key={e.id} style={{ padding: "10px 14px" }}><Person name={e.fullName} seed={e.id} sub={[e.code, e.department?.name].filter(Boolean).join(" | ")} /></div>)}
+          {rows.length > 8 ? <div className="muted" style={{ padding: "10px 14px", fontSize: 12.5 }}>và {rows.length - 8} người khác</div> : null}</div>
+      </>}
     </Modal>
   );
 }

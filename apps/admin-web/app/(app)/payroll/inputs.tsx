@@ -119,7 +119,7 @@ function FinalizeModal({ s, onClose, onDone }: { s: PayrollInputSheet; onClose: 
   return (
     <Modal title={`${s.finalized ? "Chốt lại" : "Chốt"} bảng lương đầu vào ${monthLabel(s.month).toLowerCase()}?`}
       sub="Chụp lại công, mức lương, người phụ thuộc, tạm ứng của toàn công ty tại thời điểm này. Bản chốt không sửa được; dữ liệu đổi sau đó cần chốt lại (bản cũ vẫn lưu)." onClose={onClose}
-      foot={<><button className="btn" onClick={onClose}>Hủy</button><button className="btn primary" disabled={!!busy} onClick={() => void go()}>{busy ? "Đang chốt…" : "Chốt bảng"}</button></>}>
+      foot={<><button className="btn ghost" onClick={onClose}>Hủy</button><button className="btn primary" disabled={!!busy} onClick={() => void go()}>{busy ? "Đang chốt…" : "Chốt bảng"}</button></>}>
       {s.totals.warnings ? <div className="note-amber" style={{ marginBottom: 12 }}>Còn {num(s.totals.warnings)} dòng cần rà soát ({num(s.totals.noSalary)} chưa nhập lương). Vẫn chốt được; Kế toán sẽ thấy cảnh báo.</div> : null}
       <Field label="Ghi chú cho Kế toán" full><input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Ví dụ: Đã đối soát công với các trưởng phòng" /></Field>
       <ErrorLine text={err} />

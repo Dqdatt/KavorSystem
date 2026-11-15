@@ -237,7 +237,7 @@ function ResultModal({ r, month, onClose }: { r: PayrollResult; month: string; o
   );
   return (
     <Modal title={`Phiếu lương ${mm(month)} · ${r.employee.fullName}`} sub={`${r.employee.code}${r.workDays === null ? "" : ` · ${r.workDays.toLocaleString("vi-VN")} ngày công`}`} onClose={onClose}
-      foot={<button className="btn" onClick={onClose}>Đóng</button>}>
+      foot={<button className="btn ghost" onClick={onClose}>Đóng</button>}>
       {list("Thu nhập", part("earning"), r.gross)}
       {list("Khấu trừ", part("deduction"), r.deduction)}
       <div className="card detail-list" style={{ marginTop: 12 }}><div className="detail-row"><span><b style={{ color: "var(--ink)" }}>Thực lĩnh</b></span><b style={{ fontSize: 14 }}>{money(r.net)}</b></div></div>
@@ -259,7 +259,7 @@ function CreateModal({ cycles, tz, onClose, onDone }: { cycles: PayrollCycle[]; 
   }
   return (
     <Modal title="Mở kỳ lương" sub="Kỳ công lấy theo ngày chốt công trong cài đặt chấm công của công ty." onClose={onClose}
-      foot={<><button className="btn" onClick={onClose}>Hủy</button><button className="btn primary" disabled={!!busy} onClick={() => void save()}>{busy ? "Đang tạo…" : "Mở kỳ lương"}</button></>}>
+      foot={<><button className="btn ghost" onClick={onClose}>Hủy</button><button className="btn primary" disabled={!!busy} onClick={() => void save()}>{busy ? "Đang tạo…" : "Mở kỳ lương"}</button></>}>
       <div className="form-grid">
         <Field label="Tháng lương"><input type="month" value={month} onChange={(e) => { setMonth(e.target.value); if (/^\d{4}-\d{2}$/.test(e.target.value)) setPayDate(`${nextMonth(e.target.value)}-05`); }} /></Field>
         <Field label="Ngày trả lương (dự kiến)"><input type="date" value={payDate} onChange={(e) => setPayDate(e.target.value)} /></Field>
@@ -289,7 +289,7 @@ function ImportModal({ d, onClose, onDone }: { d: PayrollDetail; onClose: () => 
   }
   return (
     <Modal title="Nhập kết quả lương" sub={`Kỳ ${mm(d.cycle.month)} · ${d.components.length} thành phần lương của công ty.`} onClose={onClose}
-      foot={<><button className="btn" onClick={onClose}>Hủy</button><button className="btn primary" disabled={!!busy || !file} onClick={() => void start()}>{busy ? "Đang kiểm tra…" : "Bắt đầu kiểm tra"}</button></>}>
+      foot={<><button className="btn ghost" onClick={onClose}>Hủy</button><button className="btn primary" disabled={!!busy || !file} onClick={() => void start()}>{busy ? "Đang kiểm tra…" : "Bắt đầu kiểm tra"}</button></>}>
       <div className="detail-list card">
         <div className="detail-row"><span>Nguồn</span><b>File CSV (UTF-8) xuất từ Google Sheets</b></div>
         <div className="detail-row"><span>Mapping</span><b>{d.components.map((c) => c.code).join(", ")}</b></div>
@@ -313,7 +313,7 @@ function ActionModal({ d, action, onClose, onDone }: { d: PayrollDetail; action:
   const net = d.results.reduce((n, r) => n + r.net, 0);
   return (
     <Modal title={`${a.label} ${mm(d.cycle.month)}?`} sub={a.sub} onClose={onClose}
-      foot={<><button className="btn" onClick={onClose}>Để sau</button><button className="btn primary" disabled={!!busy}
+      foot={<><button className="btn ghost" onClick={onClose}>Để sau</button><button className="btn primary" disabled={!!busy}
         onClick={() => run(action, async () => { await call<PayrollTransition>("POST", `payroll/cycles/${d.cycle.month}/${action}`, {}); onDone(); onClose(); }, a.ok)}>{busy ? "Đang xử lý…" : a.label}</button></>}>
       <div className="card detail-list">
         <div className="detail-row"><span>Kỳ công</span><b>{fmtDate(d.cycle.periodStart)} – {fmtDate(d.cycle.periodEnd)}</b></div>
@@ -339,7 +339,7 @@ function ComputeModal({ month, onClose, onDone }: { month: string; onClose: () =
   const r = preview;
   return (
     <Modal wide title={`Kavor tính lương tháng ${month.slice(5)}/${month.slice(0, 4)}`} sub="Từ bảng lương đầu vào đã chốt, khoản phụ cấp và cài đặt lương của công ty, luật BH/thuế Kavor cập nhật. Xem trước — chưa ghi gì." onClose={onClose}
-      foot={<><button className="btn" onClick={onClose}>Đóng</button>
+      foot={<><button className="btn ghost" onClick={onClose}>Đóng</button>
         <button className="btn primary" disabled={!r || !r.rows.length || !!busy} onClick={() => run("apply", async () => {
           await call("POST", `payroll/cycles/${month}/compute`, { dryRun: false }); onDone(); onClose();
         }, `Đã ghi kết quả ${r?.rows.length ?? 0} người vào kỳ lương`)}>{busy === "apply" ? "Đang ghi…" : `Ghi vào kỳ lương (${r?.rows.length ?? 0} người)`}</button></>}>

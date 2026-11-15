@@ -302,7 +302,7 @@ export function EmployeeForm({ org, employee, onClose, onSaved }: { org: OrgOpti
 
   return (
     <Modal wide title={employee ? `Sửa hồ sơ ${employee.fullName}` : "Thêm nhân viên"} sub={employee ? "Đổi phòng ban/chức danh/quản lý sẽ tạo phân công mới từ ngày hiệu lực, giữ lịch sử cũ." : undefined} onClose={onClose}
-      foot={<><button className="btn" onClick={onClose}>Hủy</button><button className="btn primary" disabled={!!busy} onClick={save}>{busy ? "Đang lưu…" : employee ? "Lưu thay đổi" : "Tạo hồ sơ"}</button></>}>
+      foot={<><button className="btn ghost" onClick={onClose}>Hủy</button><button className="btn primary" disabled={!!busy} onClick={save}>{busy ? "Đang lưu…" : employee ? "Lưu thay đổi" : "Tạo hồ sơ"}</button></>}>
       <div className="form-grid">
         <Field label="Họ và tên"><input value={f.fullName} onChange={set("fullName")} placeholder="Nguyễn Văn A" /></Field>
         <Field label="Mã nhân viên"><input value={f.employeeCode} onChange={set("employeeCode")} placeholder="HD0301" /></Field>

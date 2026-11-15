@@ -75,7 +75,7 @@ function PayModal({ r, onClose, onDone }: { r: RequestItem; onClose: () => void;
   const { busy, run } = useAction();
   return (
     <Modal title={`Xác nhận đã chi ${r.no}?`} sub="Nhân viên sẽ nhận thông báo đã chi. Không hoàn tác được." onClose={onClose}
-      foot={<><button className="btn" onClick={onClose}>Để sau</button><button className="btn primary" disabled={!!busy}
+      foot={<><button className="btn ghost" onClick={onClose}>Để sau</button><button className="btn primary" disabled={!!busy}
         onClick={() => run("pay", async () => { await call("POST", `advances/${r.id}/paid`, { note: note.trim() || null }); onDone(); onClose(); }, "Đã xác nhận chi tạm ứng")}>{busy ? "Đang lưu…" : "Xác nhận đã chi"}</button></>}>
       <div className="card detail-list">
         <div className="detail-row"><span>Nhân viên</span><b>{r.requester.fullName} · {r.requester.code}</b></div>

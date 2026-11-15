@@ -104,6 +104,7 @@ check "Mobile nhận ca mới ngay" "$(call GET 'me/attendance/today?installatio
 B="{\"start\":\"09:30\",\"end\":\"18:30\",\"effectiveFrom\":\"$NEXTWEEK\"}"
 check "Thêm phiên bản ca từ tuần sau" "$(call POST admin/shifts/$SH/versions "$HR" "$B" | field data.next.start)" "09:30"
 check "Hôm nay vẫn dùng phiên bản cũ" "$(call GET 'me/attendance/today?installationId=smoke-ha-pixel' "$EMP" | field data.shift.start)" "09:00"
+check "Ca đang áp dụng cho phòng: không ngừng được → 409" "$(status PATCH admin/shifts/$SH "$HR" '{"active":false}')" 409
 
 echo "— Chấm công hiện trên bảng HR"
 call POST me/attendance/events "$EMP" "{\"clientEventId\":\"$(uuid)\",\"kind\":\"in\",\"installationId\":\"smoke-ha-pixel\",\"latitude\":10.7760,\"longitude\":$OFFICE_LNG,\"accuracyM\":8}" >/dev/null
@@ -126,6 +127,7 @@ r=$(call POST admin/locations/$LOC/versions "$HR" "$B")
 check "Chưa ai chấm công: sửa được phiên bản cùng ngày" "$(echo "$r" | field data.current.versionNo) · $(echo "$r" | field data.current.radiusM)" "2 · 200"
 _a=$(sql "select count(*) from audit_logs where resource_id = '$LOC' and action = 'work_location.version_replaced'") || :
 check "Audit ghi thay phiên bản" "$_a" 1
+check "Địa điểm chưa áp dụng cho ai: ngừng được" "$(call PATCH admin/locations/$LOC "$HR" '{"active":false}' | field data.active)" False
 B="{\"latitude\":$OFFICE_LAT,\"longitude\":$OFFICE_LNG,\"radiusM\":60,\"maxAccuracyM\":60,\"effectiveFrom\":\"$TODAY\"}"
 check "Văn phòng Quận 1: thêm phiên bản từ hôm nay" "$(status POST admin/locations/70000000-0000-4000-8000-000000000001/versions "$HR" "$B")" 201
 B="{\"latitude\":$OFFICE_LAT,\"longitude\":$OFFICE_LNG,\"radiusM\":70,\"maxAccuracyM\":60,\"effectiveFrom\":\"$TODAY\"}"

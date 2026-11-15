@@ -8,7 +8,7 @@ export function ReasonModal({ title, label, danger, go, ok, onClose, onDone }: {
   const [err, setErr] = useState<string | null>(null);
   const { busy, run } = useAction();
   return (
-    <Modal title={title} onClose={onClose} foot={<><button className="btn" onClick={onClose}>Hủy</button>
+    <Modal title={title} onClose={onClose} foot={<><button className="btn ghost" onClick={onClose}>Hủy</button>
       <button className={`btn ${danger ? "danger" : "primary"}`} disabled={!!busy} onClick={async () => {
         if (reason.trim().length < 5) { setErr("Ghi lý do ít nhất 5 ký tự."); return; }
         if (await run("go", () => go(reason.trim()), ok)) { onClose(); onDone(); }

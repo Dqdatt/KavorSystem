@@ -50,7 +50,20 @@ Bản online đã có `64b9461` và `127dbc4` (kiểm chuỗi trong JS đã buil
 | Hồ sơ › Thuế và bảo hiểm | Đã sửa: "Người phụ thuộc" ngay sau MST, trống = "0"; dòng phụ người phụ thuộc dùng vạch |
 | Mọi trang | Web còn ~50 chỗ dùng "·" ở dòng phụ/tiêu đề, prototype dùng vạch `|` — đổi dần theo từng màn |
 
-Còn phải so ở local (cần bấm mở hộp thoại thao tác): khóa kỳ công, chốt bảng lương, gán/thu hồi vai trò, ngừng ca/địa điểm/đơn vị, form người phụ thuộc, nhập file, mời kích hoạt, chi tiết tài liệu.
+## Đợt so local 15/11/2026 (hộp thoại thao tác, tài khoản thử HD0007)
+| Màn | Kết quả |
+|---|---|
+| Mọi hộp thoại | Đã sửa: nút Hủy/Đóng/Để sau kiểu ghost (chữ, không viền) như prototype — 39 chỗ |
+| Khóa kỳ công | Đã sửa tiêu đề "Khóa kỳ công 11/2026". Web giữ thêm ô Ghi chú và nút "Vẫn khóa kỳ" khi còn lỗi (có chủ đích) |
+| Chốt bảng lương | Lệch: web khóa nút "Chốt bảng" + băng cảnh báo khi kỳ công chưa khóa; prototype mở hộp liệt kê 4 bước (Khóa kỳ công, Rà soát đầu vào, Lương cơ bản, Quy chế) + nút "Mở bảng công". Gộp vào việc trang Lương [opus xhigh] |
+| Gán vai trò | Đã sửa: "Chọn nhân viên", "Đến" + gợi ý "Không bắt buộc". Web giữ thêm ô Tìm nhân viên |
+| Thu hồi vai trò | Đã sửa: quản trị viên duy nhất → hộp cảnh báo + "Gán người khác" như prototype (DB vẫn chặn LAST_TENANT_ADMIN) |
+| Ngừng ca / địa điểm | Đã sửa: API chặn 409 khi còn lượt áp dụng đang/sắp hiệu lực (hr-smoke có bước kiểm); web có hộp chặn "Áp dụng ca khác" và hộp "Xác nhận ngừng" như prototype |
+| Ngừng đơn vị | Web: hộp xác nhận + API báo lỗi khi còn người; prototype chặn trước ("Xem sơ đồ"). Lệch nhẹ |
+| Form người phụ thuộc | Đã sửa: tiêu đề "Thêm người phụ thuộc: Tên", dòng phụ, "Họ và tên", "Mã số thuế" + Không bắt buộc, nút "Thêm người phụ thuộc". Web giữ "Đến tháng"; Quan hệ là ô chữ (prototype: chọn) |
+| Nhập file nhân viên | Lệch lớn: prototype 3 bước (tải mẫu, kéo thả, xem trước); web chỉ ô chọn file. Gộp với việc "Tải mẫu .xlsx" |
+| Mời kích hoạt | Đã sửa: tiêu đề, dòng phụ "N nhân viên…", ghi chú xanh, danh sách thẻ người (8 + "và N người khác"), nút "Gửi N lời mời" |
+| Chi tiết tài liệu | Chưa so: local và online đều chưa có tài liệu (cần tải một file thử) |
 
 ## Màn đã có ở web (cần so giao diện)
 Thanh bên, promo thiết lập, Tìm nhanh, Thông báo, Menu tài khoản, Đăng nhập, Tổng quan, Mời kích hoạt, Nhân viên (+ nhóm phòng ban, nhập file, thêm), Hồ sơ 7 tab (+ sửa, đổi lương, người phụ thuộc), Chấm công tháng một người, tải tài liệu, Lịch sử, Cơ cấu (sơ đồ, đơn vị, chức danh, chi tiết, thêm), Chấm công (hôm nay, bảng tháng, khóa kỳ, OT, bản ghi từ chối, thiết bị), Ca & địa điểm (tạo ca, địa điểm, áp dụng), Nghỉ phép 3 tab, Đơn 3 tab + chi tiết + luồng duyệt, Lương (bảng kỳ này, chốt, mức lương, phụ cấp, tính thử), Tài liệu 3 tab + danh mục, Bản tin 5 tab + tạo/xuất bản, Vai trò (+ gán), Cài đặt (doanh nghiệp, thiết lập, kỳ công & lương, quy định, ngày lễ, dữ liệu cá nhân, hỗ trợ).

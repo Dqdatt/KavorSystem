@@ -1,36 +1,39 @@
-# HANDOFF — 15/11/2026
+# HANDOFF — 15/11/2026 (phiên 2)
 
-**Mục tiêu phiên vừa rồi:** chữ web HR không rớt dòng xấu, rồi verify web HR v2 với prototype `Kavor HR Admin Prototype v2.html`.
+**Mục tiêu phiên vừa rồi:** so tiếp các màn trong `docs/plans/web-hr-v2-checklist.md` với prototype v2, kiểm bản online, sửa lệch.
 
-## Đã xong (đã push `claude/ecstatic-pascal-dblg7v` → deploy; chưa kiểm online)
-- `64b9461` `vs()` giữ cụm ngắn liền dòng (`span.seg`, vạch dính cụm trước); `Dl` nhãn không ngắt, giá trị ngắt ở dấu phẩy; đơn sửa hồ sơ bỏ "—" gạch ngang; `.tag/.cap`/số thẻ nowrap; số + đơn vị dùng nbsp
-- `127dbc4` hồ sơ: lịch sử lương + nhãn Lịch sử; Modal: nút đóng icon nền trong; Drawer: đầu như modal prototype (20px, đóng bên phải); chấm công một người có lịch tháng (`MonthMini` export từ profile.tsx); Sổ phép theo prototype; topbar ≤1280 ô Tìm nhanh thành nút tròn
-- Checklist 82 màn prototype ↔ web + kết quả so: `docs/plans/web-hr-v2-checklist.md`
-- verify-all --quick đạt (pgTAP 586) sau `db-reset`
+## Đã xong
+- Online (kavor-system.vercel.app) đã có `64b9461` + `127dbc4`; API `/health` ok
+- `e7d90e3` chi tiết đơn (Lý do trước Chấm công gốc), đơn vị (vạch `|`), chi tiết bài viết theo prototype, "Lượt truy cập tuần này", Người phụ thuộc sau MST
+- **Chưa commit** (24 file, verify-all --quick đạt, pgTAP 586):
+  - Mọi hộp thoại: nút Hủy/Đóng/Để sau = `btn ghost` (39 chỗ)
+  - Khóa kỳ công: tiêu đề "Khóa kỳ công 11/2026"; Gán vai trò: "Chọn nhân viên", "Đến" + hint
+  - Thu hồi vai trò: quản trị viên duy nhất → hộp cảnh báo + "Gán người khác" (DB vẫn chặn LAST_TENANT_ADMIN)
+  - Form người phụ thuộc, hộp Mời kích hoạt theo prototype
+  - API `schedule.service.ts`: ngừng ca/địa điểm còn lượt áp dụng đang/sắp hiệu lực → 409; `hr-smoke.sh` +2 bước (đạt); web `schedules/page.tsx` có StopModal (chặn / xác nhận)
 
 ## Đang dở
-- Không có code dở. DB local vừa reset → không còn dữ liệu thử (đơn, giấy tờ, kỳ lương).
-- Script nạp dữ liệu nháp ở scratchpad phiên cũ (có thể bị xóa): bước gọi trong script báo "Bad Request" nhưng gọi tay cùng body lại đạt — chưa rõ nguyên nhân. Lưu ý: chạy hàm smoke-lib trong zsh hỏng (`local path=` đè PATH) → luôn `bash`.
-- Nạp "khoản phụ cấp mẫu" vào DB local làm pgTAP `payroll.test.sql:18` lỗi (13≠9 thành phần) → reset trước verify.
+- Không có code dở. API local :4000 chạy code cũ → `pnpm dev:backend` lại để thử luật 409.
+- Hộp "Xác nhận ngừng" (ca/địa điểm chưa áp dụng) mới qua typecheck, chưa mở xem.
+- Đăng nhập web local để so UI: Next 16 không cho chạy dev server thứ 2 → dùng thẳng localhost:3000. Tài khoản thử HD0007 / `PW` trong `tools/smoke-lib.sh`; MFA: xóa `auth.mfa_factors` của thao.mai@haidang.vn, gọi `admin/mfa/enroll` + `verify` (hàm `mfa`/`totp` trong smoke-lib), giữ secret để tính mã. JS không ghi được cookie phiên.
 
 ## Quyết định đã chốt
-- Web chưa "giống 100%": người dùng chọn so các màn đã có trước; 11 màn web chưa có để sau (xem checklist).
-- Không cắt chữ bằng "…" ở dữ liệu HR cần duyệt; cụm > 40 ký tự được xuống dòng.
-- Prototype không có ngăn kéo bên phải: Drawer = hộp giữa màn hình; không thêm chân "Mở hồ sơ / Đóng".
-- Giữ các phần web thêm (MFA/OTP, Kỳ lương, tab Tạm ứng, bảng Từng ngày, nút Sửa/Khác… giấy tờ).
-- So UI ở 1280px, giao diện sáng (resize_window colorScheme light); prototype mở file:// trong browser pane, `go('route')`, `S.tab.x='y'; render()`.
+- Bản online là dữ liệu thật: chỉ xem, không bấm lưu/gửi/xác nhận (nhất là mời kích hoạt). Hộp thao tác so ở local.
+- Ngừng ca/địa điểm đang áp dụng: chặn ở API (không chỉ giao diện).
+- Giữ các phần web thêm: ô Ghi chú + "Vẫn khóa kỳ" khi khóa kỳ, ô Tìm nhân viên khi gán vai trò, "Đến tháng" ở người phụ thuộc.
+- Chốt bảng lương theo prototype (hộp 4 bước) gộp vào việc trang Lương [opus xhigh].
 
 ## Nợ Ponytail
-- `kit.tsx` `vs()`: cụm > 40 ký tự không nowrap — đổi khi cần đo bề ngang thật.
-- `employees/page.tsx` DocTicks (từ trước).
+- Không có `shortcut:` mới. Cũ: `kit.tsx` `vs()` cụm > 40 ký tự; `employees/page.tsx` DocTicks.
 
 ## Việc tiếp theo
-1. So tiếp các màn còn lại trong checklist + kiểm online `127dbc4` `[opus high]`
-2. Script `tools/demo-data.sh` nạp dữ liệu thử ổn định (để so màn cần dữ liệu) `[sonnet]`
-3. Trang Lương theo prototype (quỹ lương nhiều kỳ, cơ cấu quỹ) `[opus xhigh]`
+1. Commit + push đợt chưa commit (push = deploy; verify-all đã đạt) `[haiku]`
+2. Hộp Nhập file nhân viên 3 bước như prototype (Tải mẫu .xlsx, kéo thả, xem trước) — nhớ `import-generic-input`: mẫu chỉ là gợi ý, không bắt sửa theo mẫu `[opus high]`
+3. Dọn lệch nhỏ còn lại: ~50 chỗ "·" → `|`; chức danh người gửi ở chi tiết đơn + "Chưa có app" ở người đọc bài (cần thêm trường API); so chi tiết tài liệu (tải 1 file thử ở local) `[sonnet]`
 
 ## File cần đọc đầu tiên
-- `docs/plans/web-hr-v2-checklist.md`, `docs/TASKS.md`
-- `apps/admin-web/app/_ui/kit.tsx` (vs, Dl, Modal, Drawer)
-- `packages/web-ui/src/kavor.css` (khối cuối file)
+- `docs/plans/web-hr-v2-checklist.md` (bảng "Đợt so online" + "Đợt so local")
+- `docs/TASKS.md`
+- `apps/admin-web/app/_ui/kit.tsx` (Modal, vs, useAction)
+- `apps/admin-web/app/_ui/employee-import.tsx` (cho việc 2)
 - `tools/smoke-lib.sh`

@@ -185,7 +185,7 @@ function UnitModal({ t, edit, onClose, onDone }: { t: OrgTree; edit: Edit; onClo
   }
   return (
     <Modal title={u ? `Sửa ${ORG_UNIT_KINDS[u.kind].toLowerCase()} ${u.name}` : "Thêm đơn vị"} sub={u ? "Đổi tên/mã được ghi vào nhật ký hoạt động." : "Đơn vị có hiệu lực từ ngày chọn; không thêm lùi về quá khứ."} onClose={onClose}
-      foot={<><button className="btn" onClick={onClose}>Hủy</button><button className="btn primary" disabled={!!busy} onClick={save}>{busy ? "Đang lưu…" : "Lưu"}</button></>}>
+      foot={<><button className="btn ghost" onClick={onClose}>Hủy</button><button className="btn primary" disabled={!!busy} onClick={save}>{busy ? "Đang lưu…" : "Lưu"}</button></>}>
       <div className="form-grid">
         {!u ? <Field label="Loại đơn vị"><Select value={kind} onChange={(e) => { setKind(e.target.value as OrgUnitKind); setErr(null); }}>{(Object.keys(ORG_UNIT_KINDS) as OrgUnitKind[]).map((k) => <option key={k} value={k}>{ORG_UNIT_KINDS[k]}</option>)}</Select></Field> : null}
         {!u ? <Field label="Hiệu lực từ"><input type="date" min={t.today} value={f.effectiveFrom} onChange={set("effectiveFrom")} /></Field> : null}
@@ -224,7 +224,7 @@ function EndModal({ u, onClose, onDone }: { u: OrgUnit; onClose: () => void; onD
   }
   return (
     <Modal title={`Ngừng ${ORG_UNIT_KINDS[u.kind].toLowerCase()} ${u.name}?`} sub="Hết hiệu lực từ hôm nay và không còn trong danh sách chọn. Cần chuyển hết nhân viên, đơn vị con, vai trò và quy định gắn với đơn vị này trước." onClose={onClose}
-      foot={<><button className="btn" onClick={onClose}>Hủy</button><button className="btn danger" disabled={!!busy} onClick={save}>{busy ? "Đang lưu…" : "Ngừng đơn vị"}</button></>}>
+      foot={<><button className="btn ghost" onClick={onClose}>Hủy</button><button className="btn danger" disabled={!!busy} onClick={save}>{busy ? "Đang lưu…" : "Ngừng đơn vị"}</button></>}>
       <Field label="Lý do" full><input value={reason} onChange={(e) => { setReason(e.target.value); setErr(null); }} placeholder="Ví dụ: Sáp nhập vào phòng Marketing" autoFocus /></Field>
       <ErrorLine text={err} />
     </Modal>
