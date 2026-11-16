@@ -172,7 +172,8 @@ function remoteAttendanceSpec(): ScreenSpec {
   ] };
   const shown = t.days.filter((d) => d.kind !== "future" && d.kind !== "not_employed").slice().reverse();
   const current = t.days.some((d) => d.kind === "today" || d.kind === "future");
-  const isLate = (d: TimesheetDay) => d.lateMinutes > 0 && !(d.request && d.request.status !== "rejected");
+  /* Khớp summarize() của API (web cùng số): giải trình không xóa phút muộn, chỉ điều chỉnh giờ mới làm hết muộn */
+  const isLate = (d: TimesheetDay) => d.lateMinutes > 0;
   const isMiss = (d: TimesheetDay) => (d.issue === "missing_in" || d.issue === "missing_out" || d.issue === "absent") && !(d.request && d.request.status !== "rejected");
   const lateDays = shown.filter(isLate), missDays = shown.filter(isMiss);
   const q = t.explanation, left = q ? q.left : 0;
