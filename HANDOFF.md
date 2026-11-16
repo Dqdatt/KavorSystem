@@ -1,41 +1,39 @@
-# HANDOFF — 15/11/2026 (phiên 9)
+# HANDOFF — 16/11/2026 (phiên 10)
 
-**Mục tiêu phiên vừa rồi:** test app mobile trên simulator iPhone 17e với tài khoản online TSNV002, sửa lỗi thấy được.
+**Mục tiêu phiên vừa rồi:** sửa lương người vào làm/nghỉ việc giữa kỳ (ngày ngoài hợp đồng bị bỏ khỏi công chuẩn → vẫn nhận đủ lương tháng).
 
 ## Đã xong
-- `8113500` (đã push, verify-all đầy đủ đạt, Vercel + CI đạt):
-  - `apps/mobile/src/ui.tsx` `Btn`/`Note`: chữ ghép (`Xem đơn {req.no}`, ghi chú Nghỉ phép, form xin nghỉ, thẻ quyền vị trí) bị trống trên bản Release. Giờ bọc mọi children không phải phần tử JSX trong `<Text>`.
-  - `ui.tsx` `Ln`: giá trị tối đa 65% bề ngang và xuống dòng, nhãn không bị ép thành từng chữ.
-  - API `createExplanation`: chỉ đề nghị một giờ thì phải hợp với giờ đã chấm (vào trước ra). Thêm bước trong `timesheet-smoke`.
-- Đã đi hết các màn online: trang chủ, Bảng công, Nghỉ phép, Đơn từ, Thông báo, Hồ sơ, Bảo mật, Bản tin. Không crash, không lỗi API.
-- Đã kiểm 3 bản sửa trên simulator bằng bản local (`ios/build-sim-local`, HD0142).
+- `2b7babf` (**chưa push**, verify-all đầy đủ đạt): công chuẩn cả kỳ (cách a).
+  - `timesheet/compute.ts`: `not_employed` giữ `workday`/`paidHoliday` theo ca, 0 công, `leave: null`. `timesheet.service.ts`: ngày ngoài hợp đồng lấy ca của ngày vào/ngày cuối.
+  - `employedStandard` (contracts, `payroll/inputs.service.ts`) + cảnh báo "Vào/nghỉ giữa kỳ"; `payroll/cycle-calc.ts` nhân khoản cố định theo tỷ lệ, chuyên cần ghi lý do.
+  - Test `compute.test.ts`, `cycle-calc.test.ts`; bước smoke trong `tools/payroll-inputs-smoke.sh`; AGENTS.md, TASKS.md đã cập nhật.
+- API local đã khởi động lại bằng `tools/dev-backend.sh` (chạy code mới); DB local vừa reset về dữ liệu mẫu.
 
 ## Đang dở
-- Render không báo trạng thái về GitHub: xem Render → Events đã deploy `8113500` chưa.
-- Simulator đang cài bản **local** và Keychain đã bị xoá. Test online lại thì build bản online (lệnh ở Mẹo), người dùng tự gõ mật khẩu TSNV002, rồi **đăng ký lại thiết bị**. Đây là ghi lên online, phải hỏi trước. iPhone thật cũng cần build lại mới có bản sửa giao diện.
+- `2b7babf` chưa push (push nhánh = deploy Render/Vercel).
+- Kỳ công đã khóa trước bản sửa vẫn giữ công chuẩn cũ (snapshot). Kỳ có người vào/nghỉ giữa kỳ phải mở khóa → khóa lại → chốt lại bảng lương. Chưa kiểm online; mở/khóa/chốt trên online là ghi, phải hỏi.
+- Web: lịch mini hồ sơ nhân viên giờ tô ngày trước khi vào làm kiểu "chưa tới" (giống lưới bảng công) thay vì kiểu cuối tuần. Chưa xem trên trình duyệt.
+- Từ phiên 9: chưa rõ Render đã deploy `8113500`; simulator đang cài bản local, Keychain đã xoá (test online lại phải build bản online, người dùng tự gõ mật khẩu TSNV002, đăng ký lại thiết bị — hỏi trước); lỗi 403 Tổng quan web online chưa rõ nguồn.
 - `docs/plans/roadmap-competitive.md` chưa track. Người dùng chưa quyết thì không commit.
-- Lỗi 403 lúc mở Tổng quan web online, chưa rõ nguồn (có thể do Realtime).
 
 ## Quyết định đã chốt
-- Dữ liệu online là thật: chỉ xem. Chấm công, gửi đơn, đăng ký thiết bị, "Gửi lời mời" đều phải hỏi người dùng. Mật khẩu online do người dùng tự gõ.
-- Kiểm bản sửa giao diện trên bản local, không dùng dữ liệu online.
-- Tạm nghỉ (phiên 8): ngày tạm nghỉ vẫn tính vào công chuẩn. Phép năm trừ theo lý do (NĐ 145/2020). Có "Kết thúc tạm nghỉ". Đơn nghỉ đã duyệt trùng khoảng thì chặn, không tự hủy.
-- Vào làm/nghỉ việc giữa kỳ (16/11/2026, cách (a)): công chuẩn = cả kỳ theo lịch ca; ngày ngoài hire..termination vẫn tính vào công chuẩn, 0 công (ngày đó lấy ca của ngày vào làm/ngày cuối để biết thứ làm việc). Vd lương 10tr, công chuẩn 26, vào ngày 13 làm đủ 15 công → 10tr × 15/26. Phụ cấp cố định chia theo tỷ lệ công chuẩn trong khoảng có hợp đồng ÷ công chuẩn kỳ (chỉ khi vào/nghỉ giữa kỳ; vắng/nghỉ phép không trừ). Chuyên cần tháng vào/nghỉ không đạt. Giảm trừ gia cảnh, hạn mức tạm ứng không đổi. BH theo quy tắc 14 ngày không lương sẵn có. Bảng đã chốt giữ số cũ.
+- Dữ liệu online là thật: chỉ xem. Chấm công, gửi đơn, đăng ký thiết bị, "Gửi lời mời" đều phải hỏi. Mật khẩu online do người dùng tự gõ. Kiểm bản sửa giao diện trên bản local.
+- Tạm nghỉ: ngày tạm nghỉ vẫn tính vào công chuẩn. Phép năm trừ theo lý do (NĐ 145/2020). Đơn nghỉ đã duyệt trùng khoảng thì chặn, không tự hủy.
+- Vào/nghỉ giữa kỳ (cách a): công chuẩn cả kỳ theo lịch ca; ngày ngoài hợp đồng tính vào công chuẩn, 0 công. Vd 10tr, công chuẩn 26, vào ngày 13 làm đủ 15 công → 10tr × 15/26. Phụ cấp cố định × công chuẩn trong hợp đồng ÷ công chuẩn kỳ (vắng/nghỉ phép không trừ). Chuyên cần tháng vào/nghỉ không đạt. Giảm trừ gia cảnh, hạn mức tạm ứng không đổi. BH theo quy tắc 14 ngày sẵn có. Bảng đã chốt giữ số cũ.
 
 ## Nợ Ponytail
-- Phiên này không có `shortcut:` mới. Còn nợ cũ ở `apps/api/src/timesheet/pause.ts`: quy tắc 50% đếm theo ngày lịch, nghỉ ốm không cộng đơn nghỉ ốm lẻ.
+- Phiên này không có `shortcut:` mới. Nợ cũ ở `apps/api/src/timesheet/pause.ts`: quy tắc 50% đếm theo ngày lịch, nghỉ ốm không cộng đơn nghỉ ốm lẻ.
 
 ## Việc tiếp theo
-1. Push bản sửa lương vào/nghỉ giữa kỳ (16/11, verify-all đầy đủ đạt, đã commit, **chưa push** — push = deploy): `compute.ts` not_employed giữ công chuẩn, `timesheet.service.ts` lấy ca ngày vào/ngày cuối, `employedStandard` (contracts, `inputs.service.ts`), `cycle-calc.ts` chia khoản cố định, test + bước smoke trong `payroll-inputs-smoke.sh`. Kỳ công đã khóa trước bản sửa vẫn giữ công chuẩn cũ: mở khóa + khóa lại + chốt lại bảng lương nếu có người vào/nghỉ giữa kỳ — `[opus high]`
-2. Ngày có giờ vào > giờ ra (TSNV002 04/11) vẫn tính 1 công trong `computeDay`: người dùng chọn HR sửa tay hay đổi luật — `[opus xhigh]`
-3. Trang chủ mobile ngày nghỉ theo `shift.workDays` vẫn hiện ca + "Vào ca". Đề xuất vẫn cho chấm, đổi dòng ca thành "Hôm nay nghỉ" — `[opus high]`
+1. Push `2b7babf`, rồi xem online (chỉ đọc) kỳ đã khóa nào có người vào/nghỉ giữa kỳ, hỏi người dùng trước khi khóa/chốt lại — `[opus high]`
+2. Ngày giờ vào > giờ ra (TSNV002 04/11) vẫn 1 công trong `computeDay`: trình 2 cách (HR sửa tay / coi là thiếu giờ ra), chờ chốt rồi sửa — `[opus xhigh]`
+3. Trang chủ mobile ngày nghỉ theo `shift.workDays` vẫn hiện ca + "Vào ca": vẫn cho chấm, dòng ca đổi thành "Hôm nay nghỉ" — `[opus high]`
 
 ## Mẹo
-- Build simulator online: trong `apps/mobile`, `LANG=en_US.UTF-8 EXPO_PUBLIC_API_URL=https://kavor-api.onrender.com/api/v1 xcodebuild -workspace ios/Kavor.xcworkspace -scheme Kavor -configuration Release -destination 'generic/platform=iOS Simulator' -derivedDataPath ios/build-sim build`. Bản local: URL `http://localhost:4000/api/v1`, `-derivedDataPath ios/build-sim-local`.
-- Bản Release nuốt lỗi "chữ ngoài `<Text>`" (chỉ hiện trống). Component nhận chữ phải bọc `<Text>`.
-- `verify-all --quick` và `db-reset` không chạy song song: reset làm pgTAP mất kết nối.
+- API local không tự nạp code: sửa API xong chạy lại `bash tools/dev-backend.sh` trước smoke. verify-all đầy đủ mất ~15 phút, reset DB nhiều lần.
+- Build simulator: trong `apps/mobile`, `LANG=en_US.UTF-8 EXPO_PUBLIC_API_URL=<url> xcodebuild -workspace ios/Kavor.xcworkspace -scheme Kavor -configuration Release -destination 'generic/platform=iOS Simulator' -derivedDataPath ios/build-sim[-local] build` (online: `https://kavor-api.onrender.com/api/v1`; local: `http://localhost:4000/api/v1`). Bản Release nuốt lỗi chữ ngoài `<Text>`.
 
 ## File cần đọc đầu tiên
 - `docs/TASKS.md`, `AGENTS.md` (mục Tạm nghỉ, bảng công)
-- `apps/api/src/timesheet/compute.ts` (`computeDay`, `not_employed`)
-- `apps/api/src/payroll/` (cách dùng công chuẩn)
+- `apps/api/src/timesheet/compute.ts` (`computeDay`)
+- `apps/api/src/payroll/cycle-calc.ts`
