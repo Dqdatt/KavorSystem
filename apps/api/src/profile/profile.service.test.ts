@@ -14,8 +14,9 @@ test("đề nghị sửa hồ sơ: chuẩn hóa và kiểm tra đầu vào", () 
   assert.throws(() => parseChange({ emergency: { name: "Bình", phone: "0909123456" } }), /họ tên, điện thoại và quan hệ/);
 });
 
-test("tài khoản ngân hàng chỉ lộ số đầy đủ khi được phép", () => {
+test("tài khoản ngân hàng chỉ lộ số đầy đủ khi được phép; HR chỉ được bấm Hiện số", () => {
   const row = { bank_name: "VCB", account_no: "190123456789", holder: "A" };
-  assert.deepEqual(bankView(row, false), { bankName: "VCB", holder: "A", last4: "6789" });
-  assert.equal(bankView(row, true).accountNo, "190123456789");
+  assert.deepEqual(bankView(row, "masked"), { bankName: "VCB", holder: "A", last4: "6789" });
+  assert.deepEqual(bankView(row, "revealable"), { bankName: "VCB", holder: "A", last4: "6789", revealable: true });
+  assert.equal(bankView(row, "full").accountNo, "190123456789");
 });

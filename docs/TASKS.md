@@ -15,7 +15,7 @@
 - [x] Trang chủ mobile ngày nghỉ theo `shift.workDays`: dòng ca "Hôm nay nghỉ", vẫn cho chấm (16/11/2026, `store.ts`)
 - [x] Ngày có giờ vào > giờ ra (dữ liệu cũ, vd TSNV002 04/11) vẫn 1 công trong `computeDay` → đổi luật (16/11): giờ ra ≤ giờ vào = Thiếu ra, 0 công
 - [ ] Thông báo duyệt sửa hồ sơ lặp chữ "Sửa hồ sơ Sửa email…" — [sonnet]
-- [ ] Màn "Xem số tài khoản" (`employee.sensitive.read`, audit khi xem) — [opus xhigh]
+- [x] Màn "Xem số tài khoản" (16/11): 4 số cuối + "Hiện số" có nhật ký ở hồ sơ, Mức lương, đơn sửa hồ sơ; RLS ngân hàng chỉ cho chính nhân viên; file xuất lương giữ số đầy đủ
 - [x] Lương người vào/nghỉ giữa kỳ (16/11/2026, cách a — công chuẩn cả kỳ, xem HANDOFF): ngày ngoài hire..termination bị bỏ khỏi công chuẩn (`compute.ts` not_employed) → vào làm 13/26 ngày vẫn đủ lương tháng; chốt cách tính công chuẩn rồi sửa — [opus xhigh]
 - [x] Kiểm online sau deploy `79014e6` (16/11): không kỳ nào cần mở/khóa/chốt lại
 - [x] Công cụ "HR điều chỉnh công" trên web (16/11/2026): quyền `attendance.adjust`, nút "Sửa giờ" ở ngăn kéo chấm công, lý do bắt buộc, nhật ký + thông báo NV, chặn kỳ khóa/tự sửa/ngày tới/giải trình chờ
@@ -29,6 +29,7 @@
 - [ ] (Tùy chọn) Chuyển người duyệt khi quản lý trực tiếp nghỉ việc (bước "Quản lý trực tiếp" giao đích danh, hiện chỉ cảnh báo) — [opus high]
 - [x] Nút "Nhắc" (chấm công/giấy tờ/bản tin): `notify_reminders` + 3 endpoint HR + nút web + icon fallback web/mobile
 - [ ] (Tùy chọn) "Nhắc người duyệt" ở chi tiết đơn chờ duyệt (prototype có; hiện chỉ nhắc tự động theo hạn) — [opus high]
+- [ ] CCCD/sổ BHXH hở: RLS `employee_profiles` cho mọi người có `employee.read` (cả quản lý trực tiếp) đọc thẳng số đầy đủ qua PostgREST bằng token Realtime, dù API che; người có `employee.sensitive.read` xem đầy đủ không ghi nhật ký trong khi ghi chú hồ sơ nói "mỗi lần xem được ghi vào lịch sử" — siết RLS + áp cách "Hiện số" — [opus xhigh]
 - [ ] Thời hạn thử việc trong hồ sơ → "hết thử việc" ở khối Sắp tới — [opus high]
 - [ ] Tìm đơn theo mã trong Ctrl K; nút Ctrl K trên màn hẹp; "Xuất danh sách" chấm công hôm nay; ô "Người đang áp dụng" (Ca & địa điểm); phân trang bảng Ngày lễ — [sonnet]
 - [ ] P3 lương: trang Lương theo prototype (tổng quỹ lương nhiều kỳ, cơ cấu quỹ, hộp Chốt bảng 4 bước); xem thanh 4 bước bằng Kế toán HD0215 — [opus xhigh]

@@ -189,7 +189,7 @@ export class AdvanceService {
     ]);
     const today = (await this.timesheets.tenantClock(db, ctx.tenantId)).today;
     const all = (comps ?? []) as Array<{ employee_id: string; base_salary: number; insurance_salary: number | null; allowance: number; employment_type: EmploymentType | null; effective_from: string; note: string | null; created_at: string }>;
-    /* Kế toán đọc lại tài khoản ngân hàng HR đã duyệt (đề nghị sửa hồ sơ), chỉ khi có employee.sensitive.read trong phạm vi */
+    /* Tài khoản ngân hàng HR đã duyệt (đề nghị sửa hồ sơ), chỉ khi có employee.sensitive.read trong phạm vi: 4 số cuối, "Hiện số" có nhật ký */
     const sens = ctx.can("employee.sensitive.read") ? await ctx.scopedEmployeeIds("employee.sensitive.read") : new Set<string>();
     const bankIds = ids.filter((id) => sens.has(id));
     const { data: banks, error: bankErr } = bankIds.length ? await db.from("employee_bank_accounts").select("employee_id, bank_name, account_no, holder").eq("tenant_id", ctx.tenantId).in("employee_id", bankIds) : { data: [], error: null };
@@ -202,7 +202,7 @@ export class AdvanceService {
         employee: { id: e.id, code: e.employee_code, fullName: e.full_name, department: deps.get(e.id) || null },
         baseSalary: cur ? Number(cur.base_salary) : null, fixedSalary: cur ? Number(cur.base_salary) + Number(cur.allowance ?? 0) : null, effectiveFrom: cur?.effective_from ?? null,
         history: h.map((c) => ({ baseSalary: Number(c.base_salary), insuranceSalary: c.insurance_salary === null ? null : Number(c.insurance_salary), allowance: Number(c.allowance ?? 0), items: [], employmentType: c.employment_type, effectiveFrom: c.effective_from, note: c.note, createdAt: c.created_at })),
-        bank: bank.has(e.id) ? bankView(bank.get(e.id)!, true) : null,
+        bank: bank.has(e.id) ? bankView(bank.get(e.id)!, "revealable") : null,
       };
     });
     await ctx.audit("compensation.viewed", "tenant", ctx.tenantId, null, { employees: rows.length });

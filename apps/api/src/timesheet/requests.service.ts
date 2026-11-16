@@ -541,16 +541,17 @@ export class RequestsService {
       const { data: ps } = await db.from("employees").select("user_id, full_name").eq("tenant_id", v.tenantId).in("user_id", payers);
       for (const e of (ps ?? []) as Array<{ user_id: string; full_name: string }>) actor.set(e.user_id, e.full_name);
     }
-    /* Sửa hồ sơ: số tài khoản mới đầy đủ chỉ cho người gửi và người có employee.sensitive.read với người gửi; còn lại 4 số cuối */
+    /* Sửa hồ sơ: số tài khoản mới đầy đủ chỉ cho người gửi; người có employee.sensitive.read với người gửi thấy 4 số cuối + revealable
+       ("Hiện số" có nhật ký, revealBank); còn lại 4 số cuối */
     const pcIds = rows.filter((r) => r.request_type === "profile_change").map((r) => r.id);
-    const fullBank = new Map<string, string>();
+    const fullBank = new Map<string, { accountNo: string } | { revealable: true }>();
     if (pcIds.length) {
       const { data: pb } = await db.from("profile_change_bank").select("request_id, account_no").in("request_id", pcIds);
       for (const x of (pb ?? []) as Array<{ request_id: string; account_no: string }>) {
         const r = rows.find((y) => y.id === x.request_id)!;
         const mine = r.requester_employee_id === v.employeeId;
         const ok = mine || (!!v.userId && (await db.rpc("employee_in_scope", { p_user: v.userId, p_tenant: v.tenantId, p_perm: "employee.sensitive.read", p_employee: r.requester_employee_id })).data === true);
-        if (ok) fullBank.set(x.request_id, x.account_no);
+        if (ok) fullBank.set(x.request_id, mine ? { accountNo: x.account_no } : { revealable: true });
       }
     }
     /* Đơn OT: chấm công thực tế của ngày làm thêm (đọc lúc xem, gồm cả đơn đang chờ) để đối chiếu */
@@ -579,7 +580,7 @@ export class RequestsService {
         ? { type: "salary_advance" as const, payload: (x?.payload ?? { amount: 0, month: "", reason: "" }) as AdvancePayload,
             payout: ((a) => (a?.paid_at ? { paidAt: a.paid_at, paidBy: a.paid_by ? actor.get(a.paid_by) ?? "—" : null, note: a.payout_note } : null))(payout.get(r.id)) }
         : r.request_type === "profile_change"
-        ? { type: "profile_change" as const, payload: ((pl) => (fullBank.has(r.id) && pl.after.bank ? { ...pl, after: { ...pl.after, bank: { ...pl.after.bank, accountNo: fullBank.get(r.id)! } } } : pl))(
+        ? { type: "profile_change" as const, payload: ((pl) => (fullBank.has(r.id) && pl.after.bank ? { ...pl, after: { ...pl.after, bank: { ...pl.after.bank, ...fullBank.get(r.id)! } } } : pl))(
             (x?.payload ?? { fields: [], before: {}, after: {}, reason: null }) as unknown as ProfileChangePayload) }
         : r.request_type === "overtime"
         ? ((payload) => ({ type: "overtime" as const, payload,

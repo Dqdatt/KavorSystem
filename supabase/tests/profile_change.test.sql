@@ -95,7 +95,7 @@ select set_config('request.jwt.claims','{"sub":"a6100000-0000-4000-8000-00000000
 select is((select count(*)::int from public.employee_bank_accounts), 0, 'Quản lý không xem số tài khoản của nhân viên');
 select is((select count(*)::int from public.profile_change_bank), 0, 'Quản lý không xem số tài khoản trong đơn');
 select set_config('request.jwt.claims','{"sub":"a6100000-0000-4000-8000-000000000004","role":"authenticated"}',true);
-select is((select account_no from public.employee_bank_accounts), '190123456789', 'Kế toán đọc tài khoản đã duyệt');
+select is((select count(*)::int from public.employee_bank_accounts) + (select count(*)::int from public.profile_change_bank), 0, 'Kế toán không đọc thẳng số tài khoản (chỉ qua API Hiện số, có nhật ký)');
 select set_config('request.jwt.claims','{"sub":"a6100000-0000-4000-8000-000000000005","role":"authenticated"}',true);
 select is((select count(*)::int from public.employee_bank_accounts) + (select count(*)::int from public.employee_profiles), 0, 'Tenant khác không thấy');
 select throws_ok($$select public.create_profile_change_request(current_setting('test.pt')::uuid, 'e6100000-0000-4000-8000-000000000002', 'a6100000-0000-4000-8000-000000000002', pg_temp.wf(), '{}', '{}', '[]', null)$$,

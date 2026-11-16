@@ -16,9 +16,10 @@
 - Duyệt xong mới áp vào hồ sơ (trigger SQL cùng transaction duyệt); thông tin cũ giữ hiệu lực đến lúc đó. Nội dung đơn (bất biến) giữ
   giá trị trước/sau để HR so sánh và làm lịch sử.
 - Số tài khoản là dữ liệu nhạy cảm (PERMISSION_MATRIX: mask PII): lưu riêng (`employee_bank_accounts`, `profile_change_bank`), nội dung đơn chỉ
-  có 4 số cuối. Xem số đầy đủ: chính nhân viên, và người có `employee.sensitive.read` trong phạm vi (HR Operations, Tenant Admin, Kế toán).
+  có 4 số cuối. Xem số đầy đủ: chính nhân viên; người có `employee.sensitive.read` trong phạm vi (HR Operations, Tenant Admin, Kế toán)
+  thấy 4 số cuối và bấm "Hiện số" (ngăn kéo "Xem số tài khoản", 16/11/2026) — mỗi lượt ghi audit `bank_account.revealed` với tên người xem.
   Quản lý trực tiếp xem đơn (`request.read`) chỉ thấy số đã che. Chưa mã hóa cột riêng (ổ đĩa DB đã mã hóa) — ghi vào PROGRESS.
-- Kế toán xem tài khoản ngân hàng đã duyệt ở tab Lương cơ bản (Lương & tạm ứng).
+- Kế toán xem tài khoản ngân hàng đã duyệt ở tab Mức lương (4 số cuối + "Hiện số" có nhật ký); file xuất bảng lương đầu vào có số đầy đủ.
 
 ## Thứ tự
 

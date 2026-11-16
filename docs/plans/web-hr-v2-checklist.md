@@ -13,7 +13,7 @@ Nguồn: `Kavor HR Admin Prototype v2.html` (P = dòng) so với `apps/admin-web
 | Cho nghỉ việc | ov:offboard P1539 | tính năng mới (khóa tài khoản, lương cuối, phép) — nhạy cảm |
 | Kết thúc áp dụng ca/địa điểm | ov:end-apply P1542 | API có `effectiveTo`? cần kiểm |
 | Thêm khoản phụ cấp mẫu | allow-sample P1547 | Đã làm: hộp tick chọn, API nhận `names`; mẫu ở contracts `PAY_ITEM_TEMPLATES` |
-| Xem số tài khoản (drawer) | ov:bank P1549 | dữ liệu nhạy cảm, phân quyền |
+| Xem số tài khoản (drawer) | ov:bank P1549 | Đã làm (16/11): `_ui/bank-account.tsx`, nút mắt ở Mức lương, hồ sơ, chi tiết đơn; ô tìm kiếm vẫn bên phải theo quy ước web |
 | Tải mẫu .xlsx khi nhập NV | P1269 | file mẫu |
 | Xem trước tài liệu / yêu cầu tài liệu | ov:docview P1552, docreq P1553 | drawer + API yêu cầu |
 

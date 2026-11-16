@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
-# Đề nghị sửa hồ sơ đầu-cuối qua API thật: nhân viên gửi → HR duyệt → hồ sơ cập nhật → Kế toán đọc tài khoản đã duyệt.
+# Đề nghị sửa hồ sơ đầu-cuối qua API thật: nhân viên gửi → HR duyệt → hồ sơ cập nhật → HR/Kế toán chỉ thấy 4 số cuối, "Hiện số" có nhật ký.
 # SQL chỉ đọc hậu điều kiện. Chạy trên DB vừa reset.
 set -euo pipefail
 source "$(dirname "$0")/smoke-lib.sh"
 sql() { docker exec -i supabase_db_kavor-system psql -U postgres -d postgres -X -v ON_ERROR_STOP=1 -Atq -c "$1"; }
 HA=60000000-0000-4000-8000-000000000142
 ACC=190123456789
+SUPABASE_URL=${SUPABASE_URL:-http://127.0.0.1:55321}
+ANON=$(cd "$(dirname "$0")/.." && supabase status -o env 2>/dev/null | grep -E '^ANON_KEY=' | cut -d= -f2- | tr -d '"'); need "Khóa publishable Supabase local" "$ANON"
 curl -s -X DELETE "$MAIL/api/v1/messages" >/dev/null
 
 EMP=$(activate HD0142 thao.ha@haidang.vn); need "Kích hoạt nhân viên" "$EMP"
@@ -36,7 +38,9 @@ echo "— Ai thấy gì"
 check "Quản lý xem được đơn nhưng chỉ thấy 4 số cuối" "$(call GET "admin/requests/$ID" "$MGR" | py "(d['payload']['after']['bank']['last4'], 'accountNo' in d['payload']['after']['bank'], d['myTaskId'])")" "('6789', False, None)"
 H=$(call GET "admin/requests/$ID" "$HR")
 TASK=$(echo "$H" | field data.myTaskId); need "HR có bước duyệt" "$TASK"
-check "HR thấy số tài khoản đầy đủ để đối chiếu" "$(echo "$H" | py "d['payload']['after']['bank']['accountNo']")" "$ACC"
+check "HR thấy 4 số cuối, được bấm Hiện số" "$(echo "$H" | py "(d['payload']['after']['bank']['last4'], 'accountNo' in d['payload']['after']['bank'], d['payload']['after']['bank'].get('revealable'))")" "('6789', False, True)"
+check "HR Hiện số trong đơn để đối chiếu" "$(call POST "admin/requests/$ID/bank-account/reveal" "$HR" '{}' | py "d['accountNo']")" "$ACC"
+check "Quản lý/tenant khác không Hiện số được trong đơn → 403/404" "$(status POST "admin/requests/$ID/bank-account/reveal" "$MGR" '{}' | grep -cE '^(403|404)$') $(status POST "admin/requests/$ID/bank-account/reveal" "$TB" '{}')" "1 404"
 check "Tenant khác không xem được → 404" "$(status GET "admin/requests/$ID" "$TB")" 404
 check "Quản lý không duyệt thay HR → 403/404" "$(status POST "admin/approvals/$TASK/approve" "$MGR" '{}' | grep -cE '^(403|404)$')" 1
 
@@ -45,8 +49,13 @@ check "HR duyệt" "$(call POST "admin/approvals/$TASK/approve" "$HR" '{"comment
 P=$(call GET me/profile "$EMP")
 check "Hồ sơ app: điện thoại, email, địa chỉ, liên hệ, tài khoản mới; hết đề nghị chờ" "$(echo "$P" | py "(d['phone'], d['personal']['personalEmail'], d['personal']['emergency']['relation'], d['personal']['bank']['accountNo'], d['pending'])")" "('0911222333', 'ha.tran@gmail.com', 'Bố', '$ACC', None)"
 check "Nhân viên nhận thông báo đã duyệt" "$(sql "select count(*) from public.notifications n where n.recipient_employee_id='$HA' and n.link_id='$ID' and n.kind='request.approved'")" 1
-check "HR xem hồ sơ nhân viên: thông tin cá nhân + số đầy đủ" "$(call GET "admin/employees/$HA" "$HR" | py "(d['personal']['address'], d['personal']['bank']['accountNo'])")" "('12 Trần Quang Khải, Tân Định, TP.HCM', '$ACC')"
-check "Kế toán đọc tài khoản đã duyệt ở Lương cơ bản" "$(call GET admin/compensations "$PAY" | py "[(r['bank']['bankName'], r['bank']['accountNo']) for r in d['rows'] if r['employee']['code']=='HD0142'][0]")" "('Techcombank', '$ACC')"
+check "HR xem hồ sơ nhân viên: thông tin cá nhân + 4 số cuối, được Hiện số" "$(call GET "admin/employees/$HA" "$HR" | py "(d['personal']['address'], d['personal']['bank']['last4'], 'accountNo' in d['personal']['bank'], d['personal']['bank'].get('revealable'))")" "('12 Trần Quang Khải, Tân Định, TP.HCM', '6789', False, True)"
+check "HR Hiện số ở hồ sơ" "$(call POST "admin/employees/$HA/bank-account/reveal" "$HR" '{}' | py "d['accountNo']")" "$ACC"
+check "Quản lý không Hiện số ở hồ sơ → 403/404" "$(status POST "admin/employees/$HA/bank-account/reveal" "$MGR" '{}' | grep -cE '^(403|404)$')" 1
+check "Kế toán thấy tài khoản đã duyệt ở Mức lương (4 số cuối, được Hiện số)" "$(call GET admin/compensations "$PAY" | py "[(r['bank']['bankName'], 'accountNo' in r['bank'], r['bank'].get('revealable')) for r in d['rows'] if r['employee']['code']=='HD0142'][0]")" "('Techcombank', False, True)"
+check "Kế toán Hiện số ở Mức lương" "$(call POST "admin/employees/$HA/bank-account/reveal" "$PAY" '{}' | py "d['accountNo']")" "$ACC"
+check "Bảng lương đầu vào không trả số đầy đủ; file xuất có số đầy đủ để chuyển khoản" "$(call GET admin/payroll/inputs "$PAY" | grep -c "$ACC" || :) $(curl -s "$API/admin/payroll/inputs/export" -H "authorization: Bearer $PAY" | grep -c "$ACC" || :)" "0 1"
+check "Trình duyệt (token Kế toán) không đọc thẳng được bảng ngân hàng qua PostgREST" "$(curl -s "$SUPABASE_URL/rest/v1/employee_bank_accounts?select=account_no" -H "apikey: $ANON" -H "authorization: Bearer $PAY")" "[]"
 
 echo "— Đề nghị khác: chỉ đổi địa chỉ, hủy và từ chối"
 R2=$(call POST me/requests/profile "$EMP" '{"address":"Quận 1, TP.HCM"}'); ID2=$(echo "$R2" | field data.id)
@@ -58,6 +67,8 @@ check "HR từ chối" "$(call POST "admin/approvals/$T3/reject" "$HR" '{"commen
 check "Hủy/từ chối không đổi hồ sơ" "$(call GET me/profile "$EMP" | py "d['personal']['address']")" "12 Trần Quang Khải, Tân Định, TP.HCM"
 
 echo "— Audit"
+check "Mỗi lượt Hiện số ghi một dòng nhật ký có người xem, chỉ lưu 4 số cuối" "$(sql "select count(*), count(actor_user_id), count(*) filter (where after_data::text like '%$ACC%') from public.audit_logs where action='bank_account.revealed'")" "3|3|0"
+check "Lượt xuất bảng lương ghi số tài khoản đã xuất" "$(sql "select (after_data->>'bank_accounts')::int > 0 from public.audit_logs where action='payroll_input.exported' order by created_at desc limit 1")" t
 check "Audit gửi đơn chỉ ghi tên trường, không chép giá trị" "$(sql "select count(*) from public.audit_logs where action='request.submitted' and after_data->>'type'='profile_change' and (after_data::text ~ '($ACC|0911222333|Trần Quang Khải|gmail)')")" 0
 echo "— Ảnh đại diện"
 PNG="iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="

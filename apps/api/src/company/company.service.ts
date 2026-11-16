@@ -70,7 +70,7 @@ export class CompanyService {
       loadPlacements(db, emp.tenant_id, today, [emp.id]),
       db.from("employee_documents").select("title, expires_on").eq("tenant_id", emp.tenant_id).eq("employee_id", emp.id).eq("category", "contract")
         .eq("visibility", "hr_employee").is("archived_at", null).order("issued_on", { ascending: false, nullsFirst: false }).order("created_at", { ascending: false }).limit(1).maybeSingle(),
-      loadPersonal(db, emp.tenant_id, [emp.id], () => true).then((m) => m.get(emp.id)!),
+      loadPersonal(db, emp.tenant_id, [emp.id], () => true, true).then((m) => m.get(emp.id)!),
       db.from("requests").select("id, request_no, current_version, request_versions(version_no, payload)").eq("requester_employee_id", emp.id).eq("request_type", "profile_change").eq("status", "pending").maybeSingle(),
     ]);
     const pr = pend as { id: string; request_no: string; current_version: number; request_versions: Array<{ version_no: number; payload: { fields?: ProfileField[] } }> } | null;

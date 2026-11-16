@@ -10,12 +10,13 @@ import { vs,
   ACCOUNT, Avatar, DEVICE, Dl, EMP_STATUS, EMPLOYMENT, ErrorLine, Field, Icon, LoadError, Modal, MoreMenu, Phrases, REJECT_REASON, Section, Status, scopeText,
   PageSub, ago, can, fmtDate, fmtDateTime, tenantToday, tenure, useAction, useMe, useToast,
 } from "../../_ui/kit";
+import { BankLine } from "../../_ui/bank-account";
 import { ReasonModal } from "../../_ui/reason-modal";
 import { REQUEST_STATUS, REQUEST_TYPE, RequestModal, requestSummary } from "../../_ui/request";
 import { Select, SkeletonLines } from "@kavor/web-ui";
 
 const AUDIT: Record<string, string> = {
-  "employee.created": "Tạo hồ sơ", "employee.updated": "Sửa hồ sơ", "employee.offboarded": "Cho nghỉ việc", "employee.terminated": "Qua ngày làm việc cuối, chuyển đã nghỉ việc", "employee.invited": "Gửi lời mời kích hoạt", "account.locked": "Khóa tài khoản", "account.unlocked": "Mở khóa tài khoản",
+  "employee.created": "Tạo hồ sơ", "bank_account.revealed": "Xem số tài khoản", "employee.updated": "Sửa hồ sơ", "employee.offboarded": "Cho nghỉ việc", "employee.terminated": "Qua ngày làm việc cuối, chuyển đã nghỉ việc", "employee.invited": "Gửi lời mời kích hoạt", "account.locked": "Khóa tài khoản", "account.unlocked": "Mở khóa tài khoản",
   "auth.activated": "Nhân viên kích hoạt tài khoản", "auth.activation.otp_sent": "Gửi OTP kích hoạt", "auth.login": "Đăng nhập", "auth.login_failed": "Đăng nhập sai mật khẩu", "auth.password_reset": "Đặt lại mật khẩu",
   "auth.mfa_enrolled": "Bật xác thực hai lớp", "auth.mfa_verified": "Xác thực hai lớp khi đăng nhập web", "auth.mfa_reset": "Đặt lại xác thực hai lớp",
   "privacy.consented": "Đồng ý điều khoản dữ liệu cá nhân",
@@ -195,7 +196,7 @@ export function EmployeeProfile({ id }: { id: string }) {
             ["Thường trú", e.personal.permanentAddress ? <Phrases key="p" text={e.personal.permanentAddress} /> : none],
             ["Địa chỉ hiện tại", e.personal.address ? <Phrases key="a" text={e.personal.address} /> : none],
             ["Liên hệ khẩn cấp", e.personal.emergency ? `${e.personal.emergency.name} | ${e.personal.emergency.relation} | ${e.personal.emergency.phone}` : none],
-            ["Tài khoản ngân hàng", e.personal.bank ? <Phrases key="k" text={`${e.personal.bank.bankName} | ${e.personal.bank.accountNo ?? `•••• ${e.personal.bank.last4}`} | ${e.personal.bank.holder}`} /> : none],
+            ["Tài khoản ngân hàng", e.personal.bank ? <BankLine key="k" bank={e.personal.bank} revealPath={`employees/${e.id}/bank-account/reveal`} person={{ name: e.fullName, code: e.code }} /> : none],
           ]} />
         </Section>
       </div>

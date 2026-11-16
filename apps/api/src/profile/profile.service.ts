@@ -1,10 +1,10 @@
 /* Hồ sơ cá nhân + đề nghị sửa (docs/plans/profile-change.md). Nhân viên đề nghị sửa điện thoại, email cá nhân, địa chỉ, liên hệ khẩn cấp,
    tài khoản ngân hàng; HR duyệt (luồng "profile_change"), duyệt xong trigger SQL áp vào hồ sơ. Số tài khoản đầy đủ chỉ trả cho chính
-   nhân viên và người có employee.sensitive.read; nội dung đơn/audit chỉ có 4 số cuối. */
-import type { BankAccountView, EmergencyContact, PersonalInfo, ProfileChangeInput, ProfileField, ProfileValues, RequestItem } from "@kavor/contracts";
+   nhân viên; người có employee.sensitive.read xem qua revealBank (mỗi lượt ghi nhật ký); nội dung đơn/audit chỉ có 4 số cuối. */
+import type { BankAccountReveal, BankAccountView, EmergencyContact, PersonalInfo, ProfileChangeInput, ProfileField, ProfileValues, RequestItem } from "@kavor/contracts";
 import { AuthError, type EmployeeRow } from "../auth/auth.service.js";
 import type { SupabaseGateway } from "../auth/supabase.js";
-import { conflict, invalid } from "../admin/context.js";
+import { conflict, invalid, notFound, type AdminContext } from "../admin/context.js";
 import { EMAIL, type Body } from "../admin/validate.js";
 import { localParts } from "../attendance/attendance.service.js";
 import { loadPlacements } from "../attendance/policy.js";
@@ -17,11 +17,12 @@ type BankRow = { employee_id: string; bank_name: string; account_no: string; hol
 const ORDER: ProfileField[] = ["phone", "personalEmail", "address", "emergency", "bank"];
 
 export const last4 = (accountNo: string) => accountNo.slice(-4);
-export const bankView = (b: { bank_name: string; account_no: string; holder: string }, reveal: boolean): BankAccountView =>
-  ({ bankName: b.bank_name, holder: b.holder, last4: last4(b.account_no), ...(reveal ? { accountNo: b.account_no } : {}) });
+/* full: chính nhân viên (hoặc file xuất lương); revealable: có employee.sensitive.read — chỉ 4 số cuối, số đầy đủ qua revealBank (có nhật ký) */
+export const bankView = (b: { bank_name: string; account_no: string; holder: string }, show: "full" | "revealable" | "masked"): BankAccountView =>
+  ({ bankName: b.bank_name, holder: b.holder, last4: last4(b.account_no), ...(show === "full" ? { accountNo: b.account_no } : show === "revealable" ? { revealable: true as const } : {}) });
 
-/* Thông tin cá nhân đã duyệt của nhiều nhân viên; reveal: id nhân viên được xem số tài khoản đầy đủ */
-export async function loadPersonal(db: Db, tenantId: string, ids: string[], reveal: (id: string) => boolean): Promise<Map<string, PersonalInfo>> {
+/* Thông tin cá nhân đã duyệt của nhiều nhân viên; reveal: id được xem CCCD/BHXH đầy đủ và được bấm "Hiện số" tài khoản; self: chính nhân viên xem */
+export async function loadPersonal(db: Db, tenantId: string, ids: string[], reveal: (id: string) => boolean, self = false): Promise<Map<string, PersonalInfo>> {
   const out = new Map<string, PersonalInfo>();
   if (!ids.length) return out;
   const [p, b] = await Promise.all([
@@ -36,13 +37,36 @@ export async function loadPersonal(db: Db, tenantId: string, ids: string[], reve
     out.set(id, {
       personalEmail: r?.personal_email ?? null, address: r?.address ?? null,
       emergency: r?.emergency_name ? { name: r.emergency_name, phone: r.emergency_phone ?? "", relation: r.emergency_relation ?? "" } : null,
-      bank: k ? bankView(k, reveal(id)) : null,
+      bank: k ? bankView(k, self ? "full" : reveal(id) ? "revealable" : "masked") : null,
       birthDate: r?.birth_date ?? null, gender: r?.gender ?? null, idIssuedOn: r?.id_issued_on ?? null, idIssuedBy: r?.id_issued_by ?? null, permanentAddress: r?.permanent_address ?? null,
       idNumber: r?.id_number ? (reveal(id) ? r.id_number : `••••${r.id_number.slice(-4)}`) : null,
       socialInsuranceNo: r?.social_insurance_no ? (reveal(id) ? r.social_insurance_no : `••••${r.social_insurance_no.slice(-4)}`) : null,
     });
   }
   return out;
+}
+
+/* "Hiện số" (ngăn kéo Xem số tài khoản): số đầy đủ cho người có employee.sensitive.read với nhân viên, mỗi lượt ghi nhật ký với tên
+   người xem (nhật ký chỉ lưu 4 số cuối). employee: tài khoản đang dùng; request: số đề nghị trong đơn sửa hồ sơ. */
+export async function revealBank(ctx: AdminContext, kind: "employee" | "request", id: string): Promise<BankAccountReveal> {
+  let employeeId = id;
+  if (kind === "request") {
+    if (!/^[0-9a-f-]{36}$/i.test(id)) throw notFound("đơn");
+    const { data, error } = await ctx.db.from("requests").select("requester_employee_id").eq("tenant_id", ctx.tenantId).eq("id", id).eq("request_type", "profile_change").maybeSingle();
+    if (error) throw error;
+    if (!data) throw notFound("đơn");
+    employeeId = (data as { requester_employee_id: string }).requester_employee_id;
+  }
+  await ctx.requireEmployee("employee.sensitive.read", employeeId);
+  const { data, error } = kind === "employee"
+    ? await ctx.db.from("employee_bank_accounts").select("account_no").eq("tenant_id", ctx.tenantId).eq("employee_id", id).maybeSingle()
+    : await ctx.db.from("profile_change_bank").select("account_no").eq("tenant_id", ctx.tenantId).eq("request_id", id).maybeSingle();
+  if (error) throw error;
+  if (!data) throw notFound("tài khoản ngân hàng");
+  const accountNo = (data as { account_no: string }).account_no;
+  /* Ghi nhật ký trước khi trả số: ghi lỗi thì không hiện */
+  await ctx.audit("bank_account.revealed", kind, id, null, { last4: last4(accountNo), ...(kind === "request" ? { employee_id: employeeId } : {}) });
+  return { accountNo };
 }
 
 /* Chuẩn hóa đầu vào: undefined = không đổi; chuỗi rỗng = xóa (trừ ngân hàng: chỉ thay, không xóa) */
@@ -98,7 +122,7 @@ export class ProfileService {
     const { values, reason } = parseChange(b);
     const [{ data: emp, error }, personal, { data: bankRow }, { data: pending }, { data: t }] = await Promise.all([
       db.from("employees").select("phone").eq("id", me.id).single(),
-      loadPersonal(db, me.tenant_id, [me.id], () => true).then((m) => m.get(me.id)!),
+      loadPersonal(db, me.tenant_id, [me.id], () => true, true).then((m) => m.get(me.id)!),
       db.from("employee_bank_accounts").select("bank_name, account_no, holder").eq("employee_id", me.id).maybeSingle(),
       db.from("requests").select("request_no").eq("requester_employee_id", me.id).eq("request_type", "profile_change").eq("status", "pending").maybeSingle(),
       db.from("tenants").select("timezone").eq("id", me.tenant_id).single(),
@@ -114,7 +138,7 @@ export class ProfileService {
 
     const before: ProfileValues = {}, after: ProfileValues = {};
     for (const f of fields) {
-      if (f === "bank") { before.bank = cb ? bankView(cb, false) : null; after.bank = { bankName: values.bank!.bankName, holder: values.bank!.holder, last4: last4(values.bank!.accountNo) }; }
+      if (f === "bank") { before.bank = cb ? bankView(cb, "masked") : null; after.bank = { bankName: values.bank!.bankName, holder: values.bank!.holder, last4: last4(values.bank!.accountNo) }; }
       else { (before as Record<string, unknown>)[f] = current[f]; (after as Record<string, unknown>)[f] = values[f]; }
     }
     const today = localParts(new Date(), (t?.timezone as string) ?? "Asia/Ho_Chi_Minh").date;

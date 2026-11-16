@@ -10,6 +10,12 @@ simulator hay iPhone** vì phiên cloud không có Mac). Người dùng giao "c�
 ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AGENT_PLAYBOOK.md`; kiểm tra toàn bộ bằng `bash tools/verify-all.sh`.
 
 ## Đã xong
+- Xem số tài khoản (16/11, Claude Desktop): HR/Kế toán (`employee.sensitive.read`) chỉ nhận 4 số cuối + `revealable` ở hồ sơ, Mức lương,
+  bảng lương đầu vào, đơn sửa hồ sơ; "Hiện số" qua `POST admin/employees/:id/bank-account/reveal` / `admin/requests/:id/bank-account/reveal`,
+  mỗi lượt ghi audit `bank_account.revealed` (chỉ 4 số cuối) trước khi trả. File xuất bảng lương đầu vào giữ số đầy đủ (audit đếm số tài khoản).
+  Migration `202612070001_bank_account_reveal.sql`: RLS `employee_bank_accounts`/`profile_change_bank` chỉ cho chính nhân viên (trước đây HR đọc
+  thẳng được qua PostgREST bằng access token Realtime của trình duyệt, lách nhật ký). Web: ngăn kéo "Xem số tài khoản" theo prototype (P1549),
+  nút mắt ở Mức lương, hồ sơ, chi tiết đơn; nhãn "Xem số tài khoản" ở tab Lịch sử. Kiểm: `profile-smoke.sh` (9 bước mới, 3 bước sửa), pgTAP 656, verify-all --quick, xem trên web local.
 - HR điều chỉnh công (16/11, Claude Desktop): migration `202612060001_attendance_hr_adjust.sql` (quyền `attendance.adjust` cho HCNS + Quản trị viên công ty,
   thông báo `attendance.adjusted`, `hr_adjust_attendance` ghi điều chỉnh không gắn đơn + nhật ký vào hồ sơ + thông báo trong một giao dịch), pgTAP 18,
   API `POST admin/timesheets/:employeeId/adjust` (+ `canAdjust`, `TimesheetDay.hrAdjustment`), bước smoke trong `timesheet-smoke.sh`, web nút "Sửa giờ"

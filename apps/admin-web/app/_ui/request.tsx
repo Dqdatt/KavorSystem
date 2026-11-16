@@ -4,6 +4,7 @@ import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { EXPLANATION_KINDS, OVERTIME_DAY_KINDS, PROFILE_FIELDS, REQUEST_TYPES, overtimeAttendanceShort, STEP_RESOLVERS, type AdminMe, type ProfileField, type ProfileValues, type RequestItem, type RequestStatus, type RequestType, type StepStatus } from "@kavor/contracts";
 import { call } from "../_lib/client";
+import { BankLine } from "./bank-account";
 import { Dl, vs, ErrorLine, Field, Icon, Modal, Person, Status, can, fmtDate, fmtDateTime, useAction, useMe } from "./kit";
 
 export const REQUEST_TYPE = REQUEST_TYPES;
@@ -67,6 +68,11 @@ function useRequestDetail(r: RequestItem, onDone: (r: RequestItem) => void, onCl
   const cur = r.steps.find((s) => s.status === "pending");
   const next = cur ? r.steps.find((s) => s.stepNo > cur.stepNo && s.status === "waiting") : undefined;
   const why = notMineReason(r, me);
+  /* Giá trị SAU: số tài khoản bị che thì kèm nút mắt (người xem có quyền) */
+  const after = (f: ProfileField, p: Extract<RequestItem, { type: "profile_change" }>["payload"]): ReactNode => {
+    const b = f === "bank" ? p.after.bank : null;
+    return b?.revealable ? <BankLine bank={b} revealPath={`requests/${r.id}/bank-account/reveal`} person={{ name: r.requester.fullName, code: r.requester.code }} /> : vs(profileValue(f, p.after));
+  };
   const rows: Array<[string, ReactNode]> = r.type === "leave" ? [
     ["Loại nghỉ", r.payload.leaveTypeName],
     ["Thời gian", `${leaveRange(r.payload)} | ${days(r.payload.days)} làm việc`],
@@ -80,8 +86,8 @@ function useRequestDetail(r: RequestItem, onDone: (r: RequestItem) => void, onCl
     ["Hệ số", `${r.payload.ratePercent}%`],
     ...(r.attendance ? [["Chấm công thực tế", <OtAttendance key="ot" a={r.attendance} />] as [string, ReactNode]] : []),
   ] : r.type === "profile_change" ? r.payload.fields.map((f): [string, ReactNode] => [PROFILE_FIELDS[f],
-    profileValue(f, r.payload.before) === "—" ? vs(profileValue(f, r.payload.after)) /* trước đó trống: "—" gạch ngang trông như dấu "═" */
-      : <><span className="muted" style={{ textDecoration: "line-through", fontWeight: 500 }}>{vs(profileValue(f, r.payload.before))}</span> → {vs(profileValue(f, r.payload.after))}</>])
+    profileValue(f, r.payload.before) === "—" ? after(f, r.payload) /* trước đó trống: "—" gạch ngang trông như dấu "═" */
+      : <><span className="muted" style={{ textDecoration: "line-through", fontWeight: 500 }}>{vs(profileValue(f, r.payload.before))}</span> → {after(f, r.payload)}</>])
     : r.workDate ? [["Ngày áp dụng", fmtDate(r.workDate)]] : [];
   rows.push(["Lý do", r.payload.reason || "—"]);
   if (r.type === "explanation" && r.day) rows.push(["Chấm công gốc", `${r.day.shift ?? "—"} | vào ${r.day.rawIn ?? "--:--"} | ra ${r.day.rawOut ?? "--:--"}`]);

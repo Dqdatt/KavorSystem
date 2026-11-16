@@ -7,6 +7,7 @@ import type { AdvanceBoard, CompensationBoard, CompensationRow, RequestItem } fr
 import { call, useApi } from "../../_lib/client";
 import { CompensationEditor } from "../employees/pay";
 import { vs, Empty, Field, Icon, LoadError, Modal, Person, Status, fmtDate, fmtDateTime, useAction, useMe } from "../../_ui/kit";
+import { BankAccountNo } from "../../_ui/bank-account";
 import { REQUEST_STATUS, RequestModal, money } from "../../_ui/request";
 import { Select, SkeletonRows } from "@kavor/web-ui";
 
@@ -96,7 +97,7 @@ export function Salary() {
     <>
       <LoadError error={error} retry={reload} />
       <article className="card">
-        <div className="toolbar"><label className="search"><Icon name="search" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Tìm nhân viên…" /></label></div>
+        <div className="toolbar"><label className="search"><Icon name="search" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Tìm nhân viên…" /></label>{rows.some((r) => r.bank?.revealable) ? <span className="small muted">Số tài khoản được che, bấm biểu tượng mắt để xem (có ghi lịch sử)</span> : null}</div>
         {b && !rows.length ? <Empty title="Không có nhân viên phù hợp" /> : (
           <div className="table-wrap"><table className="data-table"><thead><tr><th>Nhân viên</th><th>Phòng ban</th><th>Lương cứng</th><th>Lương cơ bản</th><th>Hiệu lực từ</th><th>Lịch sử</th><th>Tài khoản ngân hàng</th><th /></tr></thead><tbody>
             {!b && !error ? <SkeletonRows cols={8} rows={6} person /> : null}
@@ -109,7 +110,7 @@ export function Salary() {
                 <td>{fmtDate(r.effectiveFrom)}</td>
                 <td className="muted" style={{ whiteSpace: "normal", fontSize: 12 }}>{vs(r.history.slice(1, 3).map((h) => `${money(h.baseSalary + h.allowance)} từ ${fmtDate(h.effectiveFrom)}`).join(" | ") || "—")}</td>
                 {/* Tài khoản HR đã duyệt từ đề nghị sửa hồ sơ (Kế toán chỉ đọc) */}
-                <td style={{ whiteSpace: "normal", fontSize: 12 }}>{r.bank ? <><b>{r.bank.accountNo ?? `•••• ${r.bank.last4}`}</b><div className="muted">{r.bank.bankName}<i className="vs" />{r.bank.holder}</div></> : <span className="muted">Chưa có</span>}</td>
+                <td style={{ whiteSpace: "normal", fontSize: 12 }}>{r.bank ? <><b><BankAccountNo bank={r.bank} revealPath={`employees/${r.employee.id}/bank-account/reveal`} person={{ name: r.employee.fullName, code: r.employee.code }} /></b><div className="muted">{r.bank.bankName}<i className="vs" />{r.bank.holder}</div></> : <span className="muted">Chưa có</span>}</td>
                 <td>{b?.canManage ? <button className="btn small" onClick={() => setEdit(r)}>{r.baseSalary ? "Đổi lương" : "Nhập lương"}</button> : null}</td>
               </tr>
             ))}

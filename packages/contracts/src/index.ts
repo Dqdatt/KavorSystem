@@ -316,8 +316,10 @@ export type PauseEnd = { returnDate: string };
 export type ProfileField = "phone" | "personalEmail" | "address" | "emergency" | "bank";
 export const PROFILE_FIELDS: Record<ProfileField, string> = { phone: "Điện thoại", personalEmail: "Email cá nhân", address: "Địa chỉ", emergency: "Liên hệ khẩn cấp", bank: "Tài khoản ngân hàng" };
 export type EmergencyContact = { name: string; phone: string; relation: string };
-/* accountNo chỉ có khi người xem được xem số đầy đủ (chính nhân viên, employee.sensitive.read); còn lại chỉ 4 số cuối */
-export type BankAccountView = { bankName: string; holder: string; last4: string; accountNo?: string };
+/* accountNo chỉ có cho chính nhân viên (và file xuất lương); revealable: người xem có employee.sensitive.read, bấm "Hiện số"
+   (POST admin/employees/:id/bank-account/reveal hoặc admin/requests/:id/bank-account/reveal, mỗi lượt ghi nhật ký) để lấy số đầy đủ */
+export type BankAccountView = { bankName: string; holder: string; last4: string; accountNo?: string; revealable?: true };
+export type BankAccountReveal = { accountNo: string };
 export type ProfileValues = { phone?: string | null; personalEmail?: string | null; address?: string | null; emergency?: EmergencyContact | null; bank?: BankAccountView | null };
 /* fields: trường đổi; before/after: giá trị lúc gửi và giá trị đề nghị (chỉ các trường đổi) */
 export type ProfileChangePayload = { fields: ProfileField[]; before: ProfileValues; after: ProfileValues; reason: string | null };
@@ -404,7 +406,7 @@ export type EmployeeDetail = EmployeeListItem & {
   policies: ResolvedPolicies;
   recentEvents: AdminAttendanceEvent[];
   audit: AuditEntry[];
-  /* Thông tin cá nhân đã duyệt; số tài khoản đầy đủ chỉ khi người xem có employee.sensitive.read */
+  /* Thông tin cá nhân đã duyệt; số tài khoản chỉ 4 số cuối (revealable nếu người xem có employee.sensitive.read) */
   personal: PersonalInfo;
   /* Vai trò đang giữ (còn hiệu lực hôm nay, trừ Nhân viên): một người giữ được nhiều vai trò, quyền cộng dồn */
   roles: Array<{ code: string; name: string; scope: string }>;
@@ -981,7 +983,7 @@ export type CompensationRow = {
   baseSalary: number | null; fixedSalary: number | null; effectiveFrom: string | null;
   /* Danh sách tổng quan: items trong history để trống — chi tiết khoản đọc ở employees/:id/pay */
   history: CompensationVersion[];
-  /* Tài khoản ngân hàng HR đã duyệt (null nếu chưa có hoặc người xem không có employee.sensitive.read) */
+  /* Tài khoản ngân hàng HR đã duyệt, 4 số cuối + revealable (null nếu chưa có hoặc người xem không có employee.sensitive.read) */
   bank: BankAccountView | null;
 };
 export type CompensationBoard = { rows: CompensationRow[]; canManage: boolean };

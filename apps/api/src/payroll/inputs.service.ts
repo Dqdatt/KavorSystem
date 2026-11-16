@@ -307,17 +307,17 @@ export class PayrollInputs {
     return { last: list[0] ?? null, versions: list.length };
   }
 
-  /* Bank: chỉ hiện số đầy đủ khi người xem có employee.sensitive.read với nhân viên đó */
-  private async banks(ctx: AdminContext, ids: string[]) {
+  /* Bank: người có employee.sensitive.read với nhân viên — màn hình chỉ 4 số cuối ("Hiện số" có nhật ký), file xuất (full) số đầy đủ để chuyển khoản */
+  private async banks(ctx: AdminContext, ids: string[], full = false) {
     if (!ids.length) return new Map<string, BankAccountView>();
     const sens = ctx.can("employee.sensitive.read") ? await ctx.scopedEmployeeIds("employee.sensitive.read") : new Set<string>();
     const { data, error } = await ctx.db.from("employee_bank_accounts").select("employee_id, bank_name, account_no, holder").eq("tenant_id", ctx.tenantId).in("employee_id", ids);
     if (error) throw error;
-    return new Map(((data ?? []) as BankRow[]).map((x) => [x.employee_id, bankView(x, sens.has(x.employee_id))]));
+    return new Map(((data ?? []) as BankRow[]).map((x) => [x.employee_id, bankView(x, !sens.has(x.employee_id) ? "masked" : full ? "full" : "revealable")]));
   }
 
   /* Tính từ dữ liệu hiện tại cho các nhân viên (đã lọc phạm vi) còn làm trong kỳ */
-  private async live(ctx: AdminContext, ids: string[], month: string, periodStartDay: number): Promise<PayrollInputRow[]> {
+  private async live(ctx: AdminContext, ids: string[], month: string, periodStartDay: number, full = false): Promise<PayrollInputRow[]> {
     const db = ctx.db;
     const p = periodOf(month, periodStartDay);
     if (!ids.length) return [];
@@ -342,7 +342,7 @@ export class PayrollInputs {
     for (const a of (asg ?? []) as unknown as Array<{ employee_id: string; effective_to: string | null; departments: { name: string } | null; positions: { name: string } | null }>) {
       if (!place.has(a.employee_id) && (!a.effective_to || a.effective_to >= p.start)) place.set(a.employee_id, { department: a.departments?.name ?? null, position: a.positions?.name ?? null });
     }
-    const banks = await this.banks(ctx, eids);
+    const banks = await this.banks(ctx, eids, full);
     const citems = await this.compItems(ctx, ((comps ?? []) as CompRow[]).map((c) => c.id));
     return emps.map((e) => {
       const sheet = sheets.sheets.get(e.id)!;
@@ -388,7 +388,7 @@ export class PayrollInputs {
     });
   }
 
-  async sheet(ctx: AdminContext, m?: string, source?: string): Promise<PayrollInputSheet> {
+  async sheet(ctx: AdminContext, m?: string, source?: string, full = false): Promise<PayrollInputSheet> {
     ctx.require("compensation.read");
     const { clock, month } = await this.month(ctx, m);
     const ids = [...await ctx.scopedEmployeeIds("compensation.read")];
@@ -401,11 +401,11 @@ export class PayrollInputs {
       /* Bản đã chốt: lọc theo phạm vi người xem, tài khoản ngân hàng đọc bản hiện hành */
       const scope = new Set(ids);
       const keep = last.rows.filter((r) => scope.has(r.employee.id));
-      const banks = await this.banks(ctx, keep.map((r) => r.employee.id));
+      const banks = await this.banks(ctx, keep.map((r) => r.employee.id), full);
       rows = keep.map((r) => ({ ...r, bank: banks.get(r.employee.id) ?? null }));
       src = "final";
     } else {
-      rows = await this.live(ctx, ids, month, clock.periodStartDay);
+      rows = await this.live(ctx, ids, month, clock.periodStartDay, full);
       src = "live";
     }
     let by: string | null = null;
@@ -440,7 +440,7 @@ export class PayrollInputs {
 
   /* CSV (UTF-8 có BOM để Excel đọc đúng tiếng Việt) — dữ liệu đúng như màn hình (bản đã chốt nếu có) */
   async exportCsv(ctx: AdminContext, m?: string, source?: string): Promise<{ filename: string; body: string }> {
-    const s = await this.sheet(ctx, m, source);
+    const s = await this.sheet(ctx, m, source, true);
     const esc = (v: unknown) => { const x = String(v ?? ""); return /[",\n;]/.test(x) ? `"${x.replace(/"/g, '""')}"` : x; };
     const rates = [...new Set(s.rows.flatMap((r) => Object.keys(r.overtime)))].sort((a, b) => Number(a) - Number(b));
     const cols = itemColumns(s.rows);
@@ -453,7 +453,7 @@ export class PayrollInputs {
       ...cols.map((c) => r.items?.find((x) => x.itemId === c.id)?.amount ?? ""), r.allowance, r.standard, r.credited, r.paidLeaveDays, r.unpaidLeaveDays, r.holidays,
       ...rates.map((x) => (r.overtime[x] ?? 0) / 60), r.dependents, r.taxCode, r.unionMember ? "Có" : "Không", r.advance, r.bank?.bankName, r.bank ? r.bank.accountNo ?? `•••• ${r.bank.last4}` : "", r.bank?.holder,
       r.segments.length > 1 ? r.segments.map((g) => `${g.from}→${g.to}: ${g.baseSalary ?? "—"} · ${typeName[g.employmentType]} · ${g.credited} công`).join(" | ") : "", r.warnings.join("; ")].map(esc).join(","));
-    await ctx.audit("payroll_input.exported", "tenant", ctx.tenantId, null, { month: s.month, source: s.source, rows: s.rows.length });
+    await ctx.audit("payroll_input.exported", "tenant", ctx.tenantId, null, { month: s.month, source: s.source, rows: s.rows.length, bank_accounts: s.rows.filter((r) => r.bank?.accountNo).length });
     return { filename: `bang-luong-dau-vao-${s.month}${s.source === "live" ? "-tam" : ""}.csv`, body: "﻿" + [head.join(","), ...lines].join("\r\n") + "\r\n" };
   }
 }

@@ -133,7 +133,7 @@ export function Modal({ title, sub, onClose, children, foot, wide }: { title: st
     </div></Layer>
   );
 }
-export function Drawer({ onClose, head, children, wide }: { onClose: () => void; head: ReactNode; children: ReactNode; wide?: boolean }) {
+export function Drawer({ onClose, head, children, wide, foot }: { onClose: () => void; head: ReactNode; children: ReactNode; wide?: boolean; foot?: ReactNode }) {
   useEsc(onClose);
   /* wide: hồ sơ nhiều mục → modal rộng giữa màn hình, chiều cao cố định (đổi tab không nhảy khung) */
   if (wide) return (
@@ -142,6 +142,7 @@ export function Drawer({ onClose, head, children, wide }: { onClose: () => void;
       <section className="modal detail-modal" role="dialog" aria-modal="true">
         <div className="drawer-head">{head}<button className="modal-close" onClick={onClose} aria-label="Đóng"><Icon name="x" size={18} /></button></div>
         <div className="drawer-body">{children}</div>
+        {foot ? <div className="modal-foot">{foot}</div> : null}
       </section>
     </div></Layer>
   );
@@ -151,6 +152,7 @@ export function Drawer({ onClose, head, children, wide }: { onClose: () => void;
       <aside className="drawer" role="dialog" aria-modal="true">
         <div className="drawer-head">{head}<button className="modal-close" onClick={onClose} aria-label="Đóng"><Icon name="x" size={18} /></button></div>
         <div className="drawer-body">{children}</div>
+        {foot ? <div className="modal-foot">{foot}</div> : null}
       </aside>
     </div></Layer>
   );

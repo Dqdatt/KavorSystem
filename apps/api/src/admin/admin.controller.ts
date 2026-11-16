@@ -14,6 +14,7 @@ import { yearParam, type SettingsAdmin } from "./settings.service.js";
 import type { CompanyService } from "../company/company.service.js";
 import type { RequestsService } from "../timesheet/requests.service.js";
 import { parseQueueFilter, viewerOf } from "../timesheet/requests.service.js";
+import { revealBank } from "../profile/profile.service.js";
 import type { NotificationsService } from "../notifications/notifications.service.js";
 import type { LeaveService } from "../leave/leave.service.js";
 import type { OvertimeService } from "../overtime/overtime.service.js";
@@ -139,6 +140,9 @@ export class AdminController {
   }
   @Get("employees/:id")
   employee(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string) { return this.run(r, a, (s, c) => s.employees.detail(c, id)); }
+  /* "Hiện số" tài khoản ngân hàng (employee.sensitive.read trong phạm vi), mỗi lượt ghi nhật ký */
+  @Post("employees/:id/bank-account/reveal") @HttpCode(200)
+  revealEmployeeBank(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string) { return this.run(r, a, (_s, c) => revealBank(c, "employee", id)); }
   @Post("employees") @HttpCode(201)
   createEmployee(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Body() b: Json) { return this.run(r, a, (s, c) => s.employees.create(c, b)); }
   @Patch("employees/:id")
@@ -452,6 +456,8 @@ export class AdminController {
   }
   @Get("requests/:id")
   request(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string) { return this.run(r, a, (s, c) => s.requests.detail(c, id)); }
+  @Post("requests/:id/bank-account/reveal") @HttpCode(200)
+  revealRequestBank(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string) { return this.run(r, a, (_s, c) => revealBank(c, "request", id)); }
   /* Minh chứng (nhị phân) — web mở qua route Next cùng origin; mỗi lần tải ghi audit */
   @Get("requests/:id/attachments/:attId/file")
   async requestAttachment(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("id") id: string, @Param("attId") attId: string, @Res({ passthrough: true }) res: Response) {
