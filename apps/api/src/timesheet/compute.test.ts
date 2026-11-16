@@ -153,3 +153,12 @@ test("tạm nghỉ: giữ trong công chuẩn, 0 công kể cả ngày lễ, kh�
   const s = summarize([p, holiday, weekend, day("2026-10-19", [["in", "08:00"], ["out", "17:00"]])].map((d) => ({ ...d, canExplain: false, explainDeadline: null })));
   assert.deepEqual([s.standard, s.credited, s.missingDays], [3, 1, 0]);
 });
+
+test("vào làm giữa kỳ: ngày trước khi vào vẫn tính công chuẩn theo ca (cả lễ), 0 công; cuối tuần không tính", () => {
+  const out = (date: string, holiday: string | null = null) => day(date, [["in", "08:00"], ["out", "17:00"]], { employed: false, holiday, leave: { typeName: "P", half: "full", paid: true, requestNo: "X" } });
+  const days = [out("2026-10-16", "Lễ"), out("2026-10-17"), out("2026-10-18"), out("2026-10-19"), ...["2026-10-20", "2026-10-21"].map((d) => day(d, [["in", "08:00"], ["out", "17:00"]]))]
+    .map((d) => ({ ...d, canExplain: false, explainDeadline: null }));
+  assert.deepEqual(days.slice(0, 4).map((d) => [d.kind, d.workday || !!d.paidHoliday, d.credit, d.leave]), [["not_employed", true, 0, null], ["not_employed", false, 0, null], ["not_employed", false, 0, null], ["not_employed", true, 0, null]]);
+  const s = summarize(days);
+  assert.deepEqual([s.standard, s.credited, s.leaveDays, s.missingDays], [4, 2, 0, 0]);
+});

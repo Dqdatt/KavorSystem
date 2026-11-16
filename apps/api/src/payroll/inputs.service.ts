@@ -372,12 +372,14 @@ export class PayrollInputs {
       if (s.missingDays) warnings.push(`${s.missingDays} ngày thiếu công chưa giải trình`);
       const paused = days.filter((d) => d.kind === "paused" && (d.workday || d.paidHoliday)).length;
       if (paused) warnings.push(`Tạm nghỉ ${paused} ngày làm việc (không tính công)`);
+      const employedStandard = days.filter((d) => d.kind !== "not_employed" && (d.workday || d.paidHoliday)).length;
+      if (employedStandard < s.standard) warnings.push(`Vào/nghỉ giữa kỳ: ${employedStandard}/${s.standard} công chuẩn trong hợp đồng`);
       if (s.pendingRequests) warnings.push(`${s.pendingRequests} giải trình chờ duyệt`);
       if (!banks.has(e.id)) warnings.push("Chưa có tài khoản ngân hàng");
       return {
         employee: { id: e.id, code: e.employee_code, fullName: e.full_name, department: place.get(e.id)?.department ?? null, position: place.get(e.id)?.position ?? null, email: e.work_email, hireDate: e.hire_date, terminationDate: e.termination_date },
         employmentType: last.employmentType, baseSalary: last.baseSalary, insuranceSalary: last.insuranceSalary, allowance: last.allowance, items: last.items ?? [], segments,
-        standard: s.standard, credited: s.credited, paidLeaveDays: leave(true), unpaidLeaveDays: leave(false), holidays: days.filter((d) => d.kind === "holiday").length,
+        standard: s.standard, employedStandard, credited: s.credited, paidLeaveDays: leave(true), unpaidLeaveDays: leave(false), holidays: days.filter((d) => d.kind === "holiday").length,
         lateMinutes: s.lateMinutes, missingDays: s.missingDays, overtime,
         dependents: ((deps ?? []) as DepRow[]).filter((d) => d.employee_id === e.id && activeIn(d, month)).length,
         taxCode: t?.tax_code ?? null, unionMember: !!t?.union_member,

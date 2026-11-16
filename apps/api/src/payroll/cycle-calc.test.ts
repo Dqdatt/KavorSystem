@@ -96,6 +96,19 @@ test("không hưởng lương từ 14 ngày làm việc: không đóng BH, khôn
   assert.equal(r2.lines.some((l) => l.code.startsWith("INS")), true, "thiếu 13 ngày (< 14) vẫn đóng BH");
 });
 
+test("vào làm giữa kỳ (cách a): lương 10tr × 15/26; khoản cố định × 15/26 công chuẩn trong hợp đồng; chuyên cần mất; BH đủ mức; bản chốt cũ không chia", () => {
+  const items = [{ itemId: "resp", name: "Trách nhiệm", amount: 1_000_000 }, { itemId: "cc", name: "Chuyên cần", amount: 500_000 }];
+  const r = computeCycleRow(row({ baseSalary: 10_000_000, credited: 15, employedStandard: 15, items }), ITEMS, cfg, LAW, "x");
+  const old = computeCycleRow(row({ baseSalary: 10_000_000, credited: 15, items }), ITEMS, cfg, LAW, "x");
+  if ("skip" in r || "skip" in old) return assert.fail();
+  const at = (x: typeof r, n: string) => x.lines.find((l) => l.code === n || l.name === n);
+  assert.deepEqual([at(r, "BASE")!.amount, at(r, "Trách nhiệm")!.amount, at(r, "Chuyên cần")!.amount], [5_769_231, 576_923, 0]);
+  assert.match(at(r, "Trách nhiệm")!.formula, /15\/26 công chuẩn trong hợp đồng/);
+  assert.match(at(r, "Chuyên cần")!.formula, /vào\/nghỉ giữa kỳ/);
+  assert.equal(at(r, "INS_SI")!.amount, Math.round(11_000_000 * 0.08), "thiếu 11 ngày (< 14) vẫn đóng BH trên mức đủ (lương + khoản có BH)");
+  assert.equal(at(old, "Trách nhiệm")!.amount, 1_000_000);
+});
+
 test("ca của HR C&B: lương cứng 10 triệu (đóng BHXH 7 triệu + ăn trưa 730k + điện thoại 1,5 triệu + xăng xe 770k), công 25/27, đoàn viên", () => {
   const r = computeCycleRow(row({ baseSalary: 7_000_000, standard: 27, credited: 25, unionMember: true, items: [
     { itemId: "lunch", name: "Ăn trưa", amount: 730_000 }, { itemId: "phone", name: "Điện thoại", amount: 1_500_000 }, { itemId: "fuel", name: "Xăng xe", amount: 770_000 }] }), ITEMS, cfg, LAW, "2026-01-01");

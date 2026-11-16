@@ -131,7 +131,7 @@ pnpm build
   Kiểm thử: `supabase test db` (`offboarding.test.sql`) + `bash tools/db-reset.sh && bash tools/offboard-smoke.sh`.
 - Tạm nghỉ (`POST /admin/employees/:id/pause` + `/pause/end`, bảng `employee_pauses`, hàm `pause_employee`/`end_employee_pause`): lưu từng khoảng; `end_date` = ngày tạm nghỉ cuối, null = chưa rõ.
   `status = on_leave` khi hôm nay nằm trong khoảng; `apply_due_pauses()` (vòng quét 10 phút) đổi active ↔ on_leave. PATCH/tạo hồ sơ không cho đặt/đổi `on_leave` (409).
-  Bảng công: ngày tạm nghỉ `kind = "paused"`, **vẫn nằm trong công chuẩn**, 0 công (kể cả lễ), không tính vắng → lương theo công tự giảm. Không copy cách `not_employed` (bỏ khỏi công chuẩn = trả đủ lương).
+  Bảng công: ngày tạm nghỉ `kind = "paused"`, **vẫn nằm trong công chuẩn**, 0 công (kể cả lễ), không tính vắng → lương theo công tự giảm. Ngày ngoài hợp đồng `not_employed` cũng vậy: vẫn trong công chuẩn theo ca (lấy ca của ngày vào/ngày cuối), 0 công; phụ cấp cố định × `employedStandard`/`standard` (`cycle-calc.ts`).
   Phép năm (`timesheet/pause.ts` `pauseExcludedMonths`, NĐ 145/2020 Điều 65–66): thai sản vẫn tính; ốm tối đa 60 ngày, không lương tối đa 30 ngày cộng dồn/năm; khác không tính; tháng có phần được tính < 50% bị trừ (chỉ tháng đã qua hết). Sổ chỉ ghi thêm nên trừ bằng dòng `adjust` khóa `pause:<năm>:<n>`, bù chênh lệch mỗi lần đọc sổ.
   Chấm công ngày tạm nghỉ → 409 `ATT_PAUSED`; đơn nghỉ trùng → 409; bảng hôm nay hiện như nghỉ cả ngày (không bị nhắc). Có đơn nghỉ đã duyệt trong khoảng → chặn tạm nghỉ; ghi `termination_date` thì trigger cắt khoảng.
   Kiểm thử: `employee_pause.test.sql`, `timesheet/pause.test.ts`, `bash tools/db-reset.sh && bash tools/pause-smoke.sh`.

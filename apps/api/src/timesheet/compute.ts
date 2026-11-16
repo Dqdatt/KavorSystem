@@ -106,7 +106,8 @@ export function computeDay(i: DayInput): Omit<TimesheetDay, "canExplain" | "expl
   const paidHoliday = !!shift && shift.workDays.includes(weekday) && !!i.holiday;
   const leave = workday ? i.leave ?? null : null;
   const empty = { lateMinutes: 0, earlyMinutes: 0, workedMinutes: 0, credit: 0, issue: null, workday, leave, paidHoliday };
-  if (!i.employed) return { ...base, kind: "not_employed", ...empty, workday: false, paidHoliday: false };
+  /* Ngoài hợp đồng (trước ngày vào/sau ngày nghỉ): vẫn tính vào công chuẩn theo ca, 0 công → vào/nghỉ giữa kỳ hưởng lương theo tỷ lệ */
+  if (!i.employed) return { ...base, kind: "not_employed", ...empty, leave: null };
   /* Tạm nghỉ: giữ trong công chuẩn (lương theo công giảm tương ứng), 0 công kể cả ngày lễ, không tính vắng */
   if (i.paused) return { ...base, kind: "paused", ...empty, leave: null };
   if (leave?.half === "full") {

@@ -1062,6 +1062,8 @@ export type PayrollInputRow = {
   /* Nhiều hơn một đoạn khi đổi lương/tình trạng lao động trong kỳ */
   segments: PayrollInputSegment[];
   standard: number; credited: number; paidLeaveDays: number; unpaidLeaveDays: number; holidays: number;
+  /* Công chuẩn trong khoảng có hợp đồng (< standard khi vào/nghỉ giữa kỳ); bản chốt cũ không có → coi bằng standard */
+  employedStandard?: number;
   lateMinutes: number; missingDays: number;
   /* Phút OT được tính theo hệ số (%), ví dụ { "150": 120, "200": 60 } */
   overtime: Record<string, number>;

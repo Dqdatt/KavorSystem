@@ -95,6 +95,15 @@ check "Hà: 2 đoạn (thử việc 12tr → chính thức 16tr), tình trạng 
   "(2, 12000000, 'probation', '$MID', 16000000, 'official', 1, '8012345678', True, True)"
 check "Dòng của Hà có từng khoản phụ cấp" "$(echo "$r" | py "[[(i['name'], i['amount']) for i in x['items']] for x in d['rows'] if x['employee']['code']=='HD0142'][0]")" "[('Phụ cấp ăn trưa', 730000), ('Phụ cấp kỹ năng', 770000)]"
 check "Công từng đoạn cộng lại bằng công thực tế" "$(echo "$r" | py "[sum(s['credited'] for s in x['segments'])==x['credited'] and x['standard']>0 for x in d['rows'] if x['employee']['code']=='HD0142'][0]")" True
+# Vào làm giữa kỳ: công chuẩn vẫn cả kỳ, ngày trước khi vào 0 công (lương theo tỷ lệ); trả lại ngày vào sau khi kiểm
+NV=$(echo "$r" | py "[x['employee']['id'] for x in d['rows'] if x['employee']['code'] not in ('HD0142','HD0007','HD0215') and x['employee']['hireDate']<'$PS' and not x['employee']['terminationDate']][0]")
+NVH=$(echo "$r" | py "[x['employee']['hireDate'] for x in d['rows'] if x['employee']['id']=='$NV'][0]")
+STD=$(echo "$r" | py "[x['standard'] for x in d['rows'] if x['employee']['id']=='$NV'][0]")
+check "Dời ngày vào làm của một nhân viên vào giữa kỳ" "$(status PATCH admin/employees/$NV "$HR" "{\"hireDate\":\"$MID\"}")" 200
+check "Vào giữa kỳ: công chuẩn giữ cả kỳ, công chuẩn trong hợp đồng nhỏ hơn, công không vượt, có cảnh báo" \
+  "$(call GET "admin/payroll/inputs?month=$PREV" "$HR" | py "[(x['standard']==$STD, 0<x['employedStandard']<x['standard'], x['credited']<=x['employedStandard'], any(w.startswith('Vào/nghỉ giữa kỳ') for w in x['warnings'])) for x in d['rows'] if x['employee']['id']=='$NV'][0]")" \
+  "(True, True, True, True)"
+check "Trả lại ngày vào làm" "$(status PATCH admin/employees/$NV "$HR" "{\"hireDate\":\"$NVH\"}")" 200
 check "Quản lý không xem được bảng → 403" "$(status GET "admin/payroll/inputs?month=$PREV" "$MGR")" 403
 check "Kỳ công chưa khóa → không chốt (409)" "$(status POST admin/payroll/inputs/$PREV/finalize "$HR" '{}')" 409
 B="{\"month\":\"$PREV\",\"reason\":\"Đối soát xong\"}"

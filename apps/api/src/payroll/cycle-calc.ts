@@ -48,6 +48,8 @@ export function computeCycleRow(row: PayrollInputRow, items: Map<string, PayItem
   const paid = segs.filter((g) => !g.lump);
   const paidCredited = paid.reduce((n, g) => n + g.credited, 0);
   const full = row.missingDays === 0 && row.lateMinutes === 0 && row.unpaidLeaveDays === 0 && row.credited >= std;
+  /* Vào/nghỉ giữa kỳ: khoản cố định chia theo công chuẩn trong khoảng có hợp đồng ÷ công chuẩn kỳ */
+  const empStd = Math.min(row.employedStandard ?? std, std), share = empStd / std;
   let insurableItems = 0;
   const last = segs[segs.length - 1]!;
   for (const it of (paid.length ? paid[paid.length - 1]!.items : last.items) ?? []) {
@@ -60,11 +62,12 @@ export function computeCycleRow(row: PayrollInputRow, items: Map<string, PayItem
       f = paid.map((g) => `${g.probation ? `${pct(g.factor)} × ` : ""}${vnd(amountIn(g))} × ${d(g.credited)}/${d(std)} công`).join(" + ");
     } else if (m.payMode === "fixed") {
       const g = paid[paid.length - 1];
-      amt = g && paidCredited > 0 ? amountIn(g) * g.factor : 0; f = amt ? "Cố định theo tháng" : "Không có công trong kỳ";
+      amt = g && paidCredited > 0 ? amountIn(g) * g.factor * share : 0;
+      f = !amt ? "Không có công trong kỳ" : share < 1 ? `Cố định theo tháng × ${d(empStd)}/${d(std)} công chuẩn trong hợp đồng (vào/nghỉ giữa kỳ)` : "Cố định theo tháng";
     } else {
       const g = paid[paid.length - 1];
       amt = full && g ? amountIn(g) * g.factor : 0;
-      f = amt ? "Đủ điều kiện (đủ công, không trễ, không thiếu chấm công)" : `Không đủ điều kiện${row.lateMinutes ? ` · trễ ${row.lateMinutes} phút` : ""}${row.missingDays ? ` · thiếu ${row.missingDays} ngày chấm công` : ""}${row.unpaidLeaveDays ? ` · nghỉ không lương ${d(row.unpaidLeaveDays)} ngày` : ""}`;
+      f = amt ? "Đủ điều kiện (đủ công, không trễ, không thiếu chấm công)" : `Không đủ điều kiện${row.lateMinutes ? ` · trễ ${row.lateMinutes} phút` : ""}${row.missingDays ? ` · thiếu ${row.missingDays} ngày chấm công` : ""}${row.unpaidLeaveDays ? ` · nghỉ không lương ${d(row.unpaidLeaveDays)} ngày` : ""}${share < 1 ? " · vào/nghỉ giữa kỳ" : ""}`;
     }
     if (m.insurable) insurableItems += amountIn(last) * last.factor;
     const free = (v: number) => (m.taxMode === "exempt" ? v : m.taxMode === "partial" ? Math.min(v, m.taxFreeCap ?? 0) : m.taxMode === "meal" ? Math.min(v, law.taxFree.meal) : 0);

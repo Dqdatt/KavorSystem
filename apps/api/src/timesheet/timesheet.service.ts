@@ -101,9 +101,11 @@ export class TimesheetService {
       };
       const isWorkday = (d: string) => { const s = shiftAt(d); return !!s && s.workDays.includes(isoWeekday(d)) && !holiday.has(d); };
       const days: TimesheetDay[] = dates.map((d) => {
+        /* Ngày ngoài hợp đồng lấy ca của ngày vào làm/ngày cuối (ca cá nhân có thể chỉ hiệu lực từ ngày vào) để biết thứ làm việc */
+        const near = d < emp.hire_date ? emp.hire_date : emp.termination_date && d > emp.termination_date ? emp.termination_date : null;
         const base = computeDay({
-          date: d, today: clock.today, employed: d >= emp.hire_date && (!emp.termination_date || d <= emp.termination_date), paused: !!pauseOn(pauses, emp.id, d),
-          holiday: holiday.get(d) ?? null, shift: shiftAt(d), events: events.get(`${emp.id}|${d}`) ?? [], adjustment: adj.get(`${emp.id}|${d}`) ?? null,
+          date: d, today: clock.today, employed: !near, paused: !!pauseOn(pauses, emp.id, d),
+          holiday: holiday.get(d) ?? null, shift: shiftAt(near ?? d), events: events.get(`${emp.id}|${d}`) ?? [], adjustment: adj.get(`${emp.id}|${d}`) ?? null,
           request: reqs.get(`${emp.id}|${d}`) ?? null, leave: leaves.get(`${emp.id}|${d}`) ?? null, overtime: ots.get(`${emp.id}|${d}`),
         });
         const deadline = base.kind === "work" && base.issue ? explainDeadline(d, deadlineDays, isWorkday) : null;
