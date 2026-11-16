@@ -19,7 +19,11 @@
 - [x] Lương người vào/nghỉ giữa kỳ (16/11/2026, cách a — công chuẩn cả kỳ, xem HANDOFF): ngày ngoài hire..termination bị bỏ khỏi công chuẩn (`compute.ts` not_employed) → vào làm 13/26 ngày vẫn đủ lương tháng; chốt cách tính công chuẩn rồi sửa — [opus xhigh]
 - [x] Kiểm online sau deploy `79014e6` (16/11): không kỳ nào cần mở/khóa/chốt lại
 - [x] Công cụ "HR điều chỉnh công" trên web (16/11/2026): quyền `attendance.adjust`, nút "Sửa giờ" ở ngăn kéo chấm công, lý do bắt buộc, nhật ký + thông báo NV, chặn kỳ khóa/tự sửa/ngày tới/giải trình chờ
-- [ ] Deploy `8cf718b`: migration `202612060001` lên cloud (`tools/cloud-supabase.sh`) rồi push; build lại app iPhone — [opus high]
+- [x] Deploy `8cf718b` (16/11): migration `202612060001` lên cloud, push `0801ea6`, kiểm online, test simulator
+- [x] Mobile đếm "Đi muộn" khớp web (`f39d263`, chưa push)
+- [ ] Cài app iPhone thật (build lại có `f39d263`); HR duyệt lại iPhone 11 — đã bị thu hồi khi duyệt simulator 16/11 — [sonnet]
+- [ ] Mobile: trang Tạm ứng dòng người duyệt thiếu nhãn; màn "Đang chờ HR xử lý" hiện dữ liệu không khớp (iPhone 15/08:03/E19), làm mới không đổi — [opus high]
+- [ ] Lỗi 403 trang Tổng quan web online — [opus high]
 - [ ] (Tùy chọn) HR điều chỉnh công: xóa một giờ chấm sai (hiện chỉ đặt giờ), ca qua đêm; tab Lịch sử hồ sơ hiện ngày được sửa — [opus high]
 - [ ] (Tùy chọn) Tạm nghỉ: mobile báo "Đang tạm nghỉ" ở màn chấm công; tính 50% theo ngày làm việc của ca thay vì ngày lịch; tạm ứng khi đang tạm nghỉ — [opus high]
 - [ ] (Tùy chọn) Chuyển người duyệt khi quản lý trực tiếp nghỉ việc (bước "Quản lý trực tiếp" giao đích danh, hiện chỉ cảnh báo) — [opus high]
