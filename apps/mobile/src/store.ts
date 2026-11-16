@@ -145,8 +145,8 @@ function sync(p: Promise<void>) {
 const makeState = () => ({
   role: "staff" as "staff" | "manager", inRange: true, shift: "fixed" as "fixed" | "flex", contract: "official" as "official" | "probation" | "leaving",
   /* Ca áp dụng (phút trong ngày). Bản dùng API lấy từ /me/attendance/today — HR cấu hình theo tầng trên web;
-     bản mẫu giữ ca của prototype. assigned=false: nhân viên chưa được áp dụng ca nào. */
-  sh: { name: "Ca hành chính", start: 480, end: 1020, breakMin: 60, lateGrace: 0, earlyGrace: 0, assigned: true },
+     bản mẫu giữ ca của prototype. assigned=false: nhân viên chưa được áp dụng ca nào. off: hôm nay không thuộc workDays (vẫn cho chấm). */
+  sh: { name: "Ca hành chính", start: 480, end: 1020, breakMin: 60, lateGrace: 0, earlyGrace: 0, assigned: true, off: false, workDays: [1, 2, 3, 4, 5] },
   clockIn: null as number | null, clockOut: null as number | null,
   stack: ["login"] as Route[], param: null as string | null, pinUntil: 0, pin: "", pinOk: null as null | (() => void),
   /* Cổng PIN: enter = nhập PIN, old = PIN hiện tại khi đổi, create/confirm = tạo PIN mới (hai lần) */
@@ -257,8 +257,10 @@ export function emit() { version++; listeners.forEach((l) => l()); }
 
 /* ---------- derived ---------- */
 export const day = (d: number) => S.oct.find((o) => o.d === d);
-export const shiftLabel = () => (!S.sh.assigned ? "Chưa được xếp ca" : S.shift === "fixed" ? S.sh.name : "Ca linh hoạt");
-export const shiftTime = () => (!S.sh.assigned ? "Liên hệ phòng Nhân sự" : S.shift === "fixed" ? `${hm(S.sh.start * 60)} – ${hm(S.sh.end * 60)}` : "8 giờ, 07:00 – 19:00");
+/* Ngày làm của ca: "T2–T6" khi liền nhau, không thì "T2, T4, T6" */
+const workDaysText = (d: number[]) => { const s = [...d].sort(), a = s[0]!, b = s[s.length - 1]!; return s.length > 2 && b - a === s.length - 1 ? `${WD_ISO[a]}–${WD_ISO[b]}` : s.map((x) => WD_ISO[x]).join(", "); };
+export const shiftLabel = () => (!S.sh.assigned ? "Chưa được xếp ca" : S.sh.off ? "Hôm nay nghỉ" : S.shift === "fixed" ? S.sh.name : "Ca linh hoạt");
+export const shiftTime = () => (!S.sh.assigned ? "Liên hệ phòng Nhân sự" : S.sh.off ? `${S.sh.name}, ${workDaysText(S.sh.workDays)}` : S.shift === "fixed" ? `${hm(S.sh.start * 60)} – ${hm(S.sh.end * 60)}` : "8 giờ, 07:00 – 19:00");
 /* Số phút làm việc của ca (trừ nghỉ giữa ca) */
 export const shiftMinutes = () => Math.max(0, S.sh.end - S.sh.start - S.sh.breakMin);
 /* Khoảng cách kiểu Việt: 1,8 m · 126 m · 1,2 km */
@@ -267,7 +269,7 @@ export const phase = () => (!S.clockIn ? "in" : !S.clockOut ? "out" : "done");
 export const worked = () => (S.clockIn ? Math.max(0, Math.floor(((S.clockOut || simNow()) - S.clockIn) / 60)) : null);
 export function verdict(kind: "in" | "out", t: number): [string, "ok" | "warn"] {
   const m = Math.floor(t / 60);
-  if (!S.sh.assigned) return ["Đã ghi nhận", "ok"];
+  if (!S.sh.assigned || S.sh.off) return ["Đã ghi nhận", "ok"];
   if (S.shift === "flex") { if (kind === "in") return ["Đã ghi nhận", "ok"]; const w = worked() ?? 0, need = shiftMinutes(); return w >= need ? [`Đủ ${dur(need)}`, "ok"] : [`Thiếu ${dur(need - w)}`, "warn"]; }
   if (kind === "in") { const l = m - S.sh.start; return l > S.sh.lateGrace ? [`Muộn ${dur(l)}`, "warn"] : ["Đúng giờ", "ok"]; }
   const e = S.sh.end - m; return e > S.sh.earlyGrace ? [`Về sớm ${dur(e)}`, "warn"] : ["Đủ giờ", "ok"];
@@ -732,8 +734,10 @@ function applyToday(t: AttendanceToday) {
   const sh = t.shift;
   if (sh) {
     const br = sh.breakStart && sh.breakEnd ? toMin(sh.breakEnd) - toMin(sh.breakStart) : 0;
-    S.sh = { name: sh.name, start: toMin(sh.start), end: toMin(sh.end), breakMin: br, lateGrace: sh.lateGraceMinutes, earlyGrace: sh.earlyGraceMinutes, assigned: true };
-  } else S.sh = { ...S.sh, assigned: false };
+    S.sh = { name: sh.name, start: toMin(sh.start), end: toMin(sh.end), breakMin: br, lateGrace: sh.lateGraceMinutes, earlyGrace: sh.earlyGraceMinutes, assigned: true,
+      /* Thứ theo ngày trên máy (như nhãn ngày ở trang chủ): bản /today lưu từ hôm trước vẫn ra đúng hôm nay */
+      off: !sh.workDays.includes(new Date().getDay() || 7), workDays: sh.workDays };
+  } else S.sh = { ...S.sh, assigned: false, off: false };
   S.att.noLoc = !t.locations.length;
   if (S.att.noLoc) { S.att.loc = NO_LOC; S.inRange = false; }
   else if (!t.locations.some((l) => l.id === S.att.loc.id)) S.att.loc = t.locations[0]!;
@@ -1197,7 +1201,7 @@ export function setNet(v: "online" | "offline" | "slow") {
 /* ---------- hold-to-punch ---------- */
 export function holdDone() {
   if (S.net === "offline") { openSheet("netPunch"); return; }
-  if (phase() === "out" && S.shift === "fixed" && S.sh.assigned) {
+  if (phase() === "out" && S.shift === "fixed" && S.sh.assigned && !S.sh.off) {
     const m = Math.floor(simNow() / 60);
     if (S.sh.end - m > S.sh.earlyGrace) { openSheet("earlyOut"); return; }
   }

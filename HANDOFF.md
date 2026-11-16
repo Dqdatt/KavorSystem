@@ -10,7 +10,7 @@
 - API local đã khởi động lại bằng `tools/dev-backend.sh` (chạy code mới); DB local vừa reset về dữ liệu mẫu.
 
 ## Đang dở
-- `2b7babf` chưa push (push nhánh = deploy Render/Vercel).
+- Chưa push `2b7babf`, `e182bd8`, `f589ec2` và commit mobile (push nhánh = deploy Render/Vercel; app mobile phải build lại iPhone).
 - Kỳ công đã khóa trước bản sửa vẫn giữ công chuẩn cũ (snapshot). Kỳ có người vào/nghỉ giữa kỳ phải mở khóa → khóa lại → chốt lại bảng lương. Chưa kiểm online; mở/khóa/chốt trên online là ghi, phải hỏi.
 - Web: lịch mini hồ sơ nhân viên giờ tô ngày trước khi vào làm kiểu "chưa tới" (giống lưới bảng công) thay vì kiểu cuối tuần. Chưa xem trên trình duyệt.
 - Từ phiên 9: chưa rõ Render đã deploy `8113500`; simulator đang cài bản local, Keychain đã xoá (test online lại phải build bản online, người dùng tự gõ mật khẩu TSNV002, đăng ký lại thiết bị — hỏi trước); lỗi 403 Tổng quan web online chưa rõ nguồn.
@@ -26,9 +26,9 @@
 - Phiên này không có `shortcut:` mới. Nợ cũ ở `apps/api/src/timesheet/pause.ts`: quy tắc 50% đếm theo ngày lịch, nghỉ ốm không cộng đơn nghỉ ốm lẻ.
 
 ## Việc tiếp theo
-1. Push `2b7babf`, rồi xem online (chỉ đọc) kỳ đã khóa nào có người vào/nghỉ giữa kỳ, hỏi người dùng trước khi khóa/chốt lại — `[opus high]`
+1. Push các commit trên, rồi xem online (chỉ đọc): kỳ đã khóa nào có người vào/nghỉ giữa kỳ; TSNV002 04/11 thành 0 công nếu kỳ chưa khóa (báo HR). Hỏi người dùng trước khi khóa/chốt lại. Build lại app iPhone — `[opus high]`
 2. ~~Giờ vào > giờ ra vẫn 1 công~~ — đã sửa theo cách 2 (16/11, đã commit, **chưa push**, verify-all đầy đủ đạt): `compute.ts` (`pair`/`inverted`), test `compute.test.ts`, bước smoke "Giờ ra ≤ giờ vào" trong `timesheet-smoke.sh`, AGENTS.md, TASKS.md. Còn: push khi người dùng bảo (push = deploy); sau deploy TSNV002 04/11 thành 0 công nếu kỳ chưa khóa — `[opus high]`
-3. Trang chủ mobile ngày nghỉ theo `shift.workDays` vẫn hiện ca + "Vào ca": vẫn cho chấm, dòng ca đổi thành "Hôm nay nghỉ" — `[opus high]`
+3. ~~Trang chủ mobile ngày nghỉ~~ — đã sửa (16/11, đã commit, chưa push): `apps/mobile/src/store.ts` `sh.off` theo `workDays` → dòng ca "Hôm nay nghỉ · <ca>, T2–T6", vẫn cho chấm ("Đã ghi nhận"), ra ca không hỏi về sớm. Đã kiểm simulator bản local, verify-all --quick đạt.
 
 ## Mẹo
 - API local không tự nạp code: sửa API xong chạy lại `bash tools/dev-backend.sh` trước smoke. verify-all đầy đủ mất ~15 phút, reset DB nhiều lần.

@@ -12,12 +12,12 @@
 - [x] Cho nghỉ việc: `offboard_employee` + vòng quét qua ngày cuối + hộp web (hủy đơn chờ, khóa tài khoản)
 - [x] Tạm nghỉ: `employee_pauses` + ngày `paused` trong bảng công + trừ phép năm theo lý do + hộp web
 - [x] Test app simulator online TSNV002 + sửa nút/ghi chú trống chữ, nhãn vỡ dòng, giải trình giờ ngược (8113500)
-- [ ] Trang chủ mobile ngày nghỉ theo `shift.workDays` vẫn hiện ca + "Vào ca" (đề xuất: vẫn cho chấm, đổi dòng ca thành "Hôm nay nghỉ") — [opus high]
+- [x] Trang chủ mobile ngày nghỉ theo `shift.workDays`: dòng ca "Hôm nay nghỉ", vẫn cho chấm (16/11/2026, `store.ts`)
 - [x] Ngày có giờ vào > giờ ra (dữ liệu cũ, vd TSNV002 04/11) vẫn 1 công trong `computeDay` → đổi luật (16/11): giờ ra ≤ giờ vào = Thiếu ra, 0 công
 - [ ] Thông báo duyệt sửa hồ sơ lặp chữ "Sửa hồ sơ Sửa email…" — [sonnet]
 - [ ] Màn "Xem số tài khoản" (`employee.sensitive.read`, audit khi xem) — [opus xhigh]
 - [x] Lương người vào/nghỉ giữa kỳ (16/11/2026, cách a — công chuẩn cả kỳ, xem HANDOFF): ngày ngoài hire..termination bị bỏ khỏi công chuẩn (`compute.ts` not_employed) → vào làm 13/26 ngày vẫn đủ lương tháng; chốt cách tính công chuẩn rồi sửa — [opus xhigh]
-- [ ] Push `2b7babf` (= deploy) rồi xem online (chỉ đọc) kỳ công đã khóa có người vào/nghỉ giữa kỳ — khóa/chốt lại phải hỏi người dùng — [opus high]
+- [ ] Push `2b7babf`, `f589ec2`, bản mobile (= deploy) rồi xem online (chỉ đọc) kỳ công đã khóa có người vào/nghỉ giữa kỳ — khóa/chốt lại phải hỏi người dùng — [opus high]
 - [ ] (Tùy chọn) Tạm nghỉ: mobile báo "Đang tạm nghỉ" ở màn chấm công; tính 50% theo ngày làm việc của ca thay vì ngày lịch; tạm ứng khi đang tạm nghỉ — [opus high]
 - [ ] (Tùy chọn) Chuyển người duyệt khi quản lý trực tiếp nghỉ việc (bước "Quản lý trực tiếp" giao đích danh, hiện chỉ cảnh báo) — [opus high]
 - [x] Nút "Nhắc" (chấm công/giấy tờ/bản tin): `notify_reminders` + 3 endpoint HR + nút web + icon fallback web/mobile
