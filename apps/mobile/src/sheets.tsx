@@ -170,7 +170,7 @@ export function SheetContent({ kind, arg }: { kind: SheetKind; arg?: string }) {
         const req = x.request;
         const result = x.kind === "holiday" ? `Nghỉ lễ${x.holidayName ? ` · ${x.holidayName}` : ""}` : x.kind === "off" ? "Ngày nghỉ" : x.kind === "today" ? "Đang tính"
           : x.kind === "leave" ? `${x.credit ? "1 công" : "0 công"} · ${x.leave?.typeName ?? "nghỉ phép"} theo ${x.leave?.requestNo ?? "đơn"}`
-          : `${x.credit ? "1 công" : "0 công"}${x.adjusted && req ? ` · đã điều chỉnh theo ${req.no}` : req?.status === "pending" ? ` · chờ duyệt ${req.no}` : x.issue ? ` · ${issueText(x)}` : ""}`;
+          : `${x.credit ? "1 công" : "0 công"}${x.hrAdjustment ? " · HR đã điều chỉnh" : x.adjusted && req ? ` · đã điều chỉnh theo ${req.no}` : req?.status === "pending" ? ` · chờ duyệt ${req.no}` : x.issue ? ` · ${issueText(x)}` : ""}`;
         const miss = (v: string | null) => v ? null : <T style={{ color: x.kind === "work" ? C.bad : C.ink3, fontFamily: F.medium }}>--:--</T>;
         return <>
           <H3>{WD_ISO_FULL[x.weekday]}, {ddmm(x.date)}</H3><Sub>{x.shift ? `${x.shift.name} · ${x.shift.start} – ${x.shift.end}` : "Không có ca làm việc"}</Sub>
@@ -178,7 +178,7 @@ export function SheetContent({ kind, arg }: { kind: SheetKind; arg?: string }) {
             <SecT style={{ marginTop: 10 }}>Bản ghi gốc</SecT>
             <Ln k="Vào ca" v={miss(x.rawIn) ?? x.rawIn!} />
             <Ln k="Ra ca" v={miss(x.rawOut) ?? x.rawOut!} />
-            {x.adjusted ? <><SecT style={{ marginTop: 10 }}>Ghi nhận sau điều chỉnh</SecT><Ln k="Vào ca" v={x.clockIn ?? "--:--"} /><Ln k="Ra ca" v={x.clockOut ?? "--:--"} /></> : null}
+            {x.adjusted ? <><SecT style={{ marginTop: 10 }}>Ghi nhận sau điều chỉnh</SecT><Ln k="Vào ca" v={x.clockIn ?? "--:--"} /><Ln k="Ra ca" v={x.clockOut ?? "--:--"} />{x.hrAdjustment ? <Ln k="Lý do" v={x.hrAdjustment.reason} /> : null}</> : null}
           </Box> : null}
           <Box>
             {x.workedMinutes ? <Ln k="Giờ làm" v={gh(x.workedMinutes)} /> : null}

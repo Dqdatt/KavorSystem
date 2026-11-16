@@ -43,6 +43,15 @@ test("điều chỉnh đã duyệt ghi đè giờ khi tính, giữ giờ gốc",
   assert.equal(d.credit, 1);
   assert.equal(d.rawOut, null);
   assert.equal(d.clockOut, "17:00");
+  assert.equal(d.hrAdjustment, undefined);
+});
+
+test("HR sửa trực tiếp: giờ đã sửa được tính, ngày mang lý do", () => {
+  const d = day("2026-10-20", [["in", "08:10"], ["out", "19:51"]], { adjustment: { clockIn: "08:23", clockOut: "19:51", hrReason: "Duyệt nhầm giờ" } });
+  assert.equal(d.credit, 1);
+  assert.equal(d.clockIn, "08:23");
+  assert.equal(d.rawIn, "08:10");
+  assert.deepEqual(d.hrAdjustment, { reason: "Duyệt nhầm giờ" });
 });
 
 test("giờ ra ≤ giờ vào: thiếu giờ ra, 0 công, không tính muộn/sớm; nghỉ nửa ngày có lương giữ 0,5", () => {

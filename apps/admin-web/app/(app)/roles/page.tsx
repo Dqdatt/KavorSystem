@@ -15,7 +15,7 @@ const STATE: Record<RoleAssignmentRow["state"], [string, string]> = { active: ["
 const PMODS: Array<[string, string]> = [["nv", "Nhân viên & hồ sơ"], ["cc", "Chấm công & thiết bị"], ["np", "Nghỉ phép"], ["don", "Đơn từ"], ["luong", "Lương & tạm ứng"], ["tl", "Tài liệu"], ["bt", "Bản tin"], ["ch", "Cấu hình doanh nghiệp"], ["nk", "Nhật ký hệ thống"]];
 const PERM_MAP: Record<string, string> = {
   "employee.read": "nv.v", "employee.self.read": "nv.v", "employee.sensitive.read": "nv.v", "employee.create": "nv.s", "employee.update": "nv.s",
-  "attendance.read": "cc.v", "schedule.read": "cc.v", "overtime.read": "cc.v", "attendance.self.clock": "cc.s", "attendance.device.manage": "cc.s", "schedule.manage": "cc.s", "timesheet.lock": "cc.a", "timesheet.unlock": "cc.a",
+  "attendance.read": "cc.v", "schedule.read": "cc.v", "overtime.read": "cc.v", "attendance.self.clock": "cc.s", "attendance.device.manage": "cc.s", "attendance.adjust": "cc.s", "schedule.manage": "cc.s", "timesheet.lock": "cc.a", "timesheet.unlock": "cc.a",
   "leave.read": "np.v", "leave.manage": "np.s",
   "request.read": "don.v", "request.self.create": "don.s", "request.hr_review": "don.a", "approval.pending": "don.v",
   "compensation.read": "luong.v", "payroll.read": "luong.v", "payroll.self.read": "luong.v", "compensation.manage": "luong.s", "payroll.import": "luong.s", "payroll.config.manage": "luong.s",

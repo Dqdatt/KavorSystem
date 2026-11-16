@@ -97,7 +97,7 @@ export function profileSpec(): ScreenSpec {
 const NOTIF_ICON: Partial<Record<NotificationKind, IconName>> = {
   "approval.pending": "file", "approval.due": "hour", "request.approved": "checks", "request.rejected": "alert", "device.approved": "phone", "device.rejected": "phone", "advance.paid": "cash",
   "payslip.published": "receipt", "announcement.published": "news",
-  "reminder.attendance": "tap", "reminder.documents": "doc", "reminder.announcement": "news",
+  "attendance.adjusted": "tap", "reminder.attendance": "tap", "reminder.documents": "doc", "reminder.announcement": "news",
 };
 function whenLabel(iso: string) {
   const d = new Date(iso), now = new Date();

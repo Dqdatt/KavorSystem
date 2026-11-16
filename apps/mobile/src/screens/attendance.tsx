@@ -69,6 +69,7 @@ function tsModel(d: TimesheetDay, filtered?: boolean): RowModel {
   const shiftMin = d.shift ? toMin(d.shift.end) - toMin(d.shift.start) - S.sh.breakMin : shiftMinutes();
   const req = d.request;
   const note: [string, string] | null = d.kind === "holiday" ? [d.holidayName ?? "Nghỉ lễ", "mute"]
+    : d.hrAdjustment ? ["HR đã điều chỉnh", "ok"]
     : req && req.status === "approved" ? [`Đã điều chỉnh theo ${req.no}`, "ok"]
     : req && req.status === "pending" ? ["Giải trình đang chờ duyệt", "warn"]
     : d.issue === "missing_in" ? ["Thiếu giờ vào", "bad"] : d.issue === "missing_out" ? ["Thiếu giờ ra", "bad"] : d.issue === "absent" ? ["Không chấm công", "bad"]

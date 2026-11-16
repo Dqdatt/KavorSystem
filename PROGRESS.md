@@ -10,6 +10,10 @@ simulator hay iPhone** vì phiên cloud không có Mac). Người dùng giao "c�
 ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AGENT_PLAYBOOK.md`; kiểm tra toàn bộ bằng `bash tools/verify-all.sh`.
 
 ## Đã xong
+- HR điều chỉnh công (16/11, Claude Desktop): migration `202612060001_attendance_hr_adjust.sql` (quyền `attendance.adjust` cho HCNS + Quản trị viên công ty,
+  thông báo `attendance.adjusted`, `hr_adjust_attendance` ghi điều chỉnh không gắn đơn + nhật ký vào hồ sơ + thông báo trong một giao dịch), pgTAP 18,
+  API `POST admin/timesheets/:employeeId/adjust` (+ `canAdjust`, `TimesheetDay.hrAdjustment`), bước smoke trong `timesheet-smoke.sh`, web nút "Sửa giờ"
+  ở ngăn kéo chấm công, mobile nhãn "HR đã điều chỉnh" + lý do. Ngoài prototype (prototype không có màn này).
 - Tạm nghỉ (15/11, Claude Desktop): migration `202612050001_employee_pause.sql` (bảng `employee_pauses`, `pause_employee`, `end_employee_pause`,
   `apply_due_pauses`, trigger cắt khi ghi ngày cuối), pgTAP 23, API `POST admin/employees/:id/pause|pause/end`, ngày `paused` trong bảng công,
   trừ phép năm theo lý do (NĐ 145/2020), chặn chấm công/đơn nghỉ, smoke `pause-smoke.sh`, web hộp Tạm nghỉ + Kết thúc tạm nghỉ.

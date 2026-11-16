@@ -125,14 +125,14 @@ export class TimesheetService {
     return { events, adjustments };
   }
 
-  /* Điều chỉnh đã duyệt của ngày: bản sau ghi đè từng giờ vào/ra của bản trước */
+  /* Điều chỉnh của ngày (giải trình đã duyệt hoặc HR sửa trực tiếp): bản sau ghi đè từng giờ vào/ra của bản trước */
   private async adjustments(db: Db, tenantId: string, ids: string[], start: string, end: string) {
-    const { data, error } = await db.from("attendance_adjustments").select("employee_id, work_date, clock_in, clock_out, created_at").eq("tenant_id", tenantId).in("employee_id", ids).gte("work_date", start).lte("work_date", end).order("created_at");
+    const { data, error } = await db.from("attendance_adjustments").select("employee_id, work_date, clock_in, clock_out, request_id, reason, created_at").eq("tenant_id", tenantId).in("employee_id", ids).gte("work_date", start).lte("work_date", end).order("created_at");
     if (error) throw error;
     const adj = new Map<string, DayAdjustment>();
-    for (const a of (data ?? []) as Array<{ employee_id: string; work_date: string; clock_in: string | null; clock_out: string | null }>) {
+    for (const a of (data ?? []) as Array<{ employee_id: string; work_date: string; clock_in: string | null; clock_out: string | null; request_id: string | null; reason: string }>) {
       const k = `${a.employee_id}|${a.work_date}`, prev = adj.get(k);
-      adj.set(k, { clockIn: a.clock_in?.slice(0, 5) ?? prev?.clockIn ?? null, clockOut: a.clock_out?.slice(0, 5) ?? prev?.clockOut ?? null });
+      adj.set(k, { clockIn: a.clock_in?.slice(0, 5) ?? prev?.clockIn ?? null, clockOut: a.clock_out?.slice(0, 5) ?? prev?.clockOut ?? null, hrReason: a.request_id ? null : a.reason });
     }
     return adj;
   }

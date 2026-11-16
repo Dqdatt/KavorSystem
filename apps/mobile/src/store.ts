@@ -1751,7 +1751,7 @@ export const ACT = {
 };
 
 /* Nhắc từ HR không có link: đưa thẳng về màn tương ứng (reminder.announcement đã có link bản tin) */
-export const REMINDER_GO: Partial<Record<string, Route>> = { "reminder.attendance": "clock", "reminder.documents": "docs" };
+export const REMINDER_GO: Partial<Record<string, Route>> = { "attendance.adjusted": "attendance", "reminder.attendance": "clock", "reminder.documents": "docs" };
 
 export function advError() {
   if (REMOTE) {

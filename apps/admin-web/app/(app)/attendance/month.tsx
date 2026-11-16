@@ -126,6 +126,7 @@ export function EmployeeMonth({ id, month, onClose, onChanged }: { id: string; m
   const me = useMe();
   const { data: e, error, reload } = useApi<EmployeeTimesheet>(`timesheets/${id}${month ? `?month=${month}` : ""}`);
   const [req, setReq] = useState<RequestItem | null>(null);
+  const [adj, setAdj] = useState<TimesheetDay | null>(null);
   const tz = me.tenant.timezone;
   const missing = (e?.days ?? []).filter((d) => (d.issue === "missing_in" || d.issue === "missing_out" || d.issue === "absent") && (!d.request || d.request.status === "rejected" || d.request.status === "cancelled"));
   const days = (e?.days ?? []).filter((d) => d.kind !== "future" && d.kind !== "not_employed").slice().reverse();
@@ -151,7 +152,7 @@ export function EmployeeMonth({ id, month, onClose, onChanged }: { id: string; m
         </div>
         <div className="drawer-section"><h4>Từng ngày</h4>
           <div className="card"><div className="table-wrap"><table className="data-table compact"><thead><tr><th>Ngày</th><th>Vào</th><th>Ra</th><th>Giờ làm</th><th>Ghi chú</th></tr></thead><tbody>
-            {days.map((d) => <DayRow key={d.date} d={d} onRequest={() => { const r = e.requests.find((x) => x.id === d.request?.id); if (r) setReq(r); }} />)}
+            {days.map((d) => <DayRow key={d.date} d={d} onAdjust={e.canAdjust && d.request?.status !== "pending" ? () => setAdj(d) : undefined} onRequest={() => { const r = e.requests.find((x) => x.id === d.request?.id); if (r) setReq(r); }} />)}
           </tbody></table></div></div>
         </div>
         <div className="drawer-section"><h4>Giải trình trong kỳ</h4>
@@ -161,15 +162,17 @@ export function EmployeeMonth({ id, month, onClose, onChanged }: { id: string; m
         </div>
       </> : (error ? null : <SkeletonLines lines={6} avatar />)}
       {e ? <div className="drawer-section"><Link className="btn" href={`/employees/${id}`}>Mở hồ sơ</Link></div> : null}
+      {adj ? <AdjustModal id={id} d={adj} onClose={() => setAdj(null)} onDone={() => { setAdj(null); void reload(); onChanged(); }} /> : null}
       {req ? <RequestModal r={req} onClose={() => setReq(null)} onDone={() => { void reload(); onChanged(); }} /> : null}
     </Drawer>
   );
 }
 
-function DayRow({ d, onRequest }: { d: TimesheetDay; onRequest: () => void }) {
-  const t = (v: string | null, raw: string | null) => v ? <>{v}{d.adjusted && v !== raw ? <span className="source-tag" title={`Chấm công gốc: ${raw ?? "--:--"}`}>điều chỉnh</span> : null}</> : <span className="muted">--:--</span>;
+function DayRow({ d, onRequest, onAdjust }: { d: TimesheetDay; onRequest: () => void; onAdjust?: () => void }) {
+  const t = (v: string | null, raw: string | null) => v ? <>{v}{d.adjusted && v !== raw ? <span className="source-tag" title={`Chấm công gốc: ${raw ?? "--:--"}${d.hrAdjustment ? ` · Lý do: ${d.hrAdjustment.reason}` : ""}`}>điều chỉnh</span> : null}</> : <span className="muted">--:--</span>;
   const note = d.kind === "holiday" ? <Status v={[d.holidayName ?? "Ngày lễ", "info"]} /> : d.kind === "off" ? <span className="muted">Ngày nghỉ</span> : d.kind === "paused" ? <span className="muted">Tạm nghỉ</span>
     : d.leave && !d.issue ? <Status v={[`${d.leave.typeName}${d.leave.half === "am" ? " | sáng" : d.leave.half === "pm" ? " | chiều" : ""} | ${d.leave.requestNo}`, "info"]} />
+    : d.hrAdjustment ? <span className="muted" title={`Lý do: ${d.hrAdjustment.reason}`}>HR điều chỉnh</span>
     : d.request ? <button className="btn small" title={REQUEST_STATUS[d.request.status][0]} onClick={onRequest}>{d.request.no}{d.request.status === "pending" ? <><i className="vs" />chờ</> : null}</button>
     : d.issue ? <Status v={ISSUE[d.issue] ?? [d.issue, "warn"]} /> : d.kind === "today" ? <span className="muted">Hôm nay</span> : null;
   return (
@@ -178,8 +181,27 @@ function DayRow({ d, onRequest }: { d: TimesheetDay; onRequest: () => void }) {
       <td>{d.kind === "off" && !d.clockIn ? "" : t(d.clockIn, d.rawIn)}{d.lateMinutes ? <small className="text-red"> +{d.lateMinutes}′</small> : null}</td>
       <td>{d.kind === "off" && !d.clockOut ? "" : t(d.clockOut, d.rawOut)}{d.earlyMinutes ? <small className="text-red"> −{d.earlyMinutes}′</small> : null}</td>
       <td className="num">{d.workedMinutes ? `${Math.floor(d.workedMinutes / 60)}:${String(d.workedMinutes % 60).padStart(2, "0")}` : "—"}</td>
-      <td>{note}{d.overtime ? <OtTag ot={d.overtime} /> : null}</td>
+      <td>{note}{d.overtime ? <OtTag ot={d.overtime} /> : null}{onAdjust ? <button className="btn small ghost" onClick={onAdjust} title="Sửa giờ" aria-label={`Sửa giờ ngày ${fmtDate(d.date)}`}><Icon name="edit" size={14} /></button> : null}</td>
     </tr>
+  );
+}
+
+function AdjustModal({ id, d, onClose, onDone }: { id: string; d: TimesheetDay; onClose: () => void; onDone: () => void }) {
+  const [clockIn, setClockIn] = useState(d.clockIn ?? d.shift?.start ?? "");
+  const [clockOut, setClockOut] = useState(d.clockOut ?? d.shift?.end ?? "");
+  const [reason, setReason] = useState("");
+  const { busy, run } = useAction();
+  const ok = !!clockIn && !!clockOut && reason.trim().length >= 5;
+  const submit = async () => { if (await run("adjust", () => call("POST", `timesheets/${id}/adjust`, { date: d.date, clockIn, clockOut, reason: reason.trim() }), "Đã lưu điều chỉnh công")) onDone(); };
+  return (
+    <Modal title={`Sửa giờ công ${fmtDate(d.date)}`} sub={`${d.rawIn || d.rawOut ? `Chấm công gốc: ${d.rawIn ?? "--:--"} – ${d.rawOut ?? "--:--"}` : "Không có chấm công gốc"}. Nhân viên sẽ nhận thông báo kèm lý do.`} onClose={onClose}
+      foot={<><button className="btn ghost" onClick={onClose}>Hủy</button><button className="btn primary" disabled={!!busy || !ok} onClick={submit}>{busy ? "Đang lưu…" : "Lưu điều chỉnh"}</button></>}>
+      <div className="form-grid">
+        <Field label="Giờ vào"><input type="time" value={clockIn} onChange={(ev) => setClockIn(ev.target.value)} /></Field>
+        <Field label="Giờ ra"><input type="time" value={clockOut} onChange={(ev) => setClockOut(ev.target.value)} /></Field>
+        <Field label="Lý do" note="Tối thiểu 5 ký tự" full><textarea rows={3} maxLength={500} value={reason} onChange={(ev) => setReason(ev.target.value)} /></Field>
+      </div>
+    </Modal>
   );
 }
 

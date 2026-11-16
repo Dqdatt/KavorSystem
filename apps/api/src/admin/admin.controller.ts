@@ -265,6 +265,8 @@ export class AdminController {
   }
   @Get("timesheets/:employeeId")
   employeeTimesheet(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("employeeId") id: string, @Query("month") month?: string) { return this.run(r, a, (s, c) => s.timesheets.employee(c, id, month)); }
+  @Post("timesheets/:employeeId/adjust") @HttpCode(200)
+  adjustTimesheet(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Param("employeeId") id: string, @Body() b: Json) { return this.run(r, a, (s, c) => s.timesheets.adjust(c, id, b)); }
   @Post("timesheets/lock") @HttpCode(200)
   lockTimesheet(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Body() b: Json) { return this.run(r, a, (s, c) => s.timesheets.lock(c, b)); }
   @Post("timesheets/unlock") @HttpCode(200)

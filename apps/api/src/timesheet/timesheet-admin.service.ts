@@ -2,10 +2,27 @@
    Khóa kỳ lưu ảnh chụp bảng công của toàn công ty; sau đó mọi nơi đọc ảnh chụp, đơn giải trình của kỳ bị chặn. */
 import type { EmployeeTimesheet, TimesheetBoard, TimesheetRow, TimesheetSummary } from "@kavor/contracts";
 import { conflict, invalid, notFound, type AdminContext } from "../admin/context.js";
-import { nullableText, type Body } from "../admin/validate.js";
+import { date, nullableText, time, type Body } from "../admin/validate.js";
 import { MONTH, EMP_LITE, type EmployeeLite, type Sheets, type TimesheetService } from "./timesheet.service.js";
 import { viewerOf, type RequestsService } from "./requests.service.js";
-import { gridCell, periodOf } from "./compute.js";
+import { gridCell, monthOf, periodOf } from "./compute.js";
+
+/* Lỗi của hàm SQL hr_adjust_attendance → HTTP */
+const ADJUST_ERRORS: Record<string, [number, string]> = {
+  ADJUST_SELF: [409, "Bạn không thể tự điều chỉnh công của mình."],
+  ADJUST_TIME_INVALID: [400, "Giờ ra phải sau giờ vào."],
+  ADJUST_REASON_INVALID: [400, "Ghi lý do điều chỉnh (5–500 ký tự)."],
+  ADJUST_DATE_FUTURE: [400, "Không điều chỉnh công của ngày chưa tới."],
+  ADJUST_NOT_EMPLOYED: [400, "Ngày này nằm ngoài thời gian làm việc của nhân viên."],
+  ADJUST_REQUEST_PENDING: [409, "Ngày này có đơn giải trình đang chờ duyệt. Duyệt hoặc từ chối đơn đó trước."],
+  PERIOD_LOCKED: [409, "Kỳ công chứa ngày này đã khóa. Mở khóa kỳ công trước."],
+};
+function adjustError(error: { message?: string }) {
+  if (error.message?.includes("EMPLOYEE_NOT_FOUND")) return notFound("nhân viên");
+  const hit = Object.entries(ADJUST_ERRORS).find(([k]) => error.message?.includes(k));
+  if (!hit) return error;
+  return hit[1][0] === 400 ? invalid(hit[1][1]) : conflict(hit[1][1]);
+}
 
 const rowStatus = (s: TimesheetSummary): TimesheetRow["status"] => (s.missingDays > 0 ? "short" : s.pendingRequests > 0 ? "needs_action" : "ok");
 
@@ -66,7 +83,31 @@ export class TimesheetAdmin {
     const { data } = await ctx.db.from("requests").select("id").eq("tenant_id", ctx.tenantId).eq("requester_employee_id", employeeId)
       .gte("work_date", sheets.period.start).lte("work_date", sheets.period.end).order("submitted_at", { ascending: false });
     const requests = ctx.can("request.read") ? await this.requests.items(ctx.db, viewerOf(ctx), ((data ?? []) as Array<{ id: string }>).map((r) => r.id)) : [];
-    return { period: sheets.period, timezone: sheets.timezone, employee: row.employee, days: s.days, summary: s.summary, requests };
+    const canAdjust = !sheets.lock && employeeId !== ctx.actor?.id && ctx.can("attendance.adjust")
+      && await ctx.requireEmployee("attendance.adjust", employeeId).then(() => true, () => false);
+    return { period: sheets.period, timezone: sheets.timezone, employee: row.employee, days: s.days, summary: s.summary, requests, canAdjust };
+  }
+
+  /* HR sửa giờ vào/ra của một ngày, không qua đơn. Hàm SQL kiểm lại ngày, người sửa, đơn chờ, kỳ khóa và ghi điều chỉnh + nhật ký + thông báo
+     trong một giao dịch. Giờ trước khi sửa lấy từ bảng công để lưu nhật ký. */
+  async adjust(ctx: AdminContext, employeeId: string, b: Body): Promise<EmployeeTimesheet> {
+    await ctx.requireEmployee("attendance.adjust", employeeId);
+    await ctx.requireEmployee("attendance.read", employeeId);
+    if (employeeId === ctx.actor?.id) throw conflict(ADJUST_ERRORS.ADJUST_SELF![1]);
+    const day = date(b, "date")!, clockIn = time(b, "clockIn")!, clockOut = time(b, "clockOut")!;
+    if (clockOut <= clockIn) throw invalid(ADJUST_ERRORS.ADJUST_TIME_INVALID![1]);
+    const reason = nullableText(b, "reason", 500);
+    if (!reason || reason.length < 5) throw invalid(ADJUST_ERRORS.ADJUST_REASON_INVALID![1]);
+    const month = monthOf(day, (await this.timesheets.tenantClock(ctx.db, ctx.tenantId)).periodStartDay);
+    const lite = await this.requests.lite(ctx.db, ctx.tenantId, [employeeId]);
+    const d = (await this.timesheets.build(ctx.tenantId, lite, month)).sheets.get(employeeId)?.days.find((x) => x.date === day);
+    const before = d ? { clockIn: d.clockIn, clockOut: d.clockOut, rawIn: d.rawIn, rawOut: d.rawOut, credit: d.credit, issue: d.issue } : null;
+    const { error } = await ctx.db.rpc("hr_adjust_attendance", {
+      p_tenant: ctx.tenantId, p_employee: employeeId, p_date: day, p_in: clockIn, p_out: clockOut, p_reason: reason,
+      p_user: ctx.userId, p_before: before, p_correlation: ctx.correlationId,
+    });
+    if (error) throw adjustError(error);
+    return this.employee(ctx, employeeId, month);
   }
 
   /* Khóa kỳ: chỉ khi kỳ đã kết thúc; ảnh chụp gồm mọi nhân viên của công ty (không chỉ phạm vi người khóa) */

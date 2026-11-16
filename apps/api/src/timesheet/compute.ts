@@ -32,7 +32,8 @@ export const hm = (min: number) => `${pad(Math.floor(min / 60))}:${pad(min % 60)
 
 /* ---------- Ngày ---------- */
 export type DayEvent = { kind: "in" | "out"; minute: number };
-export type DayAdjustment = { clockIn: string | null; clockOut: string | null };
+/* hrReason: lý do khi bản điều chỉnh mới nhất do HR sửa trực tiếp (không gắn đơn) */
+export type DayAdjustment = { clockIn: string | null; clockOut: string | null; hrReason?: string | null };
 export type DayRequest = { id: string; no: string; status: RequestStatus };
 /* Nghỉ phép đã duyệt của ngày */
 export type DayLeave = { typeName: string; half: LeaveHalf; paid: boolean; requestNo: string };
@@ -99,6 +100,7 @@ export function computeDay(i: DayInput): Omit<TimesheetDay, "canExplain" | "expl
     date: i.date, weekday, holidayName: i.holiday, shift: shift ? { name: shift.name, start: shift.start, end: shift.end } : null,
     clockIn: inMin == null ? null : hm(inMin), clockOut: outMin == null ? null : hm(outMin),
     rawIn: rawIn == null ? null : hm(rawIn), rawOut: rawOut == null ? null : hm(rawOut), adjusted: !!i.adjustment,
+    ...(i.adjustment?.hrReason ? { hrAdjustment: { reason: i.adjustment.hrReason } } : {}),
     request: i.request, overtime: overtimeOf(i.overtime, inMin, outMin, i.date < i.today),
   };
   const workday = !!shift && shift.workDays.includes(weekday) && !i.holiday;

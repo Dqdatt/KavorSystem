@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Kiểm thử công tháng + giải trình + luồng duyệt: bảng công tính từ chấm công mẫu, gửi giải trình (lượt, hạn, trùng ngày),
-# Quản lý → HR duyệt tạo điều chỉnh, từ chối/hủy, không tự duyệt, phạm vi quản lý, khóa/mở kỳ, xuất CSV, đổi luồng duyệt.
+# Quản lý → HR duyệt tạo điều chỉnh, từ chối/hủy, không tự duyệt, HR điều chỉnh công trực tiếp, phạm vi quản lý, khóa/mở kỳ, xuất CSV, đổi luồng duyệt.
 # Cần DB vừa reset (bash tools/db-reset.sh) và API đang chạy (bash tools/dev-backend.sh).
 set -euo pipefail
 source "$(dirname "$0")/smoke-lib.sh"
@@ -102,6 +102,19 @@ echo "— Giờ ra ≤ giờ vào (dữ liệu cũ)"
 # Điều chỉnh cũ chỉ ghi giờ vào 17:30, sau giờ ra đã chấm 17:05 (API nay chặn, nên ghi thẳng DB)
 sql "insert into public.attendance_adjustments (tenant_id,employee_id,work_date,clock_in,reason) values ('10000000-0000-4000-8000-000000000001','$HA','$OKDAY','17:30','Smoke: giờ vào sau giờ ra')" >/dev/null
 check "Giờ ra ≤ giờ vào: thiếu ra, 0 công, không tính muộn, được giải trình" "$(call GET "me/timesheet?month=$(month_for "$OKDAY")" "$EMP" | py "[(x['clockIn'], x['clockOut'], x['issue'], x['credit'], x['lateMinutes'], x['canExplain']) for x in d['days'] if x['date']=='$OKDAY'][0]")" "('17:30', '17:05', 'missing_out', 0, 0, True)"
+
+echo "— HR điều chỉnh công"
+ADJ="admin/timesheets/$HA/adjust"
+B="{\"date\":\"$OKDAY\",\"clockIn\":\"07:52\",\"clockOut\":\"17:05\",\"reason\":\"Giải trình duyệt nhầm giờ vào\"}"
+check "Quản lý không có quyền điều chỉnh công" "$(status POST "$ADJ" "$MGRW" "$B")" 403
+check "Thiếu lý do → 400" "$(status POST "$ADJ" "$HR" "{\"date\":\"$OKDAY\",\"clockIn\":\"07:52\",\"clockOut\":\"17:05\"}")" 400
+check "Giờ ra trước giờ vào → 400" "$(status POST "$ADJ" "$HR" "{\"date\":\"$OKDAY\",\"clockIn\":\"17:05\",\"clockOut\":\"07:52\",\"reason\":\"Thử giờ ngược\"}")" 400
+check "Ngày chưa tới → 400" "$(status POST "$ADJ" "$HR" "{\"date\":\"$(today 1)\",\"clockIn\":\"07:52\",\"clockOut\":\"17:05\",\"reason\":\"Thử ngày mai\"}")" 400
+HRID=$(sql "select id from public.employees where employee_code='HD0007'")
+check "HR không tự điều chỉnh công của mình" "$(status POST "admin/timesheets/$HRID/adjust" "$HR" "$B")" 409
+check "HR sửa giờ: 1 công, giữ giờ gốc, có lý do" "$(call POST "$ADJ" "$HR" "$B" | py "(d['canAdjust'],)+[(x['clockIn'], x['clockOut'], x['rawIn'], x['credit'], x['issue'], x['hrAdjustment']['reason']) for x in d['days'] if x['date']=='$OKDAY'][0]")" "(True, '07:52', '17:05', '07:52', 1, None, 'Giải trình duyệt nhầm giờ vào')"
+check "Nhân viên thấy lý do và nhận thông báo" "$(call GET "me/timesheet?month=$(month_for "$OKDAY")" "$EMP" | py "[x['hrAdjustment']['reason'] for x in d['days'] if x['date']=='$OKDAY'][0]")|$(call GET me/notifications "$EMP" | py "d['items'][0]['kind']")" "Giải trình duyệt nhầm giờ vào|attendance.adjusted"
+check "Hồ sơ có nhật ký điều chỉnh công" "$(call GET admin/employees/$HA "$HR" | py "[(x['reason'], x['before']['clockIn'], x['after']['clock_in']) for x in d['audit'] if x['action']=='attendance.adjusted'][0]")" "('Giải trình duyệt nhầm giờ vào', '17:30', '07:52')"
 
 echo "— Bảng công web, phạm vi, khóa kỳ"
 r=$(call GET admin/timesheets "$HR")

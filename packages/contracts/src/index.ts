@@ -848,6 +848,8 @@ export type TimesheetDay = {
   rawIn: string | null;
   rawOut: string | null;
   adjusted: boolean;
+  /* Điều chỉnh mới nhất của ngày do HR sửa trực tiếp (không qua đơn): lý do hiện cho nhân viên và HR (bản lưu cũ không có) */
+  hrAdjustment?: { reason: string } | null;
   lateMinutes: number;
   earlyMinutes: number;
   workedMinutes: number;
@@ -1384,7 +1386,7 @@ export type LeaveAdjustInput = { year: number; amount: number; reason: string; c
 
 /* ---------- Thông báo trong app ---------- */
 export type NotificationKind = "approval.pending" | "approval.due" | "request.approved" | "request.rejected" | "device.approved" | "device.rejected" | "advance.paid" | "payslip.published" | "announcement.published"
-  | "reminder.attendance" | "reminder.documents" | "reminder.announcement";
+  | "reminder.attendance" | "reminder.documents" | "reminder.announcement" | "attendance.adjusted";
 export type AppNotification = {
   id: string; kind: NotificationKind; title: string; body: string; createdAt: string; readAt: string | null;
   link: { type: "request" | "device" | "payslip" | "announcement"; id: string; no: string | null } | null;
@@ -1414,7 +1416,11 @@ export type TimesheetBoard = {
   /* Các kỳ khóa trước đây (để mở lại/đối chiếu) */
   canLock: boolean; canUnlock: boolean;
 };
-export type EmployeeTimesheet = { period: TimesheetPeriod; timezone: string; employee: TimesheetRow["employee"]; days: TimesheetDay[]; summary: TimesheetSummary; requests: RequestItem[] };
+export type EmployeeTimesheet = { period: TimesheetPeriod; timezone: string; employee: TimesheetRow["employee"]; days: TimesheetDay[]; summary: TimesheetSummary; requests: RequestItem[];
+  /* Người xem được sửa giờ ngày công của nhân viên này (quyền attendance.adjust trong phạm vi, không phải chính mình, kỳ chưa khóa) */
+  canAdjust: boolean };
+/* POST /admin/timesheets/:employeeId/adjust — HR sửa giờ vào/ra của một ngày (không qua đơn), trả lại EmployeeTimesheet của kỳ chứa ngày đó */
+export type TimesheetAdjustInput = { date: string; clockIn: string; clockOut: string; reason: string };
 /* Danh sách đơn web HR: lọc + phân trang ở máy chủ. Ngày áp dụng: giải trình/OT = ngày công, nghỉ phép = từ–đến, tạm ứng = tháng khấu trừ,
    sửa hồ sơ = không có (lọc theo ngày gửi). status "closed" = từ chối + đã hủy. */
 /* done = đã xử lý (duyệt + từ chối/hủy) */

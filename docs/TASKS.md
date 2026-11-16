@@ -18,7 +18,8 @@
 - [ ] Màn "Xem số tài khoản" (`employee.sensitive.read`, audit khi xem) — [opus xhigh]
 - [x] Lương người vào/nghỉ giữa kỳ (16/11/2026, cách a — công chuẩn cả kỳ, xem HANDOFF): ngày ngoài hire..termination bị bỏ khỏi công chuẩn (`compute.ts` not_employed) → vào làm 13/26 ngày vẫn đủ lương tháng; chốt cách tính công chuẩn rồi sửa — [opus xhigh]
 - [x] Kiểm online sau deploy `79014e6` (16/11): không kỳ nào cần mở/khóa/chốt lại
-- [ ] Công cụ "HR điều chỉnh công" trên web (nút ở ngăn kéo chấm công, quyền riêng, bắt buộc lý do, nhật ký + thông báo NV, chặn kỳ đã khóa; ghi `attendance_adjustments` không gắn đơn). Lý do: giải trình duyệt nhầm giờ (TSNV002 04/11) hiện chỉ sửa được bằng SQL — [opus xhigh]
+- [x] Công cụ "HR điều chỉnh công" trên web (16/11/2026): quyền `attendance.adjust`, nút "Sửa giờ" ở ngăn kéo chấm công, lý do bắt buộc, nhật ký + thông báo NV, chặn kỳ khóa/tự sửa/ngày tới/giải trình chờ
+- [ ] (Tùy chọn) HR điều chỉnh công: xóa một giờ chấm sai (hiện chỉ đặt giờ), ca qua đêm — [opus high]
 - [ ] (Tùy chọn) Tạm nghỉ: mobile báo "Đang tạm nghỉ" ở màn chấm công; tính 50% theo ngày làm việc của ca thay vì ngày lịch; tạm ứng khi đang tạm nghỉ — [opus high]
 - [ ] (Tùy chọn) Chuyển người duyệt khi quản lý trực tiếp nghỉ việc (bước "Quản lý trực tiếp" giao đích danh, hiện chỉ cảnh báo) — [opus high]
 - [x] Nút "Nhắc" (chấm công/giấy tờ/bản tin): `notify_reminders` + 3 endpoint HR + nút web + icon fallback web/mobile

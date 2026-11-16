@@ -20,7 +20,7 @@ const AUDIT: Record<string, string> = {
   "auth.mfa_enrolled": "Bật xác thực hai lớp", "auth.mfa_verified": "Xác thực hai lớp khi đăng nhập web", "auth.mfa_reset": "Đặt lại xác thực hai lớp",
   "privacy.consented": "Đồng ý điều khoản dữ liệu cá nhân",
   "request.submitted": "Gửi đơn", "request.cancelled": "Hủy đơn", "approval.approved": "Duyệt đơn", "approval.rejected": "Từ chối đơn",
-  "leave.adjusted": "Điều chỉnh sổ phép", "leave.carry_imported": "Nhập phép tồn", "compensation.changed": "Đổi mức lương", "compensation.viewed": "Xem lương", "tax_profile.changed": "Sửa MST/công đoàn", "dependent.added": "Thêm người phụ thuộc", "dependent.changed": "Sửa người phụ thuộc", "dependent.removed": "Xóa người phụ thuộc", "salary_advance.paid": "Chi tạm ứng",
+  "attendance.adjusted": "Điều chỉnh công", "leave.adjusted": "Điều chỉnh sổ phép", "leave.carry_imported": "Nhập phép tồn", "compensation.changed": "Đổi mức lương", "compensation.viewed": "Xem lương", "tax_profile.changed": "Sửa MST/công đoàn", "dependent.added": "Thêm người phụ thuộc", "dependent.changed": "Sửa người phụ thuộc", "dependent.removed": "Xóa người phụ thuộc", "salary_advance.paid": "Chi tạm ứng",
   "checklist.updated": "Cập nhật giấy tờ hồ sơ", "document.created": "Thêm tài liệu", "document.updated": "Sửa thông tin tài liệu", "document.archived": "Gỡ tài liệu",
   "document.version_added": "Tải phiên bản tài liệu mới", "document.downloaded": "Tải tài liệu", "documents.viewed": "Xem tài liệu", "payslip.viewed": "Xem phiếu lương", "payslips.viewed": "Xem phiếu lương",
   "employee.imported": "Nhập hồ sơ từ file", "employee.invited_bulk": "Gửi lời mời kích hoạt", "employee.avatar_updated": "Đổi ảnh đại diện", "employee.avatar_removed": "Xóa ảnh đại diện",

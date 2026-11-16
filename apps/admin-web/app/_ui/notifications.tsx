@@ -11,7 +11,7 @@ const ICON: Record<NotificationKind, [string, string]> = {
   "approval.pending": ["checks", ""], "approval.due": ["clock", "amber"], "request.approved": ["checks", ""], "request.rejected": ["alert", "red"],
   "device.approved": ["phone", "blue"], "device.rejected": ["phone", "red"], "advance.paid": ["pay", ""],
   "payslip.published": ["pay", ""], "announcement.published": ["news", "violet"],
-  "reminder.attendance": ["clock", "amber"], "reminder.documents": ["file", "amber"], "reminder.announcement": ["news", "violet"],
+  "reminder.attendance": ["clock", "amber"], "attendance.adjusted": ["clock", "amber"], "reminder.documents": ["file", "amber"], "reminder.announcement": ["news", "violet"],
 };
 
 export function NotificationBell() {
