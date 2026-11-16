@@ -17,7 +17,7 @@
 - [ ] Thông báo duyệt sửa hồ sơ lặp chữ "Sửa hồ sơ Sửa email…" — [sonnet]
 - [ ] Màn "Xem số tài khoản" (`employee.sensitive.read`, audit khi xem) — [opus xhigh]
 - [x] Lương người vào/nghỉ giữa kỳ (16/11/2026, cách a — công chuẩn cả kỳ, xem HANDOFF): ngày ngoài hire..termination bị bỏ khỏi công chuẩn (`compute.ts` not_employed) → vào làm 13/26 ngày vẫn đủ lương tháng; chốt cách tính công chuẩn rồi sửa — [opus xhigh]
-- [ ] Push `2b7babf`, `f589ec2`, bản mobile (= deploy) rồi xem online (chỉ đọc) kỳ công đã khóa có người vào/nghỉ giữa kỳ — khóa/chốt lại phải hỏi người dùng — [opus high]
+- [ ] Đã push `79014e6` (16/11). Xem online (chỉ đọc) kỳ công đã khóa có người vào/nghỉ giữa kỳ — khóa/chốt lại phải hỏi người dùng — [opus high]
 - [ ] (Tùy chọn) Tạm nghỉ: mobile báo "Đang tạm nghỉ" ở màn chấm công; tính 50% theo ngày làm việc của ca thay vì ngày lịch; tạm ứng khi đang tạm nghỉ — [opus high]
 - [ ] (Tùy chọn) Chuyển người duyệt khi quản lý trực tiếp nghỉ việc (bước "Quản lý trực tiếp" giao đích danh, hiện chỉ cảnh báo) — [opus high]
 - [x] Nút "Nhắc" (chấm công/giấy tờ/bản tin): `notify_reminders` + 3 endpoint HR + nút web + icon fallback web/mobile

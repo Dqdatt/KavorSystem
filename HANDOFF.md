@@ -3,14 +3,14 @@
 **Mục tiêu phiên vừa rồi:** sửa lương người vào làm/nghỉ việc giữa kỳ (ngày ngoài hợp đồng bị bỏ khỏi công chuẩn → vẫn nhận đủ lương tháng).
 
 ## Đã xong
-- `2b7babf` (**chưa push**, verify-all đầy đủ đạt): công chuẩn cả kỳ (cách a).
+- `2b7babf` (đã push, verify-all đầy đủ đạt): công chuẩn cả kỳ (cách a).
   - `timesheet/compute.ts`: `not_employed` giữ `workday`/`paidHoliday` theo ca, 0 công, `leave: null`. `timesheet.service.ts`: ngày ngoài hợp đồng lấy ca của ngày vào/ngày cuối.
   - `employedStandard` (contracts, `payroll/inputs.service.ts`) + cảnh báo "Vào/nghỉ giữa kỳ"; `payroll/cycle-calc.ts` nhân khoản cố định theo tỷ lệ, chuyên cần ghi lý do.
   - Test `compute.test.ts`, `cycle-calc.test.ts`; bước smoke trong `tools/payroll-inputs-smoke.sh`; AGENTS.md, TASKS.md đã cập nhật.
 - API local đã khởi động lại bằng `tools/dev-backend.sh` (chạy code mới); DB local vừa reset về dữ liệu mẫu.
 
 ## Đang dở
-- Chưa push `2b7babf`, `e182bd8`, `f589ec2` và commit mobile (push nhánh = deploy Render/Vercel; app mobile phải build lại iPhone).
+- Đã push 16/11 tới `79014e6` (gồm `2b7babf`, `f589ec2`, bản mobile): GitHub CI + 2 bản Vercel đạt. Render chưa xác nhận (health không ghi bản code) → xem Render → Events. App iPhone chưa build lại.
 - Kỳ công đã khóa trước bản sửa vẫn giữ công chuẩn cũ (snapshot). Kỳ có người vào/nghỉ giữa kỳ phải mở khóa → khóa lại → chốt lại bảng lương. Chưa kiểm online; mở/khóa/chốt trên online là ghi, phải hỏi.
 - Web: lịch mini hồ sơ nhân viên giờ tô ngày trước khi vào làm kiểu "chưa tới" (giống lưới bảng công) thay vì kiểu cuối tuần. Chưa xem trên trình duyệt.
 - Từ phiên 9: chưa rõ Render đã deploy `8113500`; simulator đang cài bản local, Keychain đã xoá (test online lại phải build bản online, người dùng tự gõ mật khẩu TSNV002, đăng ký lại thiết bị — hỏi trước); lỗi 403 Tổng quan web online chưa rõ nguồn.
@@ -26,9 +26,9 @@
 - Phiên này không có `shortcut:` mới. Nợ cũ ở `apps/api/src/timesheet/pause.ts`: quy tắc 50% đếm theo ngày lịch, nghỉ ốm không cộng đơn nghỉ ốm lẻ.
 
 ## Việc tiếp theo
-1. Push các commit trên, rồi xem online (chỉ đọc): kỳ đã khóa nào có người vào/nghỉ giữa kỳ; TSNV002 04/11 thành 0 công nếu kỳ chưa khóa (báo HR). Hỏi người dùng trước khi khóa/chốt lại. Build lại app iPhone — `[opus high]`
-2. ~~Giờ vào > giờ ra vẫn 1 công~~ — đã sửa theo cách 2 (16/11, đã commit, **chưa push**, verify-all đầy đủ đạt): `compute.ts` (`pair`/`inverted`), test `compute.test.ts`, bước smoke "Giờ ra ≤ giờ vào" trong `timesheet-smoke.sh`, AGENTS.md, TASKS.md. Còn: push khi người dùng bảo (push = deploy); sau deploy TSNV002 04/11 thành 0 công nếu kỳ chưa khóa — `[opus high]`
-3. ~~Trang chủ mobile ngày nghỉ~~ — đã sửa (16/11, đã commit, chưa push): `apps/mobile/src/store.ts` `sh.off` theo `workDays` → dòng ca "Hôm nay nghỉ · <ca>, T2–T6", vẫn cho chấm ("Đã ghi nhận"), ra ca không hỏi về sớm. Đã kiểm simulator bản local, verify-all --quick đạt.
+1. Sau deploy, xem online (chỉ đọc): Render đã chạy `79014e6` chưa; kỳ công đã khóa nào có người vào/nghỉ giữa kỳ (phải mở khóa → khóa lại → chốt lại bảng lương); TSNV002 04/11 giờ 0 công (báo HR). Mọi thao tác ghi online phải hỏi người dùng. Build lại app iPhone — `[opus high]`
+2. ~~Giờ vào > giờ ra vẫn 1 công~~ — đã sửa theo cách 2 (16/11, đã push, verify-all đầy đủ đạt): `compute.ts` (`pair`/`inverted`), test `compute.test.ts`, bước smoke "Giờ ra ≤ giờ vào" trong `timesheet-smoke.sh`, AGENTS.md, TASKS.md. Sau deploy TSNV002 04/11 thành 0 công nếu kỳ chưa khóa (việc 1 kiểm) — `[opus high]`
+3. ~~Trang chủ mobile ngày nghỉ~~ — đã sửa (16/11, đã push; iPhone cần build lại): `apps/mobile/src/store.ts` `sh.off` theo `workDays` → dòng ca "Hôm nay nghỉ · <ca>, T2–T6", vẫn cho chấm ("Đã ghi nhận"), ra ca không hỏi về sớm. Đã kiểm simulator bản local, verify-all --quick đạt.
 
 ## Mẹo
 - API local không tự nạp code: sửa API xong chạy lại `bash tools/dev-backend.sh` trước smoke. verify-all đầy đủ mất ~15 phút, reset DB nhiều lần.
