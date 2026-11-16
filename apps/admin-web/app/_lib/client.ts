@@ -30,6 +30,7 @@ const listeners = new Set<Listener>();
 let client: SupabaseClient | null = null;
 let channel: RealtimeChannel | null = null;
 let connected = false;
+let known = false; // đã có kết quả kết nối đầu tiên chưa (trước đó web hiện "Đang kết nối…", không phải "Mất kết nối")
 let starting: Promise<void> | null = null;
 let tokenTimer: ReturnType<typeof setTimeout> | undefined;
 const statusListeners = new Set<(on: boolean) => void>();
@@ -40,7 +41,7 @@ async function fetchToken() {
   return ((await r.json()) as ApiEnvelope<{ url: string; key: string; token: string; expiresAt: number }>).data!;
 }
 
-function setConnected(on: boolean) { connected = on; statusListeners.forEach((l) => l(on)); }
+function setConnected(on: boolean) { connected = on; known = true; statusListeners.forEach((l) => l(on)); }
 
 /* Token Realtime hết hạn theo access token (~1 giờ): lấy lại trước khi hết (proxy.ts làm mới phiên khi cần) */
 function scheduleTokenRefresh(expiresAt: number) {
@@ -73,7 +74,7 @@ function startRealtime(tenantId: string) {
 }
 
 export function useRealtimeStatus(tenantId: string) {
-  const [on, setOn] = useState(connected);
+  const [on, setOn] = useState<boolean | null>(known ? connected : null);
   useEffect(() => {
     void startRealtime(tenantId);
     statusListeners.add(setOn);

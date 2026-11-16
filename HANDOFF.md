@@ -14,7 +14,7 @@
 - Simulator iPhone 17e hiện cài bản Release trỏ **API local** (`ios/build-sim`), đăng nhập HD0142, PIN thử nằm trong keychain simulator.
   Muốn test online lại trên simulator phải build lại với URL online (và HR duyệt máy — sẽ thu hồi iPhone 11).
 - DB local: HD0142 có thêm máy giả `fake-iphone-11-local` (revoked) + máy simulator active. Reset DB nếu cần sạch.
-- Lỗi 403 Tổng quan web online vẫn chưa rõ nguồn. `docs/plans/roadmap-competitive.md` chưa track, người dùng chưa quyết (không commit).
+- Lỗi 403 Tổng quan: đã rõ — là 403 `MFA_REQUIRED` cố ý lúc đăng nhập (ghi trong AGENTS.md cạm bẫy). Nhãn Realtime lúc mới mở giờ là "Đang kết nối…" (chưa commit). `docs/plans/roadmap-competitive.md` chưa track, người dùng chưa quyết (không commit).
 
 ## Quyết định đã chốt
 - Push nhánh deploy sau khi verify-all đạt: người dùng đã đồng ý cho các commit phiên này.
@@ -25,7 +25,7 @@
 - Không có `shortcut:` mới. Nợ cũ: `apps/api/src/timesheet/pause.ts` (50% theo ngày lịch, nghỉ ốm không cộng đơn lẻ).
 
 ## Việc tiếp theo
-1. Lỗi 403 trang Tổng quan web online: tìm request nào trả 403 (quyền vai trò thiếu hay route sai), sửa — `[opus high]`
+1. ~~Lỗi 403 Tổng quan~~ xong (không phải lỗi). Commit bản sửa nhãn "Đang kết nối…" khi người dùng bảo.
 2. (Khi tiện) build lại bản iPhone thật có `ef972be` rồi cài qua cáp (lệnh trong PROGRESS "Cài bản mới lên iPhone") — `[sonnet]`
 3. "Xem số tài khoản" (`employee.sensitive.read`, audit khi xem) — `[opus xhigh]`
 

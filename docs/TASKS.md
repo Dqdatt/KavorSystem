@@ -23,7 +23,7 @@
 - [x] Mobile đếm "Đi muộn" khớp web (`f39d263`, đã push 16/11)
 - [x] Cài app iPhone thật có `f39d263` (16/11), HR đã duyệt lại iPhone 11 (simulator tự thu hồi)
 - [x] Mobile: nhãn "Duyệt" ở Tạm ứng bị giá trị dài bóp mất (`InfoRow` minWidth nhãn); màn "Đang chờ HR xử lý" dùng máy + giờ gửi thật từ máy chủ, làm mới cập nhật lại (16/11)
-- [ ] Lỗi 403 trang Tổng quan web online — [opus high]
+- [x] "Lỗi 403 Tổng quan" (16/11): là 403 `MFA_REQUIRED` cố ý lúc đăng nhập, không phải lỗi; nhãn Realtime lúc mới mở đổi thành "Đang kết nối…" (ghi cạm bẫy trong AGENTS.md)
 - [ ] (Tùy chọn) HR điều chỉnh công: xóa một giờ chấm sai (hiện chỉ đặt giờ), ca qua đêm; tab Lịch sử hồ sơ hiện ngày được sửa — [opus high]
 - [ ] (Tùy chọn) Tạm nghỉ: mobile báo "Đang tạm nghỉ" ở màn chấm công; tính 50% theo ngày làm việc của ca thay vì ngày lịch; tạm ứng khi đang tạm nghỉ — [opus high]
 - [ ] (Tùy chọn) Chuyển người duyệt khi quản lý trực tiếp nghỉ việc (bước "Quản lý trực tiếp" giao đích danh, hiện chỉ cảnh báo) — [opus high]

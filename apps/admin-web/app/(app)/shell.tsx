@@ -138,7 +138,7 @@ export function Shell({ me, children }: { me: AdminMe; children: ReactNode }) {
               {can(me, "privacy.read") ? <Link href="/settings?tab=privacy">Chính sách bảo mật</Link> : null}
               {can(me, "support_access.approve") ? <Link href="/settings?tab=support">Liên hệ hỗ trợ</Link> : null}
               <span className="grow" />
-              <span className={`realtime-dot ${live ? "on" : ""}`}><i />{live ? "Đang cập nhật trực tiếp" : "Mất kết nối cập nhật"}</span>
+              <span className={`realtime-dot ${live ? "on" : ""}`}><i />{live ? "Đang cập nhật trực tiếp" : live === null ? "Đang kết nối…" : "Mất kết nối cập nhật"}</span>
               <button type="button" className="ver" data-pop-btn aria-expanded={pop === "ver"} onClick={() => setPop(pop === "ver" ? null : "ver")}>Phiên bản {process.env.NEXT_PUBLIC_APP_VERSION}</button>
               {pop === "ver" ? <Popover className="pop-ver" label="Ghi chú phiên bản" onClose={() => setPop(null)}><span className="cap">Ghi chú phiên bản</span><h3>Kavor HR {process.env.NEXT_PUBLIC_APP_VERSION}</h3><span className="small muted">Cập nhật {RELEASE_DATE}</span><TickList items={RELEASE_ITEMS} small /></Popover> : null}
             </footer>
