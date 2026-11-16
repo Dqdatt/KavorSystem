@@ -25,7 +25,10 @@
 - Phiên này không có `shortcut:` mới. Còn nợ cũ ở `apps/api/src/timesheet/pause.ts`: quy tắc 50% đếm theo ngày lịch, nghỉ ốm không cộng đơn nghỉ ốm lẻ.
 
 ## Việc tiếp theo
-1. Lương người vào làm hoặc nghỉ việc giữa kỳ: ngày ngoài khoảng hire..termination bị bỏ khỏi công chuẩn, nên vào làm 13/26 ngày vẫn đủ lương. Đề xuất cách tính để người dùng chốt trước, rồi mới sửa — `[opus xhigh]`
+1. Lương người vào làm hoặc nghỉ việc giữa kỳ — `[opus xhigh]`, vùng nhạy cảm, phiên chính tự làm.
+   - Lỗi: `compute.ts:109` trả `not_employed` với `workday: false`, nên ngày ngoài hire..termination bị bỏ khỏi công chuẩn. Vào làm 13/26 ngày vẫn đủ lương tháng (`cycle-calc.ts:26` chia cho `row.standard`; `inputs.service.ts:380` đếm standard/credited).
+   - **Bước 1 (chưa sửa code):** trình người dùng 2–3 cách tính công chuẩn kèm ví dụ số (vd lương 10tr, công chuẩn kỳ 26, vào làm ngày 13 → mỗi cách ra bao nhiêu). Ứng viên: (a) công chuẩn cả kỳ theo ca, ngày ngoài hợp đồng = 0 công; (b) công chuẩn chỉ trong khoảng làm việc rồi nhân tỷ lệ; (c) chia theo ngày lịch. Nói rõ cách nào hay dùng ở VN và nên chọn cách nào. Kèm ảnh hưởng tới phụ cấp cố định, BHXH (tháng không làm/không lương ≥ 14 ngày làm việc thì không đóng), giảm trừ gia cảnh, tạm ứng, và nhất quán với Tạm nghỉ (ngày tạm nghỉ vẫn tính công chuẩn).
+   - **Dừng chờ người dùng chốt**, ghi quyết định vào mục "Quyết định đã chốt", rồi mới sửa: compute/payroll → `cycle-calc.test.ts` → smoke lương → web (cột công chuẩn) → `verify-all`.
 2. Ngày có giờ vào > giờ ra (TSNV002 04/11) vẫn tính 1 công trong `computeDay`: người dùng chọn HR sửa tay hay đổi luật — `[opus xhigh]`
 3. Trang chủ mobile ngày nghỉ theo `shift.workDays` vẫn hiện ca + "Vào ca". Đề xuất vẫn cho chấm, đổi dòng ca thành "Hôm nay nghỉ" — `[opus high]`
 
