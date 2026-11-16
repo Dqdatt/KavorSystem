@@ -124,10 +124,13 @@ export function computeDay(i: DayInput): Omit<TimesheetDay, "canExplain" | "expl
   const mid = Math.round((s + e) / 2);
   const ws = leave?.half === "am" ? (shift!.breakEnd ? minutesOf(shift!.breakEnd) : mid) : s;
   const we = leave?.half === "pm" ? (shift!.breakStart ? minutesOf(shift!.breakStart) : mid) : e;
-  const late = inMin != null && inMin > ws + shift!.lateGraceMinutes ? inMin - ws : 0;
-  const early = outMin != null && outMin < we - shift!.earlyGraceMinutes ? we - outMin : 0;
+  /* Giờ ra ≤ giờ vào (vd giải trình cũ chỉ đề nghị giờ vào sau giờ ra đã chấm): cặp vào/ra không hợp lệ → coi như thiếu giờ ra, 0 công, không tính muộn/sớm */
+  const pair = inMin != null && outMin != null && outMin > inMin;
+  const inverted = inMin != null && outMin != null && !pair;
+  const late = !inverted && inMin != null && inMin > ws + shift!.lateGraceMinutes ? inMin - ws : 0;
+  const early = !inverted && outMin != null && outMin < we - shift!.earlyGraceMinutes ? we - outMin : 0;
   let worked = 0;
-  if (inMin != null && outMin != null && outMin > inMin) {
+  if (pair) {
     worked = Math.max(0, Math.min(outMin, e) - Math.max(inMin, s));
     if (shift!.breakStart && shift!.breakEnd) {
       const bs = minutesOf(shift!.breakStart), be = minutesOf(shift!.breakEnd);
@@ -138,10 +141,10 @@ export function computeDay(i: DayInput): Omit<TimesheetDay, "canExplain" | "expl
     /* Hôm nay chưa kết thúc: chỉ báo đi muộn, chưa coi là thiếu */
     return { ...base, kind: "today", lateMinutes: late, earlyMinutes: 0, workedMinutes: worked, credit: 0, issue: late ? "late" : null, workday, leave };
   }
-  const issue: DayIssue | null = inMin == null && outMin == null ? "absent" : inMin == null ? "missing_in" : outMin == null ? "missing_out"
+  const issue: DayIssue | null = inMin == null && outMin == null ? "absent" : inMin == null ? "missing_in" : !pair ? "missing_out"
     : late && early ? "late_early" : late ? "late" : early ? "early" : null;
   /* Nghỉ nửa ngày: nửa nghỉ có lương 0,5 công, nửa còn lại phải chấm đủ vào/ra */
-  const credit = leave ? (leave.paid ? 0.5 : 0) + (inMin != null && outMin != null ? 0.5 : 0) : inMin != null && outMin != null ? 1 : 0;
+  const credit = leave ? (leave.paid ? 0.5 : 0) + (pair ? 0.5 : 0) : pair ? 1 : 0;
   return { ...base, kind: "work", lateMinutes: late, earlyMinutes: early, workedMinutes: worked, credit, issue, workday, leave };
 }
 

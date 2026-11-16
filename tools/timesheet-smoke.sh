@@ -98,6 +98,11 @@ check "Người gửi hủy đơn đang chờ" "$(call POST me/requests/$RID2/ca
 check "Hủy lại → 409" "$(status POST me/requests/$RID2/cancel "$EMP")" 409
 check "Đơn của tôi: 3 đơn, mới nhất trước" "$(call GET me/requests "$EMP" | py "[i['status'] for i in d]")" "['cancelled', 'rejected', 'approved']"
 
+echo "— Giờ ra ≤ giờ vào (dữ liệu cũ)"
+# Điều chỉnh cũ chỉ ghi giờ vào 17:30, sau giờ ra đã chấm 17:05 (API nay chặn, nên ghi thẳng DB)
+sql "insert into public.attendance_adjustments (tenant_id,employee_id,work_date,clock_in,reason) values ('10000000-0000-4000-8000-000000000001','$HA','$OKDAY','17:30','Smoke: giờ vào sau giờ ra')" >/dev/null
+check "Giờ ra ≤ giờ vào: thiếu ra, 0 công, không tính muộn, được giải trình" "$(call GET "me/timesheet?month=$(month_for "$OKDAY")" "$EMP" | py "[(x['clockIn'], x['clockOut'], x['issue'], x['credit'], x['lateMinutes'], x['canExplain']) for x in d['days'] if x['date']=='$OKDAY'][0]")" "('17:30', '17:05', 'missing_out', 0, 0, True)"
+
 echo "— Bảng công web, phạm vi, khóa kỳ"
 r=$(call GET admin/timesheets "$HR")
 check "HR thấy bảng công cả công ty" "$(echo "$r" | py "('HD0142' in [x['employee']['code'] for x in d['rows']], d['canLock'], d['periodStartDay'])")" "(True, True, 26)"

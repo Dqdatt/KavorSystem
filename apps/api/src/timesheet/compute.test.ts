@@ -45,6 +45,20 @@ test("điều chỉnh đã duyệt ghi đè giờ khi tính, giữ giờ gốc",
   assert.equal(d.clockOut, "17:00");
 });
 
+test("giờ ra ≤ giờ vào: thiếu giờ ra, 0 công, không tính muộn/sớm; nghỉ nửa ngày có lương giữ 0,5", () => {
+  /* Giải trình cũ chỉ đề nghị vào 20:30 trong khi đã chấm ra 19:51 (TSNV002 04/11) */
+  const adj = day("2026-10-20", [["in", "08:10"], ["out", "19:51"]], { adjustment: { clockIn: "20:30", clockOut: null }, overtime: [{ start: "17:30", end: "19:30", minutes: 120, ratePercent: 150, requestNo: "OT-0001" }] });
+  assert.deepEqual([adj.clockIn, adj.clockOut, adj.issue, adj.credit, adj.lateMinutes, adj.earlyMinutes, adj.workedMinutes, adj.overtime?.minutes], ["20:30", "19:51", "missing_out", 0, 0, 0, 0, 0]);
+  const raw = day("2026-10-20", [["out", "07:55"], ["in", "17:10"]]);
+  assert.deepEqual([raw.issue, raw.credit, raw.lateMinutes, raw.earlyMinutes], ["missing_out", 0, 0, 0]);
+  assert.deepEqual([day("2026-10-20", [["in", "08:00"], ["out", "08:00"]]).credit], [0]);
+  const am = day("2026-10-20", [["in", "15:00"], ["out", "14:00"]], { leave: { typeName: "Phép năm", paid: true, requestNo: "NP-0001", half: "am" } });
+  assert.deepEqual([am.issue, am.credit], ["missing_out", 0.5]);
+  /* Chưa giải trình: tính là thiếu; đã có giải trình duyệt: không tính thiếu nhưng vẫn 0 công */
+  const s = summarize([raw, { ...adj, request: { id: "r", no: "GT-0003", status: "approved" as const } }].map((d) => ({ ...d, canExplain: false, explainDeadline: null })));
+  assert.deepEqual([s.credited, s.missingDays, s.lateMinutes], [0, 1, 0]);
+});
+
 test("hạn giải trình tính theo ngày làm việc", () => {
   const isWork = (d: string) => isoWeekday(d) <= 5;
   assert.equal(explainDeadline("2026-10-22", 3, isWork), "2026-10-27"); // T5 → T2 tuần sau là ngày làm việc thứ 3

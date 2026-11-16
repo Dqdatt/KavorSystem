@@ -13,7 +13,7 @@
 - [x] Tạm nghỉ: `employee_pauses` + ngày `paused` trong bảng công + trừ phép năm theo lý do + hộp web
 - [x] Test app simulator online TSNV002 + sửa nút/ghi chú trống chữ, nhãn vỡ dòng, giải trình giờ ngược (8113500)
 - [ ] Trang chủ mobile ngày nghỉ theo `shift.workDays` vẫn hiện ca + "Vào ca" (đề xuất: vẫn cho chấm, đổi dòng ca thành "Hôm nay nghỉ") — [opus high]
-- [ ] Ngày có giờ vào > giờ ra (dữ liệu cũ, vd TSNV002 04/11) vẫn 1 công trong `computeDay`: HR sửa tay hay đổi luật — [opus xhigh]
+- [x] Ngày có giờ vào > giờ ra (dữ liệu cũ, vd TSNV002 04/11) vẫn 1 công trong `computeDay` → đổi luật (16/11): giờ ra ≤ giờ vào = Thiếu ra, 0 công
 - [ ] Thông báo duyệt sửa hồ sơ lặp chữ "Sửa hồ sơ Sửa email…" — [sonnet]
 - [ ] Màn "Xem số tài khoản" (`employee.sensitive.read`, audit khi xem) — [opus xhigh]
 - [x] Lương người vào/nghỉ giữa kỳ (16/11/2026, cách a — công chuẩn cả kỳ, xem HANDOFF): ngày ngoài hire..termination bị bỏ khỏi công chuẩn (`compute.ts` not_employed) → vào làm 13/26 ngày vẫn đủ lương tháng; chốt cách tính công chuẩn rồi sửa — [opus xhigh]

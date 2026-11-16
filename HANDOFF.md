@@ -20,13 +20,14 @@
 - Dữ liệu online là thật: chỉ xem. Chấm công, gửi đơn, đăng ký thiết bị, "Gửi lời mời" đều phải hỏi. Mật khẩu online do người dùng tự gõ. Kiểm bản sửa giao diện trên bản local.
 - Tạm nghỉ: ngày tạm nghỉ vẫn tính vào công chuẩn. Phép năm trừ theo lý do (NĐ 145/2020). Đơn nghỉ đã duyệt trùng khoảng thì chặn, không tự hủy.
 - Vào/nghỉ giữa kỳ (cách a): công chuẩn cả kỳ theo lịch ca; ngày ngoài hợp đồng tính vào công chuẩn, 0 công. Vd 10tr, công chuẩn 26, vào ngày 13 làm đủ 15 công → 10tr × 15/26. Phụ cấp cố định × công chuẩn trong hợp đồng ÷ công chuẩn kỳ (vắng/nghỉ phép không trừ). Chuyên cần tháng vào/nghỉ không đạt. Giảm trừ gia cảnh, hạn mức tạm ứng không đổi. BH theo quy tắc 14 ngày sẵn có. Bảng đã chốt giữ số cũ.
+- Giờ ra ≤ giờ vào (16/11/2026, cách 2 — đổi luật, không làm công cụ HR sửa tay): ngày làm việc đã qua coi là "Thiếu ra", 0 công (nghỉ nửa ngày có lương giữ 0,5), không tính muộn/sớm, không giờ làm. Còn hạn + lượt thì giải trình được; ngày đã có giải trình duyệt ra giờ ngược (TSNV002 04/11, GT-0003) giữ 0 công. OT không đổi. Kỳ đã khóa giữ snapshot cũ.
 
 ## Nợ Ponytail
 - Phiên này không có `shortcut:` mới. Nợ cũ ở `apps/api/src/timesheet/pause.ts`: quy tắc 50% đếm theo ngày lịch, nghỉ ốm không cộng đơn nghỉ ốm lẻ.
 
 ## Việc tiếp theo
 1. Push `2b7babf`, rồi xem online (chỉ đọc) kỳ đã khóa nào có người vào/nghỉ giữa kỳ, hỏi người dùng trước khi khóa/chốt lại — `[opus high]`
-2. Ngày giờ vào > giờ ra (TSNV002 04/11) vẫn 1 công trong `computeDay`: trình 2 cách (HR sửa tay / coi là thiếu giờ ra), chờ chốt rồi sửa — `[opus xhigh]`
+2. ~~Giờ vào > giờ ra vẫn 1 công~~ — đã sửa theo cách 2 (16/11, đã commit, **chưa push**, verify-all đầy đủ đạt): `compute.ts` (`pair`/`inverted`), test `compute.test.ts`, bước smoke "Giờ ra ≤ giờ vào" trong `timesheet-smoke.sh`, AGENTS.md, TASKS.md. Còn: push khi người dùng bảo (push = deploy); sau deploy TSNV002 04/11 thành 0 công nếu kỳ chưa khóa — `[opus high]`
 3. Trang chủ mobile ngày nghỉ theo `shift.workDays` vẫn hiện ca + "Vào ca": vẫn cho chấm, dòng ca đổi thành "Hôm nay nghỉ" — `[opus high]`
 
 ## Mẹo
