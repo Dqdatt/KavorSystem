@@ -369,6 +369,16 @@ export const ERR: Record<ErrKind, ErrDef> = {
   update: { il: "update", t: "Có phiên bản mới", p: "Bản 2.4.0 sửa lỗi chấm công khi mạng yếu. Bạn cần cập nhật để tiếp tục sử dụng.", code: "E31 · đang dùng 2.3.1", acts: [["Cập nhật", "errUpdate", 1]], full: true },
 };
 
+/* E19 bản dùng API: giờ gửi + tên máy lấy từ thiết bị máy chủ đang ghi nhận (registeredAt = lúc gửi lại yêu cầu) */
+const pendingModel = () => S.att.info?.deviceModel ?? S.att.device;
+function pendingSent() {
+  const d = S.att.info ? new Date(S.att.info.registeredAt) : new Date();
+  const t = hm(d.getHours() * 3600 + d.getMinutes() * 60);
+  if (d.toDateString() === new Date().toDateString()) return { at: t, label: `Hôm nay ${t}` };
+  const day = `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}`;
+  return { at: `${t} ngày ${day}`, label: `${day} ${t}` };
+}
+
 function ErrBody({ e, kind }: { e: ErrDef; kind?: ErrKind }) {
   const sh = useShake(S.shake.key === "err" ? S.shake.n : 0);
   return (
@@ -377,14 +387,14 @@ function ErrBody({ e, kind }: { e: ErrDef; kind?: ErrKind }) {
       <Balanced style={{ fontSize: 22, fontFamily: F.bold, marginTop: 4, textAlign: "center" }}>{e.t}</Balanced>
       <T style={{ color: C.ink2, maxWidth: 300, textAlign: "center" }}>{e.p}</T>
       <T style={{ fontSize: 11.5, color: C.ink3, fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace" }}>{e.code}</T>
-      {kind === "devicePending" ? <Card pad style={{ width: "100%", marginTop: 8 }}><Timeline cur={1} steps={[["Đã gửi yêu cầu", "Hôm nay 08:03"], ["HR xác nhận", "Mai Phương Thảo"], ["Đăng ký máy mới", "iPhone 15"]]} /></Card> : null}
+      {kind === "devicePending" ? <Card pad style={{ width: "100%", marginTop: 8 }}><Timeline cur={1} steps={REMOTE ? [["Đã gửi yêu cầu", pendingSent().label], ["HR xác nhận", "Phòng Nhân sự"], ["Đăng ký máy mới", pendingModel()]] : [["Đã gửi yêu cầu", "Hôm nay 08:03"], ["HR xác nhận", "Mai Phương Thảo"], ["Đăng ký máy mới", "iPhone 15"]]} /></Card> : null}
     </Animated.View>
   );
 }
 
 export function errSpec(): ScreenSpec {
   const base = ERR[S.err?.kind ?? "offline"] ?? ERR.offline;
-  const e: ErrDef = { ...base, ...(S.err?.over ?? {}) };
+  const e: ErrDef = { ...base, ...(REMOTE && S.err?.kind === "devicePending" ? { p: `Yêu cầu dùng ${pendingModel()} để chấm công đã gửi lúc ${pendingSent().at}. Bạn sẽ nhận thông báo khi được duyệt, thường trong giờ hành chính.` } : {}), ...(S.err?.over ?? {}) };
   const canBack = S.stack.length > 1 && !e.full;
   return {
     head: canBack ? <TopBar title="" right={null} /> : <View style={{ height: 60 }} />,

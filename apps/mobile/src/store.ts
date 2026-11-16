@@ -916,7 +916,7 @@ async function checkPending(manual: boolean) {
       S.err = null; S.stack = ["home"]; render("fade"); toast("HR đã duyệt thiết bị này · bạn có thể chấm công");
       void loadToday();
     } else if (st !== "pending") { stopPendingWatch(); await deviceLost(t.device); }
-    else if (manual) toast("Chưa có thay đổi. HR sẽ xử lý trong giờ hành chính.");
+    else { S.att.info = t.device; if (manual) { emit(); toast("Chưa có thay đổi. HR sẽ xử lý trong giờ hành chính."); } }
   } catch (e) {
     if (e instanceof ApiError && e.status === 401) { stopPendingWatch(); showErr("session"); }
     else if (manual) toast(e instanceof ApiError ? e.message : "Chưa kiểm tra được. Thử lại sau.");
@@ -1366,7 +1366,7 @@ export const ACT = {
     if (REMOTE) {
       remote("registerDevice", async () => {
         const d = await attendanceApi.registerDevice(await deviceRegistration(appJson.expo.version));
-        if (d.status === "pending") { showErr("devicePending"); return; }
+        if (d.status === "pending") { S.att.info = d; showErr("devicePending"); return; }
         const sess = await loadSession();
         if (sess) await saveSession({ employeeId: sess.employeeId, deviceRegistered: true });
         S.att.device = d.deviceModel ?? deviceSummary().model;

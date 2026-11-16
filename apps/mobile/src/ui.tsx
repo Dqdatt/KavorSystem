@@ -382,7 +382,7 @@ export const styles = StyleSheet.create({
   card: { ...glass, borderRadius: 22, overflow: "hidden" },
   row: { flexDirection: "row", alignItems: "center", gap: 14, minHeight: 56, paddingVertical: 12, paddingHorizontal: 18, width: "100%" },
   rowLine: { height: 1, backgroundColor: C.line, marginHorizontal: 18 },
-  rowK: { flex: 1, color: C.ink2 },
+  rowK: { flex: 1, minWidth: "35%", color: C.ink2 }, // minWidth: giá trị dài không bóp nhãn về 0 (vd dòng "Duyệt" ở Tạm ứng)
   rowT: { fontFamily: F.semibold, fontSize: 14 },
   rowS: { color: C.ink2, fontSize: 12.5, marginTop: 2 },
   rowR: { color: C.ink2, textAlign: "right", fontSize: 13.5, flexShrink: 1 },
