@@ -36,11 +36,11 @@ function proofs(r: RequestItem, approver?: boolean) {
 /* Luồng duyệt của đơn thật: "Đã gửi" + từng bước theo phiên bản workflow lúc gửi */
 function flowOf(r: RequestItem): { steps: Array<[string, string]>; cur: number } {
   const steps: Array<[string, string]> = [["Đã gửi", stamp(r.submittedAt)], ...r.steps.map((s): [string, string] => {
-    const who = s.resolver === "hr" ? STEP_RESOLVERS.hr : s.assignee ?? STEP_RESOLVERS.direct_manager;
+    const who = s.resolver === "direct_manager" ? s.assignee ?? STEP_RESOLVERS.direct_manager : STEP_RESOLVERS[s.resolver];
     const sub = s.actedAt ? `${s.actedBy ?? who} · ${stamp(s.actedAt)}${s.comment ? ` · “${s.comment}”` : ""}`
       : s.status === "pending" ? `${who}${s.dueAt ? ` · hạn ${stamp(s.dueAt)}` : ""}`
       : s.status === "skipped" ? "Bỏ qua · không có người duyệt" : s.status === "cancelled" ? "Đã dừng" : who;
-    return [s.resolver === "hr" ? "HR duyệt" : "Quản lý duyệt", sub];
+    return [s.resolver === "payroll" ? "Kế toán duyệt" : s.resolver === "hr" ? "HR duyệt" : "Quản lý duyệt", sub];
   })];
   const k = r.steps.findIndex((s) => s.status === "pending" || s.status === "rejected" || (r.status === "cancelled" && s.status !== "approved" && s.status !== "skipped"));
   return { steps, cur: k < 0 ? steps.length - 1 : k + 1 };

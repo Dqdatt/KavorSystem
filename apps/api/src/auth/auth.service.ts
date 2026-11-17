@@ -251,6 +251,7 @@ export class AuthService {
     const { error } = await this.sb.authClient().auth.signInWithOtp({ email, options: { shouldCreateUser: false } });
     if (error) {
       const limited = error.status === 429;
+      if (!limited) console.error("[otp] Supabase Auth chưa gửi được mã:", error.status, error.message);
       throw new AuthError(limited ? AUTH_ERRORS.rateLimited : "AUTH_OTP_SEND_FAILED", limited ? "Bạn yêu cầu mã quá nhanh. Đợi một chút rồi gửi lại." : "Chưa gửi được mã OTP. Vui lòng thử lại.", limited ? 429 : 502, true);
     }
   }

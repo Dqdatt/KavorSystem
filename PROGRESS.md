@@ -1,5 +1,5 @@
 # PROGRESS
-_Cập nhật: 2026-11-17 — bởi Claude (Desktop)_
+_Cập nhật: 2026-11-18 — bởi Claude (Desktop)_
 
 ## Mục tiêu đang làm
 **Phiên cloud → Desktop: đọc `docs/CLOUD_HANDOFF.md` trước** (commit nào đã push, chưa test gì trên máy thật, quyết định chờ review).
@@ -10,6 +10,17 @@ simulator hay iPhone** vì phiên cloud không có Mac). Người dùng giao "c�
 ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AGENT_PLAYBOOK.md`; kiểm tra toàn bộ bằng `bash tools/verify-all.sh`.
 
 ## Đã xong
+- Vòng 1 v1 — P0 còn lại của Đợt 3–4 (18/11, Claude Desktop), chưa deploy:
+  - Mobile: `reqItems` (Map) lưu dạng mảng cặp trong cache → mở app mất mạng bấm đơn không crash; widget mô phỏng ở bản thật chỉ báo toast;
+    hàng đợi chấm công gắn `emp`, đăng xuất giữ lại và chỉ người chấm gửi khi đăng nhập lại (sheet đăng xuất báo số lần chưa gửi),
+    lỗi tạm (401/429/5xx/chờ đồng ý/máy chờ duyệt) giữ lại, đọc-sửa-ghi qua `locked()`; nhãn bước Kế toán ở chi tiết đơn.
+  - API/web: CSV xuất qua `csvCell` (`apps/api/src/csv.ts`); mailer/trạm thư/OTP ghi nguyên nhân lỗi vào log, trạm 401/404 → `EMAIL_NOT_CONFIGURED`;
+    tạo NV kèm mời mà thư lỗi vẫn trả hồ sơ + `inviteError` (web báo, không tưởng tạo hỏng). Sửa `requests-smoke.sh` (bash 3.2 tách `{…}` → kiểm rỗng).
+  - Phát sinh khi kiểm: `202612120001` — `offboard_employee` kiểm quản trị viên cuối bằng `current_date` (UTC) → 00:00–07:00 VN cho nghỉ được
+    quản trị viên cuối vừa cấp hôm nay (pgTAP offboarding #18 hỏng theo giờ chạy). Android: GPS nền hỏi "Location Accuracy" lặp khi từ chối → `mayShowUserSettingsDialog`.
+  - Kiểm: verify-all đầy đủ (pgTAP 695, unit API 97; smoke lương MFA lỗi giả do tải, chạy lại đạt); `punch-queue-mobile-test` 10 ca (bỏ khóa thì hỏng);
+    Simulator Release: mất mạng mở đơn, chấm offline → đăng xuất → người khác đăng nhập không gửi hộ → người chấm đăng nhập lại gửi đúng một lần, giữ giờ bấm.
+    Android emulator Release: mất mạng mở đơn không crash, chấm offline → tắt app → có mạng mở lại tự gửi. pgTAP 695 đạt lúc 06:33 (trong khung giờ lỗi).
 - Kế hoạch hoàn thiện v1 (16/11, Claude Desktop): `docs/plans/hoan-thien-v1.md` — định nghĩa xong, luật phạm vi, 5 đợt; `docs/TASKS.md` chia theo đợt.
 - Đợt 2 đúng số công/lương (17/11, Claude Desktop), đã deploy:
   - Duyệt bấm 2 lần (`202612090001`): `decide_approval` khóa đơn trước rồi mới đọc bước duyệt (bản cũ: lần gọi thứ hai kết thúc đơn, bỏ qua HR).

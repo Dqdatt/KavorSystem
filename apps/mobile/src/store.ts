@@ -16,7 +16,7 @@ import { chooseSource, pickAvatar, pickFile, type PickedFile } from "./attach";
 import { PIN_LENGTH, PIN_MAX_ATTEMPTS, checkPin, clearPin, hasPin, resetPinFailures, setPin, weakPin } from "./pin";
 import { MY_REQ_INIT, SUPPORT_SAMPLE } from "./api/mock-data";
 import {
-  EXPLANATION_KINDS, PROFILE_FIELDS, REQUEST_ATTACHMENT_MAX, distanceMeters, overtimeAttendanceText, passwordProblems,
+  ATTENDANCE_ERRORS, EXPLANATION_KINDS, PROFILE_FIELDS, REQUEST_ATTACHMENT_MAX, distanceMeters, overtimeAttendanceText, passwordProblems,
   type AttendanceEvent, type AttendanceToday, type AuthResult, type ExplanationKind, type AppNotification, type MyAdvance, type MyAnnouncement, type MyAnnouncements, type MyDocuments, type MeProfile, type MyProfile, type ProfileChangeInput, type ProfileField, type MyCompany, type MyLeave, type MyOvertime, type MyPayslip, type MyPayslips, type MyTimesheet, type NotificationFeed, type RequestItem, type SupportContact, type TimesheetDay, type WorkLocation,
 } from "@kavor/contracts";
 import { cachedImage, clearImages, storeImage } from "./imgcache";
@@ -744,7 +744,7 @@ function applyToday(t: AttendanceToday) {
   S.clockIn = accepted(t.clockIn); S.clockOut = accepted(t.clockOut);
   /* Lần chấm công hôm nay còn lưu trên máy (chưa gửi được) vẫn hiện, để người dùng không bấm lại */
   const today = new Date().toDateString();
-  for (const p of queuedNow()) {
+  for (const p of queuedNow(meId())) {
     const at = new Date(p.occurredAt ?? p.queuedAt);
     if (at.toDateString() !== today) continue;
     if (p.kind === "in" && S.clockIn == null) S.clockIn = secOfDay(at);
@@ -768,7 +768,7 @@ function persistSoon() {
     cacheTimer = null;
     if (S.stale || !isLoggedIn() || !lastToday) return;
     const data: Record<string, unknown> = {};
-    for (const k of CACHED) data[k] = S[k];
+    for (const k of CACHED) data[k] = S[k] instanceof Map ? [...S[k].entries()] : S[k];
     const json = JSON.stringify({ v: 1, emp: S.me?.employeeCode ?? "", day: dayKey(), today: lastToday, data });
     if (json !== cacheWritten) { cacheWritten = json; void saveLastData(json); }
   }, 3000);
@@ -783,6 +783,8 @@ async function restoreLastData(emp: string): Promise<boolean> {
     if (c.v !== 1 || !emp || c.emp !== emp) return false;
     cacheWritten = raw;
     Object.assign(S, c.data);
+    /* Map lưu dạng mảng cặp; bản lưu cũ ghi Map thành {} → bỏ, không để .get lỗi */
+    S.reqItems = new Map(Array.isArray(c.data.reqItems) ? (c.data.reqItems as Array<[string, RequestItem]>) : []);
     applyToday(c.day === dayKey() ? c.today : { ...c.today, clockIn: null, clockOut: null });
     S.stale = true;
     void setAvatar(S.avatarVer);
@@ -809,6 +811,10 @@ function attError(e: unknown) {
 
 /* Gửi các lần chấm công lưu trên máy; lỗi mạng hoặc phiên hết hạn thì giữ lại, tự thử lại mỗi 20 giây khi app đang mở.
    Chỉ một lượt gửi chạy tại một thời điểm; có lần chấm công mới trong lúc gửi thì gửi thêm một lượt. */
+const meId = () => S.me?.employeeId ?? "";
+/* Lỗi tạm thời: giữ trong hàng đợi để gửi lại (chờ đồng ý điều khoản, máy chờ HR duyệt, gửi quá nhanh, máy chủ lỗi) */
+const keepQueued = (e: unknown) => isNetworkError(e) || (e instanceof ApiError && (e.status === 401 || e.status === 429
+  || e.code === ATTENDANCE_ERRORS.consentRequired || e.code === ATTENDANCE_ERRORS.devicePending));
 let flushRun: Promise<void> | null = null, flushAgain = false;
 function flushPunches(): Promise<void> {
   if (flushRun) { flushAgain = true; return flushRun; }
@@ -824,8 +830,9 @@ function undoLocal(p: QueuedPunch) {
   if (p.kind === "out" && S.clockOut === secOfDay(at)) S.clockOut = null;
 }
 async function flushOnce() {
-  if (!queuedNow().length && !(await readQueue()).length) { S.att.queued = 0; return; }
-  const r = await flushQueue((p) => attendanceApi.record(p), (e) => isNetworkError(e) || (e instanceof ApiError && e.status === 401));
+  const emp = meId();
+  if (!queuedNow(emp).length && !(await readQueue(emp)).length) { S.att.queued = 0; return; }
+  const r = await flushQueue(emp, (p) => attendanceApi.record(p), keepQueued);
   S.att.queued = r.remaining;
   const cur0 = S.att.pending;
   for (const { p, result: ev } of r.sent) {
@@ -853,7 +860,7 @@ async function flushOnce() {
   emit();
 }
 if (REMOTE) {
-  void readQueue().then((q) => { S.att.queued = q.length; if (q.length && lastToday) applyToday(lastToday); }).catch(() => {});
+  void readQueue(meId()).then((q) => { S.att.queued = q.length; if (q.length && lastToday) applyToday(lastToday); }).catch(() => {});
   setInterval(() => { if (S.att.queued && AppState.currentState === "active" && isLoggedIn()) void flushPunches().catch(() => {}); }, 20_000);
 }
 
@@ -984,8 +991,8 @@ async function punchRemote(kind: "in" | "out") {
     /* Trong vùng và GPS đủ chính xác (tính giống máy chủ): lưu trên máy trước, báo thành công ngay, gửi máy chủ ở nền.
        Tắt app/mất mạng giữa chừng thì lần sau mở app tự gửi lại (cùng clientEventId nên không ghi trùng). */
     if (!S.att.noLoc && S.inRange && fix.accuracyM <= (S.att.loc.maxAccuracyM || needM)) {
-      await enqueue(req);
-      S.att.queued = queuedNow().length;
+      await enqueue(req, meId());
+      S.att.queued = queuedNow(meId()).length;
       const t = secOfDay(new Date(req.occurredAt));
       if (kind === "in") S.clockIn = t; else S.clockOut = t;
       S.att.last = null; S.att.pending = { id: req.clientEventId, state: "sending" };
@@ -1006,8 +1013,8 @@ async function punchRemote(kind: "in" | "out") {
     } catch (e) {
       if (!isNetworkError(e)) throw e;
       /* Mất mạng: lưu kèm giờ trên máy, máy chủ kiểm tra lại khi gửi (quá 24 giờ sẽ bị từ chối) */
-      await enqueue(req);
-      S.att.queued = queuedNow().length;
+      await enqueue(req, meId());
+      S.att.queued = queuedNow(meId()).length;
       const t = simNow();
       if (kind === "in") S.clockIn = t; else S.clockOut = t;
       closeSheet(true); openSheet("queued", `${kind}:${t}`); return;
@@ -1681,7 +1688,8 @@ export const ACT = {
     /* Đăng xuất: bỏ nhắc nhở và thông báo của người vừa dùng máy */
     if (REMOTE) { void clearExplainReminders().catch(() => undefined); S.notifs = null; S.ts = null; S.profile = null; clearPayroll(); clearAnnouncements(); clearDocuments(); clearImages("avatar"); S.avatarVer = null; S.avatarSrc = null; }
     const lastCode = S.me?.employeeCode ?? S.profile?.employeeCode ?? "";
-    void clearSession(); S.pinUntil = 0; S.f = freshForms(); if (REMOTE) { S.f.lgId = lastCode; S.me = null; S.att.info = null; } closeSheet(); S.stack = ["login"]; render("fade");
+    /* Lần chấm chưa gửi vẫn nằm trên máy (gắn mã NV) và chỉ gửi khi chính người này đăng nhập lại */
+    void clearSession(); S.pinUntil = 0; S.f = freshForms(); if (REMOTE) { S.f.lgId = lastCode; S.me = null; S.att.info = null; S.att.queued = 0; S.clockIn = null; S.clockOut = null; } closeSheet(); S.stack = ["login"]; render("fade");
   },
   pinkey: (a: string) => {
     if (S.pinBusy || S.pin.length >= PIN_LENGTH && a !== "del") return;
@@ -1712,6 +1720,8 @@ export const ACT = {
     if (r.reason !== "cancelled") toast(r.message);
   },
   wpunch: () => {
+    /* Widget ở đây chỉ là mô phỏng: bản thật không được đổi giờ vào/ra trên máy (lần chấm thật sau sẽ sai chiều vào/ra) */
+    if (REMOTE) { toast("Đây là mô phỏng widget. Chấm công ở màn hình chính của Kavor."); return; }
     if (phase() === "done" || S.widgetState !== "idle") return;
     if (S.net === "offline") { toast("Widget: không có mạng, chưa chấm công"); return; }
     if (!S.inRange) { toast("Widget: bạn đang ngoài vùng chấm công 3 m"); return; }

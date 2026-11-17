@@ -38,7 +38,12 @@ const nextMonth = (m: string) => { const [y, mo] = m.split("-").map(Number) as [
 /* "3,42 tỷ" / "512,5 triệu" như prototype; số đầy đủ ở bảng kết quả */
 const short = (n: number) => Math.abs(n) >= 1e9 ? `${(n / 1e9).toLocaleString("vi-VN", { maximumFractionDigits: 2 })} tỷ`
   : Math.abs(n) >= 1e6 ? `${(n / 1e6).toLocaleString("vi-VN", { maximumFractionDigits: 1 })} triệu` : money(n);
-const cell = (v: string | number | null) => { const s = v === null ? "" : String(v); return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
+/* Chặn CSV formula injection khi mở bằng Excel (giống apps/api/src/csv.ts): số thuần kể cả số âm giữ nguyên */
+const cell = (v: string | number | null) => {
+  let s = v === null ? "" : String(v);
+  if (/^[=+\-@\t\r]/.test(s) && !/^-?\d+(\.\d+)?$/.test(s)) s = `'${s}`;
+  return /["\r\n,;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+};
 function download(name: string, lines: Array<Array<string | number | null>>) {
   const url = URL.createObjectURL(new Blob([`﻿${lines.map((l) => l.map(cell).join(",")).join("\r\n")}\r\n`], { type: "text/csv;charset=utf-8" }));
   const a = document.createElement("a");

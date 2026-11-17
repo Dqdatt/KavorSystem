@@ -26,7 +26,7 @@ echo "— Đếm theo trạng thái, ngày áp dụng"
 r=$(q "status=pending")
 check "Tab Chờ duyệt: 3 đơn; đếm Đã duyệt/Từ chối-Hủy/Tất cả" "$(echo "$r" | py "(d['counts']['pending'], d['counts']['approved'], d['counts']['closed'], d['counts']['all'], d['total'])")" "(3, 0, 0, 3, 3)"
 check "Đơn nghỉ có ngày áp dụng, sửa hồ sơ không có" "$(echo "$r" | py "sorted((i['no'], i['applied'] and i['applied']['from']) for i in d['items'])")" "[('$HS', None), ('$L1', '$D1'), ('$L2', '$D3')]"
-check "Người gửi có phòng ban và chức danh" "$(echo "$r" | py "sorted({(i['requester']['code'], i['requester']['department'] is not None, i['requester']['position'] is not None) for i in d['items']})")" "[('HD0142', True, True)]"
+check "Người gửi có phòng ban và chức danh" "$(echo "$r" | py "sorted(set((i['requester']['code'], i['requester']['department'] is not None, i['requester']['position'] is not None) for i in d['items']))")" "[('HD0142', True, True)]"
 T=$(call GET "admin/requests?status=pending&q=$HS" "$HR" | py "d['items'][0]['myTaskId']")
 call POST "admin/approvals/$T/approve" "$HR" '{}' >/dev/null
 r=$(q "status=pending")

@@ -98,9 +98,17 @@ export class Mailer {
           method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${c.secret}` },
           body: JSON.stringify(msg), signal: AbortSignal.timeout(30_000),
         });
+        /* 401/404: sai khóa hoặc web chưa có biến môi trường trạm thư — thử lại vô ích, báo đúng để vận hành sửa */
+        if (res.status === 401 || res.status === 404) {
+          console.error(`[mail:relay] trạm gửi thư trả ${res.status} (kiểm MAIL_RELAY_SECRET/SMTP_URL/MAIL_FROM trên web)`);
+          throw new AuthError(ADMIN_ERRORS.emailNotConfigured, "Máy chủ gửi thư chưa cấu hình đúng nên chưa gửi được lời mời. Báo quản trị Kavor.", 503, false);
+        }
         if (!res.ok) throw new Error(`relay ${res.status}`);
       }
-    } catch {
+    } catch (e) {
+      if (e instanceof AuthError) throw e;
+      /* Ghi nguyên nhân (SMTP từ chối, hết giờ…) để vận hành biết; người dùng chỉ thấy thông báo chung */
+      console.error(`[mail:${c.kind}]`, e instanceof Error ? e.message : e);
       throw new AuthError("EMAIL_SEND_FAILED", "Chưa gửi được email mời. Vui lòng thử lại.", 502, true);
     }
   }

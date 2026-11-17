@@ -61,6 +61,10 @@ pnpm build
   và imageView `KAVOR-SplashGradient` trong `SplashScreen.storyboard` — sửa tay vì plugin expo-splash-screen chỉ hỗ trợ màu đặc; `expo prebuild` sẽ xóa,
   phải thêm lại. iOS cache launch screen: đổi splash xong phải gỡ app (hoặc khởi động lại máy) mới thấy bản mới.
 - Sau `pod install` chạy tay, build Debug iOS có thể lỗi link `facebook::react::Sealable::Sealable()`: file `ios/Pods/React-Core-prebuilt/.last_build_configuration` bị mất nên script không đổi React Native prebuilt về Debug. Ghi `Release` vào file đó rồi build lại.
+- GPS Android (`attendance.ts`): `watchPositionAsync`/vị trí nền phải có `mayShowUserSettingsDialog: false` — mặc định expo-location hỏi bật
+  "Location Accuracy", từ chối → lỗi → đăng ký lại → hộp thoại lặp che trang chủ. Chỉ lời gọi do người dùng bấm (`currentFix(true)`) mới được hỏi.
+- APK Release chặn HTTP thường: thử với API local (`http://10.0.2.2:4100`) phải tạm thêm `android:usesCleartextTraffic="true"` vào
+  `android/app/src/main/AndroidManifest.xml` rồi trả lại (thư mục `android/` không commit); bản online HTTPS không cần.
 - Android: JDK `/opt/homebrew/opt/openjdk@17`, SDK `~/Library/Android/sdk`, emulator `Kavor_Pixel_6`; app dev không nhận Fast Refresh khi Metro chạy chung với iOS — force-stop rồi mở lại qua `kavor://expo-development-client/?url=http%3A%2F%2Flocalhost%3A8081` (cần `adb reverse tcp:8081 tcp:8081`).
 - iOS Debug (dev client) crash khi khởi động nếu React prebuilt và Expo precompiled modules lệch flavor. Để chụp QA dùng bản Release có cờ: `EXPO_PUBLIC_KAVOR_QA=1 npx expo run:ios --configuration Release --no-bundler`. Biến `EXPO_PUBLIC_*` bị Metro cache: xóa `$TMPDIR/metro-cache` khi đổi cờ QA, kể cả trước khi build bản cho iPhone thật (không được lọt QA).
 - Android: chữ bị cắt/xuống dòng sai trong bản Release nếu nạp font lúc chạy — Montserrat được nhúng native qua plugin `expo-font` (app.json), `useFonts` chỉ chạy trên iOS. `T` (src/ui.tsx) tự thêm NBSP cuối chuỗi trên Android; nhãn một dòng (nút, chip, seg, tag) dùng `numberOfLines={1}`.
@@ -155,4 +159,10 @@ pnpm build
 - Không đưa Supabase publishable key hoặc thông tin đăng nhập vào tài liệu/commit; dùng biến môi trường.
 - Bản online (`docs/DEPLOY.md`): Render Free **chặn cổng SMTP** → API gửi thư mời qua trạm `apps/admin-web/app/api/internal/mail` (Vercel) bằng
   `MAIL_RELAY_URL` + `MAIL_RELAY_SECRET` (khóa giống nhau ở Render và Vercel); dev vẫn SMTP Mailpit. OTP do Supabase gửi, không qua API.
+  Thư mời không gửi được: nguyên nhân ở log Render (`[mail:relay]`/`[mail:smtp]`) và Vercel (`[mail-relay]`); OTP lỗi ở log Render `[otp]`.
+  Trạm trả 401/404 = sai khóa hoặc Vercel thiếu biến → API báo `EMAIL_NOT_CONFIGURED`, không bảo người dùng thử lại.
+- Hàng đợi chấm công offline (`apps/mobile/src/attendance.ts`): mỗi lần chấm gắn `emp` (employeeId), chỉ người đó gửi/thấy; đăng xuất không xóa.
+  Mọi đọc-sửa-ghi hàng đợi qua `locked()`; lỗi tạm (mạng, 5xx, 401, 429, chờ đồng ý điều khoản, máy chờ duyệt — `keepQueued` ở `store.ts`) giữ lại.
+  Thêm trường kiểu `Map`/`Set` vào `CACHED` (`store.ts`) phải tự đổi sang mảng khi lưu và dựng lại khi khôi phục (JSON biến Map thành `{}`).
+- CSV xuất đi qua `csvCell` (`apps/api/src/csv.ts`): ô bắt đầu `= + - @` thêm `'` (số âm giữ nguyên). Thêm file xuất mới thì dùng hàm này.
   Push lên nhánh `claude/ecstatic-pascal-dblg7v` = Render/Vercel tự deploy — chạy verify-all trước khi push.

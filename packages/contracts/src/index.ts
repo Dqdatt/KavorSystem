@@ -413,6 +413,8 @@ export type EmployeeDetail = EmployeeListItem & {
   roles: Array<{ code: string; name: string; scope: string }>;
   /* Cấp bậc theo chức danh (khác quyền trên Kavor) + số người đang báo cáo trực tiếp */
   tier: ManagementTier | null; directReports: number;
+  /* Chỉ có ở lúc tạo hồ sơ kèm "Gửi email mời" mà thư mời chưa gửi được (hồ sơ vẫn đã lưu) */
+  inviteError?: string;
 };
 
 export type EmployeeUpsert = {

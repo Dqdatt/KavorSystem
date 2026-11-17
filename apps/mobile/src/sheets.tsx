@@ -312,6 +312,7 @@ export function SheetContent({ kind, arg }: { kind: SheetKind; arg?: string }) {
     </>;
     case "logoutAsk": return <>
       <H3>Đăng xuất?</H3><Sub>Widget chấm công sẽ ngừng hoạt động đến khi bạn đăng nhập lại.</Sub>
+      {S.att.queued ? <Note icon="lock">{`Còn ${S.att.queued} lần chấm công chưa gửi được. Kavor sẽ gửi khi bạn đăng nhập lại trên máy này.`}</Note> : null}
       <BtnRow><Btn kind="ghost" onPress={() => closeSheet()}>Ở lại</Btn><Btn kind="danger" onPress={ACT.logoutGo}>Đăng xuất</Btn></BtnRow>
     </>;
   }

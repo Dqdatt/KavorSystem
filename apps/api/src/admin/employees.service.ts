@@ -241,8 +241,12 @@ export class EmployeesAdmin {
     const assignment = { ...placement, manager_employee_id: input.managerEmployeeId ?? null };
     const id = await this.save(ctx, null, row, { ...assignment, from: effectiveFrom, currentFrom: null },
       { before: null, after: { ...row, termination_date: null, ...assignment, effective_from: effectiveFrom } });
-    if (input.sendInvite) await this.invite(ctx, id);
-    return this.detail(ctx, id);
+    /* Hồ sơ đã lưu: mời lỗi thì vẫn trả hồ sơ kèm lý do, để HR không tưởng tạo hỏng rồi tạo lại (trùng mã) */
+    const inviteError = input.sendInvite ? await this.invite(ctx, id).then(() => null, (e: unknown) => {
+      if (!(e instanceof AuthError)) console.error("[invite]", e);
+      return e instanceof AuthError ? e.message : "Chưa gửi được lời mời.";
+    }) : null;
+    return { ...(await this.detail(ctx, id)), ...(inviteError ? { inviteError } : {}) };
   }
 
   async update(ctx: AdminContext, id: string, b: Body): Promise<EmployeeDetail> {

@@ -1,5 +1,6 @@
 /* Bảng công tháng trên web HR: tổng hợp theo nhân viên trong phạm vi attendance.read, chi tiết từng ngày, khóa/mở kỳ, xuất CSV.
    Khóa kỳ lưu ảnh chụp bảng công của toàn công ty; sau đó mọi nơi đọc ảnh chụp, đơn giải trình của kỳ bị chặn. */
+import { csvCell } from "../csv.js";
 import type { EmployeeTimesheet, TimesheetBoard, TimesheetRow, TimesheetSummary } from "@kavor/contracts";
 import { conflict, invalid, notFound, type AdminContext } from "../admin/context.js";
 import { all } from "../db/rows.js";
@@ -148,7 +149,7 @@ export class TimesheetAdmin {
   /* CSV (UTF-8 có BOM để Excel đọc đúng tiếng Việt) */
   async exportCsv(ctx: AdminContext, m?: string): Promise<{ filename: string; body: string }> {
     const b = await this.board(ctx, m);
-    const esc = (v: unknown) => { const s = String(v ?? ""); return /[",\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
+    const esc = csvCell;
     const head = ["Mã NV", "Họ tên", "Phòng ban", "Ngày công", "Công chuẩn", "Số ngày đi muộn", "Phút đi muộn", "Số ngày về sớm", "Thiếu công chưa giải trình", "Giải trình chờ duyệt", "Giờ OT được tính", "Giờ OT đã duyệt", "Trạng thái"];
     const label = { ok: "Đủ dữ liệu", needs_action: "Cần xử lý", short: "Thiếu công" } as const;
     const lines = b.rows.map((r) => [r.employee.code, r.employee.fullName, r.employee.department ?? "", r.summary.credited, r.summary.standard, r.summary.lateDays, r.summary.lateMinutes, r.summary.earlyDays, r.summary.missingDays, r.summary.pendingRequests, r.summary.overtimeMinutes / 60, r.summary.overtimeApprovedMinutes / 60, label[r.status]].map(esc).join(","));

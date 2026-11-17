@@ -6,6 +6,7 @@
    - Bảng đầu vào: công (kỳ công của tenant) + thông tin người lao động + mức lương (tách đoạn khi đổi trong kỳ) + người phụ thuộc + tạm ứng.
      Chốt (toàn công ty, kỳ công đã khóa) = ảnh chụp bất biến; chốt lại = bản mới. Ảnh chụp không lưu số tài khoản (đọc bản hiện hành khi xem).
    - Nhật ký không ghi số tiền lương. */
+import { csvCell } from "../csv.js";
 import type {
   BankAccountView, CompensationItem, CompensationVersion, PayItem, PayItemList, EmployeeDependent, EmployeePay, EmploymentType, PayrollInputRow, PayrollInputSegment, PayrollInputSheet, TimesheetDay,
 } from "@kavor/contracts";
@@ -447,7 +448,7 @@ export class PayrollInputs {
   /* CSV (UTF-8 có BOM để Excel đọc đúng tiếng Việt) — dữ liệu đúng như màn hình (bản đã chốt nếu có) */
   async exportCsv(ctx: AdminContext, m?: string, source?: string): Promise<{ filename: string; body: string }> {
     const s = await this.sheet(ctx, m, source, true);
-    const esc = (v: unknown) => { const x = String(v ?? ""); return /[",\n;]/.test(x) ? `"${x.replace(/"/g, '""')}"` : x; };
+    const esc = csvCell;
     const rates = [...new Set(s.rows.flatMap((r) => Object.keys(r.overtime)))].sort((a, b) => Number(a) - Number(b));
     const cols = itemColumns(s.rows);
     const typeName: Record<EmploymentType, string> = { probation: "Thử việc", official: "Chính thức", contractor: "Cộng tác viên", intern: "Thực tập" };

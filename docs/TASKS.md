@@ -19,14 +19,15 @@ crash luồng chính) ghi vào "Sau v1", không làm trước khi xong v1. Chi t
 - [x] API sửa hồ sơ NV ghi bảng `employees` trước khi kiểm phạm vi (403 nhưng tên đã đổi, không nhật ký), đóng phân công cũ trước khi chèn mới; NV chưa vào làm sửa phòng ban → hai phân công, đến ngày vào làm bản cũ thắng; HR phạm vi phòng tạo NV ngày vào tương lai → 404 sau khi đã tạo — gom vào một RPC (`employees.service.ts:226-313`) — [opus high] (6bc76d4, deploy 17/11)
 
 ## Đợt 3 — Mobile chạy ổn (vòng 1; phạm vi cắt 17/11, người dùng đồng ý)
-- [ ] Mobile crash khi mở app lúc mất mạng rồi bấm đơn/thông báo: `reqItems` (Map) nằm trong `CACHED` (`store.ts:762`) → khôi phục thành `{}` → `.get` lỗi — [sonnet]
-- [ ] Mobile: widget mô phỏng ở bản thật sửa `S.clockIn` (`store.ts:1714`) → lần chấm thật sau thành "ra", máy chủ báo sai thứ tự — [sonnet]
-- [ ] Mobile chấm công offline: hàng đợi không gắn NV và không xóa khi đăng xuất (máy dùng chung → người sau gửi hộ); lỗi tạm thời (chờ đồng ý điều khoản, máy chờ duyệt, 429) bị xóa khỏi hàng đợi; race `enqueue`/`flushQueue` — `attendance.ts:116-145` — [opus high]
+- [x] Mobile crash khi mở app lúc mất mạng rồi bấm đơn/thông báo: `reqItems` (Map) nằm trong `CACHED` (`store.ts:762`) → khôi phục thành `{}` → `.get` lỗi — [sonnet] (18/11: lưu Map dạng mảng cặp, bản lưu cũ bỏ qua; thử Simulator mất mạng mở TU-0001 không crash)
+- [x] Mobile: widget mô phỏng ở bản thật sửa `S.clockIn` (`store.ts:1714`) → lần chấm thật sau thành "ra", máy chủ báo sai thứ tự — [sonnet] (18/11: bản thật chỉ báo toast)
+- [x] Mobile chấm công offline: hàng đợi không gắn NV và không xóa khi đăng xuất (máy dùng chung → người sau gửi hộ); lỗi tạm thời (chờ đồng ý điều khoản, máy chờ duyệt, 429) bị xóa khỏi hàng đợi; race `enqueue`/`flushQueue` — `attendance.ts:116-145` — [opus high] (18/11: gắn `emp`, giữ khi đăng xuất và chỉ người đó gửi; `keepQueued`; khóa `locked()`; test 10 ca, Simulator đạt)
 - [ ] Build Release cài iPhone 11 + thử Android emulator: mất mạng mở app bấm đơn/thông báo không crash; chấm offline → đăng xuất → người khác đăng nhập thì không gửi hộ — [opus high]
+  (18/11: Simulator + Android emulator Release đạt; Android sửa thêm hộp thoại "Location Accuracy" hỏi lặp khi từ chối. Còn cài iPhone 11 qua cáp)
 
 ## Đợt 4 — Web & API toàn vẹn (vòng 1; phạm vi cắt 17/11)
-- [ ] CSV xuất (đơn, bảng công, bảng lương đầu vào) chặn công thức `= + - @` (file mở bằng Excel của Kế toán) — tách từ việc validate API — [sonnet]
-- [ ] `mailer.ts:103` nuốt lỗi SMTP (lời mời/OTP không gửi mà không ai biết) — [opus high]
+- [x] CSV xuất (đơn, bảng công, bảng lương đầu vào) chặn công thức `= + - @` (file mở bằng Excel của Kế toán) — tách từ việc validate API — [sonnet] (18/11: `apps/api/src/csv.ts`)
+- [x] `mailer.ts:103` nuốt lỗi SMTP (lời mời/OTP không gửi mà không ai biết) — [opus high] (18/11: ghi nguyên nhân vào log API/trạm thư/OTP; trạm 401/404 báo chưa cấu hình; tạo NV kèm mời lỗi vẫn trả hồ sơ + `inviteError`)
 
 ## Đợt 5 — Chạy thử trọn vòng
 - [ ] Người dùng chốt 6 mục "Cần người dùng chốt" trong `docs/plans/hoan-thien-v1.md`
@@ -46,6 +47,7 @@ crash luồng chính) ghi vào "Sau v1", không làm trước khi xong v1. Chi t
 - [ ] Web còn ngưỡng nghiệp vụ cứng trái ADR 0001: lương ≥ 1.000.000 (chặn thực tập/CTV), thử việc 85–100%, đoàn phí 0–5%, mốc 5 triệu (`employees/pay.tsx:124`, `settings/page.tsx:91`, `requests/page.tsx:161`) — [opus high]
 - [ ] `requests.items()` (danh sách/xuất CSV đơn) `.in()` theo mọi id đơn: > ~200 đơn trong một lần xuất → URL quá dài, lỗi 500 (lỗi rõ, không sai số) — chia lô bằng `allIn` (db/rows.ts) — [sonnet]
 - [ ] Hồ sơ nhân viên sắp vào làm hiện trống phòng ban/quản lý (`detail`/`enrich` lấy phân công theo hôm nay); phạm vi và sửa hồ sơ đã theo phân công sắp hiệu lực (17/11) — [sonnet]
+- [ ] `payroll_law` (`202611270001:23`) khóa sửa tham số luật theo `current_date` (UTC): 00:00–07:00 VN ngày hiệu lực Console vẫn sửa được — đổi sang ngày VN — [opus xhigh]
 - [ ] Phép tồn: sổ năm trước bổ sung theo quy định phép năm đang áp dụng hôm nay (shortcut 17/11, `leave.service.ts`) — đổi khi quy định có lịch sử theo năm — [opus high]
 - [ ] (Tùy chọn) HR điều chỉnh công: xóa một giờ chấm sai (hiện chỉ đặt giờ), ca qua đêm; tab Lịch sử hồ sơ hiện ngày được sửa — [opus high]
 - [ ] (Tùy chọn) Tạm nghỉ: mobile báo "Đang tạm nghỉ" ở màn chấm công; tính 50% theo ngày làm việc của ca thay vì ngày lịch; tạm ứng khi đang tạm nghỉ — [opus high]

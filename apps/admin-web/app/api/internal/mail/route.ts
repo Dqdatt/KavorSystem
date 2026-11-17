@@ -27,7 +27,8 @@ export async function POST(req: Request) {
   try {
     /* Phải chờ gửi xong trước khi trả lời: Vercel tạm dừng hàm ngay khi đã có response */
     await nodemailer.createTransport(smtpUrl).sendMail({ from, to, subject, text: body, html });
-  } catch {
+  } catch (e) {
+    console.error("[mail-relay]", e instanceof Error ? e.message : e);
     return json(502, "EMAIL_SEND_FAILED", "Máy chủ thư từ chối gửi.");
   }
   return json(200, null);

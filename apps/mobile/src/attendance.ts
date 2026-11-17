@@ -58,7 +58,8 @@ export async function watchFix(on: boolean) {
   try {
     const perm = await Location.getForegroundPermissionsAsync().catch(() => null);
     if (!perm?.granted) return;
-    sub = await Location.watchPositionAsync({ accuracy: Location.Accuracy.High, distanceInterval: 0, timeInterval: 1000 }, (p) => push(toFix(p))).catch(() => null);
+    /* Android: theo dõi nền không hỏi bật "Location Accuracy" (từ chối → lỗi → đăng ký lại → hỏi lặp mãi); vẫn chạy bằng GPS */
+    sub = await Location.watchPositionAsync({ accuracy: Location.Accuracy.High, distanceInterval: 0, timeInterval: 1000, mayShowUserSettingsDialog: false }, (p) => push(toFix(p))).catch(() => null);
   } finally { starting = false; }
 }
 const freshFix = (needM: number) => (last && Date.now() - last.at < FRESH_MS && last.accuracyM <= needM ? last : null);
@@ -91,7 +92,7 @@ export async function currentFix(ask = true, needM = 50, onProgress?: (f: Fix) =
     const timer = setTimeout(finish, 10_000);
     /* Vị trí hệ điều hành vừa có (app khác/lần trước) — trả về tức thì nếu đủ mới và chính xác */
     Location.getLastKnownPositionAsync({ maxAge: FRESH_MS, requiredAccuracy: needM }).then((p) => { if (p) take(toFix(p)); }).catch(() => {});
-    Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High }).then((p) => take(toFix(p))).catch(() => {});
+    Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High, mayShowUserSettingsDialog: ask }).then((p) => take(toFix(p))).catch(() => {});
   });
 }
 
@@ -103,44 +104,64 @@ export async function quietFix(): Promise<Fix | null> {
   return currentFix(false).catch(() => null);
 }
 
-export type QueuedPunch = AttendanceEventRequest & { queuedAt: number };
+/* emp: employeeId của người bấm. Máy dùng chung: chỉ người đó gửi/thấy lần chấm của mình; đăng xuất không xóa,
+   lần sau người đó đăng nhập trên máy này thì gửi tiếp (quá hạn offline thì máy chủ từ chối và app báo).
+   Bản ghi cũ chưa có emp coi là của người đang đăng nhập (như trước khi có trường này).
+   shortcut: lần chấm của người không bao giờ đăng nhập lại nằm mãi trên máy, dọn theo tuổi nếu hàng đợi phình. */
+export type QueuedPunch = AttendanceEventRequest & { queuedAt: number; emp?: string };
+const mine = (p: QueuedPunch, emp: string) => !p.emp || p.emp === emp;
+
+/* Mọi thao tác đọc-sửa-ghi hàng đợi chạy lần lượt: không để lần chấm mới bị ghi đè khi đang gửi */
+let chain: Promise<unknown> = Promise.resolve();
+function locked<T>(fn: () => Promise<T>): Promise<T> {
+  const r = chain.then(fn);
+  chain = r.catch(() => {});
+  return r;
+}
 
 /* Bản sao trong bộ nhớ để màn hình đọc đồng bộ (giữ giờ vào/ra đã lưu trên máy khi máy chủ chưa có) */
 let queueCache: QueuedPunch[] = [];
-export const queuedNow = () => queueCache;
-export async function readQueue(): Promise<QueuedPunch[]> {
+export const queuedNow = (emp: string) => queueCache.filter((p) => mine(p, emp));
+async function readAll(): Promise<QueuedPunch[]> {
   const raw = await SecureStore.getItemAsync(QUEUE_KEY, opts).catch(() => null);
   try { queueCache = raw ? (JSON.parse(raw) as QueuedPunch[]) : []; } catch { queueCache = []; }
   return queueCache;
 }
+export const readQueue = (emp: string) => locked(readAll).then(() => queuedNow(emp));
 async function writeQueue(q: QueuedPunch[]) {
   queueCache = q;
   if (q.length) await SecureStore.setItemAsync(QUEUE_KEY, JSON.stringify(q), opts);
   else await SecureStore.deleteItemAsync(QUEUE_KEY, opts).catch(() => {});
 }
 /* Ghi vào hàng đợi TRƯỚC khi gửi: app bị tắt/mất mạng giữa chừng thì lần chấm công vẫn còn trên máy */
-export async function enqueue(p: AttendanceEventRequest) {
-  const q = await readQueue();
-  if (!q.some((x) => x.clientEventId === p.clientEventId)) q.push({ ...p, offline: true, occurredAt: p.occurredAt ?? new Date().toISOString(), queuedAt: Date.now() });
-  await writeQueue(q);
+export function enqueue(p: AttendanceEventRequest, emp: string) {
+  return locked(async () => {
+    const q = await readAll();
+    if (!q.some((x) => x.clientEventId === p.clientEventId)) q.push({ ...p, offline: true, occurredAt: p.occurredAt ?? new Date().toISOString(), queuedAt: Date.now(), emp });
+    await writeQueue(q);
+  });
 }
-/* Gửi lần lượt; lỗi mạng thì dừng và giữ lại, máy chủ trả lỗi nghiệp vụ thì bỏ khỏi hàng đợi và báo lại.
+/* Gửi lần lượt các lần chấm của emp; keep(e) (mất mạng, phiên hết hạn, lỗi tạm thời) thì dừng và giữ lại,
+   máy chủ trả lỗi nghiệp vụ thì bỏ khỏi hàng đợi và báo lại.
    Gửi trong 2 phút kể từ lúc bấm thì dùng giờ máy chủ như chấm công trực tuyến; quá 2 phút mới gửi dạng offline (giờ trên máy). */
 const ONLINE_MS = 120_000;
-export async function flushQueue<R>(send: (p: AttendanceEventRequest) => Promise<R>, isNetworkError: (e: unknown) => boolean) {
-  const q = await readQueue();
+export async function flushQueue<R>(emp: string, send: (p: AttendanceEventRequest) => Promise<R>, keep: (e: unknown) => boolean) {
+  const q = await readQueue(emp);
   const sent: Array<{ p: QueuedPunch; result: R }> = [], failed: Array<{ p: QueuedPunch; error: unknown }> = [];
   for (const p of q) {
-    const { queuedAt, occurredAt, offline: _o, ...base } = p;
+    const { queuedAt, occurredAt, offline: _o, emp: _e, ...base } = p;
     const req: AttendanceEventRequest = Date.now() - queuedAt < ONLINE_MS ? base : { ...base, offline: true, ...(occurredAt ? { occurredAt } : {}) };
     try { sent.push({ p, result: await send(req) }); } catch (e) {
-      if (isNetworkError(e)) break;
+      if (keep(e)) break;
       failed.push({ p, error: e });
     }
   }
   const done = new Set([...sent.map((x) => x.p), ...failed.map((f) => f.p)].map((p) => p.clientEventId));
-  /* Đọc lại: trong lúc gửi có thể vừa thêm lần chấm công mới */
-  const now = await readQueue();
-  await writeQueue(now.filter((p) => !done.has(p.clientEventId)));
-  return { sent, failed, remaining: now.length - done.size };
+  /* Đọc lại trong khóa: trong lúc gửi có thể vừa thêm lần chấm công mới */
+  const remaining = await locked(async () => {
+    const left = (await readAll()).filter((p) => !done.has(p.clientEventId));
+    await writeQueue(left);
+    return left.filter((p) => mine(p, emp)).length;
+  });
+  return { sent, failed, remaining };
 }

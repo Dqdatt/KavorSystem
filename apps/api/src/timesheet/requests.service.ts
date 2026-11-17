@@ -3,6 +3,7 @@
      (quản lý trực tiếp; không có hoặc chính là người gửi thì bỏ bước); tạo đơn nguyên tử bằng hàm SQL.
    - Duyệt: người được giao (bước quản lý) hoặc người có request.hr_review với người gửi (bước HR); không ai tự duyệt đơn
      của mình. Chuyển bước nguyên tử bằng decide_approval; duyệt hết thì tạo điều chỉnh giờ công. */
+import { csvCell } from "../csv.js";
 import {
   EXPLANATION_KINDS, PROFILE_FIELDS, REQUEST_ATTACHMENT_MAX, REQUEST_TYPES, STEP_RESOLVERS, type RequestQueueFilter, type RequestQueueItem,
   type AdvancePayload, type RequestAttachment, type ExplanationKind, type ExplanationPayload, type LeavePayload, type MyApprovals, type OvertimePayload, type MyTimesheet, type ProfileChangePayload, type RequestItem, type RequestQueue, type RequestStatus, type RequestStep, type StepResolver, type StepStatus,
@@ -438,7 +439,7 @@ export class RequestsService {
     const status = f.status ?? "all";
     const rows = list.filter((r) => status === "all" || (status === "done" ? r.status !== "pending" : status === "closed" ? r.status === "rejected" || r.status === "cancelled" : r.status === status));
     const items = await this.queueItems(ctx.db, viewerOf(ctx), rows, applied);
-    const esc = (x: unknown) => { const t = String(x ?? ""); return /[",\n;]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t; };
+    const esc = csvCell;
     const at = (iso: string | null) => (iso ? `${localParts(iso, clock.timezone).date} ${String(Math.floor(localParts(iso, clock.timezone).minutes / 60)).padStart(2, "0")}:${String(localParts(iso, clock.timezone).minutes % 60).padStart(2, "0")}` : "");
     const head = ["Mã đơn", "Mã NV", "Họ tên", "Phòng ban", "Loại đơn", "Áp dụng từ", "Áp dụng đến", "Nội dung", "Lý do", "Trạng thái", "Gửi lúc", "Hoàn tất lúc", "Các bước duyệt", "Minh chứng"];
     const lines = items.map((i) => [i.no, i.requester.code, i.requester.fullName, i.requester.department ?? "", REQUEST_TYPES[i.type], i.applied?.from ?? "", i.applied?.to ?? "",

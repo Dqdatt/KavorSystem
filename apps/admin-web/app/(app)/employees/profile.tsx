@@ -389,6 +389,7 @@ export function EmployeeForm({ org, employee, onClose, onSaved }: { org: OrgOpti
   });
   const [err, setErr] = useState<string | null>(null);
   const { busy, run } = useAction();
+  const toast = useToast();
   const set = (k: keyof typeof f) => (e: { target: { value: string } }) => { setF({ ...f, [k]: e.target.value }); setErr(null); };
   /* Danh sách chọn quản lý trực tiếp: chỉ người có cấp quản lý cao hơn chức danh đang chọn (managerTierOk); giữ người đang được chọn
      dù sai cấp để không âm thầm đổi dữ liệu cũ — API chặn khi lưu */
@@ -404,12 +405,15 @@ export function EmployeeForm({ org, employee, onClose, onSaved }: { org: OrgOpti
     const body: Record<string, unknown> = { ...f, phone: f.phone || null, managerEmployeeId: f.managerEmployeeId || null };
     if (employee) { delete body.sendInvite; if (!placementChanged) { delete body.departmentId; delete body.positionId; delete body.managerEmployeeId; delete body.effectiveFrom; } }
     else delete body.status;
-    let id = employee?.id ?? "";
+    let id = employee?.id ?? "", inviteError: string | undefined;
     const ok = await run("save", async () => {
       const r = employee ? await call<EmployeeDetail>("PATCH", `employees/${employee.id}`, body) : await call<EmployeeDetail>("POST", "employees", body);
-      id = r.id;
-    }, employee ? "Đã lưu hồ sơ" : f.sendInvite ? "Đã tạo hồ sơ và gửi lời mời kích hoạt" : "Đã tạo hồ sơ");
-    if (ok) onSaved(id);
+      id = r.id; inviteError = r.inviteError;
+    });
+    if (!ok) return;
+    if (inviteError) toast(`Đã tạo hồ sơ nhưng chưa gửi được lời mời: ${inviteError} Gửi lại ở khối Tài khoản Kavor trong hồ sơ.`, "error");
+    else toast(employee ? "Đã lưu hồ sơ" : f.sendInvite ? "Đã tạo hồ sơ và gửi lời mời kích hoạt" : "Đã tạo hồ sơ");
+    onSaved(id);
   }
 
   return (
