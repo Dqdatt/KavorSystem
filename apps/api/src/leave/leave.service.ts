@@ -103,15 +103,18 @@ export class LeaveService {
         reason: excluded.length ? `Tạm nghỉ không tính phép năm: tháng ${excluded.join(", ")}/${year}` : `Hoàn lại phép do điều chỉnh tạm nghỉ năm ${year}` });
       if (seniority > 0 && !has.has(`seniority:${year}`)) add.push({ kind: "grant", amount: seniority, effective_on: yearStart, source_key: `seniority:${year}`, reason: `Phép thâm niên (${fullYears(emp.hire_date, yearStart)} năm làm việc)` });
     }
-    /* Phép tồn năm trước: chuyển tối đa N ngày, dùng tới hết tháng quy định của năm nay */
-    if (year <= ty && !has.has(`carry:${year}`) && Number(c.carryOverMaxDays ?? 0) > 0) {
+    /* Phép tồn năm trước: chuyển tối đa N ngày, dùng tới hết tháng quy định của năm nay. Chỉ khi sổ năm trước có trên Kavor (năm trước khi
+       dùng Kavor HR nhập phép tồn tay). Sổ năm trước được bổ sung đủ trước khi tính (tích lũy chỉ ghi khi có người đọc sổ — trước đây đọc
+       sổ thiếu tháng cuối năm → phép tồn thiếu). Số tồn tăng sau đó (đơn cuối năm bị từ chối/hủy) thì ghi bù `carry:<năm>:n` tới hết hạn dùng.
+       shortcut: sổ năm trước bổ sung theo quy định đang áp dụng hôm nay (như mọi năm khác của sổ); đổi khi quy định phép năm có lịch sử theo năm. */
+    const maxCarry = Number(c.carryOverMaxDays ?? 0), carryExpires = lastDayOfMonth(year, Number(c.carryOverExpiryMonth ?? 3));
+    const carried = tx.filter((t) => t.source_key === `carry:${year}` || t.source_key.startsWith(`carry:${year}:`));
+    const carriedSum = r2(carried.reduce((n, t) => n + t.amount, 0));
+    if (year <= ty && maxCarry > 0 && carriedSum < maxCarry && (!carried.length || today <= carryExpires)) {
       const { data: prevAcc } = await db.from("leave_accounts").select("id").eq("employee_id", emp.id).eq("leave_type_id", al.id).eq("year", year - 1).maybeSingle();
-      if (prevAcc) {
-        const { data: prevTx } = await db.from("leave_transactions").select("amount").eq("account_id", (prevAcc as { id: string }).id);
-        const left = ((prevTx ?? []) as Array<{ amount: number }>).reduce((n, t) => n + Number(t.amount), 0);
-        const carry = Math.min(Math.max(0, half(left)), Number(c.carryOverMaxDays));
-        if (carry > 0) add.push({ kind: "carry", amount: carry, effective_on: yearStart, expires_on: lastDayOfMonth(year, Number(c.carryOverExpiryMonth ?? 3)), source_key: `carry:${year}`, reason: `Phép tồn năm ${year - 1}` });
-      }
+      const prev = prevAcc ? await this.balance(db, tenantId, emp, year - 1, today, rule, al) : null;
+      const delta = prev ? r2(Math.min(Math.max(0, half(prev.balance.available)), maxCarry) - carriedSum) : 0;
+      if (delta > 0) add.push({ kind: "carry", amount: delta, effective_on: yearStart, expires_on: carryExpires, source_key: carried.length ? `carry:${year}:${carried.length + 1}` : `carry:${year}`, reason: `Phép tồn năm ${year - 1}` });
     }
     if (add.length) {
       const { error } = await db.from("leave_transactions").upsert(add.map((a) => ({ tenant_id: tenantId, account_id: account, ...a })), { onConflict: "account_id,source_key", ignoreDuplicates: true });

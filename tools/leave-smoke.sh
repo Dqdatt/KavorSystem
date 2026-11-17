@@ -2,7 +2,7 @@
 # Kiểm thử nghỉ phép: sổ phép năm theo quy định mẫu (tích lũy theo tháng, số dư đầu kỳ), loại nghỉ, đếm ngày làm việc,
 # đơn ≤ 2 ngày chỉ quản lý duyệt, > 2 ngày thêm HR, giữ chỗ → trừ phép / trả lại khi từ chối/hủy, trùng ngày, vượt phép,
 # nghỉ nửa ngày, bảng công hiện ngày nghỉ, web HR xem/điều chỉnh/nhập phép tồn (hết hạn tự trừ), phạm vi quản lý,
-# gửi đơn lúc đơn khác đang ghi (trùng ngày, số dư vừa đổi).
+# gửi đơn lúc đơn khác đang ghi (trùng ngày, số dư vừa đổi), phép tồn năm trước (sổ năm trước bổ sung đủ, ghi bù khi tăng).
 # Cần DB vừa reset (bash tools/db-reset.sh) và API đang chạy (bash tools/dev-backend.sh).
 set -euo pipefail
 source "$(dirname "$0")/smoke-lib.sh"
@@ -135,4 +135,34 @@ race "insert into public.leave_transactions (tenant_id, account_id, kind, amount
 check "Đơn phép năm gửi lúc số dư vừa đổi: chờ khóa rồi bị chặn, không giữ chỗ theo số dư cũ" "$WAITED $(echo "$RB" | python3 -c "import json,sys; print('Số dư phép vừa thay đổi' in json.load(sys.stdin)['error']['message'])")" "True True"
 _s2=$(status POST me/requests/leave "$EMP" "{\"leaveType\":\"AL\",\"from\":\"$G\",\"half\":\"am\",\"reason\":\"Việc riêng buổi sáng\"}") || :
 check "Gửi lại sau khi số dư đổi thì được" "$_s2" 201
+
+echo "— Phép tồn năm trước: tính trên sổ năm trước đã bổ sung đủ, ghi bù khi số tồn tăng trước hạn dùng"
+# Phạm Ngọc Anh (HDG0004, vào làm 2023): sổ năm trước chỉ mới tích lũy 6 tháng (chưa ai đọc sổ nửa cuối năm), đã nghỉ 5 ngày
+AN=60000000-0000-4000-8000-000000000004
+PY=$((Y - 1))
+_s3=$(sql "with a as (insert into public.leave_accounts (tenant_id, employee_id, leave_type_id, year)
+    select '10000000-0000-4000-8000-000000000001', '$AN', id, $PY from public.leave_types where tenant_id = '10000000-0000-4000-8000-000000000001' and code = 'AL' returning id)
+  insert into public.leave_transactions (tenant_id, account_id, kind, amount, effective_on, source_key, reason)
+  select '10000000-0000-4000-8000-000000000001', a.id, x.kind, x.amount, x.d, x.k, x.r from a, (values
+    ('accrual', 1, date '$PY-01-01', 'accrual:$PY-01', 'Tích lũy'), ('accrual', 1, date '$PY-02-01', 'accrual:$PY-02', 'Tích lũy'), ('accrual', 1, date '$PY-03-01', 'accrual:$PY-03', 'Tích lũy'),
+    ('accrual', 1, date '$PY-04-01', 'accrual:$PY-04', 'Tích lũy'), ('accrual', 1, date '$PY-05-01', 'accrual:$PY-05', 'Tích lũy'), ('accrual', 1, date '$PY-06-01', 'accrual:$PY-06', 'Tích lũy'),
+    ('consume', -5, date '$PY-06-15', 'smoke:consume', 'Đã nghỉ 5 ngày')) x(kind, amount, d, k, r) returning 1") || :
+need "Sổ năm $PY của HDG0004: 6 tháng tích lũy, đã nghỉ 5 ngày" "$_s3"
+carry() { call GET "admin/leave/$AN?year=$Y" "$HR" | py "d['balance']['carry']"; }
+check "Phép tồn = min(12 − 5, 3): sổ năm trước được bổ sung đủ 12 tháng trước khi tính (bản cũ ra 1)" "$(carry)" 3
+check "Sổ năm $PY đã đủ tích lũy 12 tháng" "$(sql "select sum(amount) from public.leave_transactions t join public.leave_accounts a on a.id = t.account_id where a.employee_id = '$AN' and a.year = $PY and t.kind = 'accrual'")" 12.00
+# Từ hôm nay HDG0004 theo quy định riêng (áp cá nhân): chuyển tối đa 10 ngày, dùng tới hết tháng 12 → ghi bù phần còn thiếu
+_s4=$(sql "with d as (insert into public.policy_definitions (tenant_id, kind, code, name) values ('10000000-0000-4000-8000-000000000001', 'leave', 'PN-TEST', 'Phép năm thử phép tồn') returning id),
+  v as (insert into public.policy_versions (tenant_id, policy_id, version_no, config, effective_from, note)
+    select '10000000-0000-4000-8000-000000000001', d.id, 1, (select v0.config from public.policy_versions v0 join public.policy_definitions p on p.id = v0.policy_id
+      where p.tenant_id = '10000000-0000-4000-8000-000000000001' and p.code = 'PN-CHUAN' order by v0.version_no desc limit 1) || '{\"carryOverMaxDays\":10,\"carryOverExpiryMonth\":12}',
+      public.tenant_today('10000000-0000-4000-8000-000000000001'), 'Thử phép tồn' from d returning policy_id)
+  insert into public.policy_assignments (tenant_id, kind, target_id, scope_type, scope_id, effective_from, reason)
+  select '10000000-0000-4000-8000-000000000001', 'leave', policy_id, 'employee', '$AN', public.tenant_today('10000000-0000-4000-8000-000000000001'), 'Thử phép tồn riêng một người' from v returning 1") || :
+need "Quy định phép năm riêng cho HDG0004: phép tồn tối đa 10 ngày tới hết tháng 12" "$_s4"
+check "Ghi bù phép tồn tới 7 ngày (dòng carry:$Y:2)" "$(carry) $(sql "select amount from public.leave_transactions where source_key = 'carry:$Y:2' and account_id in (select id from public.leave_accounts where employee_id = '$AN')")" "7 4.00"
+_s5=$(sql "insert into public.leave_transactions (tenant_id, account_id, kind, amount, effective_on, source_key, reason)
+  select '10000000-0000-4000-8000-000000000001', id, 'release', 2, date '$PY-12-20', 'smoke:release', 'Đơn cuối năm bị từ chối' from public.leave_accounts where employee_id = '$AN' and year = $PY returning 1") || :
+need "Năm $PY: trả lại 2 ngày của đơn cuối năm bị từ chối" "$_s5"
+check "Số tồn năm trước tăng → ghi bù thêm 2 ngày, không ghi trùng khi đọc lại" "$(carry) $(carry)" "9 9"
 echo "Tất cả bước nghỉ phép đều đạt."
