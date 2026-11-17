@@ -2,7 +2,7 @@
 -- kỳ đã khóa thì không duyệt/điều chỉnh, một giải trình mỗi ngày, RLS theo người gửi/người duyệt/phạm vi. Không giả định DB trống.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(24);
+select plan(26);
 
 select set_config('test.wv', (select v.id::text from public.workflow_versions v join public.workflow_definitions d on d.id = v.workflow_id
   where d.tenant_id = '10000000-0000-4000-8000-000000000001' and d.request_type = 'explanation' order by v.version_no limit 1), true);
@@ -32,6 +32,9 @@ select throws_ok($$ select public.decide_approval('f1000000-0000-4000-8000-00000
 select is(public.decide_approval('f1000000-0000-4000-8000-000000000001', null, true, 'Đúng, có họp'), 'next', 'Quản lý duyệt → sang bước HR');
 select is((select status || ' · ' || (due_at is not null)::text from public.approval_tasks where id = 'f1000000-0000-4000-8000-000000000002'), 'pending · true', 'Bước HR đang chờ, có hạn SLA');
 select throws_ok($$ select public.decide_approval('f1000000-0000-4000-8000-000000000001', null, true) $$, 'P0001', 'TASK_NOT_PENDING', 'Bước đã duyệt không duyệt lại');
+select is((select r.status || ' · ' || t.status from public.requests r join public.approval_tasks t on t.request_id = r.id and t.step_no = 2 where r.id = 'f0000000-0000-4000-8000-000000000001'),
+  'pending · pending', 'Bấm duyệt lại bước 1 không kết thúc đơn, bước HR vẫn chờ (lần gọi song song: tools/requests-smoke.sh)');
+select throws_ok($$ select public.decide_approval('f1000000-0000-4000-8000-0000000000ff', null, true) $$, 'P0001', 'TASK_NOT_FOUND', 'Bước duyệt không tồn tại');
 select is(public.decide_approval('f1000000-0000-4000-8000-000000000002', null, true), 'approved', 'HR duyệt → đơn hoàn tất');
 select is((select clock_out::text || ' · ' || (clock_in is null)::text from public.attendance_adjustments where request_id = 'f0000000-0000-4000-8000-000000000001'),
   '17:00:00 · true', 'Tạo điều chỉnh giờ ra, giữ giờ vào từ chấm công');

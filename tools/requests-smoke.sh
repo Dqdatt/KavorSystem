@@ -1,6 +1,6 @@
 #!/bin/bash
 # Kiểm thử danh sách đơn web HR để đối chiếu: đếm theo trạng thái (đơn đã duyệt không mất), lọc loại/phòng ban/ngày áp dụng/ngày gửi/tìm,
-# phân trang ở máy chủ, xuất CSV theo bộ lọc (ghi nhật ký), phạm vi quản lý, tham số sai.
+# phân trang ở máy chủ, xuất CSV theo bộ lọc (ghi nhật ký), phạm vi quản lý, tham số sai, duyệt song song (bấm 2 lần không bỏ qua bước).
 # Cần DB vừa reset (bash tools/db-reset.sh) và API đang chạy (bash tools/dev-backend.sh).
 set -euo pipefail
 source "$(dirname "$0")/smoke-lib.sh"
@@ -63,4 +63,50 @@ check "Xuất CSV theo bộ lọc (2 đơn nghỉ + dòng tiêu đề, có BOM)"
 check "File có ngày áp dụng và các bước duyệt" "$(python3 -c "import sys; t=open(sys.argv[1],encoding='utf-8').read(); print('$D1' in t and 'Quản lý trực tiếp: đang chờ' in t)" "$F")" True
 rm -f "$F"
 check "Xuất file ghi nhật ký" "$(sql "select count(*) from public.audit_logs where action='request.exported'")" 1
+
+echo "— Duyệt song song: bấm 2 lần không bỏ qua bước HR (decide_approval khóa đơn trước khi đọc bước)"
+# Hai khối 3 ngày làm việc chưa có đơn, cùng năm → đơn nghỉ > 2 ngày đi Quản lý → HR
+_s1=$(call GET me/leave "$EMP") || :
+BLK=$(echo "$_s1" | python3 -c "
+import json,sys
+d=json.load(sys.stdin)['data']; cal=[x for x in d['calendar'] if x['date']>d['today']]
+W=[x['date'] for x in cal if x['workday'] and not x['taken']]
+out=[]; i=0
+while i+2<len(W) and len(out)<4:
+  f,t=W[i],W[i+2]
+  if f[:4]==t[:4] and (not out or f>out[-1]) and not any(x['workday'] and x['taken'] for x in cal if f<=x['date']<=t): out+=[f,t]; i+=3
+  else: i+=1
+print(' '.join(out))")
+set -- $BLK; F1=${1:-}; T1=${2:-}; F2=${3:-}; T2=${4:-}
+need "Hai khối ngày nghỉ $F1→$T1, $F2→$T2" "$T2"
+LA=$(call POST me/requests/leave "$EMP" "{\"leaveType\":\"UL\",\"from\":\"$F1\",\"to\":\"$T1\",\"reason\":\"Về quê có việc\"}" | field data.no)
+LB=$(call POST me/requests/leave "$EMP" "{\"leaveType\":\"UL\",\"from\":\"$F2\",\"to\":\"$T2\",\"reason\":\"Đưa con đi khám\"}" | field data.no)
+need "Gửi $LA, $LB" "$LB"
+steps() { sql "select r.status || ' ' || string_agg(t.resolver || ':' || t.status, ',' order by t.step_no) from public.requests r join public.approval_tasks t on t.request_id = r.id where r.request_no = '$1' group by r.status"; }
+task1() { sql "select t.id from public.approval_tasks t join public.requests r on r.id = t.request_id where r.request_no = '$1' and t.step_no = 1"; }
+check "Đơn $LA có 2 bước: Quản lý đang chờ, HR chờ tới lượt" "$(steps "$LA")" "pending direct_manager:pending,hr:waiting"
+TA=$(task1 "$LA"); MU=$(sql "select user_id from public.employees where employee_code = 'HDG0003'")
+# Phiên A duyệt rồi giữ khóa 3 giây; phiên B gọi đúng lúc đó → phải chờ khóa rồi thấy bước đã duyệt (bản cũ: B duyệt tiếp, đơn thành approved)
+pg() { docker exec -i supabase_db_kavor-system psql -U postgres -d postgres -X -Atq "$@"; }
+sleeping() { sql "select count(*) from pg_stat_activity where wait_event = 'PgSleep' and pid <> pg_backend_pid()"; }
+pg -c "begin; select public.decide_approval('$TA', '$MU', true); select pg_sleep(3); commit;" >/dev/null &
+A=$!
+for _ in $(seq 1 50); do [ "$(sleeping)" = 1 ] && break; sleep 0.1; done
+check "Phiên A đã duyệt và đang giữ khóa đơn" "$(sleeping)" 1
+T0=$(python3 -c "import time; print(time.time())")
+_s2=$(pg -c "select public.decide_approval('$TA', '$MU', true)" 2>&1) || :
+WAITED=$(python3 -c "import time,sys; print(time.time() - float(sys.argv[1]) > 1)" "$T0")
+wait $A || { echo "✘ Phiên A lỗi"; exit 1; }
+check "Phiên B phải chờ khóa của phiên A" "$WAITED" True
+check "Phiên B bị chặn: bước vừa được duyệt" "$(echo "$_s2" | grep -o TASK_NOT_PENDING | head -1)" TASK_NOT_PENDING
+check "Đơn $LA vẫn chờ, bước HR đang chờ duyệt" "$(steps "$LA")" "pending direct_manager:approved,hr:pending"
+# Qua API: quản lý bấm duyệt 2 lần cùng lúc
+TB=$(task1 "$LB"); F=$(mktemp)
+status POST "me/approvals/$TB/approve" "$MGR" '{}' >"$F.1" &
+status POST "me/approvals/$TB/approve" "$MGR" '{}' >"$F.2" &
+wait
+R=$( (cat "$F.1"; echo; cat "$F.2"; echo) | sort | tr '\n' ' ')
+rm -f "$F" "$F.1" "$F.2"
+check "Hai lần bấm duyệt cùng lúc: một 200, một 409" "$R" "200 409 "
+check "Đơn $LB vẫn chờ, bước HR đang chờ duyệt" "$(steps "$LB")" "pending direct_manager:approved,hr:pending"
 echo "Tất cả bước danh sách đơn đều đạt."
