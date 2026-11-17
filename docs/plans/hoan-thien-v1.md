@@ -16,7 +16,7 @@ Một công ty 30–100 nhân viên dùng thật trọn một kỳ: chấm công
 công bố phiếu trên app, **không lộ dữ liệu, không sai số, không mất dữ liệu**. Giao diện hiện tại coi là đủ dùng.
 
 **Xong v1 khi đủ cả 4:**
-1. Mọi việc của Đợt 1–4 đã đánh dấu xong trong `docs/TASKS.md`, `verify-all.sh` đạt, đã deploy.
+1. Mọi việc của Đợt 1–4 (sau khi cắt phạm vi 17/11) đã đánh dấu xong trong `docs/TASKS.md`, `verify-all.sh` đạt, đã deploy.
 2. Đợt 5 (chạy thử trọn vòng) không còn lỗi P0.
 3. Các mục "Cần người dùng chốt" đã có câu trả lời.
 4. Không còn việc P0 nào mở.
@@ -34,6 +34,9 @@ công bố phiếu trên app, **không lộ dữ liệu, không sai số, không
 5. **Tính năng mới** (giai đoạn 2–5 của `roadmap-competitive.md`) chỉ bắt đầu sau v1, theo phản hồi của công ty dùng thật.
 
 ## Các đợt (thứ tự cố định, ước 11–15 phiên)
+
+> **Cắt phạm vi 17/11/2026 (người dùng đồng ý):** Đợt 1–2 đã xong + deploy. Để xong v1 trong 2 vòng nữa, Đợt 3–4 chỉ còn việc P0
+> (vòng 1), Đợt 5 là vòng 2; phần còn lại của Đợt 3–4 chuyển "Sau v1" trong `docs/TASKS.md`. Mỗi vòng deploy một lần cuối vòng.
 
 ### Đợt 1 — Bảo mật · 3–4 phiên · phiên chính, Opus xhigh
 1. Deploy `a6d559e` (migration `202612070001` lên cloud trước, rồi push).
@@ -53,26 +56,16 @@ smoke giả `X-Forwarded-For` không lách được giới hạn thử; đã dep
 
 Xong khi: smoke 30+ NV khóa kỳ ra đúng tổng công/lương; có test gọi song song cho duyệt và đơn nghỉ; đã deploy.
 
-### Đợt 3 — Mobile chạy ổn · 2 phiên
-1. `laptrinh`: crash offline `reqItems`; widget mô phỏng sửa `S.clockIn`; GPS 1 giây không tắt; giờ theo múi công ty;
-   POST tạo đơn idempotent; xóa `S.net`/NetBar.
-2. Phiên chính, Opus high: hàng đợi chấm công offline gắn NV, giữ lỗi tạm thời, race `enqueue`/`flushQueue`;
-   che màn + khóa PIN khi vào nền; deep link bỏ qua đồng ý/đăng ký máy; đăng xuất lúc refresh; xóa file tạm.
+### Đợt 3 + 4 — vòng 1: P0 còn lại · 1 phiên · phiên chính Opus high, phần nhỏ giao `laptrinh`
+1. Mobile: crash offline `reqItems`; widget mô phỏng sửa `S.clockIn`; hàng đợi chấm công offline gắn NV + xóa khi đăng xuất + giữ lỗi tạm thời
+   (race `enqueue`/`flushQueue`).
+2. Web/API: `mailer` báo lỗi khi không gửi được thư mời/OTP; CSV xuất chặn công thức `= + - @`.
 
-Xong khi: trên iPhone 11 và Android emulator: mất mạng mở app bấm đơn/thông báo không crash; chấm offline → đăng xuất →
-người khác đăng nhập thì không gửi hộ; build cài lên iPhone.
+Xong khi: verify-all đạt; trên iPhone 11 và Android emulator: mất mạng mở app bấm đơn/thông báo không crash, chấm offline → đăng xuất →
+người khác đăng nhập thì không gửi hộ; build cài lên iPhone; đã deploy.
 
-### Đợt 4 — Web & API toàn vẹn · 2–3 phiên
-1. Ghi nửa chừng ca/địa điểm/quy định; không ngừng được phòng ban có người đã nghỉ; validate API + CSV chặn công thức;
-   `mailer` nuốt lỗi SMTP (lời mời không gửi mà không ai biết).
-2. `laptrinh`: hộp thoại web (Esc, bấm nền, bài trùng, nhập CSV bấm đúp, Cài đặt mất sửa đổi); chọn tháng; `slaLabel`;
-   tìm không dấu; nhãn `Field` + focus modal; thông báo lặp chữ "Sửa hồ sơ…".
-3. Ngưỡng nghiệp vụ cứng trái ADR 0001 (lương ≥ 1 triệu chặn thực tập/CTV, thử việc 85–100%, đoàn phí, mốc 5 triệu).
-
-Xong khi: verify-all đạt, `kiemtra` review diff, thử tay các hộp thoại trên local; đã deploy.
-
-### Đợt 5 — Chạy thử trọn vòng · 1–2 phiên
-Trên DB local, công ty mẫu ≥ 30 NV, một tháng công (dữ liệu Đợt 2), theo `docs/TEST_WORKFLOW.md`: Console tạo công ty →
+### Đợt 5 — vòng 2: chạy thử trọn vòng · 1 phiên
+Trên DB local, công ty mẫu ≥ 30 NV, một tháng công (`tools/scale-data.sh 30`), theo `docs/TEST_WORKFLOW.md`: Console tạo công ty →
 HR nhập NV → mời → app kích hoạt → chấm công (iPhone + Android emulator) → đơn nghỉ/OT/giải trình/tạm ứng → duyệt →
 khóa kỳ → bảng lương đầu vào → Kavor tính → duyệt → công bố → phiếu trên app.
 Mỗi lỗi phân loại theo luật 1. Xong khi: trọn vòng không có P0, kết quả ghi vào PROGRESS.

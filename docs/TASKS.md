@@ -18,29 +18,32 @@ crash luồng chính) ghi vào "Sau v1", không làm trước khi xong v1. Chi t
 - [x] Phép tồn năm trước thiếu khi sổ năm cũ chưa tích lũy đủ (chỉ ghi khi có người đọc sổ; khóa `carry:${year}` không tính lại) — `leave.service.ts:106` — [opus xhigh] (125a5d8, deploy 17/11)
 - [x] API sửa hồ sơ NV ghi bảng `employees` trước khi kiểm phạm vi (403 nhưng tên đã đổi, không nhật ký), đóng phân công cũ trước khi chèn mới; NV chưa vào làm sửa phòng ban → hai phân công, đến ngày vào làm bản cũ thắng; HR phạm vi phòng tạo NV ngày vào tương lai → 404 sau khi đã tạo — gom vào một RPC (`employees.service.ts:226-313`) — [opus high] (6bc76d4, deploy 17/11)
 
-## Đợt 3 — Mobile chạy ổn
+## Đợt 3 — Mobile chạy ổn (vòng 1; phạm vi cắt 17/11, người dùng đồng ý)
 - [ ] Mobile crash khi mở app lúc mất mạng rồi bấm đơn/thông báo: `reqItems` (Map) nằm trong `CACHED` (`store.ts:762`) → khôi phục thành `{}` → `.get` lỗi — [sonnet]
 - [ ] Mobile: widget mô phỏng ở bản thật sửa `S.clockIn` (`store.ts:1714`) → lần chấm thật sau thành "ra", máy chủ báo sai thứ tự — [sonnet]
-- [ ] Mobile: GPS độ chính xác cao mỗi 1 giây không tắt khi rời trang chủ (pin); giờ/ngày hiển thị theo múi giờ máy thay vì công ty; POST tạo đơn không idempotent (timeout 15 giây → gửi lại ra đơn trùng); `S.net`/NetBar là mã chết — [sonnet]
 - [ ] Mobile chấm công offline: hàng đợi không gắn NV và không xóa khi đăng xuất (máy dùng chung → người sau gửi hộ); lỗi tạm thời (chờ đồng ý điều khoản, máy chờ duyệt, 429) bị xóa khỏi hàng đợi; race `enqueue`/`flushQueue` — `attendance.ts:116-145` — [opus high]
-- [ ] Mobile bảo mật: che màn hình lương/tài liệu khi vào nền + khóa PIN khi vào nền (hiện mở 5 phút); deep link bỏ qua màn đồng ý/đăng ký máy và tự đặt role; đăng xuất đúng lúc refresh thì phiên được ghi lại; xóa file đính kèm tạm trong cache — [opus high]
+- [ ] Build Release cài iPhone 11 + thử Android emulator: mất mạng mở app bấm đơn/thông báo không crash; chấm offline → đăng xuất → người khác đăng nhập thì không gửi hộ — [opus high]
 
-## Đợt 4 — Web & API toàn vẹn
-- [ ] Ghi nửa chừng: tạo ca/địa điểm/quy định chèn định nghĩa rồi mới chèn phiên bản 1 → lỗi để lại định nghĩa mồ côi chiếm mã, không sửa được (`schedule.service.ts:48,134`, `rules.service.ts:41`) — [sonnet]
-- [ ] Không ngừng được phòng ban/chức danh từng có người nghỉ: `endUnit` đếm phân công/vai trò của người đã nghỉ, `offboard_employee` không đóng `effective_to` (`org.service.ts:176`) — [opus high]
-- [ ] Validate API: id không phải uuid → 500 (`schedule.service.ts`), `?q=a&q=b`, `?status` sai enum; tạo NV nhận `terminated`/`leaving` lách luồng nghỉ việc; email so khớp phân biệt hoa thường + chưa có unique `lower(work_email)`; `markRead` với `ids: []` đánh dấu đọc hết; CSV xuất (đơn, bảng công) chưa chặn công thức `= + - @` — [opus high]
+## Đợt 4 — Web & API toàn vẹn (vòng 1; phạm vi cắt 17/11)
+- [ ] CSV xuất (đơn, bảng công, bảng lương đầu vào) chặn công thức `= + - @` (file mở bằng Excel của Kế toán) — tách từ việc validate API — [sonnet]
 - [ ] `mailer.ts:103` nuốt lỗi SMTP (lời mời/OTP không gửi mà không ai biết) — [opus high]
-- [ ] Web hộp thoại: Esc đóng dropdown `Select` đóng luôn modal (`useEsc` ở `_ui/kit.tsx:112` không kiểm `defaultPrevented`, lớp chồng đóng cả hai), bấm nền đóng modal đang nhập; soạn bản tin lỗi đính kèm → lưu lại tạo bài trùng (`announcements/page.tsx:221`); nhập CSV kỳ lương bấm đúp → 2 lượt nhập (`payroll/cycles.tsx:278`); Cài đặt `key={tab}` mất sửa đổi khi đổi tab — [sonnet]
-- [ ] Web: chọn tháng neo theo tháng đang xem nên không quay lại tháng mới nhất (`attendance/month.tsx:49`, `overtime.tsx:40`, `payroll/advances.tsx:44`); `slaLabel` quá hạn < 30 phút hiện "Còn 1 giờ" (`_ui/request.tsx:43`); 10 ô tìm kiếm không bỏ dấu (đưa `fold` vào web-ui) — [sonnet]
-- [ ] Truy cập web: `Field` không gắn nhãn với ô nhập/`Select`; modal không đưa/giữ/trả focus — [sonnet]
-- [ ] Thông báo duyệt sửa hồ sơ lặp chữ "Sửa hồ sơ Sửa email…" — [sonnet]
-- [ ] Web còn ngưỡng nghiệp vụ cứng trái ADR 0001: lương ≥ 1.000.000 (chặn thực tập/CTV), thử việc 85–100%, đoàn phí 0–5%, mốc 5 triệu (`employees/pay.tsx:124`, `settings/page.tsx:91`, `requests/page.tsx:161`) — [opus high]
 
 ## Đợt 5 — Chạy thử trọn vòng
 - [ ] Người dùng chốt 6 mục "Cần người dùng chốt" trong `docs/plans/hoan-thien-v1.md`
 - [ ] UAT trọn vòng trên DB local, công ty mẫu ≥ 30 NV, một tháng công (`docs/TEST_WORKFLOW.md`, iPhone + Android emulator): Console → HR → app → chấm công → đơn → duyệt → khóa kỳ → Kavor tính lương → công bố → phiếu trên app; không còn P0 — [opus high]
 
 ## Sau v1 (đóng băng — không làm trước khi xong v1)
+- Cắt khỏi Đợt 3–4 ngày 17/11 (không sai tiền/công, không mất dữ liệu; người dùng đồng ý để xong v1 trong 2 vòng):
+- [ ] Mobile: GPS độ chính xác cao mỗi 1 giây không tắt khi rời trang chủ (pin); giờ/ngày hiển thị theo múi giờ máy thay vì công ty; POST tạo đơn không idempotent (timeout 15 giây → gửi lại ra đơn trùng); `S.net`/NetBar là mã chết — [sonnet]
+- [ ] Mobile bảo mật: che màn hình lương/tài liệu khi vào nền + khóa PIN khi vào nền (hiện mở 5 phút); deep link bỏ qua màn đồng ý/đăng ký máy và tự đặt role; đăng xuất đúng lúc refresh thì phiên được ghi lại; xóa file đính kèm tạm trong cache — [opus high]
+- [ ] Ghi nửa chừng: tạo ca/địa điểm/quy định chèn định nghĩa rồi mới chèn phiên bản 1 → lỗi để lại định nghĩa mồ côi chiếm mã, không sửa được (`schedule.service.ts:48,134`, `rules.service.ts:41`) — [sonnet]
+- [ ] Không ngừng được phòng ban/chức danh từng có người nghỉ: `endUnit` đếm phân công/vai trò của người đã nghỉ, `offboard_employee` không đóng `effective_to` (`org.service.ts:176`) — [opus high]
+- [ ] Validate API: id không phải uuid → 500 (`schedule.service.ts`), `?q=a&q=b`, `?status` sai enum; tạo NV nhận `terminated`/`leaving` lách luồng nghỉ việc; email so khớp phân biệt hoa thường + chưa có unique `lower(work_email)`; `markRead` với `ids: []` đánh dấu đọc hết — [opus high]
+- [ ] Web hộp thoại: Esc đóng dropdown `Select` đóng luôn modal (`useEsc` ở `_ui/kit.tsx:112` không kiểm `defaultPrevented`, lớp chồng đóng cả hai), bấm nền đóng modal đang nhập; soạn bản tin lỗi đính kèm → lưu lại tạo bài trùng (`announcements/page.tsx:221`); nhập CSV kỳ lương bấm đúp → 2 lượt nhập (`payroll/cycles.tsx:278`); Cài đặt `key={tab}` mất sửa đổi khi đổi tab — [sonnet]
+- [ ] Web: chọn tháng neo theo tháng đang xem nên không quay lại tháng mới nhất (`attendance/month.tsx:49`, `overtime.tsx:40`, `payroll/advances.tsx:44`); `slaLabel` quá hạn < 30 phút hiện "Còn 1 giờ" (`_ui/request.tsx:43`); 10 ô tìm kiếm không bỏ dấu (đưa `fold` vào web-ui) — [sonnet]
+- [ ] Truy cập web: `Field` không gắn nhãn với ô nhập/`Select`; modal không đưa/giữ/trả focus — [sonnet]
+- [ ] Thông báo duyệt sửa hồ sơ lặp chữ "Sửa hồ sơ Sửa email…" — [sonnet]
+- [ ] Web còn ngưỡng nghiệp vụ cứng trái ADR 0001: lương ≥ 1.000.000 (chặn thực tập/CTV), thử việc 85–100%, đoàn phí 0–5%, mốc 5 triệu (`employees/pay.tsx:124`, `settings/page.tsx:91`, `requests/page.tsx:161`) — [opus high]
 - [ ] `requests.items()` (danh sách/xuất CSV đơn) `.in()` theo mọi id đơn: > ~200 đơn trong một lần xuất → URL quá dài, lỗi 500 (lỗi rõ, không sai số) — chia lô bằng `allIn` (db/rows.ts) — [sonnet]
 - [ ] Hồ sơ nhân viên sắp vào làm hiện trống phòng ban/quản lý (`detail`/`enrich` lấy phân công theo hôm nay); phạm vi và sửa hồ sơ đã theo phân công sắp hiệu lực (17/11) — [sonnet]
 - [ ] Phép tồn: sổ năm trước bổ sung theo quy định phép năm đang áp dụng hôm nay (shortcut 17/11, `leave.service.ts`) — đổi khi quy định có lịch sử theo năm — [opus high]
