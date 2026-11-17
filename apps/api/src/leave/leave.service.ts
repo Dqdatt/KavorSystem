@@ -251,6 +251,7 @@ export class LeaveService {
       p_tasks: tasks, p_days: days, p_account: account, p_total: total,
     });
     if (error?.message?.includes("LEAVE_OVERLAP")) throw conflict("Đã có đơn nghỉ đang chờ hoặc đã duyệt trùng ngày này.");
+    if (error?.message?.includes("LEAVE_BALANCE_CHANGED")) throw conflict("Số dư phép vừa thay đổi (có đơn hoặc điều chỉnh khác vừa ghi). Mở lại màn nghỉ phép rồi gửi lại.");
     if (error?.message?.includes("PERIOD_LOCKED")) throw conflict("Kỳ công của ngày nghỉ đã khóa. Liên hệ phòng Nhân sự.");
     if (error) throw error;
     const r = data as { id: string; no: string };

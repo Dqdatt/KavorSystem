@@ -164,6 +164,7 @@ export class RequestsService {
       p_tasks: tasks,
     });
     if (error?.code === "23505") throw conflict("Ngày này đã có giải trình đang chờ hoặc đã duyệt.");
+    if (error?.message?.includes("EXPLANATION_QUOTA")) throw conflict(`Đã dùng hết ${sheet.quota.limit} lượt giải trình của kỳ này.`);
     if (error) throw error;
     const r = data as { id: string; no: string };
     const v: Viewer = { userId: emp.user_id ?? "", employeeId: emp.id, tenantId: emp.tenant_id, correlationId };

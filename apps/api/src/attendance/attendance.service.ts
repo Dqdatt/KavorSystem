@@ -158,6 +158,7 @@ export class AttendanceService {
       occurred_at: occurred.toISOString(), recorded_offline: !!req.offline, latitude: req.latitude, longitude: req.longitude, accuracy_m: req.accuracyM,
       location_id: verdict.location.id, distance_m: verdict.distance, status: verdict.reason ? "rejected" : "accepted", reject_reason: verdict.reason,
     }).select(EVENT_COLS).single();
+    if (error?.message?.includes("ATT_DUPLICATE")) throw new AuthError(ATTENDANCE_ERRORS.invalidSequence, req.kind === "in" ? "Bạn đã vào ca hôm nay." : "Bạn đã ra ca hôm nay.", 409);
     if (error?.code === "23505") {
       /* Hai request cùng khóa chạy song song: lấy bản ghi đã thắng */
       const { data: again } = await db.from("attendance_events").select(EVENT_COLS).eq("employee_id", emp.id).eq("client_event_id", req.clientEventId).single();

@@ -144,10 +144,12 @@ export class OvertimeService {
     const { data, error } = await db.rpc("create_overtime_request", {
       p_tenant: me.tenant_id, p_employee: me.id, p_user: me.user_id, p_workflow_version: wf.id,
       p_period_start: periodOf(monthOf(day, clock.periodStartDay), clock.periodStartDay).start, p_payload: payload,
-      p_snapshot: { overtime: rule && { policyId: rule.policyId, versionNo: rule.versionNo, config: rule.config, source: rule.source }, day: info, usage, workflow: { versionNo: wf.version_no, steps: wf.steps } },
+      p_snapshot: { overtime: rule && { policyId: rule.policyId, versionNo: rule.versionNo, config: rule.config, source: rule.source }, day: info, usage, workflow: { versionNo: wf.version_no, steps: wf.steps },
+        limits: { dayMinutes: Math.round(dayLimit), monthMinutes: Math.round(policy.monthlyLimitHours * 60), yearMinutes: Math.round(policy.yearlyLimitHours * 60) } },
       p_tasks: tasks, p_entry: { date: day, start, end, minutes, dayKind: info.dayKind, ratePercent: rate },
     });
     if (error?.message?.includes("OVERTIME_OVERLAP")) throw conflict("Trùng giờ với một đơn làm thêm khác đang chờ hoặc đã duyệt.");
+    if (error?.message?.includes("OVERTIME_LIMIT")) throw conflict("Vượt giới hạn giờ làm thêm (vừa có đơn khác được gửi). Mở lại màn làm thêm giờ để xem số giờ đã đăng ký.");
     if (error?.message?.includes("PERIOD_LOCKED")) throw conflict("Kỳ công của ngày này đã khóa. Liên hệ phòng Nhân sự.");
     if (error) throw error;
     const r = data as { id: string; no: string };

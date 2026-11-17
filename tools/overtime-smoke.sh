@@ -75,10 +75,12 @@ r=$(ot "$YD" 17:30 19:30 "Chốt số liệu cuối ngày"); NO3=$(echo "$r" | f
 call POST me/approvals/$T3/approve "$MGR" '{}' >/dev/null
 H3=$(call GET "admin/requests?status=pending" "$HR" | py "[i['myTaskId'] for i in d['items'] if i['no']=='$NO3'][0]")
 check "HR duyệt đơn OT bù hôm qua" "$(call POST admin/approvals/$H3/approve "$HR" '{}' | field data.status)" approved
-# Chấm công seed ra trước 17:30; thêm vào 07:50 (sớm hơn mọi giờ vào seed 07:52–07:59) + ra 18:47 (giờ công ty) cho hôm qua
-punch() { sql "insert into public.attendance_events (tenant_id,employee_id,kind,client_event_id,occurred_at,received_at,status)
+# Chấm công seed ra trước 17:30; thêm vào 07:50 (sớm hơn mọi giờ vào seed 07:52–07:59) + ra 18:47 (giờ công ty) cho hôm qua.
+# Ngày đã có lượt vào hợp lệ → mô phỏng dữ liệu cũ (trước trigger một lượt vào/ra mỗi ngày, 202612100001): tắt trigger cho riêng câu chèn
+punch() { sql "begin; set local session_replication_role = replica;
+  insert into public.attendance_events (tenant_id,employee_id,kind,client_event_id,occurred_at,received_at,status)
   select t.id,'60000000-0000-4000-8000-000000000142','$1','smoke-ot-$YD-$1-$2',('$YD'::date+time '$2') at time zone t.timezone,now(),'accepted'
-  from public.tenants t where t.id='10000000-0000-4000-8000-000000000001'" >/dev/null; }
+  from public.tenants t where t.id='10000000-0000-4000-8000-000000000001'; commit;" >/dev/null; }
 punch in 07:50; punch out 18:47
 MY=$(python3 -c "
 import datetime; d=datetime.date.fromisoformat('$YD'); s=26

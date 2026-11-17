@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Kiểm thử đầu-cuối chấm công: kích hoạt HD0142 → đăng ký thiết bị → chấm công trong/ngoài vùng, chống trùng,
-# sai trình tự, máy thứ hai chờ duyệt, bản ghi offline. Cần DB vừa `supabase db reset` và API đang chạy (development).
+# sai trình tự, máy thứ hai chờ duyệt, bản ghi offline, hai lượt vào cùng lúc. Cần DB vừa `supabase db reset` và API đang chạy (development).
 set -euo pipefail
 API=${API:-http://localhost:4000/api/v1}
 MAIL=${MAIL:-http://127.0.0.1:55324}
@@ -72,4 +72,21 @@ r=$(get "me/attendance/today?installationId=install-iphone-01")
 check "Hôm nay: đã có giờ vào" "$(echo "$r" | field data.clockIn.status)" accepted
 check "Hôm nay: đã có giờ ra" "$(echo "$r" | field data.clockOut.status)" accepted
 check "Hôm nay: thiết bị đang hoạt động" "$(echo "$r" | field data.device.status)" active
+
+echo "— Hai lượt vào ca cùng lúc với khóa chống trùng khác nhau: lượt sau chờ khóa rồi bị chặn (trigger attendance_events_once_per_day)"
+# Phiên A ghi lượt vào (HD0004, 03/06/2024) rồi giữ giao dịch 3 giây; phiên B ghi lượt vào cùng ngày đúng lúc đó (bản cũ: cả hai đều ghi)
+pg() { docker exec -i supabase_db_kavor-system psql -U postgres -d postgres -X -Atq "$@"; }
+ev() { echo "insert into public.attendance_events (tenant_id, employee_id, kind, client_event_id, occurred_at, status) values ('10000000-0000-4000-8000-000000000001', '60000000-0000-4000-8000-000000000004', 'in', '$1', '2024-06-03 $2+07', 'accepted');"; }
+sleeping() { pg -c "select count(*) from pg_stat_activity where wait_event = 'PgSleep' and pid <> pg_backend_pid()"; }
+pg -c "begin; $(ev race-smoke-a 07:58) select pg_sleep(3); commit;" >/dev/null &
+A=$!
+for _ in $(seq 1 50); do [ "$(sleeping)" = 1 ] && break; sleep 0.1; done
+check "Phiên A đã ghi lượt vào và đang giữ giao dịch" "$(sleeping)" 1
+T0=$(python3 -c "import time; print(time.time())")
+_s=$(pg -c "$(ev race-smoke-b 07:59)" 2>&1) || :
+WAITED=$(python3 -c "import time,sys; print(time.time() - float(sys.argv[1]) > 1)" "$T0")
+wait $A || { echo "✘ Phiên A lỗi"; exit 1; }
+check "Phiên B phải chờ khóa của phiên A" "$WAITED" True
+check "Phiên B bị chặn: đã có lượt vào hợp lệ trong ngày" "$(echo "$_s" | grep -o ATT_DUPLICATE | head -1)" ATT_DUPLICATE
+check "Ngày 03/06/2024 chỉ một lượt vào hợp lệ" "$(pg -c "select count(*) from public.attendance_events where employee_id = '60000000-0000-4000-8000-000000000004' and kind = 'in' and status = 'accepted' and occurred_at::date = '2024-06-03'")" 1
 echo "Tất cả bước chấm công đều đạt."

@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Kiểm thử nghỉ phép: sổ phép năm theo quy định mẫu (tích lũy theo tháng, số dư đầu kỳ), loại nghỉ, đếm ngày làm việc,
 # đơn ≤ 2 ngày chỉ quản lý duyệt, > 2 ngày thêm HR, giữ chỗ → trừ phép / trả lại khi từ chối/hủy, trùng ngày, vượt phép,
-# nghỉ nửa ngày, bảng công hiện ngày nghỉ, web HR xem/điều chỉnh/nhập phép tồn (hết hạn tự trừ), phạm vi quản lý.
+# nghỉ nửa ngày, bảng công hiện ngày nghỉ, web HR xem/điều chỉnh/nhập phép tồn (hết hạn tự trừ), phạm vi quản lý,
+# gửi đơn lúc đơn khác đang ghi (trùng ngày, số dư vừa đổi).
 # Cần DB vừa reset (bash tools/db-reset.sh) và API đang chạy (bash tools/dev-backend.sh).
 set -euo pipefail
 source "$(dirname "$0")/smoke-lib.sh"
@@ -102,4 +103,36 @@ Y=${TODAY:0:4}
 B="{\"year\":$Y,\"amount\":2,\"carry\":true,\"expiresOn\":\"$Y-03-31\",\"reason\":\"Phép tồn năm trước (nhập từ bảng tính)\"}"
 check "Nhập phép tồn đã quá hạn → tự hết hạn, số dư không đổi" "$(call POST admin/leave/$HA/adjust "$HR" "$B" | py "(d['balance']['carry'], d['balance']['expired'], float(d['balance']['available']))")" "(2, 2, $(python3 -c "print($B5+1)"))"
 check "Hồ sơ nhân viên có nhật ký điều chỉnh phép" "$(call GET admin/employees/$HA "$HR" | py "'leave.adjusted' in {x['action'] for x in d['audit']}")" True
+
+echo "— Gửi đơn trong lúc một đơn khác đang ghi (khóa tạo đơn theo nhân viên): trùng ngày, số dư vừa đổi"
+sql() { docker exec -i supabase_db_kavor-system psql -U postgres -d postgres -X -v ON_ERROR_STOP=1 -Atq -c "$1"; }
+pg() { docker exec -i supabase_db_kavor-system psql -U postgres -d postgres -X -Atq "$@"; }
+sleeping() { sql "select count(*) from pg_stat_activity where wait_event = 'PgSleep' and pid <> pg_backend_pid()"; }
+_s1=$(call GET me/leave "$EMP") || :
+FG=$(echo "$_s1" | py "' '.join([x['date'] for x in d['calendar'] if x['workday'] and x['date']>d['today'] and not x['taken'] and x['date'][:4]==d['today'][:4]][:2])")
+set -- $FG; F=${1:-}; G=${2:-}
+need "Hai ngày làm việc còn trống trong năm: $F, $G" "$G"
+R0=$(sql "select id from public.requests where requester_employee_id = '$HA' and request_type = 'leave' and status in ('pending','approved') limit 1")
+LT=$(sql "select leave_type_id from public.leave_days where request_id = '$R0' limit 1")
+ACC=$(sql "select a.id from public.leave_accounts a join public.leave_types t on t.id = a.leave_type_id where a.employee_id = '$HA' and t.code = 'AL' and a.year = ${G:0:4}")
+need "Đơn nghỉ có sẵn $R0, sổ phép $ACC" "$ACC"
+# race A B: A khóa tạo đơn của Hà + ghi $1 rồi giữ 3 giây; B gửi đơn qua API đúng lúc đó → B chờ khóa, sau đó phải thấy dữ liệu của A
+race() {
+  pg -c "begin; select public.lock_employee_requests('$HA'); $1 select pg_sleep(3); commit;" >/dev/null &
+  local a=$!
+  for _ in $(seq 1 50); do [ "$(sleeping)" = 1 ] && break; sleep 0.1; done
+  [ "$(sleeping)" = 1 ] || { echo "✘ Phiên A chưa giữ khóa"; exit 1; }
+  local t0; t0=$(python3 -c "import time; print(time.time())")
+  RB=$(call POST me/requests/leave "$EMP" "$2") || :
+  WAITED=$(python3 -c "import time,sys; print(time.time() - float(sys.argv[1]) > 1)" "$t0")
+  wait $a || { echo "✘ Phiên A lỗi"; exit 1; }
+}
+race "insert into public.leave_days (tenant_id, employee_id, request_id, leave_type_id, leave_date, half, portion) values ('10000000-0000-4000-8000-000000000001', '$HA', '$R0', '$LT', '$F', 'full', 1);" \
+  "{\"leaveType\":\"UL\",\"from\":\"$F\",\"reason\":\"Việc riêng gấp\"}"
+check "Đơn gửi lúc đơn khác đang ghi cùng ngày $F: chờ khóa rồi bị chặn trùng ngày" "$WAITED $(echo "$RB" | python3 -c "import json,sys; print('trùng ngày' in json.load(sys.stdin)['error']['message'])")" "True True"
+race "insert into public.leave_transactions (tenant_id, account_id, kind, amount, effective_on, source_key, reason) values ('10000000-0000-4000-8000-000000000001', '$ACC', 'adjust', -0.5, '$G', 'race:smoke', 'Thử đơn gửi lúc số dư đổi');" \
+  "{\"leaveType\":\"AL\",\"from\":\"$G\",\"half\":\"am\",\"reason\":\"Việc riêng buổi sáng\"}"
+check "Đơn phép năm gửi lúc số dư vừa đổi: chờ khóa rồi bị chặn, không giữ chỗ theo số dư cũ" "$WAITED $(echo "$RB" | python3 -c "import json,sys; print('Số dư phép vừa thay đổi' in json.load(sys.stdin)['error']['message'])")" "True True"
+_s2=$(status POST me/requests/leave "$EMP" "{\"leaveType\":\"AL\",\"from\":\"$G\",\"half\":\"am\",\"reason\":\"Việc riêng buổi sáng\"}") || :
+check "Gửi lại sau khi số dư đổi thì được" "$_s2" 201
 echo "Tất cả bước nghỉ phép đều đạt."
