@@ -2,6 +2,7 @@
    Kỳ đã khóa thì đọc ảnh chụp lúc khóa (không tính lại), để payroll và báo cáo khớp với thứ HR đã chốt. */
 import type { ExplanationQuota, LeaveHalf, RequestStatus, TimesheetDay, TimesheetPeriod, TimesheetSummary } from "@kavor/contracts";
 import type { SupabaseGateway } from "../auth/supabase.js";
+import { allIn } from "../db/rows.js";
 import { localParts } from "../attendance/attendance.service.js";
 import { PolicyIndex, loadPlacements, type Placement } from "../attendance/policy.js";
 import { addDays } from "../admin/validate.js";
@@ -58,21 +59,24 @@ export class TimesheetService {
     const [events, adjustments, requests, holidayList, leaveDays, otRows, pauses] = await Promise.all([
       this.events(db, tenantId, ids, start, end, clock.timezone),
       this.adjustments(db, tenantId, ids, start, end),
-      db.from("requests").select("id, request_no, requester_employee_id, work_date, status, submitted_at").eq("tenant_id", tenantId).eq("request_type", "explanation").in("requester_employee_id", ids).gte("work_date", start).lte("work_date", end).order("submitted_at"),
+      allIn<{ id: string; request_no: string; requester_employee_id: string; work_date: string; status: RequestStatus }>(ids, (lot, a, b) => db.from("requests").select("id, request_no, requester_employee_id, work_date, status, submitted_at")
+        .eq("tenant_id", tenantId).eq("request_type", "explanation").in("requester_employee_id", lot).gte("work_date", start).lte("work_date", end).order("submitted_at").order("id").range(a, b)),
       Promise.all([...new Set([start.slice(0, 4), end.slice(0, 4)])].map((y) => holidaysOf(db, tenantId, Number(y)))).then((x) => x.flat()),
-      db.from("leave_days").select("employee_id, leave_date, half, requests!inner(request_no, status), leave_types(name, paid)").eq("tenant_id", tenantId)
-        .in("employee_id", ids).gte("leave_date", start).lte("leave_date", end).eq("requests.status", "approved"),
-      db.from("overtime_entries").select("employee_id, work_date, start_time, end_time, minutes, rate_percent, requests!inner(request_no, status)").eq("tenant_id", tenantId)
-        .in("employee_id", ids).gte("work_date", start).lte("work_date", end).eq("requests.status", "approved"),
+      allIn<{ employee_id: string; leave_date: string; half: LeaveHalf; requests: { request_no: string }; leave_types: { name: string; paid: boolean } | null }>(ids, (lot, a, b) =>
+        db.from("leave_days").select("id, employee_id, leave_date, half, requests!inner(request_no, status), leave_types(name, paid)").eq("tenant_id", tenantId)
+          .in("employee_id", lot).gte("leave_date", start).lte("leave_date", end).eq("requests.status", "approved").order("id").range(a, b)),
+      allIn<{ employee_id: string; work_date: string; start_time: string; end_time: string; minutes: number; rate_percent: number; requests: { request_no: string } }>(ids, (lot, a, b) =>
+        db.from("overtime_entries").select("id, employee_id, work_date, start_time, end_time, minutes, rate_percent, requests!inner(request_no, status)").eq("tenant_id", tenantId)
+          .in("employee_id", lot).gte("work_date", start).lte("work_date", end).eq("requests.status", "approved").order("work_date").order("start_time").order("id").range(a, b)),
       loadPauses(db, tenantId, ids, start, end),
     ]);
     const ots = new Map<string, DayOvertimeEntry[]>();
-    for (const o of (otRows.data ?? []) as unknown as Array<{ employee_id: string; work_date: string; start_time: string; end_time: string; minutes: number; rate_percent: number; requests: { request_no: string } }>) {
+    for (const o of otRows) {
       const k = `${o.employee_id}|${o.work_date}`;
       ots.set(k, [...(ots.get(k) ?? []), { start: o.start_time.slice(0, 5), end: o.end_time.slice(0, 5), minutes: o.minutes, ratePercent: o.rate_percent, requestNo: o.requests.request_no }]);
     }
     const leaves = new Map<string, DayLeave>();
-    for (const l of (leaveDays.data ?? []) as unknown as Array<{ employee_id: string; leave_date: string; half: LeaveHalf; requests: { request_no: string }; leave_types: { name: string; paid: boolean } | null }>) {
+    for (const l of leaveDays) {
       leaves.set(`${l.employee_id}|${l.leave_date}`, { typeName: l.leave_types?.name ?? "Nghỉ phép", half: l.half, paid: !!l.leave_types?.paid, requestNo: l.requests.request_no });
     }
     const holiday = new Map(holidayList.map((h) => [h.date, h.name]));
@@ -80,7 +84,7 @@ export class TimesheetService {
     /* Mỗi ngày lấy đơn mới nhất; đơn đã hủy/từ chối vẫn hiện (để biết) nhưng không chặn giải trình lại */
     const reqs = new Map<string, { id: string; no: string; status: RequestStatus }>();
     const counted = new Map<string, number>();
-    for (const r of (requests.data ?? []) as Array<{ id: string; request_no: string; requester_employee_id: string; work_date: string; status: RequestStatus }>) {
+    for (const r of requests) {
       const k = `${r.requester_employee_id}|${r.work_date}`, prev = reqs.get(k);
       if (!prev || EXPLAIN_COUNTED.includes(r.status) || !EXPLAIN_COUNTED.includes(prev.status)) reqs.set(k, { id: r.id, no: r.request_no, status: r.status });
       if (EXPLAIN_COUNTED.includes(r.status)) counted.set(r.requester_employee_id, (counted.get(r.requester_employee_id) ?? 0) + 1);
@@ -127,10 +131,11 @@ export class TimesheetService {
 
   /* Điều chỉnh của ngày (giải trình đã duyệt hoặc HR sửa trực tiếp): bản sau ghi đè từng giờ vào/ra của bản trước */
   private async adjustments(db: Db, tenantId: string, ids: string[], start: string, end: string) {
-    const { data, error } = await db.from("attendance_adjustments").select("employee_id, work_date, clock_in, clock_out, request_id, reason, created_at").eq("tenant_id", tenantId).in("employee_id", ids).gte("work_date", start).lte("work_date", end).order("created_at");
-    if (error) throw error;
+    const rows = await allIn<{ employee_id: string; work_date: string; clock_in: string | null; clock_out: string | null; request_id: string | null; reason: string }>(ids, (lot, a, b) =>
+      db.from("attendance_adjustments").select("id, employee_id, work_date, clock_in, clock_out, request_id, reason, created_at").eq("tenant_id", tenantId).in("employee_id", lot)
+        .gte("work_date", start).lte("work_date", end).order("created_at").order("id").range(a, b));
     const adj = new Map<string, DayAdjustment>();
-    for (const a of (data ?? []) as Array<{ employee_id: string; work_date: string; clock_in: string | null; clock_out: string | null; request_id: string | null; reason: string }>) {
+    for (const a of rows) {
       const k = `${a.employee_id}|${a.work_date}`, prev = adj.get(k);
       adj.set(k, { clockIn: a.clock_in?.slice(0, 5) ?? prev?.clockIn ?? null, clockOut: a.clock_out?.slice(0, 5) ?? prev?.clockOut ?? null, hrReason: a.request_id ? null : a.reason });
     }
@@ -140,16 +145,15 @@ export class TimesheetService {
   /* Chấm công hợp lệ, gom theo nhân viên + ngày (giờ công ty) */
   private async events(db: Db, tenantId: string, ids: string[], start: string, end: string, tz: string) {
     const out = new Map<string, DayEvent[]>();
-    for (let i = 0; i < ids.length; i += 100) {
-      const { data, error } = await db.from("attendance_events").select("employee_id, kind, occurred_at").eq("tenant_id", tenantId).eq("status", "accepted")
-        .in("employee_id", ids.slice(i, i + 100)).gte("occurred_at", `${addDays(start, -1)}T00:00:00Z`).lte("occurred_at", `${addDays(end, 1)}T23:59:59Z`);
-      if (error) throw error;
-      for (const e of (data ?? []) as Array<{ employee_id: string; kind: "in" | "out"; occurred_at: string }>) {
-        const p = localParts(e.occurred_at, tz);
-        if (p.date < start || p.date > end) continue;
-        const k = `${e.employee_id}|${p.date}`;
-        out.set(k, [...(out.get(k) ?? []), { kind: e.kind, minute: p.minutes }]);
-      }
+    /* 100 nhân viên × ~44 lượt/kỳ > 1.000 dòng: trước đây bị cắt ngầm → thiếu công, khóa kỳ chụp số sai */
+    const rows = await allIn<{ employee_id: string; kind: "in" | "out"; occurred_at: string }>(ids, (lot, a, b) =>
+      db.from("attendance_events").select("id, employee_id, kind, occurred_at").eq("tenant_id", tenantId).eq("status", "accepted").in("employee_id", lot)
+        .gte("occurred_at", `${addDays(start, -1)}T00:00:00Z`).lte("occurred_at", `${addDays(end, 1)}T23:59:59Z`).order("occurred_at").order("id").range(a, b));
+    for (const e of rows) {
+      const p = localParts(e.occurred_at, tz);
+      if (p.date < start || p.date > end) continue;
+      const k = `${e.employee_id}|${p.date}`;
+      out.set(k, [...(out.get(k) ?? []), { kind: e.kind, minute: p.minutes }]);
     }
     return out;
   }

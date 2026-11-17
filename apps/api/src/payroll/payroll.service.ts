@@ -6,6 +6,7 @@ import type {
 } from "@kavor/contracts";
 import { AuthError, type EmployeeRow } from "../auth/auth.service.js";
 import type { SupabaseGateway } from "../auth/supabase.js";
+import { all as rows } from "../db/rows.js";
 import { conflict, forbidden, invalid, notFound, type AdminContext } from "../admin/context.js";
 import { date, nullableText, req, type Body } from "../admin/validate.js";
 import { EMP_LITE, MONTH, type EmployeeLite, type TimesheetService } from "../timesheet/timesheet.service.js";
@@ -54,17 +55,8 @@ function dbError(e: unknown): never {
   throw new AuthError("INTERNAL_ERROR", "Không xử lý được dữ liệu lương. Vui lòng thử lại.", 500, true);
 }
 
-/* Không phụ thuộc giới hạn mặc định 1.000 dòng của PostgREST: lương không được nhập/đọc thiếu âm thầm. */
-async function all<T>(query: (from: number, to: number) => PromiseLike<{ data: unknown; error: unknown }>): Promise<T[]> {
-  const rows: T[] = [];
-  for (let from = 0; ; from += 1000) {
-    const { data, error } = await query(from, from + 999);
-    if (error) dbError(error);
-    const page = (data ?? []) as T[];
-    rows.push(...page);
-    if (page.length < 1000) return rows;
-  }
-}
+/* Lương không được nhập/đọc thiếu âm thầm (trần 1.000 dòng, db/rows.ts); lỗi DB theo thông báo của module lương */
+const all = <T>(query: (from: number, to: number) => PromiseLike<{ data: unknown; error: unknown }>): Promise<T[]> => rows<T>(query).catch(dbError);
 
 const otHours = (min: number) => String(Math.round(min / 6) / 10).replace(".", ",");
 

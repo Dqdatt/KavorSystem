@@ -3,6 +3,7 @@
    Nhật ký: checklist_item.created/updated, checklist.updated (không chép nội dung giấy tờ). */
 import type { ChecklistEntry, ChecklistForm, ChecklistGaps, ChecklistItem, ChecklistItemList, ChecklistStatus, EmployeeChecklist, EmploymentType, ReminderResult } from "@kavor/contracts";
 import { conflict, invalid, notFound, type AdminContext } from "../admin/context.js";
+import { all, allIn } from "../db/rows.js";
 import { date, nullableText, number, oneOf, uuids, type Body } from "../admin/validate.js";
 import { sendReminders } from "../admin/attendance-admin.service.js";
 
@@ -192,24 +193,20 @@ export class ChecklistService {
   /* Nhân viên đang làm trong phạm vi còn thiếu giấy tờ bắt buộc (cho bộ lọc danh sách nhân viên) */
   async gaps(ctx: AdminContext): Promise<ChecklistGaps> {
     ctx.require("document.read");
-    const [rows, { data: emps, error }, { data: today, error: e3 }] = await Promise.all([
+    const [rows, emps, { data: today, error: e3 }] = await Promise.all([
       this.items(ctx, true),
-      ctx.scopedEmployees("document.read", "id, employment_type, status, termination_date"),
+      all<{ id: string; employment_type: EmploymentType; status: string; termination_date: string | null }>((a, b) => ctx.scopedEmployees("document.read", "id, employment_type, status, termination_date").order("id").range(a, b)),
       ctx.db.rpc("tenant_today", { p_tenant: ctx.tenantId }),
     ]);
-    if (error) throw error;
     if (e3) throw e3;
     const req = rows.filter((r) => r.required);
     if (!req.length) return { rows: [], itemCount: rows.length, requiredCount: 0 };
-    const working = ((emps ?? []) as unknown as Array<{ id: string; employment_type: EmploymentType; status: string; termination_date: string | null }>)
+    const working = emps
       .filter((e) => e.status !== "terminated" && (!e.termination_date || e.termination_date >= (today as string)));
     const done = new Set<string>();
-    for (let n = 0; n < working.length; n += 200) {
-      const { data, error: e2 } = await ctx.db.from("employee_checklist_status").select("employee_id, item_id").eq("tenant_id", ctx.tenantId)
-        .in("employee_id", working.slice(n, n + 200).map((e) => e.id));
-      if (e2) throw e2;
-      for (const s of (data ?? []) as Array<{ employee_id: string; item_id: string }>) done.add(`${s.employee_id}:${s.item_id}`);
-    }
+    const status = await allIn<{ employee_id: string; item_id: string }>(working.map((e) => e.id), (lot, a, b) => ctx.db.from("employee_checklist_status").select("employee_id, item_id")
+      .eq("tenant_id", ctx.tenantId).in("employee_id", lot).order("employee_id").order("item_id").range(a, b));
+    for (const s of status) done.add(`${s.employee_id}:${s.item_id}`);
     const out = working.map((e) => {
       const mine = req.filter((r) => applies(r, e.employment_type));
       return { employeeId: e.id, missing: mine.filter((r) => !done.has(`${e.id}:${r.id}`)).map((r) => r.name), required: mine.length };

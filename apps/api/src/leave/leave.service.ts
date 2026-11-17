@@ -10,6 +10,7 @@ import type {
 import type { EmployeeRow } from "../auth/auth.service.js";
 import type { SupabaseGateway } from "../auth/supabase.js";
 import { conflict, invalid, notFound, type AdminContext } from "../admin/context.js";
+import { allIn } from "../db/rows.js";
 import { addDays, date, isDate, number, oneOf, req, type Body } from "../admin/validate.js";
 import { PolicyIndex, loadPlacements, type Placement } from "../attendance/policy.js";
 import { holidaysOf } from "../company/company.service.js";
@@ -268,12 +269,12 @@ export class LeaveService {
     const ids = [...await ctx.scopedEmployeeIds("leave.read")];
     const [index, placements, types, emps, deps] = await Promise.all([
       PolicyIndex.load(db, ctx.tenantId), loadPlacements(db, ctx.tenantId, clock.today, ids), this.types(db, ctx.tenantId),
-      ids.length ? db.from("employees").select(EMP_COLS).eq("tenant_id", ctx.tenantId).in("id", ids).neq("status", "terminated").order("employee_code") : Promise.resolve({ data: [] }),
+      allIn<Emp>(ids, (lot, a, b) => db.from("employees").select(EMP_COLS).eq("tenant_id", ctx.tenantId).in("id", lot).neq("status", "terminated").order("employee_code").order("id").range(a, b)),
       this.departments(db, ctx.tenantId, ids),
     ]);
     const al = types.find((t) => t.deducts_balance);
     const rows: LeaveRow[] = [];
-    for (const e of (emps.data ?? []) as Emp[]) {
+    for (const e of emps.sort((x, y) => x.employee_code.localeCompare(y.employee_code))) {
       const placement = placements.get(e.id) ?? null;
       const b = await this.balance(db, ctx.tenantId, e, year, clock.today, index.resolveRules(e.id, placement, clock.today).leave, al);
       rows.push({ employee: { id: e.id, code: e.employee_code, fullName: e.full_name, department: deps.get(e.id) ?? null, hireDate: e.hire_date }, balance: b?.balance ?? null });
@@ -301,26 +302,26 @@ export class LeaveService {
     const from = `${month}-01`, to = lastDayOfMonth(Number(month.slice(0, 4)), Number(month.slice(5, 7)));
     const ids = [...await ctx.scopedEmployeeIds("leave.read")];
     if (!ids.length) return { month, today: clock.today, entries: [] };
-    const [{ data, error }, emps, deps] = await Promise.all([
-      db.from("leave_days").select("employee_id, leave_date, half, portion, leave_types(name), requests!inner(id, status, request_no, current_version)").eq("tenant_id", ctx.tenantId)
-        .gte("leave_date", from).lte("leave_date", to).in("employee_id", ids).in("requests.status", ["pending", "approved"]).order("leave_date"),
-      db.from("employees").select("id, employee_code, full_name").eq("tenant_id", ctx.tenantId).in("id", ids),
+    type Day = { employee_id: string; leave_date: string; half: LeaveHalf; portion: number; leave_types: { name: string } | null; requests: { id: string; status: "pending" | "approved"; request_no: string; current_version: number } };
+    const [data, emps, deps] = await Promise.all([
+      allIn<Day>(ids, (lot, a, b) => db.from("leave_days").select("employee_id, leave_date, half, portion, leave_types(name), requests!inner(id, status, request_no, current_version)").eq("tenant_id", ctx.tenantId)
+        .gte("leave_date", from).lte("leave_date", to).in("employee_id", lot).in("requests.status", ["pending", "approved"]).order("leave_date").order("id").range(a, b)),
+      allIn<{ id: string; employee_code: string; full_name: string }>(ids, (lot, a, b) => db.from("employees").select("id, employee_code, full_name").eq("tenant_id", ctx.tenantId).in("id", lot).order("id").range(a, b)),
       this.departments(db, ctx.tenantId, ids),
     ]);
-    if (error) throw error;
+    data.sort((x, y) => (x.leave_date < y.leave_date ? -1 : x.leave_date > y.leave_date ? 1 : 0));
     /* Lý do nghỉ có thể nhạy cảm: chỉ người xem được đơn mới thấy (lấy từ phiên bản hiện tại của đơn) */
     const canRead = ctx.can("request.read") ? await ctx.scopedEmployeeIds("request.read") : new Set<string>();
-    const rows0 = ((data ?? []) as unknown as Array<{ employee_id: string; requests: { id: string; current_version: number } }>).filter((d) => canRead.has(d.employee_id));
+    const rows0 = data.filter((d) => canRead.has(d.employee_id));
     const reasons = new Map<string, string>();
     if (rows0.length) {
-      const { data: vs, error: ve } = await db.from("request_versions").select("request_id, version_no, payload").in("request_id", [...new Set(rows0.map((d) => d.requests.id))]);
-      if (ve) throw ve;
+      const vs = await allIn<{ request_id: string; version_no: number; payload: { reason?: unknown } | null }>(rows0.map((d) => d.requests.id), (lot, a, b) => db.from("request_versions").select("request_id, version_no, payload").in("request_id", lot).order("id").range(a, b));
       const cur = new Map(rows0.map((d) => [d.requests.id, d.requests.current_version]));
-      for (const v of (vs ?? []) as Array<{ request_id: string; version_no: number; payload: { reason?: unknown } | null }>)
+      for (const v of vs)
         if (v.version_no === cur.get(v.request_id) && typeof v.payload?.reason === "string") reasons.set(v.request_id, v.payload.reason);
     }
-    const who = new Map(((emps.data ?? []) as Array<{ id: string; employee_code: string; full_name: string }>).map((e) => [e.id, e]));
-    const entries = ((data ?? []) as unknown as Array<{ employee_id: string; leave_date: string; half: LeaveHalf; portion: number; leave_types: { name: string } | null; requests: { id: string; status: "pending" | "approved"; request_no: string } }>)
+    const who = new Map(emps.map((e) => [e.id, e]));
+    const entries = data
       .filter((d) => who.has(d.employee_id))
       .map((d): LeaveMonthEntry => {
         const e = who.get(d.employee_id)!;
@@ -333,8 +334,8 @@ export class LeaveService {
   private async departments(db: Db, tenantId: string, ids: string[]) {
     const out = new Map<string, string>();
     if (!ids.length) return out;
-    const { data } = await db.from("employee_assignments").select("employee_id, effective_to, departments(name)").eq("tenant_id", tenantId).eq("is_primary", true).in("employee_id", ids).order("effective_from", { ascending: false });
-    for (const d of (data ?? []) as unknown as Array<{ employee_id: string; effective_to: string | null; departments: { name: string } | null }>) if (!d.effective_to && !out.has(d.employee_id)) out.set(d.employee_id, d.departments?.name ?? "");
+    const data = await allIn<{ employee_id: string; effective_to: string | null; departments: { name: string } | null }>(ids, (lot, a, b) => db.from("employee_assignments").select("employee_id, effective_to, departments(name)").eq("tenant_id", tenantId).eq("is_primary", true).in("employee_id", lot).order("effective_from", { ascending: false }).order("id").range(a, b));
+    for (const d of data) if (!d.effective_to && !out.has(d.employee_id)) out.set(d.employee_id, d.departments?.name ?? "");
     return out;
   }
 
@@ -348,13 +349,13 @@ export class LeaveService {
     const b = await this.balance(db, ctx.tenantId, emp, year, clock.today, index.resolveRules(id, placements.get(id) ?? null, clock.today).leave, types.find((t) => t.deducts_balance));
     const tx = b?.tx ?? [];
     const reqIds = [...new Set(tx.map((t) => t.request_id).filter((x): x is string => !!x))];
-    const [{ data: reqNos }, { data: actors }, { data: mine }] = await Promise.all([
-      reqIds.length ? db.from("requests").select("id, request_no").in("id", reqIds) : Promise.resolve({ data: [] }),
-      db.from("employees").select("user_id, full_name").eq("tenant_id", ctx.tenantId).in("user_id", [...new Set(tx.map((t) => t.created_by).filter((x): x is string => !!x))]),
+    const [reqNos, actors, { data: mine }] = await Promise.all([
+      allIn<{ id: string; request_no: string }>(reqIds, (lot, a, b) => db.from("requests").select("id, request_no").in("id", lot).order("id").range(a, b)),
+      allIn<{ user_id: string; full_name: string }>(tx.map((t) => t.created_by).filter((x): x is string => !!x), (lot, a, b) => db.from("employees").select("id, user_id, full_name").eq("tenant_id", ctx.tenantId).in("user_id", lot).order("id").range(a, b)),
       db.from("requests").select("id").eq("tenant_id", ctx.tenantId).eq("request_type", "leave").eq("requester_employee_id", id).gte("work_date", `${year}-01-01`).lte("work_date", `${year}-12-31`).order("submitted_at", { ascending: false }),
     ]);
-    const no = new Map(((reqNos ?? []) as Array<{ id: string; request_no: string }>).map((r) => [r.id, r.request_no]));
-    const who = new Map(((actors ?? []) as Array<{ user_id: string; full_name: string }>).map((a) => [a.user_id, a.full_name]));
+    const no = new Map(reqNos.map((r) => [r.id, r.request_no]));
+    const who = new Map(actors.map((a) => [a.user_id, a.full_name]));
     const ledger: LeaveLedgerEntry[] = [...tx].reverse().map((t) => ({
       id: t.id, kind: t.kind, amount: t.amount, effectiveOn: t.effective_on, expiresOn: t.expires_on, requestNo: t.request_id ? no.get(t.request_id) ?? null : null,
       reason: t.reason, createdBy: t.created_by ? who.get(t.created_by) ?? "—" : null, createdAt: t.created_at,

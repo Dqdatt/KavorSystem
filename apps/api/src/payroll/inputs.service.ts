@@ -12,6 +12,7 @@ import type {
 import { PAY_ITEM_TEMPLATES } from "@kavor/contracts";
 import { conflict, invalid, notFound, type AdminContext } from "../admin/context.js";
 import { date, nullableText, number, oneOf, type Body } from "../admin/validate.js";
+import { allIn } from "../db/rows.js";
 import { bankView } from "../profile/profile.service.js";
 import { periodOf } from "../timesheet/compute.js";
 import { MONTH, type EmployeeLite, type TimesheetService } from "../timesheet/timesheet.service.js";
@@ -63,9 +64,9 @@ export class PayrollInputs {
   private async compItems(ctx: AdminContext, compIds: string[]) {
     const map = new Map<string, CompensationItem[]>();
     if (!compIds.length) return map;
-    const { data, error } = await ctx.db.from("employee_compensation_items").select("compensation_id, item_id, amount, pay_items(name, sort_order)").eq("tenant_id", ctx.tenantId).in("compensation_id", compIds);
-    if (error) throw error;
-    const rows = ((data ?? []) as unknown as CompItemRow[]).sort((a, b) => (a.pay_items?.sort_order ?? 0) - (b.pay_items?.sort_order ?? 0) || (a.pay_items?.name ?? "").localeCompare(b.pay_items?.name ?? "", "vi"));
+    const data = await allIn<CompItemRow>(compIds, (lot, a, b) => ctx.db.from("employee_compensation_items").select("compensation_id, item_id, amount, pay_items(name, sort_order)")
+      .eq("tenant_id", ctx.tenantId).in("compensation_id", lot).order("compensation_id").order("item_id").range(a, b));
+    const rows = data.sort((a, b) => (a.pay_items?.sort_order ?? 0) - (b.pay_items?.sort_order ?? 0) || (a.pay_items?.name ?? "").localeCompare(b.pay_items?.name ?? "", "vi"));
     for (const r of rows) {
       const list = map.get(r.compensation_id) ?? [];
       list.push({ itemId: r.item_id, name: r.pay_items?.name ?? "—", amount: Number(r.amount) });
@@ -311,9 +312,8 @@ export class PayrollInputs {
   private async banks(ctx: AdminContext, ids: string[], full = false) {
     if (!ids.length) return new Map<string, BankAccountView>();
     const sens = ctx.can("employee.sensitive.read") ? await ctx.scopedEmployeeIds("employee.sensitive.read") : new Set<string>();
-    const { data, error } = await ctx.db.from("employee_bank_accounts").select("employee_id, bank_name, account_no, holder").eq("tenant_id", ctx.tenantId).in("employee_id", ids);
-    if (error) throw error;
-    return new Map(((data ?? []) as BankRow[]).map((x) => [x.employee_id, bankView(x, !sens.has(x.employee_id) ? "masked" : full ? "full" : "revealable")]));
+    const data = await allIn<BankRow>(ids, (lot, a, b) => ctx.db.from("employee_bank_accounts").select("employee_id, bank_name, account_no, holder").eq("tenant_id", ctx.tenantId).in("employee_id", lot).order("employee_id").range(a, b));
+    return new Map(data.map((x) => [x.employee_id, bankView(x, !sens.has(x.employee_id) ? "masked" : full ? "full" : "revealable")]));
   }
 
   /* Tính từ dữ liệu hiện tại cho các nhân viên (đã lọc phạm vi) còn làm trong kỳ */
@@ -321,34 +321,40 @@ export class PayrollInputs {
     const db = ctx.db;
     const p = periodOf(month, periodStartDay);
     if (!ids.length) return [];
-    const { data: empData, error } = await db.from("employees").select("id, employee_code, full_name, hire_date, termination_date, user_id, work_email, employment_type").eq("tenant_id", ctx.tenantId).in("id", ids).order("employee_code");
-    if (error) throw error;
-    const emps = ((empData ?? []) as EmpRow[]).filter((e) => e.hire_date <= p.end && (!e.termination_date || e.termination_date >= p.start));
+    /* Trần 1.000 dòng + URL: mọi truy vấn chia lô ≤ 100 nhân viên, đọc theo trang (lịch sử lương/phân công nhiều năm > 1.000 dòng
+       từng làm mất bản lương mới nhất, mất phòng ban). Thứ tự (effective_from) giữ trong từng nhân viên. */
+    const empData = await allIn<EmpRow>(ids, (lot, a, b) => db.from("employees").select("id, employee_code, full_name, hire_date, termination_date, user_id, work_email, employment_type")
+      .eq("tenant_id", ctx.tenantId).in("id", lot).order("id").range(a, b));
+    const emps = empData.filter((e) => e.hire_date <= p.end && (!e.termination_date || e.termination_date >= p.start)).sort((a, b) => a.employee_code.localeCompare(b.employee_code));
     const eids = emps.map((e) => e.id);
     if (!eids.length) return [];
-    const [sheets, { data: comps }, { data: deps }, { data: taxes }, { data: advs }, { data: asg }] = await Promise.all([
+    const [sheets, comps, deps, taxes, advs, asg] = await Promise.all([
       this.timesheets.build(ctx.tenantId, emps, month, { periodStartDay }),
-      db.from("employee_compensations").select(COMP_COLS).eq("tenant_id", ctx.tenantId).in("employee_id", eids).lte("effective_from", p.end).order("effective_from"),
-      db.from("employee_dependents").select(DEP_COLS).eq("tenant_id", ctx.tenantId).in("employee_id", eids),
-      db.from("employee_tax_profiles").select("employee_id, tax_code, union_member, probation_contract, commitment_08, withholding_requested").eq("tenant_id", ctx.tenantId).in("employee_id", eids),
-      db.from("salary_advances").select("employee_id, amount").eq("tenant_id", ctx.tenantId).in("employee_id", eids).eq("deduct_month", `${month}-01`).not("paid_at", "is", null),
-      db.from("employee_assignments").select("employee_id, effective_from, effective_to, departments(name), positions(name)").eq("tenant_id", ctx.tenantId).eq("is_primary", true).in("employee_id", eids)
-        .lte("effective_from", p.end).order("effective_from", { ascending: false }),
+      allIn<CompRow>(eids, (lot, a, b) => db.from("employee_compensations").select(COMP_COLS).eq("tenant_id", ctx.tenantId).in("employee_id", lot).lte("effective_from", p.end)
+        .order("effective_from").order("id").range(a, b)),
+      allIn<DepRow>(eids, (lot, a, b) => db.from("employee_dependents").select(DEP_COLS).eq("tenant_id", ctx.tenantId).in("employee_id", lot).order("id").range(a, b)),
+      allIn<TaxRow & { employee_id: string }>(eids, (lot, a, b) => db.from("employee_tax_profiles").select("employee_id, tax_code, union_member, probation_contract, commitment_08, withholding_requested")
+        .eq("tenant_id", ctx.tenantId).in("employee_id", lot).order("employee_id").range(a, b)),
+      allIn<{ employee_id: string; amount: number }>(eids, (lot, a, b) => db.from("salary_advances").select("id, employee_id, amount").eq("tenant_id", ctx.tenantId).in("employee_id", lot)
+        .eq("deduct_month", `${month}-01`).not("paid_at", "is", null).order("id").range(a, b)),
+      allIn<{ employee_id: string; effective_to: string | null; departments: { name: string } | null; positions: { name: string } | null }>(eids, (lot, a, b) =>
+        db.from("employee_assignments").select("id, employee_id, effective_from, effective_to, departments(name), positions(name)").eq("tenant_id", ctx.tenantId).eq("is_primary", true)
+          .in("employee_id", lot).lte("effective_from", p.end).order("effective_from", { ascending: false }).order("id").range(a, b)),
     ]);
-    const tax = new Map(((taxes ?? []) as Array<TaxRow & { employee_id: string }>).map((t) => [t.employee_id, t]));
+    const tax = new Map(taxes.map((t) => [t.employee_id, t]));
     const adv = new Map<string, number>();
-    for (const a of (advs ?? []) as Array<{ employee_id: string; amount: number }>) adv.set(a.employee_id, (adv.get(a.employee_id) ?? 0) + Number(a.amount));
+    for (const a of advs) adv.set(a.employee_id, (adv.get(a.employee_id) ?? 0) + Number(a.amount));
     const place = new Map<string, { department: string | null; position: string | null }>();
-    for (const a of (asg ?? []) as unknown as Array<{ employee_id: string; effective_to: string | null; departments: { name: string } | null; positions: { name: string } | null }>) {
+    for (const a of asg) {
       if (!place.has(a.employee_id) && (!a.effective_to || a.effective_to >= p.start)) place.set(a.employee_id, { department: a.departments?.name ?? null, position: a.positions?.name ?? null });
     }
     const banks = await this.banks(ctx, eids, full);
-    const citems = await this.compItems(ctx, ((comps ?? []) as CompRow[]).map((c) => c.id));
+    const citems = await this.compItems(ctx, comps.map((c) => c.id));
     return emps.map((e) => {
       const sheet = sheets.sheets.get(e.id)!;
       const days = sheet.days as TimesheetDay[];
       const from = e.hire_date > p.start ? e.hire_date : p.start, to = e.termination_date && e.termination_date < p.end ? e.termination_date : p.end;
-      const versions = ((comps ?? []) as CompRow[]).filter((c) => c.employee_id === e.id);
+      const versions = comps.filter((c) => c.employee_id === e.id);
       /* Đoạn: bản hiệu lực đầu kỳ + mỗi bản bắt đầu trong kỳ */
       const starts = [from, ...versions.filter((v) => v.effective_from > from && v.effective_from <= to).map((v) => v.effective_from)];
       const segments: PayrollInputSegment[] = starts.map((s, i) => {
@@ -381,7 +387,7 @@ export class PayrollInputs {
         employmentType: last.employmentType, baseSalary: last.baseSalary, insuranceSalary: last.insuranceSalary, allowance: last.allowance, items: last.items ?? [], segments,
         standard: s.standard, employedStandard, credited: s.credited, paidLeaveDays: leave(true), unpaidLeaveDays: leave(false), holidays: days.filter((d) => d.kind === "holiday").length,
         lateMinutes: s.lateMinutes, missingDays: s.missingDays, overtime,
-        dependents: ((deps ?? []) as DepRow[]).filter((d) => d.employee_id === e.id && activeIn(d, month)).length,
+        dependents: deps.filter((d) => d.employee_id === e.id && activeIn(d, month)).length,
         taxCode: t?.tax_code ?? null, unionMember: !!t?.union_member,
         probationContract: t?.probation_contract ?? null, commitment08: !!t?.commitment_08, withholdingRequested: !!t?.withholding_requested, advance: adv.get(e.id) ?? 0, bank: banks.get(e.id) ?? null, warnings,
       };

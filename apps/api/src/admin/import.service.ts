@@ -10,6 +10,7 @@ import { AuthError } from "../auth/auth.service.js";
 import { localParts, tenantSettings } from "../attendance/attendance.service.js";
 import { loadPlacements } from "../attendance/policy.js";
 import type { SupabaseGateway } from "../auth/supabase.js";
+import { allIn } from "../db/rows.js";
 import { invalid, type AdminContext } from "./context.js";
 import { req, type Body } from "./validate.js";
 import { planOf } from "../tenancy/plan.js";
@@ -180,7 +181,8 @@ export class EmployeeImport {
         db.from("employee_profiles").select("employee_id, birth_date, gender, id_number, id_issued_on, id_issued_by, permanent_address, address, social_insurance_no").in("employee_id", ids),
         db.from("employee_tax_profiles").select("employee_id, tax_code").in("employee_id", ids),
         db.from("employee_bank_accounts").select("employee_id").in("employee_id", ids),
-        db.from("employee_compensations").select("employee_id").in("employee_id", ids),
+        /* Lịch sử lương nhiều phiên bản: 200 người có thể > 1.000 dòng (trần PostgREST) → người có lương bị coi là chưa có */
+        allIn<{ employee_id: string }>(ids, (lot, a, b) => db.from("employee_compensations").select("id, employee_id").in("employee_id", lot).order("id").range(a, b)).then((data) => ({ data, error: null })),
       ]);
       for (const q of [pr, tx, bk, cp]) if (q.error) throw q.error;
       const add = (id: string, k: string) => { const s0 = have.get(id) ?? new Set<string>(); s0.add(k); have.set(id, s0); };

@@ -6,6 +6,7 @@ import type { DocumentBoard, DocumentCategory, DocumentDetail, DocumentExpiry, D
 import { AuthError, type EmployeeRow } from "../auth/auth.service.js";
 import type { SupabaseGateway } from "../auth/supabase.js";
 import { conflict, invalid, notFound, type AdminContext } from "../admin/context.js";
+import { all, allIn } from "../db/rows.js";
 import { addDays, date, oneOf, req, text, type Body } from "../admin/validate.js";
 import { FILE_MAX_BYTES, PrivateFiles, checkLink, safeName, sha256, signLink, sniffFile } from "../files/private-files.js";
 
@@ -36,17 +37,6 @@ function dbError(e: unknown): never {
   throw new AuthError("INTERNAL_ERROR", "Không xử lý được tài liệu. Vui lòng thử lại.", 500, true);
 }
 
-/* Hàm chạy theo lô 200 id cho .in() của PostgREST */
-async function chunked<T>(ids: string[], fn: (chunk: string[]) => PromiseLike<{ data: unknown; error: unknown }>): Promise<T[]> {
-  const out: T[] = [];
-  for (let n = 0; n < ids.length; n += 200) {
-    const { data, error } = await fn(ids.slice(n, n + 200));
-    if (error) dbError(error);
-    out.push(...((data ?? []) as T[]));
-  }
-  return out;
-}
-
 export class DocumentsService {
   private readonly files: PrivateFiles;
   constructor(private readonly sb: SupabaseGateway) { this.files = new PrivateFiles(sb, "employee-documents"); }
@@ -61,10 +51,10 @@ export class DocumentsService {
     if (!rows.length) return [];
     const empIds = [...new Set(rows.map((r) => r.employee_id))];
     const [vers, emps, deps] = await Promise.all([
-      chunked<VerRow>(rows.map((r) => r.current_version_id), (c) => db.from("document_versions").select(VER_COLS).eq("tenant_id", tenantId).in("id", c)),
-      chunked<{ id: string; employee_code: string; full_name: string }>(empIds, (c) => db.from("employees").select("id, employee_code, full_name").eq("tenant_id", tenantId).in("id", c)),
-      chunked<{ employee_id: string; effective_to: string | null; departments: { name: string } | null }>(empIds, (c) => db.from("employee_assignments")
-        .select("employee_id, effective_to, departments(name)").eq("tenant_id", tenantId).eq("is_primary", true).in("employee_id", c).order("effective_from", { ascending: false })),
+      allIn<VerRow>(rows.map((r) => r.current_version_id), (c, a, b) => db.from("document_versions").select(VER_COLS).eq("tenant_id", tenantId).in("id", c).order("id").range(a, b)).catch(dbError),
+      allIn<{ id: string; employee_code: string; full_name: string }>(empIds, (c, a, b) => db.from("employees").select("id, employee_code, full_name").eq("tenant_id", tenantId).in("id", c).order("id").range(a, b)).catch(dbError),
+      allIn<{ employee_id: string; effective_to: string | null; departments: { name: string } | null }>(empIds, (c, a, b) => db.from("employee_assignments")
+        .select("employee_id, effective_to, departments(name)").eq("tenant_id", tenantId).eq("is_primary", true).in("employee_id", c).order("effective_from", { ascending: false }).order("id").range(a, b)).catch(dbError),
     ]);
     const v = new Map(vers.map((x) => [x.id, x])), e = new Map(emps.map((x) => [x.id, x])), dep = new Map<string, string>();
     for (const d of deps) if (!d.effective_to && !dep.has(d.employee_id)) dep.set(d.employee_id, d.departments?.name ?? "");
@@ -92,18 +82,18 @@ export class DocumentsService {
   async board(ctx: AdminContext, q: { employeeId?: string } = {}): Promise<DocumentBoard> {
     ctx.require("document.read");
     const [ids, today] = await Promise.all([ctx.scopedEmployeeIds("document.read"), this.today(ctx.db, ctx.tenantId)]);
-    let query = ctx.db.from("employee_documents").select(DOC_COLS).eq("tenant_id", ctx.tenantId).order("updated_at", { ascending: false }).limit(2000);
-    if (q.employeeId) { if (!UUID.test(q.employeeId)) throw notFound("nhân viên"); query = query.eq("employee_id", q.employeeId); }
-    const { data, error } = await query;
-    if (error) dbError(error);
-    const rows = ((data ?? []) as DocRow[]).filter((r) => ids.has(r.employee_id));
+    if (q.employeeId && !UUID.test(q.employeeId)) throw notFound("nhân viên");
+    const data = await all<DocRow>((a, b) => {
+      const query = ctx.db.from("employee_documents").select(DOC_COLS).eq("tenant_id", ctx.tenantId);
+      return (q.employeeId ? query.eq("employee_id", q.employeeId) : query).order("updated_at", { ascending: false }).order("id").range(a, b);
+    }).catch(dbError);
+    const rows = data.filter((r) => ids.has(r.employee_id));
     const items = await this.views(ctx.db, ctx.tenantId, rows, today);
     const live = items.filter((d) => !d.archivedAt);
     // Nhân viên đang làm trong phạm vi chưa có hợp đồng lao động còn hiệu lực (chưa gỡ, chưa hết hạn)
-    const { data: emps, error: empErr } = await ctx.scopedEmployees("document.read", "id, status, termination_date");
-    if (empErr) dbError(empErr);
+    const emps = await all<{ id: string; status: string; termination_date: string | null }>((a, b) => ctx.scopedEmployees("document.read", "id, status, termination_date").order("id").range(a, b)).catch(dbError);
     const hasContract = new Set(live.filter((d) => d.category === "contract" && d.expiry !== "expired").map((d) => d.employee.id));
-    const working = ((emps ?? []) as unknown as Array<{ id: string; status: string; termination_date: string | null }>)
+    const working = emps
       .filter((x) => x.status !== "terminated" && (!x.termination_date || x.termination_date >= today));
     const since = new Date(Date.now() - 7 * 86400_000).toISOString();
     const { count } = await ctx.db.from("audit_logs").select("id", { count: "exact", head: true }).eq("tenant_id", ctx.tenantId).eq("action", "document.downloaded").gte("created_at", since);
@@ -228,7 +218,7 @@ export class DocumentsService {
     const [{ data, error }, today] = await Promise.all([this.mineQuery(me).order("issued_on", { ascending: false, nullsFirst: false }).order("created_at", { ascending: false }), this.today(db, me.tenant_id)]);
     if (error) dbError(error);
     const rows = (data ?? []) as DocRow[];
-    const vers = await chunked<VerRow>(rows.map((r) => r.current_version_id), (c) => db.from("document_versions").select(VER_COLS).eq("tenant_id", me.tenant_id).in("id", c));
+    const vers = await allIn<VerRow>(rows.map((r) => r.current_version_id), (c, a, b) => db.from("document_versions").select(VER_COLS).eq("tenant_id", me.tenant_id).in("id", c).order("id").range(a, b)).catch(dbError);
     const v = new Map(vers.map((x) => [x.id, x]));
     return { items: rows.map((r): MyDocument => {
       const cur = v.get(r.current_version_id)!;

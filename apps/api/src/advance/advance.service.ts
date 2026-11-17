@@ -12,6 +12,7 @@ import { STEP_RESOLVERS } from "@kavor/contracts";
 import type { EmployeeRow } from "../auth/auth.service.js";
 import type { SupabaseGateway } from "../auth/supabase.js";
 import { conflict, forbidden, invalid, notFound, type AdminContext } from "../admin/context.js";
+import { allIn } from "../db/rows.js";
 import { nullableText, number, type Body } from "../admin/validate.js";
 import { PolicyIndex, loadPlacements } from "../attendance/policy.js";
 import { monthOf, periodOf } from "../timesheet/compute.js";
@@ -131,8 +132,8 @@ export class AdvanceService {
   private async departments(db: Db, tenantId: string, ids: string[]) {
     const out = new Map<string, string>();
     if (!ids.length) return out;
-    const { data } = await db.from("employee_assignments").select("employee_id, effective_to, departments(name)").eq("tenant_id", tenantId).eq("is_primary", true).in("employee_id", ids).order("effective_from", { ascending: false });
-    for (const d of (data ?? []) as unknown as Array<{ employee_id: string; effective_to: string | null; departments: { name: string } | null }>) if (!d.effective_to && !out.has(d.employee_id)) out.set(d.employee_id, d.departments?.name ?? "");
+    const data = await allIn<{ employee_id: string; effective_to: string | null; departments: { name: string } | null }>(ids, (lot, a, b) => db.from("employee_assignments").select("employee_id, effective_to, departments(name)").eq("tenant_id", tenantId).eq("is_primary", true).in("employee_id", lot).order("effective_from", { ascending: false }).order("id").range(a, b));
+    for (const d of data) if (!d.effective_to && !out.has(d.employee_id)) out.set(d.employee_id, d.departments?.name ?? "");
     return out;
   }
 
@@ -182,21 +183,20 @@ export class AdvanceService {
     const db = ctx.db;
     const ids = [...await ctx.scopedEmployeeIds("compensation.read")];
     if (!ids.length) return { rows: [], canManage: ctx.can("compensation.manage") };
-    const [{ data: emps }, { data: comps }, deps] = await Promise.all([
-      db.from("employees").select("id, employee_code, full_name").eq("tenant_id", ctx.tenantId).in("id", ids).neq("status", "terminated").order("employee_code"),
-      db.from("employee_compensations").select("employee_id, base_salary, insurance_salary, allowance, employment_type, effective_from, note, created_at").eq("tenant_id", ctx.tenantId).in("employee_id", ids).order("effective_from", { ascending: false }),
+    /* Mỗi nhân viên nằm trọn trong một lô nên lịch sử lương vẫn giữ thứ tự effective_from giảm dần theo từng người */
+    const [emps, comps, deps] = await Promise.all([
+      allIn<{ id: string; employee_code: string; full_name: string }>(ids, (lot, a, b) => db.from("employees").select("id, employee_code, full_name").eq("tenant_id", ctx.tenantId).in("id", lot).neq("status", "terminated").order("employee_code").order("id").range(a, b)),
+      allIn<{ employee_id: string; base_salary: number; insurance_salary: number | null; allowance: number; employment_type: EmploymentType | null; effective_from: string; note: string | null; created_at: string }>(ids, (lot, a, b) => db.from("employee_compensations").select("employee_id, base_salary, insurance_salary, allowance, employment_type, effective_from, note, created_at").eq("tenant_id", ctx.tenantId).in("employee_id", lot).order("effective_from", { ascending: false }).order("id").range(a, b)),
       this.departments(db, ctx.tenantId, ids),
     ]);
     const today = (await this.timesheets.tenantClock(db, ctx.tenantId)).today;
-    const all = (comps ?? []) as Array<{ employee_id: string; base_salary: number; insurance_salary: number | null; allowance: number; employment_type: EmploymentType | null; effective_from: string; note: string | null; created_at: string }>;
     /* Tài khoản ngân hàng HR đã duyệt (đề nghị sửa hồ sơ), chỉ khi có employee.sensitive.read trong phạm vi: 4 số cuối, "Hiện số" có nhật ký */
     const sens = ctx.can("employee.sensitive.read") ? await ctx.scopedEmployeeIds("employee.sensitive.read") : new Set<string>();
     const bankIds = ids.filter((id) => sens.has(id));
-    const { data: banks, error: bankErr } = bankIds.length ? await db.from("employee_bank_accounts").select("employee_id, bank_name, account_no, holder").eq("tenant_id", ctx.tenantId).in("employee_id", bankIds) : { data: [], error: null };
-    if (bankErr) throw bankErr;
-    const bank = new Map(((banks ?? []) as Array<{ employee_id: string; bank_name: string; account_no: string; holder: string }>).map((x) => [x.employee_id, x]));
-    const rows: CompensationRow[] = ((emps ?? []) as Array<{ id: string; employee_code: string; full_name: string }>).map((e) => {
-      const h = all.filter((c) => c.employee_id === e.id);
+    const banks = await allIn<{ employee_id: string; bank_name: string; account_no: string; holder: string }>(bankIds, (lot, a, b) => db.from("employee_bank_accounts").select("employee_id, bank_name, account_no, holder").eq("tenant_id", ctx.tenantId).in("employee_id", lot).order("employee_id").range(a, b));
+    const bank = new Map(banks.map((x) => [x.employee_id, x]));
+    const rows: CompensationRow[] = emps.sort((x, y) => x.employee_code.localeCompare(y.employee_code)).map((e) => {
+      const h = comps.filter((c) => c.employee_id === e.id);
       const cur = h.find((c) => c.effective_from <= today);
       return {
         employee: { id: e.id, code: e.employee_code, fullName: e.full_name, department: deps.get(e.id) || null },

@@ -2,6 +2,7 @@
 import type { PauseReason } from "@kavor/contracts";
 import type { SupabaseGateway } from "../auth/supabase.js";
 import { addDays } from "../admin/validate.js";
+import { allIn } from "../db/rows.js";
 
 type Db = SupabaseGateway["admin"];
 export type PauseRow = { id: string; employee_id: string; start_date: string; end_date: string | null; reason: PauseReason; note: string | null };
@@ -12,10 +13,8 @@ export const PAUSE_LABEL: Record<PauseReason, string> = { maternity: "Nghỉ tha
 /* Khoảng tạm nghỉ của các nhân viên giao với [from, to] */
 export async function loadPauses(db: Db, tenantId: string, ids: string[], from: string, to: string): Promise<PauseRow[]> {
   if (!ids.length) return [];
-  const { data, error } = await db.from("employee_pauses").select(PAUSE_COLS).eq("tenant_id", tenantId).in("employee_id", ids)
-    .lte("start_date", to).or(`end_date.is.null,end_date.gte.${from}`).order("start_date");
-  if (error) throw error;
-  return (data ?? []) as PauseRow[];
+  return allIn<PauseRow>(ids, (lot, a, b) => db.from("employee_pauses").select(PAUSE_COLS).eq("tenant_id", tenantId).in("employee_id", lot)
+    .lte("start_date", to).or(`end_date.is.null,end_date.gte.${from}`).order("start_date").order("id").range(a, b));
 }
 
 export const pauseOn = (pauses: PauseRow[], employeeId: string, date: string) =>

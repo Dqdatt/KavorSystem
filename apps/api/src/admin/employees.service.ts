@@ -10,6 +10,7 @@ import { PolicyIndex, loadPlacements, type Placement } from "../attendance/polic
 import { conflict, forbidden, invalid, notFound, type AdminContext } from "./context.js";
 import type { Mailer } from "./mailer.js";
 import type { AttendanceAdmin } from "./attendance-admin.service.js";
+import { all, allIn } from "../db/rows.js";
 import { addDays, EMAIL, date, nullableText, oneOf, req, text, uuid, type Body } from "./validate.js";
 import { loadPersonal } from "../profile/profile.service.js";
 import { assertEmployeeCapacity } from "../tenancy/plan.js";
@@ -91,9 +92,9 @@ export class EmployeesAdmin {
       db.from("branches").select("id, name").eq("tenant_id", ctx.tenantId).or(live).order("name"),
       db.from("departments").select("id, name, branch_id").eq("tenant_id", ctx.tenantId).or(live).order("name"),
       db.from("positions").select("id, name, management_tier").eq("tenant_id", ctx.tenantId).or(live).order("name"),
-      ctx.scopedEmployees("employee.read", "id, full_name, employee_code, status").order("full_name"),
+      all<{ id: string; full_name: string; employee_code: string; status: string }>((a, b) => ctx.scopedEmployees("employee.read", "id, full_name, employee_code, status").order("full_name").order("id").range(a, b)),
     ]);
-    const emps = ((em.data ?? []) as unknown as Array<{ id: string; full_name: string; employee_code: string; status: string }>).filter((e) => e.status !== "terminated");
+    const emps = em.filter((e) => e.status !== "terminated");
     const [roles, places, tiers] = await Promise.all([this.activeRoles(ctx, emps.map((e) => e.id), today), loadPlacements(ctx.db, ctx.tenantId, today, emps.map((e) => e.id)), this.positionTiers(ctx)]);
     const posName = new Map(((po.data ?? []) as Array<{ id: string; name: string }>).map((p) => [p.id, p.name]));
     const depName = new Map(((de.data ?? []) as Array<{ id: string; name: string }>).map((d) => [d.id, d.name]));
@@ -140,10 +141,10 @@ export class EmployeesAdmin {
   private async activeRoles(ctx: AdminContext, ids: string[], today: string) {
     const out = new Map<string, Array<{ code: string; name: string; scope: string }>>();
     if (!ids.length) return out;
-    const { data, error } = await ctx.db.from("role_assignments").select("scope_type, effective_from, effective_to, roles!inner(code, name), memberships!inner(employee_id, status)")
-      .eq("tenant_id", ctx.tenantId).in("memberships.employee_id", ids).neq("roles.code", "employee").lte("effective_from", today);
-    if (error) throw error;
-    for (const a of (data ?? []) as unknown as Array<{ scope_type: string; effective_to: string | null; roles: { code: string; name: string }; memberships: { employee_id: string; status: string } }>) {
+    const data = await allIn<{ scope_type: string; effective_to: string | null; roles: { code: string; name: string }; memberships: { employee_id: string; status: string } }>(ids, (lot, a, b) => ctx.db.from("role_assignments")
+      .select("scope_type, effective_from, effective_to, roles!inner(code, name), memberships!inner(employee_id, status)")
+      .eq("tenant_id", ctx.tenantId).in("memberships.employee_id", lot).neq("roles.code", "employee").lte("effective_from", today).order("id").range(a, b));
+    for (const a of data) {
       /* Tài khoản bị khóa: không tính. Chưa kích hoạt: vẫn hiện (quyền có tác dụng khi người đó kích hoạt) */
       if ((a.effective_to && a.effective_to < today) || a.memberships.status === "suspended") continue;
       const scope = `${SCOPE_LABEL[a.scope_type] ?? a.scope_type}${a.memberships.status === "active" ? "" : " · chờ kích hoạt tài khoản"}`;
@@ -157,9 +158,8 @@ export class EmployeesAdmin {
   /* ---------- Danh sách / chi tiết ---------- */
   async list(ctx: AdminContext, q: { q?: string; status?: string; departmentId?: string; account?: string }): Promise<EmployeeListItem[]> {
     ctx.require("employee.read");
-    const { data, error } = await ctx.scopedEmployees("employee.read", EMP_COLS).order("employee_code");
-    if (error) throw error;
-    let items = await this.enrich(ctx, (data ?? []) as unknown as EmployeeRowFull[]);
+    const data = await all<EmployeeRowFull>((a, b) => ctx.scopedEmployees("employee.read", EMP_COLS).order("employee_code").order("id").range(a, b));
+    let items = await this.enrich(ctx, data);
     if (q.q?.trim()) { const k = fold(q.q.trim()); items = items.filter((e) => fold(`${e.fullName} ${e.code} ${e.email ?? ""} ${e.phone ?? ""}`).includes(k)); }
     if (q.status === "working") items = items.filter((e) => e.status !== "terminated");
     else if (q.status && q.status !== "all") items = items.filter((e) => e.status === q.status);
@@ -408,8 +408,8 @@ export class EmployeesAdmin {
     ctx.require("membership.invite");
     const ids = Array.isArray(b?.employeeIds) ? [...new Set((b.employeeIds as unknown[]).filter((x): x is string => typeof x === "string" && /^[0-9a-f-]{36}$/i.test(x)))] : [];
     if (!ids.length || ids.length > 300) throw invalid("Chọn từ 1 đến 300 nhân viên.");
-    const { data } = await ctx.db.from("employees").select("id, employee_code").eq("tenant_id", ctx.tenantId).in("id", ids);
-    const code = new Map(((data ?? []) as Array<{ id: string; employee_code: string }>).map((e) => [e.id, e.employee_code]));
+    const data = await allIn<{ id: string; employee_code: string }>(ids, (lot, a, b) => ctx.db.from("employees").select("id, employee_code").eq("tenant_id", ctx.tenantId).in("id", lot).order("id").range(a, b));
+    const code = new Map(data.map((e) => [e.id, e.employee_code]));
     const out: BulkInviteResult = { sent: 0, skipped: [] };
     for (const id of ids) {
       if (!code.has(id)) { out.skipped.push({ code: "?", reason: "Không tìm thấy nhân viên" }); continue; }
@@ -450,8 +450,7 @@ export class EmployeesAdmin {
     const today = localParts(new Date(), s.timezone).date;
     let activeEmployees = 0, notActivated = 0, recentEmployees: EmployeeListItem[] = [];
     if (ctx.can("employee.read")) {
-      const { data } = await ctx.scopedEmployees("employee.read", EMP_COLS).neq("status", "terminated").order("created_at", { ascending: false });
-      const rows = (data ?? []) as unknown as EmployeeRowFull[];
+      const rows = await all<EmployeeRowFull>((a, b) => ctx.scopedEmployees("employee.read", EMP_COLS).neq("status", "terminated").order("created_at", { ascending: false }).order("id").range(a, b));
       activeEmployees = rows.length;
       notActivated = rows.filter((r) => !r.user_id).length;
       recentEmployees = await this.enrich(ctx, rows.slice(0, 5));
@@ -529,8 +528,8 @@ export class EmployeesAdmin {
   private async userNames(ctx: AdminContext, ids: Array<string | null>) {
     const list = [...new Set(ids.filter((x): x is string => !!x))];
     if (!list.length) return new Map<string, string>();
-    const { data } = await ctx.db.from("employees").select("user_id, full_name").eq("tenant_id", ctx.tenantId).in("user_id", list);
-    return new Map(((data ?? []) as Array<{ user_id: string; full_name: string }>).map((r) => [r.user_id, r.full_name]));
+    const data = await allIn<{ user_id: string; full_name: string }>(list, (lot, a, b) => ctx.db.from("employees").select("id, user_id, full_name").eq("tenant_id", ctx.tenantId).in("user_id", lot).order("id").range(a, b));
+    return new Map(data.map((r) => [r.user_id, r.full_name]));
   }
 
   async enrich(ctx: AdminContext, rows: EmployeeRowFull[]): Promise<EmployeeListItem[]> {
@@ -542,13 +541,13 @@ export class EmployeesAdmin {
     const [org, placements, ms, profiles, pending] = await Promise.all([
       this.org(ctx),
       loadPlacements(ctx.db, ctx.tenantId, today, ids),
-      ctx.db.from("memberships").select("user_id, status").eq("tenant_id", ctx.tenantId).not("user_id", "is", null),
-      userIds.length ? ctx.db.from("user_profiles").select("id, last_login_at").in("id", userIds.slice(0, 200)) : Promise.resolve({ data: [] }),
-      ctx.db.from("employee_devices").select("employee_id").eq("tenant_id", ctx.tenantId).eq("status", "pending"),
+      all<{ user_id: string; status: string }>((a, b) => ctx.db.from("memberships").select("user_id, status").eq("tenant_id", ctx.tenantId).not("user_id", "is", null).order("id").range(a, b)),
+      allIn<{ id: string; last_login_at: string | null }>(userIds, (lot, a, b) => ctx.db.from("user_profiles").select("id, last_login_at").in("id", lot).order("id").range(a, b)),
+      all<{ employee_id: string }>((a, b) => ctx.db.from("employee_devices").select("employee_id").eq("tenant_id", ctx.tenantId).eq("status", "pending").order("id").range(a, b)),
     ]);
-    const memberStatus = new Map(((ms.data ?? []) as Array<{ user_id: string; status: string }>).map((m) => [m.user_id, m.status]));
-    const lastLogin = new Map(((profiles.data ?? []) as Array<{ id: string; last_login_at: string | null }>).map((p) => [p.id, p.last_login_at]));
-    const pendingSet = new Set(((pending.data ?? []) as Array<{ employee_id: string }>).map((d) => d.employee_id));
+    const memberStatus = new Map(ms.map((m) => [m.user_id, m.status]));
+    const lastLogin = new Map(profiles.map((p) => [p.id, p.last_login_at]));
+    const pendingSet = new Set(pending.map((d) => d.employee_id));
     const ref = (id: string | undefined | null): Ref | null => (id ? { id, name: org.names.get(id) ?? "—" } : null);
     return rows.map((r) => {
       const p = placements.get(r.id);

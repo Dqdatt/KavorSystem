@@ -4,6 +4,7 @@
 import { ADMIN_ERRORS, AUTH_ERRORS, type ScopeType } from "@kavor/contracts";
 import { AuthError, assertTenantOpen } from "../auth/auth.service.js";
 import type { SupabaseGateway } from "../auth/supabase.js";
+import { all } from "../db/rows.js";
 
 export type Grant = { permission: string; role_code: string; role_name: string; scope_type: ScopeType; scope_id: string | null };
 export type ActorEmployee = { id: string; full_name: string; employee_code: string; work_email: string | null };
@@ -62,9 +63,8 @@ export class AdminContext {
   }
 
   async scopedEmployeeIds(perm: string): Promise<Set<string>> {
-    const { data, error } = await this.scopedEmployees(perm, "id");
-    if (error) throw error;
-    return new Set(((data ?? []) as unknown as Array<{ id: string }>).map((r) => r.id));
+    const rows = await all<{ id: string }>((a, b) => this.scopedEmployees(perm, "id").order("id").range(a, b));
+    return new Set(rows.map((r) => r.id));
   }
 
   /* Nhân viên ngoài phạm vi hoặc thuộc tenant khác đều trả 404 (không tiết lộ sự tồn tại) */

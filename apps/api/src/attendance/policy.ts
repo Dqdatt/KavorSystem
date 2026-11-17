@@ -4,6 +4,7 @@
    có hiệu lực ở ngày đó. Phần chọn là hàm thuần để test được; PolicyIndex nạp dữ liệu một lần cho cả tenant. */
 import { RULE_KINDS, type PolicyKind, type PolicyScopeType, type PolicySource, type ResolvedPolicies, type ResolvedRule, type RuleConfig, type RuleKind, type ShiftInfo, type WorkLocation } from "@kavor/contracts";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { all, allIn } from "../db/rows.js";
 
 export type AssignmentRow = {
   id: string; kind: PolicyKind; target_id: string; scope_type: PolicyScopeType; scope_id: string | null;
@@ -82,37 +83,32 @@ export class PolicyIndex {
   ) {}
 
   static async load(db: SupabaseClient, tenantId: string): Promise<PolicyIndex> {
+    /* Cả công ty, đọc theo trang (trần 1.000 dòng): phân công chính sách cá nhân và danh sách nhân viên tăng theo năm */
+    const q = <T>(table: string, cols: string) => all<T>((a, b) => db.from(table).select(cols).eq("tenant_id", tenantId).order("id").range(a, b));
     const [as, sh, sv, lo, lv, ru, rv, de, br, le, em] = await Promise.all([
-      db.from("policy_assignments").select("id, kind, target_id, scope_type, scope_id, effective_from, effective_to, reason, created_at, created_by").eq("tenant_id", tenantId),
-      db.from("shift_definitions").select("id, code, name, active").eq("tenant_id", tenantId),
-      db.from("shift_versions").select("id, shift_id, version_no, start_time, end_time, break_start, break_end, late_grace_minutes, early_grace_minutes, work_days, effective_from, note, created_at").eq("tenant_id", tenantId),
-      db.from("work_locations").select("id, code, name, address, branch_id, active").eq("tenant_id", tenantId),
-      db.from("work_location_versions").select("id, location_id, version_no, latitude, longitude, radius_m, max_accuracy_m, effective_from, note, created_at").eq("tenant_id", tenantId),
-      db.from("policy_definitions").select("id, kind, code, name, active").eq("tenant_id", tenantId),
-      db.from("policy_versions").select("id, policy_id, version_no, config, effective_from, note, created_at").eq("tenant_id", tenantId),
-      db.from("departments").select("id, name").eq("tenant_id", tenantId),
-      db.from("branches").select("id, name").eq("tenant_id", tenantId),
-      db.from("legal_entities").select("id, name").eq("tenant_id", tenantId),
-      db.from("employees").select("id, full_name").eq("tenant_id", tenantId),
+      q<AssignmentRow>("policy_assignments", "id, kind, target_id, scope_type, scope_id, effective_from, effective_to, reason, created_at, created_by"),
+      q<ShiftRow>("shift_definitions", "id, code, name, active"),
+      q<ShiftVersionRow>("shift_versions", "id, shift_id, version_no, start_time, end_time, break_start, break_end, late_grace_minutes, early_grace_minutes, work_days, effective_from, note, created_at"),
+      q<LocationRow>("work_locations", "id, code, name, address, branch_id, active"),
+      q<LocationVersionRow>("work_location_versions", "id, location_id, version_no, latitude, longitude, radius_m, max_accuracy_m, effective_from, note, created_at"),
+      q<RuleRow>("policy_definitions", "id, kind, code, name, active"),
+      q<RuleVersionRow>("policy_versions", "id, policy_id, version_no, config, effective_from, note, created_at"),
+      q<{ id: string; name: string }>("departments", "id, name"),
+      q<{ id: string; name: string }>("branches", "id, name"),
+      q<{ id: string; name: string }>("legal_entities", "id, name"),
+      q<{ id: string; full_name: string }>("employees", "id, full_name"),
     ]);
-    for (const r of [as, sh, sv, lo, lv, ru, rv]) if (r.error) throw r.error;
     const group = <T extends Record<K, string>, K extends string>(rows: T[], key: K) => {
       const m = new Map<string, T[]>();
       for (const r of rows) m.set(r[key], [...(m.get(r[key]) ?? []), r]);
       return m;
     };
     const names = new Map<string, string>();
-    for (const r of [...(de.data ?? []), ...(br.data ?? []), ...(le.data ?? [])] as Array<{ id: string; name: string }>) names.set(r.id, r.name);
-    for (const r of (em.data ?? []) as Array<{ id: string; full_name: string }>) names.set(r.id, r.full_name);
+    for (const r of [...de, ...br, ...le]) names.set(r.id, r.name);
+    for (const r of em) names.set(r.id, r.full_name);
     return new PolicyIndex(
-      (as.data ?? []) as AssignmentRow[],
-      new Map(((sh.data ?? []) as ShiftRow[]).map((s) => [s.id, s])),
-      group((sv.data ?? []) as ShiftVersionRow[], "shift_id"),
-      new Map(((lo.data ?? []) as LocationRow[]).map((l) => [l.id, l])),
-      group((lv.data ?? []) as LocationVersionRow[], "location_id"),
-      new Map(((ru.data ?? []) as RuleRow[]).map((r) => [r.id, r])),
-      group((rv.data ?? []) as RuleVersionRow[], "policy_id"),
-      names,
+      as, new Map(sh.map((s) => [s.id, s])), group(sv, "shift_id"), new Map(lo.map((l) => [l.id, l])), group(lv, "location_id"),
+      new Map(ru.map((r) => [r.id, r])), group(rv, "policy_id"), names,
     );
   }
 
@@ -165,13 +161,15 @@ export class PolicyIndex {
 
 /* Phân công tổ chức chính đang hiệu lực của nhân viên (null nếu chưa có) */
 export async function loadPlacements(db: SupabaseClient, tenantId: string, date: string, employeeIds?: string[]): Promise<Map<string, Placement>> {
-  let q = db.from("employee_assignments").select("employee_id, legal_entity_id, branch_id, department_id, position_id, manager_employee_id, effective_from, effective_to")
+  /* Trước đây > 100 id thì bỏ lọc, quét cả công ty và bị cắt ở 1.000 dòng → mất phân công của người lâu năm. Thứ tự giữ trong từng nhân viên. */
+  type Row = Placement & { employee_id: string; effective_to: string | null };
+  const base = () => db.from("employee_assignments").select("id, employee_id, legal_entity_id, branch_id, department_id, position_id, manager_employee_id, effective_from, effective_to")
     .eq("tenant_id", tenantId).eq("is_primary", true).lte("effective_from", date);
-  if (employeeIds && employeeIds.length <= 100) q = q.in("employee_id", employeeIds);
-  const { data, error } = await q.order("effective_from", { ascending: false });
-  if (error) throw error;
+  const rows = employeeIds
+    ? await allIn<Row>(employeeIds, (lot, a, b) => base().in("employee_id", lot).order("effective_from", { ascending: false }).order("id").range(a, b))
+    : await all<Row>((a, b) => base().order("effective_from", { ascending: false }).order("id").range(a, b));
   const map = new Map<string, Placement>();
-  for (const r of (data ?? []) as Array<Placement & { employee_id: string; effective_to: string | null }>) {
+  for (const r of rows) {
     if (r.effective_to && r.effective_to < date) continue;
     if (!map.has(r.employee_id)) map.set(r.employee_id, r);
   }

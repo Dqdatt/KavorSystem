@@ -8,6 +8,7 @@ import { conflict, invalid, notFound, type AdminContext } from "../admin/context
 import { EMAIL, type Body } from "../admin/validate.js";
 import { localParts } from "../attendance/attendance.service.js";
 import { loadPlacements } from "../attendance/policy.js";
+import { allIn } from "../db/rows.js";
 import type { RequestsService, Viewer } from "../timesheet/requests.service.js";
 
 type Db = SupabaseGateway["admin"];
@@ -26,12 +27,11 @@ export async function loadPersonal(db: Db, tenantId: string, ids: string[], reve
   const out = new Map<string, PersonalInfo>();
   if (!ids.length) return out;
   const [p, b] = await Promise.all([
-    db.from("employee_profiles").select("employee_id, personal_email, address, emergency_name, emergency_phone, emergency_relation, birth_date, gender, id_number, id_issued_on, id_issued_by, permanent_address, social_insurance_no").eq("tenant_id", tenantId).in("employee_id", ids),
-    db.from("employee_bank_accounts").select("employee_id, bank_name, account_no, holder").eq("tenant_id", tenantId).in("employee_id", ids),
+    allIn<ProfileRow>(ids, (lot, x, y) => db.from("employee_profiles").select("employee_id, personal_email, address, emergency_name, emergency_phone, emergency_relation, birth_date, gender, id_number, id_issued_on, id_issued_by, permanent_address, social_insurance_no")
+      .eq("tenant_id", tenantId).in("employee_id", lot).order("employee_id").range(x, y)),
+    allIn<BankRow>(ids, (lot, x, y) => db.from("employee_bank_accounts").select("employee_id, bank_name, account_no, holder").eq("tenant_id", tenantId).in("employee_id", lot).order("employee_id").range(x, y)),
   ]);
-  if (p.error) throw p.error;
-  if (b.error) throw b.error;
-  const prof = new Map(((p.data ?? []) as ProfileRow[]).map((r) => [r.employee_id, r])), bank = new Map(((b.data ?? []) as BankRow[]).map((r) => [r.employee_id, r]));
+  const prof = new Map(p.map((r) => [r.employee_id, r])), bank = new Map(b.map((r) => [r.employee_id, r]));
   for (const id of ids) {
     const r = prof.get(id), k = bank.get(id);
     out.set(id, {

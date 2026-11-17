@@ -9,6 +9,7 @@ import type {
 } from "@kavor/contracts";
 import type { EmployeeRow } from "../auth/auth.service.js";
 import type { SupabaseGateway } from "../auth/supabase.js";
+import { allIn } from "../db/rows.js";
 import { conflict, invalid, type AdminContext } from "../admin/context.js";
 import { addDays, date, req, time, type Body } from "../admin/validate.js";
 import { PolicyIndex, loadPlacements, minutesOf, type Placement } from "../attendance/policy.js";
@@ -55,10 +56,7 @@ export class OvertimeService {
   }
 
   private async entries(db: Db, tenantId: string, empIds: string[], from: string, to: string): Promise<EntryRow[]> {
-    if (!empIds.length) return [];
-    const { data, error } = await db.from("overtime_entries").select(ENTRY_COLS).eq("tenant_id", tenantId).in("employee_id", empIds).gte("work_date", from).lte("work_date", to).in("requests.status", ACTIVE);
-    if (error) throw error;
-    return (data ?? []) as unknown as EntryRow[];
+    return allIn<EntryRow>(empIds, (lot, a, b) => db.from("overtime_entries").select(ENTRY_COLS).eq("tenant_id", tenantId).in("employee_id", lot).gte("work_date", from).lte("work_date", to).in("requests.status", ACTIVE).order("id").range(a, b));
   }
 
   /* Giờ đã duyệt + đang chờ trong tháng/năm dương lịch của một ngày */
@@ -169,14 +167,14 @@ export class OvertimeService {
     const ids = [...await ctx.scopedEmployeeIds("overtime.read")];
     const [index, placements, emps, rows, deps] = await Promise.all([
       PolicyIndex.load(db, ctx.tenantId), loadPlacements(db, ctx.tenantId, clock.today, ids),
-      ids.length ? db.from("employees").select("id, employee_code, full_name").eq("tenant_id", ctx.tenantId).in("id", ids).neq("status", "terminated").order("employee_code") : Promise.resolve({ data: [] }),
+      allIn<{ id: string; employee_code: string; full_name: string }>(ids, (lot, a, b) => db.from("employees").select("id, employee_code, full_name").eq("tenant_id", ctx.tenantId).in("id", lot).neq("status", "terminated").order("employee_code").order("id").range(a, b)),
       this.entries(db, ctx.tenantId, ids, `${year}-01-01`, `${year}-12-31`),
-      db.from("employee_assignments").select("employee_id, effective_to, departments(name)").eq("tenant_id", ctx.tenantId).eq("is_primary", true).in("employee_id", ids.length ? ids : ["00000000-0000-0000-0000-000000000000"]).order("effective_from", { ascending: false }),
+      allIn<{ employee_id: string; effective_to: string | null; departments: { name: string } | null }>(ids, (lot, a, b) => db.from("employee_assignments").select("employee_id, effective_to, departments(name)").eq("tenant_id", ctx.tenantId).eq("is_primary", true).in("employee_id", lot).order("effective_from", { ascending: false }).order("id").range(a, b)),
     ]);
     const dept = new Map<string, string>();
-    for (const d of (deps.data ?? []) as unknown as Array<{ employee_id: string; effective_to: string | null; departments: { name: string } | null }>) if (!d.effective_to && !dept.has(d.employee_id)) dept.set(d.employee_id, d.departments?.name ?? "");
+    for (const d of deps) if (!d.effective_to && !dept.has(d.employee_id)) dept.set(d.employee_id, d.departments?.name ?? "");
     const out: OvertimeRow[] = [];
-    for (const e of (emps.data ?? []) as Array<{ id: string; employee_code: string; full_name: string }>) {
+    for (const e of emps.sort((x, y) => x.employee_code.localeCompare(y.employee_code))) {
       const mine = rows.filter((r) => r.employee_id === e.id), inMonth = mine.filter((r) => r.work_date.startsWith(month));
       if (!mine.length) continue;
       const approved = inMonth.filter((r) => r.requests.status === "approved");

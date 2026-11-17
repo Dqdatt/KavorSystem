@@ -5,6 +5,7 @@ import type {
   BrandingKind, CompanySettings, HolidayYear, PlatformPolicy, PrivacyOverview, SetupChecklist, SetupStep, SupportContact,
 } from "@kavor/contracts";
 import type { SupabaseGateway } from "../auth/supabase.js";
+import { all } from "../db/rows.js";
 import { BRANDING_MAX_BYTES, brandingVersion, sniffImage, type BrandingStore } from "../company/branding.js";
 import { calendarsOf, holidaysOf, supportOf } from "../company/company.service.js";
 import { currentTerms, toTerms, type TermsRow } from "../company/privacy.js";
@@ -250,18 +251,17 @@ export class SettingsAdmin {
   /* ---------- Điều khoản dữ liệu cá nhân ---------- */
   async privacy(ctx: AdminContext): Promise<PrivacyOverview> {
     ctx.require("privacy.read");
-    const [{ data: vs }, { data: cs }, scoped] = await Promise.all([
+    const [{ data: vs }, consents, accounts0] = await Promise.all([
       ctx.db.from("privacy_terms").select("id, version_no, title, content, published_at").eq("tenant_id", ctx.tenantId).order("version_no", { ascending: false }),
-      ctx.db.from("privacy_consents").select("employee_id, terms_id").eq("tenant_id", ctx.tenantId),
-      ctx.scopedEmployees("employee.read", "id, employee_code, full_name, user_id, status"),
+      all<{ employee_id: string; terms_id: string }>((a, b) => ctx.db.from("privacy_consents").select("employee_id, terms_id").eq("tenant_id", ctx.tenantId).order("id").range(a, b)),
+      all<{ id: string; employee_code: string; full_name: string; user_id: string | null; status: string }>((a, b) => ctx.scopedEmployees("employee.read", "id, employee_code, full_name, user_id, status").order("id").range(a, b)),
     ]);
     const versions = (vs ?? []) as TermsRow[];
-    const consents = (cs ?? []) as Array<{ employee_id: string; terms_id: string }>;
     const current = versions[0] ?? null;
     const versionOf = new Map(versions.map((v) => [v.id, v.version_no]));
     const last = new Map<string, number>();
     for (const c of consents) last.set(c.employee_id, Math.max(last.get(c.employee_id) ?? 0, versionOf.get(c.terms_id) ?? 0));
-    const accounts = ((scoped.data ?? []) as unknown as Array<{ id: string; employee_code: string; full_name: string; user_id: string | null; status: string }>)
+    const accounts = accounts0
       .filter((e) => e.user_id && e.status !== "terminated");
     const pending = accounts.filter((e) => !current || (last.get(e.id) ?? 0) < current.version_no);
     return {
@@ -322,7 +322,7 @@ export class SettingsAdmin {
       currentTerms(db, tid),
       db.rpc("active_tenant_admin_count", { p_tenant: tid }),
       db.from("policy_assignments").select("kind, scope_type, effective_from, effective_to").eq("tenant_id", tid),
-      db.from("role_assignments").select("effective_from, effective_to, roles!inner(code)").eq("tenant_id", tid).in("roles.code", ["manager", "hr_ops", "payroll"]),
+      all<{ effective_from: string; effective_to: string | null; roles: { code: string } }>((a, b) => db.from("role_assignments").select("effective_from, effective_to, roles!inner(code)").eq("tenant_id", tid).in("roles.code", ["manager", "hr_ops", "payroll"]).order("id").range(a, b)),
       head("work_locations"),
     ]);
     const reporting = await this.reportingIssues(ctx, today);
@@ -341,7 +341,7 @@ export class SettingsAdmin {
     };
     const adminCount = (admins.data as number) ?? 0;
     /* Số người đang giữ từng vai trò (còn hiệu lực hôm nay theo tenant) */
-    const roleCount = (code: string) => ((invited.data ?? []) as unknown as Array<{ effective_from: string; effective_to: string | null; roles: { code: string } }>)
+    const roleCount = (code: string) => (invited)
       .filter((a) => a.roles.code === code && a.effective_from <= today && (a.effective_to == null || a.effective_to >= today)).length;
     const hrOps = roleCount("hr_ops"), payroll = roleCount("payroll"), managers = roleCount("manager");
     const support = supportOf(s.support_contact);

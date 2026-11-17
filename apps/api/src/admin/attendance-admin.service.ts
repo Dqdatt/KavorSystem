@@ -4,6 +4,7 @@ import type { SupabaseGateway } from "../auth/supabase.js";
 import { EVENT_COLS, localParts, tenantSettings, toAttendanceEvent, type EventRow } from "../attendance/attendance.service.js";
 import { PolicyIndex, loadPlacements, minutesOf } from "../attendance/policy.js";
 import { conflict, invalid, notFound, type AdminContext } from "./context.js";
+import { all, allIn } from "../db/rows.js";
 import { addDays, uuids, type Body } from "./validate.js";
 import { holidaysOf } from "../company/company.service.js";
 import { isoWeekday } from "../timesheet/compute.js";
@@ -25,16 +26,17 @@ export class AttendanceAdmin {
   async listDevices(ctx: AdminContext, status?: string): Promise<AdminDevice[]> {
     ctx.require("attendance.read");
     const ids = await ctx.scopedEmployeeIds("attendance.read");
-    let q = ctx.db.from("employee_devices").select(DEVICE_COLS).eq("tenant_id", ctx.tenantId).order("registered_at", { ascending: false }).limit(500);
-    if (status && status !== "all") q = q.eq("status", status);
-    const { data, error } = await q;
-    if (error) throw error;
-    return this.toDevices(ctx, ((data ?? []) as DeviceRow[]).filter((d) => ids.has(d.employee_id)));
+    const rows = await allIn<DeviceRow>(ids, (lot, a, b) => {
+      let q = ctx.db.from("employee_devices").select(DEVICE_COLS).eq("tenant_id", ctx.tenantId).in("employee_id", lot);
+      if (status && status !== "all") q = q.eq("status", status);
+      return q.order("registered_at", { ascending: false }).order("id").range(a, b);
+    });
+    return this.toDevices(ctx, byRegisteredDesc(rows));
   }
 
   async devicesOf(ctx: AdminContext, employeeIds: string[]): Promise<AdminDevice[]> {
-    const { data } = await ctx.db.from("employee_devices").select(DEVICE_COLS).eq("tenant_id", ctx.tenantId).in("employee_id", employeeIds).order("registered_at", { ascending: false });
-    return this.toDevices(ctx, (data ?? []) as DeviceRow[]);
+    const rows = await allIn<DeviceRow>(employeeIds, (lot, a, b) => ctx.db.from("employee_devices").select(DEVICE_COLS).eq("tenant_id", ctx.tenantId).in("employee_id", lot).order("registered_at", { ascending: false }).order("id").range(a, b));
+    return this.toDevices(ctx, byRegisteredDesc(rows));
   }
 
   async decideDevice(ctx: AdminContext, deviceId: string, action: DeviceAction, reason: string | null): Promise<AdminDevice> {
@@ -83,9 +85,7 @@ export class AttendanceAdmin {
     const s = await tenantSettings(this.sb, ctx.tenantId);
     const now = localParts(new Date(), s.timezone);
     const date = day ?? now.date;
-    const { data, error } = await ctx.scopedEmployees("attendance.read", "id, employee_code, full_name, status").order("full_name");
-    if (error) throw error;
-    const emps = ((data ?? []) as unknown as Emp[]).filter((e) => e.status !== "terminated");
+    const emps = (await all<Emp>((a, b) => ctx.scopedEmployees("attendance.read", "id, employee_code, full_name, status").order("full_name").order("id").range(a, b))).filter((e) => e.status !== "terminated");
     const ids = emps.map((e) => e.id);
     const [index, placements, events, pending, depts, leaves, holidays, pauses] = await Promise.all([
       PolicyIndex.load(ctx.db, ctx.tenantId),
@@ -93,12 +93,11 @@ export class AttendanceAdmin {
       this.rawEvents(ctx, ids, date, date, s.timezone),
       ctx.db.from("employee_devices").select("employee_id").eq("tenant_id", ctx.tenantId).eq("status", "pending"),
       ctx.db.from("departments").select("id, name").eq("tenant_id", ctx.tenantId),
-      ids.length ? ctx.db.from("leave_days").select("employee_id, half, requests!inner(status), leave_types(name)").eq("tenant_id", ctx.tenantId).eq("leave_date", date).eq("requests.status", "approved").in("employee_id", ids) : { data: [], error: null },
+      allIn<{ employee_id: string; half: LeaveHalf; leave_types: { name: string } | null }>(ids, (lot, a, b) => ctx.db.from("leave_days").select("employee_id, half, requests!inner(status), leave_types(name)").eq("tenant_id", ctx.tenantId).eq("leave_date", date).eq("requests.status", "approved").in("employee_id", lot).order("id").range(a, b)),
       holidaysOf(ctx.db, ctx.tenantId, Number(date.slice(0, 4))),
       loadPauses(ctx.db, ctx.tenantId, ids, date, date),
     ]);
-    if (leaves.error) throw leaves.error;
-    const leaveOf = new Map(((leaves.data ?? []) as unknown as Array<{ employee_id: string; half: LeaveHalf; leave_types: { name: string } | null }>).map((l) => [l.employee_id, { typeName: l.leave_types?.name ?? "Nghỉ phép", half: l.half }]));
+    const leaveOf = new Map(leaves.map((l) => [l.employee_id, { typeName: l.leave_types?.name ?? "Nghỉ phép", half: l.half }]));
     const deptName = new Map(((depts.data ?? []) as Array<{ id: string; name: string }>).map((d) => [d.id, d.name]));
     const byEmp = groupBy(events, (e) => e.employee_id);
     const rows: TodayRow[] = emps.map((e) => {
@@ -174,12 +173,9 @@ export class AttendanceAdmin {
     if (!employeeIds.length) return [];
     const lo = new Date(Date.parse(`${from}T00:00:00Z`) - 86400_000).toISOString();
     const hi = new Date(Date.parse(`${to}T00:00:00Z`) + 2 * 86400_000).toISOString();
-    let q = ctx.db.from("attendance_events").select(EVENT_COLS).eq("tenant_id", ctx.tenantId).gte("occurred_at", lo).lt("occurred_at", hi).order("occurred_at").limit(10000);
-    if (employeeIds.length <= 100) q = q.in("employee_id", employeeIds);
-    const { data, error } = await q;
-    if (error) throw error;
+    const data = await allIn<EventRow>(employeeIds, (lot, a, b) => ctx.db.from("attendance_events").select(EVENT_COLS).eq("tenant_id", ctx.tenantId).gte("occurred_at", lo).lt("occurred_at", hi).in("employee_id", lot).order("occurred_at").order("id").range(a, b));
     const ids = new Set(employeeIds);
-    return ((data ?? []) as EventRow[]).filter((e) => ids.has(e.employee_id) && (() => { const d = localParts(e.occurred_at, tz).date; return d >= from && d <= to; })());
+    return data.sort((x, y) => Date.parse(x.occurred_at) - Date.parse(y.occurred_at)).filter((e) => ids.has(e.employee_id) && (() => { const d = localParts(e.occurred_at, tz).date; return d >= from && d <= to; })());
   }
 
   private async toAdminEvents(ctx: AdminContext, events: EventRow[], index: PolicyIndex, tz: string, date: string): Promise<AdminAttendanceEvent[]> {
@@ -187,13 +183,13 @@ export class AttendanceAdmin {
     const empIds = [...new Set(events.map((e) => e.employee_id))];
     const devIds = [...new Set(events.map((e) => e.device_id).filter((x): x is string => !!x))];
     const [emps, placements, devs, depts] = await Promise.all([
-      ctx.db.from("employees").select("id, employee_code, full_name").eq("tenant_id", ctx.tenantId).in("id", empIds),
+      allIn<{ id: string; employee_code: string; full_name: string }>(empIds, (lot, a, b) => ctx.db.from("employees").select("id, employee_code, full_name").eq("tenant_id", ctx.tenantId).in("id", lot).order("id").range(a, b)),
       loadPlacements(ctx.db, ctx.tenantId, date, empIds),
-      devIds.length ? ctx.db.from("employee_devices").select("id, device_model").in("id", devIds) : Promise.resolve({ data: [] }),
+      allIn<{ id: string; device_model: string | null }>(devIds, (lot, a, b) => ctx.db.from("employee_devices").select("id, device_model").in("id", lot).order("id").range(a, b)),
       ctx.db.from("departments").select("id, name").eq("tenant_id", ctx.tenantId),
     ]);
-    const emp = new Map(((emps.data ?? []) as Array<{ id: string; employee_code: string; full_name: string }>).map((e) => [e.id, e]));
-    const dev = new Map(((devs.data ?? []) as Array<{ id: string; device_model: string | null }>).map((d) => [d.id, d.device_model]));
+    const emp = new Map((emps).map((e) => [e.id, e]));
+    const dev = new Map((devs).map((d) => [d.id, d.device_model]));
     const deptName = new Map(((depts.data ?? []) as Array<{ id: string; name: string }>).map((d) => [d.id, d.name]));
     return events.map((e) => {
       const p = placements.get(e.employee_id) ?? null;
@@ -211,12 +207,12 @@ export class AttendanceAdmin {
     if (!rows.length) return [];
     const empIds = [...new Set(rows.map((d) => d.employee_id))];
     const deciders = [...new Set(rows.map((d) => d.decided_by).filter((x): x is string => !!x))];
-    const [{ data: emps }, { data: dec }] = await Promise.all([
-      ctx.db.from("employees").select("id, employee_code, full_name").eq("tenant_id", ctx.tenantId).in("id", empIds),
-      deciders.length ? ctx.db.from("employees").select("user_id, full_name").eq("tenant_id", ctx.tenantId).in("user_id", deciders) : Promise.resolve({ data: [] }),
+    const [emps, dec] = await Promise.all([
+      allIn<{ id: string; employee_code: string; full_name: string }>(empIds, (lot, a, b) => ctx.db.from("employees").select("id, employee_code, full_name").eq("tenant_id", ctx.tenantId).in("id", lot).order("id").range(a, b)),
+      allIn<{ user_id: string; full_name: string }>(deciders, (lot, a, b) => ctx.db.from("employees").select("id, user_id, full_name").eq("tenant_id", ctx.tenantId).in("user_id", lot).order("id").range(a, b)),
     ]);
-    const emp = new Map(((emps ?? []) as Array<{ id: string; employee_code: string; full_name: string }>).map((e) => [e.id, e]));
-    const decider = new Map(((dec ?? []) as Array<{ user_id: string; full_name: string }>).map((e) => [e.user_id, e.full_name]));
+    const emp = new Map(emps.map((e) => [e.id, e]));
+    const decider = new Map((dec).map((e) => [e.user_id, e.full_name]));
     return rows.map((d) => ({
       id: d.id, employee: { id: d.employee_id, code: emp.get(d.employee_id)?.employee_code ?? "", fullName: emp.get(d.employee_id)?.full_name ?? "" },
       platform: d.platform, deviceModel: d.device_model, osVersion: d.os_version, appVersion: d.app_version, status: d.status,
@@ -243,6 +239,8 @@ export function boardRow(e: Emp, department: string | null, shift: ReturnType<Po
     state, late, early, rejectedCount: events.filter((x) => x.status === "rejected").length, leave: null,
   };
 }
+
+const byRegisteredDesc = (rows: DeviceRow[]) => rows.sort((x, y) => Date.parse(y.registered_at) - Date.parse(x.registered_at));
 
 function groupBy<T>(rows: T[], key: (r: T) => string) {
   const m = new Map<string, T[]>();

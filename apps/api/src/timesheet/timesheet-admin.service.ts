@@ -2,6 +2,7 @@
    Khóa kỳ lưu ảnh chụp bảng công của toàn công ty; sau đó mọi nơi đọc ảnh chụp, đơn giải trình của kỳ bị chặn. */
 import type { EmployeeTimesheet, TimesheetBoard, TimesheetRow, TimesheetSummary } from "@kavor/contracts";
 import { conflict, invalid, notFound, type AdminContext } from "../admin/context.js";
+import { all } from "../db/rows.js";
 import { date, nullableText, time, type Body } from "../admin/validate.js";
 import { MONTH, EMP_LITE, type EmployeeLite, type Sheets, type TimesheetService } from "./timesheet.service.js";
 import { viewerOf, type RequestsService } from "./requests.service.js";
@@ -49,11 +50,10 @@ export class TimesheetAdmin {
   async board(ctx: AdminContext, m?: string): Promise<TimesheetBoard> {
     ctx.require("attendance.read");
     const month = await this.month(ctx, m);
-    const { data, error } = await ctx.scopedEmployees("attendance.read", EMP_LITE);
-    if (error) throw error;
+    const emps = await all<EmployeeLite>((a, b) => ctx.scopedEmployees("attendance.read", EMP_LITE).order("id").range(a, b));
     const clock = await this.timesheets.tenantClock(ctx.db, ctx.tenantId);
     const p = periodOf(month, clock.periodStartDay);
-    const sheets = await this.timesheets.build(ctx.tenantId, this.inPeriod((data ?? []) as unknown as EmployeeLite[], p.start, p.end), month);
+    const sheets = await this.timesheets.build(ctx.tenantId, this.inPeriod(emps, p.start, p.end), month);
     const rows = this.rows(sheets);
     let lockedBy: string | null = null;
     if (sheets.lock?.locked_by) {
@@ -120,9 +120,8 @@ export class TimesheetAdmin {
     /* Ngày cuối kỳ chưa qua thì chưa khóa (nhân viên vẫn chấm công, gửi giải trình trong ngày) */
     if (p.end >= clock.today) throw conflict(`Kỳ công ${month} chưa kết thúc (tới hết ngày ${p.end}).`);
     if (await this.timesheets.activeLock(ctx.db, ctx.tenantId, p.start)) throw conflict("Kỳ công này đã khóa.");
-    const { data, error } = await ctx.db.from("employees").select(EMP_LITE).eq("tenant_id", ctx.tenantId);
-    if (error) throw error;
-    const sheets = await this.timesheets.build(ctx.tenantId, this.inPeriod((data ?? []) as EmployeeLite[], p.start, p.end), month, { fresh: true });
+    const emps = await all<EmployeeLite>((a, b) => ctx.db.from("employees").select(EMP_LITE).eq("tenant_id", ctx.tenantId).order("id").range(a, b));
+    const sheets = await this.timesheets.build(ctx.tenantId, this.inPeriod(emps, p.start, p.end), month, { fresh: true });
     const snapshot = { rows: [...sheets.sheets.values()].map((s) => ({ employeeId: s.employee.id, days: s.days.map((d) => ({ ...d, canExplain: false })), summary: s.summary })) };
     const pending = snapshot.rows.reduce((n, r) => n + r.summary.pendingRequests, 0), missing = snapshot.rows.reduce((n, r) => n + r.summary.missingDays, 0);
     const { data: lock, error: lErr } = await ctx.db.from("timesheet_locks").insert({ tenant_id: ctx.tenantId, period_start: p.start, period_end: p.end, locked_by: ctx.userId, reason, snapshot }).select("id").single();
