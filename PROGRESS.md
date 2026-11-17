@@ -1,5 +1,5 @@
 # PROGRESS
-_Cập nhật: 2026-11-03 — bởi Claude (Desktop)_
+_Cập nhật: 2026-11-17 — bởi Claude (Desktop)_
 
 ## Mục tiêu đang làm
 **Phiên cloud → Desktop: đọc `docs/CLOUD_HANDOFF.md` trước** (commit nào đã push, chưa test gì trên máy thật, quyết định chờ review).
@@ -11,6 +11,15 @@ ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AG
 
 ## Đã xong
 - Kế hoạch hoàn thiện v1 (16/11, Claude Desktop): `docs/plans/hoan-thien-v1.md` — định nghĩa xong, luật phạm vi, 5 đợt; `docs/TASKS.md` chia theo đợt.
+- Đợt 2 đúng số công/lương (17/11, Claude Desktop), đã deploy:
+  - Duyệt bấm 2 lần (`202612090001`): `decide_approval` khóa đơn trước rồi mới đọc bước duyệt (bản cũ: lần gọi thứ hai kết thúc đơn, bỏ qua HR).
+  - Trần 1.000 dòng: helper `apps/api/src/db/rows.ts` (`all`, `allIn`) cho bảng công, khóa kỳ, đầu vào lương, phạm vi, PolicyIndex, loadPlacements
+    và các trang hiển thị. Công ty thật TS-3010 trên cloud có 229 NV (vượt cả ngưỡng URL). Smoke `scale` 120 NV: code cũ ra người 0/16 công.
+  - Race tạo dữ liệu (`202612100001`): khóa tạo đơn theo nhân viên + kiểm lại trong SQL (đơn nghỉ trùng/số dư đổi, giải trình vượt hạn mức,
+    OT vượt giới hạn); trigger một lượt vào/ra hợp lệ mỗi ngày.
+  - Phép tồn năm trước: bổ sung đủ sổ năm trước rồi mới tính, ghi bù `carry:<năm>:n` khi tăng trước hạn dùng.
+  - Sửa hồ sơ NV (`202612110001`): RPC `save_employee`, kiểm phạm vi trước khi ghi; người sắp vào làm thuộc phạm vi theo phân công sắp hiệu lực.
+  - Kiểm: verify-all đầy đủ mỗi mục (API thử cổng 4100), pgTAP ~700, unit 92; mỗi test race chạy được trên code cũ thì hỏng, code mới thì đạt.
 - Đợt 1 bảo mật (16/11, Claude Desktop):
   - MFA bị lách + CCCD/BHXH: migration `202612080001_browser_token_rls.sql` thu mọi quyền của anon/authenticated trên schema public, chỉ cấp
     lại SELECT 7 bảng Realtime + policy hạn chế `<bảng>_mfa` đòi `aal2`; `/api/realtime` không cấp token phiên aal1. Policy cũ giữ làm lớp phòng thủ
