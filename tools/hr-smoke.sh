@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Kiểm thử API HR/Admin: quyền theo permission + phạm vi, cách ly tenant, nhân viên/tài khoản, thiết bị, ca theo tầng, audit.
+# Kiểm thử API HR/Admin: quyền theo permission + phạm vi, cách ly tenant, nhân viên/tài khoản, thiết bị, ca theo tầng, audit,
+# tạo/sửa hồ sơ một giao dịch (kiểm phạm vi trước khi ghi, nhân viên chưa vào làm).
 # Cần DB vừa `supabase db reset` và API đang chạy (bash tools/dev-backend.sh, có SMTP Mailpit).
 set -euo pipefail
 HA=60000000-0000-4000-8000-000000000142     # Trần Thu Hà · Marketing
@@ -132,4 +133,23 @@ B="{\"latitude\":$OFFICE_LAT,\"longitude\":$OFFICE_LNG,\"radiusM\":60,\"maxAccur
 check "Văn phòng Quận 1: thêm phiên bản từ hôm nay" "$(status POST admin/locations/70000000-0000-4000-8000-000000000001/versions "$HR" "$B")" 201
 B="{\"latitude\":$OFFICE_LAT,\"longitude\":$OFFICE_LNG,\"radiusM\":70,\"maxAccuracyM\":60,\"effectiveFrom\":\"$TODAY\"}"
 check "Đã có người chấm công ở đó hôm nay: không sửa được phiên bản cùng ngày" "$(status POST admin/locations/70000000-0000-4000-8000-000000000001/versions "$HR" "$B")" 409
+
+echo "— Tạo/sửa hồ sơ trong một giao dịch: kiểm phạm vi trước khi ghi, nhân viên chưa vào làm (save_employee)"
+A="{\"employeeId\":\"60000000-0000-4000-8000-000000000003\",\"roleCode\":\"hr_ops\",\"scopeType\":\"department\",\"scopeId\":\"$MKT\",\"effectiveFrom\":\"$TODAY\"}"
+_s1=$(call POST admin/roles/assignments "$HR" "$A") || :
+need "Gán Nhân sự vận hành phạm vi Marketing cho quản lý Huy" "$(echo "$_s1" | field data.roles)"
+B="{\"employeeCode\":\"HD0301\",\"fullName\":\"Lý Thu Trang\",\"workEmail\":\"trang.ly@haidang.vn\",\"hireDate\":\"$NEXTWEEK\",\"employmentType\":\"probation\",\"departmentId\":\"$MKT\",\"positionId\":\"$AE\"}"
+_s1=$(call POST admin/employees "$MGR" "$B") || :
+FUT=$(echo "$_s1" | field data.id)
+check "HR phạm vi phòng tạo nhân viên vào làm tuần sau → xem được ngay (trước đây 404 sau khi đã tạo)" "$(echo "$_s1" | field data.code)" HD0301
+check "Tạo: một phân công từ ngày vào làm + nhật ký employee.created" "$(sql "select (select count(*) from public.employee_assignments where employee_id = '$FUT') || ' ' || (select count(*) from public.audit_logs where resource_id = '$FUT' and action = 'employee.created')")" "1 1"
+B="{\"fullName\":\"Tên Đã Đổi\",\"departmentId\":\"40000000-0000-4000-8000-000000000006\"}"
+_s1=$(status PATCH admin/employees/$FUT "$MGR" "$B") || :
+check "Chuyển sang phòng ngoài phạm vi → 403" "$_s1" 403
+check "…và không ghi gì: tên giữ nguyên, không có nhật ký sửa (trước đây tên đã đổi)" "$(sql "select full_name || ' ' || (select count(*) from public.audit_logs where resource_id = '$FUT' and action = 'employee.updated') from public.employees where id = '$FUT'")" "Lý Thu Trang 0"
+B="{\"departmentId\":\"40000000-0000-4000-8000-000000000006\"}"
+_s1=$(status PATCH admin/employees/$FUT "$HR" "$B") || :
+check "HR đổi phòng ban cho nhân viên chưa vào làm" "$_s1" 200
+check "Vẫn một phân công, từ ngày vào làm, phòng mới (trước đây thêm bản thứ hai từ hôm nay, tới ngày vào làm bản cũ thắng)" "$(sql "select count(*) || ' ' || max(effective_from)::text || ' ' || max(department_id::text) from public.employee_assignments where employee_id = '$FUT'")" "1 $NEXTWEEK 40000000-0000-4000-8000-000000000006"
+check "Sửa có nhật ký employee.updated kèm phân công trước/sau" "$(sql "select count(*) from public.audit_logs where resource_id = '$FUT' and action = 'employee.updated' and before_data ? 'placement' and after_data->'placement'->>'department_id' = '40000000-0000-4000-8000-000000000006'")" 1
 echo "Tất cả bước HR/Admin đều đạt."

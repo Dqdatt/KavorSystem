@@ -234,19 +234,15 @@ export class EmployeesAdmin {
     await this.assertManagerValid(ctx, org, null, input.positionId, input.managerEmployeeId ?? null, localParts(new Date(), (await tenantSettings(this.sb, ctx.tenantId)).timezone).date);
     await this.assertEmailFree(ctx, input.workEmail, null);
     if ((input.status ?? "active") !== "terminated") await assertEmployeeCapacity(ctx.db, ctx.tenantId);
-    const { data, error } = await ctx.db.from("employees").insert({
-      tenant_id: ctx.tenantId, employee_code: input.employeeCode, full_name: input.fullName, work_email: input.workEmail, phone: input.phone ?? null,
-      hire_date: input.hireDate, employment_type: input.employmentType, status: input.status ?? "active", source_system: "kavor",
-    }).select(EMP_COLS).single();
-    if (error?.code === "23505") throw conflict(`Mã nhân viên ${input.employeeCode} đã tồn tại.`);
-    if (error || !data) throw error ?? new Error("insert employee");
-    const emp = data as EmployeeRowFull;
+    /* Hồ sơ + phân công + nhật ký trong một giao dịch (save_employee): lỗi giữa chừng không để lại hồ sơ thiếu phân công */
+    const row = { employee_code: input.employeeCode, full_name: input.fullName, work_email: input.workEmail, phone: input.phone ?? null,
+      hire_date: input.hireDate, employment_type: input.employmentType, status: input.status ?? "active" };
     const effectiveFrom = input.effectiveFrom ?? input.hireDate;
-    const { error: aErr } = await ctx.db.from("employee_assignments").insert({ tenant_id: ctx.tenantId, employee_id: emp.id, ...placement, manager_employee_id: input.managerEmployeeId ?? null, effective_from: effectiveFrom });
-    if (aErr) throw aErr;
-    await ctx.audit("employee.created", "employee", emp.id, null, { ...snapshot(emp), ...placement, manager_employee_id: input.managerEmployeeId ?? null, effective_from: effectiveFrom });
-    if (input.sendInvite) await this.invite(ctx, emp.id);
-    return this.detail(ctx, emp.id);
+    const assignment = { ...placement, manager_employee_id: input.managerEmployeeId ?? null };
+    const id = await this.save(ctx, null, row, { ...assignment, from: effectiveFrom, currentFrom: null },
+      { before: null, after: { ...row, termination_date: null, ...assignment, effective_from: effectiveFrom } });
+    if (input.sendInvite) await this.invite(ctx, id);
+    return this.detail(ctx, id);
   }
 
   async update(ctx: AdminContext, id: string, b: Body): Promise<EmployeeDetail> {
@@ -275,15 +271,12 @@ export class EmployeesAdmin {
       if (before.status === "terminated") await assertEmployeeCapacity(ctx.db, ctx.tenantId);
       Object.assign(patch, { status: input.status, termination_date: null, termination_reason: null, termination_handover: null, termination_note: null });
     }
-    if (Object.keys(patch).length) {
-      const { error } = await ctx.db.from("employees").update(patch).eq("id", id).eq("tenant_id", ctx.tenantId);
-      if (error?.code === "23505") throw conflict(`Mã nhân viên ${String(patch.employee_code)} đã tồn tại.`);
-      if (error) throw error;
-    }
 
-    /* Đổi phòng ban/chức danh/quản lý: đóng phân công cũ, mở phân công mới từ ngày hiệu lực (giữ lịch sử) */
-    const current = (await loadPlacements(ctx.db, ctx.tenantId, today, [id])).get(id) ?? null;
-    let placementChange: Record<string, unknown> | null = null;
+    /* Đổi phòng ban/chức danh/quản lý: đóng phân công cũ, mở phân công mới từ ngày hiệu lực (giữ lịch sử). Mọi kiểm tra quyền/phạm vi
+       xong mới ghi (trước đây ghi hồ sơ rồi mới 403 ở phạm vi phòng ban mới). "Hiện tại" = phân công chính mới nhất, kể cả bản bắt đầu
+       sau hôm nay (nhân viên chưa vào làm): sửa thẳng bản đó thay vì mở thêm bản thứ hai từ hôm nay. */
+    const current = await this.latestPlacement(ctx, id);
+    let placementChange: { before: Placement | null; after: Record<string, unknown> } | null = null, placement: Record<string, unknown> | null = null;
     if (input.departmentId !== undefined || input.positionId !== undefined || input.managerEmployeeId !== undefined) {
       const org = await this.org(ctx);
       const next = this.placementFor(org, input.departmentId ?? current?.department_id ?? "", input.positionId ?? current?.position_id ?? "");
@@ -294,25 +287,15 @@ export class EmployeesAdmin {
       const changed = !current || current.department_id !== next.department_id || current.position_id !== next.position_id || (current.manager_employee_id ?? null) !== (manager ?? null);
       if (changed) {
         await this.assertPlacementAllowed(ctx, "employee.update", next);
-        const from = input.effectiveFrom ?? today;
+        const from = input.effectiveFrom ?? (current && current.effective_from > today ? current.effective_from : today);
         if (current && from < current.effective_from) throw invalid(`Ngày hiệu lực phải từ ${current.effective_from} trở đi.`);
-        if (current && from === current.effective_from) {
-          const { error } = await ctx.db.from("employee_assignments").update({ ...next, manager_employee_id: manager }).eq("employee_id", id).eq("is_primary", true).eq("effective_from", from);
-          if (error) throw error;
-        } else {
-          if (current) {
-            const { error } = await ctx.db.from("employee_assignments").update({ effective_to: addDays(from, -1) }).eq("employee_id", id).eq("is_primary", true).eq("effective_from", current.effective_from);
-            if (error) throw error;
-          }
-          const { error } = await ctx.db.from("employee_assignments").insert({ tenant_id: ctx.tenantId, employee_id: id, ...next, manager_employee_id: manager, effective_from: from });
-          if (error) throw error;
-        }
+        placement = { ...next, manager_employee_id: manager, from, currentFrom: current?.effective_from ?? null };
         placementChange = { before: current, after: { ...next, manager_employee_id: manager, effective_from: from } };
       }
     }
     if (Object.keys(patch).length || placementChange) {
       const after = { ...snapshot(before), ...patch };
-      await ctx.audit("employee.updated", "employee", id, { ...snapshot(before), placement: placementChange?.before ?? undefined }, { ...after, placement: placementChange?.after ?? undefined });
+      await this.save(ctx, id, patch, placement, { before: { ...snapshot(before), placement: placementChange?.before ?? undefined }, after: { ...after, placement: placementChange?.after ?? undefined } });
     }
     return this.detail(ctx, id);
   }
@@ -501,6 +484,25 @@ export class EmployeesAdmin {
   }
 
   /* Phòng ban quyết định chi nhánh và pháp nhân */
+  /* Phân công chính mới nhất (kể cả bản bắt đầu sau hôm nay) — đúng bản save_employee sẽ sửa/đóng */
+  private async latestPlacement(ctx: AdminContext, id: string): Promise<Placement | null> {
+    const { data, error } = await ctx.db.from("employee_assignments").select("legal_entity_id, branch_id, department_id, position_id, manager_employee_id, effective_from")
+      .eq("tenant_id", ctx.tenantId).eq("employee_id", id).eq("is_primary", true).order("effective_from", { ascending: false }).limit(1).maybeSingle();
+    if (error) throw error;
+    return (data as Placement | null) ?? null;
+  }
+
+  /* Ghi hồ sơ + phân công + nhật ký trong một giao dịch (save_employee). Quyền/phạm vi/hợp lệ đã kiểm trước khi gọi. */
+  private async save(ctx: AdminContext, id: string | null, patch: Record<string, unknown>, placement: Record<string, unknown> | null, audit: { before: unknown; after: unknown }): Promise<string> {
+    const { data, error } = await ctx.db.rpc("save_employee", { p_tenant: ctx.tenantId, p_actor: ctx.userId, p_employee: id, p_patch: patch, p_placement: placement, p_audit: audit, p_correlation: ctx.correlationId });
+    if (error?.code === "23505" && patch.employee_code) throw conflict(`Mã nhân viên ${String(patch.employee_code)} đã tồn tại.`);
+    if (error?.message?.includes("PLACEMENT_CHANGED")) throw conflict("Phân công của nhân viên vừa được người khác sửa. Tải lại hồ sơ rồi thử lại.");
+    if (error?.message?.includes("PLACEMENT_FROM_INVALID")) throw invalid("Ngày hiệu lực phải từ ngày bắt đầu của phân công hiện tại trở đi.");
+    if (error?.message?.includes("EMPLOYEE_NOT_FOUND")) throw notFound("nhân viên");
+    if (error) throw error;
+    return data as string;
+  }
+
   private placementFor(org: Org, departmentId: string, positionId: string) {
     if (!org.deptBranch.has(departmentId)) throw invalid("Phòng ban không tồn tại.");
     if (!org.names.has(positionId)) throw invalid("Chức danh không tồn tại.");
