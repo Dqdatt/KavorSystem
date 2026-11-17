@@ -14,12 +14,16 @@
 - Dữ liệu cloud (chỉ SELECT): công ty TS-3010 có **229 NV**, 248 phân công, chưa khóa kỳ nào.
 
 ## Đang dở
-- API local cổng 4000 (terminal người dùng) vẫn chạy code cũ → `bash tools/dev-backend.sh` trước khi thử local. API thử cổng 4100 do phiên này bật
-  (`lsof -ti tcp:4100 | xargs kill`). DB local đã bị verify-all reset (dữ liệu mẫu).
-- Chưa kiểm web online bằng trình duyệt (cần người dùng đăng nhập + MFA); đã kiểm API online 200 và hàm/trigger mới trên cloud bằng SELECT.
+- API local cổng 4000 (terminal người dùng) vẫn chạy code cũ → `bash tools/dev-backend.sh` trước khi thử local. API thử cổng 4100 đã tắt.
+  DB local đã bị verify-all reset (dữ liệu mẫu).
+- Online đã xem (chỉ xem, phiên đăng nhập sẵn trong trình duyệt của app): Nhân viên, Chấm công tải đúng dữ liệu thật; API 200, hàm/trigger mới có trên
+  cloud. Chưa xác nhận Render đã chạy commit cuối (health không có số phiên bản).
+
+## Quyết định đã chốt
+- Tạm ứng (17/11, người dùng): giữ như hiện tại — hạn mức kiểm theo từng đơn (≤ % lương cứng), không cộng các đơn khác trong tháng;
+  người duyệt tự cân nhắc khi một người gửi nhiều đơn. Không phải P0.
 
 ## Câu hỏi chờ người dùng
-- Tạm ứng: API chỉ kiểm từng đơn ≤ % lương cứng, không cộng các đơn khác cùng tháng — công ty chủ ý hay P0 cần sửa?
 - Phép tồn: năm trước khi dùng Kavor không tạo sổ (HR nhập tay như cũ) — đang làm theo cách này.
 - `docs/plans/roadmap-competitive.md` vẫn untracked (mục 6 "Cần người dùng chốt").
 
