@@ -1,6 +1,8 @@
 -- Kiểm tra cách ly dữ liệu giữa các tenant và quyền của anon/authenticated.
 -- Chạy: supabase test db  (mỗi test chạy trong transaction và tự rollback)
 begin;
+-- Kiểm policy RLS (lớp phòng thủ). Production chỉ cấp 7 bảng Realtime cho authenticated: xem browser_token.test.sql
+grant select on all tables in schema public to authenticated;
 create extension if not exists pgtap with schema extensions;
 select plan(18);
 
@@ -28,7 +30,7 @@ reset role;
 
 -- Người dùng A chỉ thấy tenant A
 set local role authenticated;
-select set_config('request.jwt.claims', '{"sub":"a0000000-0000-4000-8000-00000000000a","role":"authenticated"}', true);
+select set_config('request.jwt.claims', '{"sub":"a0000000-0000-4000-8000-00000000000a","role":"authenticated","aal":"aal2"}', true);
 select is((select count(*)::int from public.tenants), 1, 'A chỉ thấy 1 tenant');
 select is((select code from public.tenants), 'HDG-001', 'A thấy đúng tenant của mình');
 select is((select count(*)::int from public.employees), 0, 'A không có quyền employee.read nên không thấy hồ sơ người khác');
@@ -36,14 +38,13 @@ select is((select count(*)::int from public.employees where employee_code = 'B00
 select is((select count(*)::int from public.user_profiles), 1, 'A chỉ thấy hồ sơ của chính mình');
 select ok((select count(*) from public.permissions) > 0, 'A đọc được danh mục quyền hệ thống');
 select throws_ok($$insert into public.employees (tenant_id, employee_code, full_name, hire_date) values ('10000000-0000-4000-8000-000000000001','X1','X','2026-01-01')$$, '42501', null, 'Client không ghi trực tiếp được employees');
-select lives_ok($$update public.user_profiles set display_name = 'A mới' where id = 'a0000000-0000-4000-8000-00000000000a'$$, 'A sửa được tên hiển thị của mình');
-update public.user_profiles set display_name = 'hack' where id = 'b0000000-0000-4000-8000-00000000000b';
+select throws_ok($$update public.user_profiles set display_name = 'hack' where id = 'b0000000-0000-4000-8000-00000000000b'$$, '42501', null, 'Client không sửa trực tiếp user_profiles (ghi qua API)');
 reset role;
 select is((select display_name from public.user_profiles where id = 'b0000000-0000-4000-8000-00000000000b'), 'Người B', 'A không sửa được hồ sơ của B');
 set local role authenticated;
 
 -- Người dùng B chỉ thấy tenant B
-select set_config('request.jwt.claims', '{"sub":"b0000000-0000-4000-8000-00000000000b","role":"authenticated"}', true);
+select set_config('request.jwt.claims', '{"sub":"b0000000-0000-4000-8000-00000000000b","role":"authenticated","aal":"aal2"}', true);
 select is((select count(*)::int from public.employees), 0, 'B không có quyền employee.read nên không thấy hồ sơ');
 select is((select count(*)::int from public.audit_logs), 0, 'B không thấy audit của tenant A');
 reset role;

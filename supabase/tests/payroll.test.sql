@@ -1,5 +1,7 @@
 -- Payroll DB: dữ liệu riêng trong transaction, chạy được cả sau smoke (không giả định DB trống).
 begin;
+-- Kiểm policy RLS (lớp phòng thủ). Production chỉ cấp 7 bảng Realtime cho authenticated: xem browser_token.test.sql
+grant select on all tables in schema public to authenticated;
 create extension if not exists pgtap with schema extensions;
 select plan(109);
 
@@ -132,7 +134,7 @@ select throws_ok($$select public.set_pay_component(current_setting('test.pt')::u
 update public.role_assignments set scope_type='self' where membership_id in
   (select id from public.memberships where user_id='a3100000-0000-4000-8000-000000000002') and role_id=(select id from public.roles where code='payroll' and tenant_id is null);
 set local role authenticated;
-select set_config('request.jwt.claims','{"sub":"a3100000-0000-4000-8000-000000000002","role":"authenticated"}',true);
+select set_config('request.jwt.claims','{"sub":"a3100000-0000-4000-8000-000000000002","role":"authenticated","aal":"aal2"}',true);
 select is((select count(*)::int from public.payroll_results where cycle_id=current_setting('test.pc')::uuid),1,'payroll.read phạm vi self chỉ thấy một kết quả');
 select is((select count(*)::int from public.payroll_import_batches where cycle_id=current_setting('test.pc')::uuid),0,'Phạm vi hẹp không đọc batch/cảnh báo của cả kỳ');
 select is((select count(*)::int from public.payroll_cycle_events where cycle_id=current_setting('test.pc')::uuid),0,'Phạm vi hẹp không đọc sự kiện cả kỳ');
@@ -145,7 +147,7 @@ update public.role_assignments set scope_type='tenant' where membership_id in
   (select id from public.memberships where user_id='a3100000-0000-4000-8000-000000000002') and role_id=(select id from public.roles where code='payroll' and tenant_id is null);
 
 set local role authenticated;
-select set_config('request.jwt.claims','{"sub":"a3100000-0000-4000-8000-000000000003","role":"authenticated"}',true);
+select set_config('request.jwt.claims','{"sub":"a3100000-0000-4000-8000-000000000003","role":"authenticated","aal":"aal2"}',true);
 select is((select count(*)::int from public.payroll_results where cycle_id=current_setting('test.pc')::uuid),0,'Nhân viên chưa thấy phiếu prepared');
 select is((select count(*)::int from public.payroll_result_items where result_id=current_setting('test.pr')::uuid),0,'Chưa công bố thì không đọc được item');
 select is((select count(*)::int from public.payroll_cycles where id=current_setting('test.pc')::uuid),0,'Không lộ kỳ chưa công bố cho nhân viên');
@@ -231,15 +233,15 @@ select throws_ok($$select pg_temp.pay_step('reopen',p_reason=>'Mở lại phiế
 select throws_ok($$select pg_temp.pay_step('close')$$,'P0001','PAYROLL_TRANSITION_INVALID','Không đóng kỳ chưa xác nhận đã trả');
 
 set local role authenticated;
-select set_config('request.jwt.claims','{"sub":"a3100000-0000-4000-8000-000000000003","role":"authenticated"}',true);
+select set_config('request.jwt.claims','{"sub":"a3100000-0000-4000-8000-000000000003","role":"authenticated","aal":"aal2"}',true);
 select is((select count(*)::int from public.payroll_results where cycle_id=current_setting('test.pc')::uuid),1,'Công bố: nhân viên chỉ thấy phiếu của mình');
 select is((select count(*)::int from public.payroll_result_items where tenant_id=current_setting('test.pt')::uuid),3,'Công bố: nhân viên chỉ thấy item của mình');
 select is((select count(*)::int from public.payroll_cycles where id=current_setting('test.pc')::uuid),1,'Công bố: đọc được metadata kỳ của mình');
 select is((select count(*)::int from public.payroll_import_batches where cycle_id=current_setting('test.pc')::uuid),0,'Nhân viên không đọc batch lương');
 select is((select count(*)::int from public.payroll_cycle_events where cycle_id=current_setting('test.pc')::uuid),0,'Nhân viên không đọc sự kiện của cả kỳ');
-select set_config('request.jwt.claims','{"sub":"a3100000-0000-4000-8000-000000000005","role":"authenticated"}',true);
+select set_config('request.jwt.claims','{"sub":"a3100000-0000-4000-8000-000000000005","role":"authenticated","aal":"aal2"}',true);
 select is((select count(*)::int from public.payroll_results where cycle_id=current_setting('test.pc')::uuid),0,'HR/Admin không xem lương người khác sau công bố');
-select set_config('request.jwt.claims','{"sub":"a3100000-0000-4000-8000-000000000004","role":"authenticated"}',true);
+select set_config('request.jwt.claims','{"sub":"a3100000-0000-4000-8000-000000000004","role":"authenticated","aal":"aal2"}',true);
 select is((select count(*)::int from public.payroll_results where cycle_id=current_setting('test.pc')::uuid),0,'Cách ly kết quả giữa tenant');
 select is((select count(*)::int from public.payroll_result_items where tenant_id=current_setting('test.pt')::uuid),0,'Cách ly item giữa tenant');
 select is((select count(*)::int from public.payroll_cycles where id=current_setting('test.pc')::uuid),0,'Cách ly metadata kỳ giữa tenant');
@@ -255,7 +257,7 @@ select is(pg_temp.pay_step('close'),'closed','paid → closed');
 select throws_ok($$select pg_temp.pay_step('reopen',p_reason=>'Mở lại kỳ đã đóng')$$,'P0001','PAYROLL_TRANSITION_INVALID','Chưa cho mở lại closed');
 select throws_ok($$delete from public.payroll_result_items where result_id=current_setting('test.pr')::uuid$$,'P0001','PAYROLL_RESULTS_LOCKED','Kỳ closed vẫn khóa item');
 set local role authenticated;
-select set_config('request.jwt.claims','{"sub":"a3100000-0000-4000-8000-000000000003","role":"authenticated"}',true);
+select set_config('request.jwt.claims','{"sub":"a3100000-0000-4000-8000-000000000003","role":"authenticated","aal":"aal2"}',true);
 select is((select count(*)::int from public.payroll_results where cycle_id=current_setting('test.pc')::uuid),1,'Đã trả/đóng vẫn đọc được phiếu đã công bố');
 reset role;
 

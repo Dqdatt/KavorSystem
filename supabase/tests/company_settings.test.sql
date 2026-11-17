@@ -1,6 +1,9 @@
 -- Cài đặt công ty và quy định có tầng: bộ mẫu cho tenant mới, phiên bản bất biến, target đúng loại/tenant,
 -- lịch lễ quốc gia + riêng, điều khoản/đồng ý dữ liệu cá nhân, RLS và cách ly tenant.
 begin;
+-- Kiểm policy RLS (lớp phòng thủ). Production chỉ cấp 7 bảng Realtime cho authenticated: xem browser_token.test.sql
+grant select on all tables in schema public to authenticated;
+revoke select on public.tenant_policy_templates from authenticated; -- bảng chưa từng cấp cho client
 create extension if not exists pgtap with schema extensions;
 select plan(25);
 
@@ -78,7 +81,7 @@ select throws_ok($$ insert into public.privacy_consents (tenant_id, employee_id,
 set local role authenticated;
 
 -- Nhân viên Hà: thấy lượt đồng ý của mình, điều khoản và lịch lễ của công ty mình
-select set_config('request.jwt.claims', '{"sub":"a2000000-0000-4000-8000-000000000142","role":"authenticated"}', true);
+select set_config('request.jwt.claims', '{"sub":"a2000000-0000-4000-8000-000000000142","role":"authenticated","aal":"aal2"}', true);
 select is((select count(*)::int from public.privacy_consents), current_setting('test.ha_consents')::int, 'Nhân viên chỉ thấy lượt đồng ý của chính mình');
 select is((select count(*)::int from public.privacy_terms), current_setting('test.a_terms')::int, 'Nhân viên đọc được điều khoản của công ty mình (không thấy tenant khác)');
 select ok((select count(*) from public.holidays) >= 12, 'Nhân viên thấy lịch quốc gia + ngày nghỉ riêng công ty');
@@ -87,16 +90,16 @@ select throws_ok($$ select * from public.tenant_policy_templates $$, '42501', nu
 select throws_ok($$ select public.provision_tenant('10000000-0000-4000-8000-000000000001') $$, '42501', null, 'Client không gọi được provision_tenant');
 
 -- Quản lý Huy (không có privacy.read): không xem lượt đồng ý của nhân viên
-select set_config('request.jwt.claims', '{"sub":"a2000000-0000-4000-8000-000000000003","role":"authenticated"}', true);
+select set_config('request.jwt.claims', '{"sub":"a2000000-0000-4000-8000-000000000003","role":"authenticated","aal":"aal2"}', true);
 -- Chỉ thấy lượt của chính mình (smoke có thể đã kích hoạt Huy kèm đồng ý)
 select is((select count(*)::int from public.privacy_consents), current_setting('test.huy_consents')::int, 'Quản lý không có privacy.read không thấy lượt đồng ý của nhân viên');
 
 -- HR Admin Thảo: thấy lượt đồng ý trong phạm vi
-select set_config('request.jwt.claims', '{"sub":"a2000000-0000-4000-8000-000000000007","role":"authenticated"}', true);
+select set_config('request.jwt.claims', '{"sub":"a2000000-0000-4000-8000-000000000007","role":"authenticated","aal":"aal2"}', true);
 select is((select count(*)::int from public.privacy_consents), current_setting('test.a_consents')::int, 'HR có privacy.read thấy mọi lượt đồng ý trong phạm vi');
 
 -- Admin tenant B: không thấy dữ liệu tenant A
-select set_config('request.jwt.claims', '{"sub":"a2000000-0000-4000-8000-000000000b01","role":"authenticated"}', true);
+select set_config('request.jwt.claims', '{"sub":"a2000000-0000-4000-8000-000000000b01","role":"authenticated","aal":"aal2"}', true);
 select is((select count(*)::int from public.privacy_terms where tenant_id = '10000000-0000-4000-8000-000000000001'), 0, 'Tenant B không đọc điều khoản tenant A');
 select is((select count(*)::int from public.holidays h join public.holiday_calendars c on c.id = h.calendar_id where c.tenant_id = '10000000-0000-4000-8000-000000000001'), 0,
   'Tenant B không thấy ngày nghỉ riêng của tenant A');

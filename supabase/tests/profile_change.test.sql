@@ -1,5 +1,7 @@
 -- Đề nghị sửa hồ sơ: dữ liệu riêng trong transaction, chạy được cả sau smoke (không giả định DB trống).
 begin;
+-- Kiểm policy RLS (lớp phòng thủ). Production chỉ cấp 7 bảng Realtime cho authenticated: xem browser_token.test.sql
+grant select on all tables in schema public to authenticated;
 create extension if not exists pgtap with schema extensions;
 select plan(28);
 
@@ -88,15 +90,15 @@ select is((select address from public.employee_profiles where employee_id = 'e61
 
 -- ---------- RLS ----------
 set local role authenticated;
-select set_config('request.jwt.claims','{"sub":"a6100000-0000-4000-8000-000000000002","role":"authenticated"}',true);
+select set_config('request.jwt.claims','{"sub":"a6100000-0000-4000-8000-000000000002","role":"authenticated","aal":"aal2"}',true);
 select is((select account_no from public.employee_bank_accounts), '190123456789', 'Nhân viên xem tài khoản của mình');
 select is((select count(*)::int from public.profile_change_bank), 1, 'Nhân viên xem số tài khoản trong đơn của mình');
-select set_config('request.jwt.claims','{"sub":"a6100000-0000-4000-8000-000000000003","role":"authenticated"}',true);
+select set_config('request.jwt.claims','{"sub":"a6100000-0000-4000-8000-000000000003","role":"authenticated","aal":"aal2"}',true);
 select is((select count(*)::int from public.employee_bank_accounts), 0, 'Quản lý không xem số tài khoản của nhân viên');
 select is((select count(*)::int from public.profile_change_bank), 0, 'Quản lý không xem số tài khoản trong đơn');
-select set_config('request.jwt.claims','{"sub":"a6100000-0000-4000-8000-000000000004","role":"authenticated"}',true);
+select set_config('request.jwt.claims','{"sub":"a6100000-0000-4000-8000-000000000004","role":"authenticated","aal":"aal2"}',true);
 select is((select count(*)::int from public.employee_bank_accounts) + (select count(*)::int from public.profile_change_bank), 0, 'Kế toán không đọc thẳng số tài khoản (chỉ qua API Hiện số, có nhật ký)');
-select set_config('request.jwt.claims','{"sub":"a6100000-0000-4000-8000-000000000005","role":"authenticated"}',true);
+select set_config('request.jwt.claims','{"sub":"a6100000-0000-4000-8000-000000000005","role":"authenticated","aal":"aal2"}',true);
 select is((select count(*)::int from public.employee_bank_accounts) + (select count(*)::int from public.employee_profiles), 0, 'Tenant khác không thấy');
 select throws_ok($$select public.create_profile_change_request(current_setting('test.pt')::uuid, 'e6100000-0000-4000-8000-000000000002', 'a6100000-0000-4000-8000-000000000002', pg_temp.wf(), '{}', '{}', '[]', null)$$,
   '42501', null, 'Client không gọi được hàm tạo đơn');

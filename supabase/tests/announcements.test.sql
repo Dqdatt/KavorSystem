@@ -1,6 +1,8 @@
 -- Bản tin: dữ liệu riêng trong transaction, chạy được cả sau smoke (không giả định DB trống).
 -- now() cố định trong transaction: bài xuất bản "ngay" có publish_at = now() nên đã hiển thị.
 begin;
+-- Kiểm policy RLS (lớp phòng thủ). Production chỉ cấp 7 bảng Realtime cho authenticated: xem browser_token.test.sql
+grant select on all tables in schema public to authenticated;
 create extension if not exists pgtap with schema extensions;
 select plan(43);
 
@@ -125,17 +127,17 @@ select throws_ok($$delete from public.announcement_reads where employee_id = 'e4
 
 -- ---------- RLS ----------
 set local role authenticated;
-select set_config('request.jwt.claims','{"sub":"a4100000-0000-4000-8000-000000000002","role":"authenticated"}',true);
+select set_config('request.jwt.claims','{"sub":"a4100000-0000-4000-8000-000000000002","role":"authenticated","aal":"aal2"}',true);
 select is((select count(*)::int from public.announcements where tenant_id = current_setting('test.at')::uuid), 1, 'Nhân viên phòng con chỉ thấy bài toàn công ty đã xuất bản');
 select is((select count(*)::int from public.announcement_reads), 1, 'Nhân viên thấy lượt đọc của mình');
 select is((select count(*)::int from public.announcement_audiences), 0, 'Nhân viên không đọc được danh sách đơn vị nhận');
 select throws_ok($$select public.save_announcement(current_setting('test.at')::uuid, 'a4100000-0000-4000-8000-000000000001', null, '{"category":"notice","title":"x"}', '[]')$$,
   '42501', null, 'Client không gọi được hàm ghi');
-select set_config('request.jwt.claims','{"sub":"a4100000-0000-4000-8000-000000000003","role":"authenticated"}',true);
+select set_config('request.jwt.claims','{"sub":"a4100000-0000-4000-8000-000000000003","role":"authenticated","aal":"aal2"}',true);
 select is((select count(*)::int from public.announcements where tenant_id = current_setting('test.at')::uuid), 2, 'Nhân viên HN thấy bài toàn công ty và bài riêng HN');
-select set_config('request.jwt.claims','{"sub":"a4100000-0000-4000-8000-000000000004","role":"authenticated"}',true);
+select set_config('request.jwt.claims','{"sub":"a4100000-0000-4000-8000-000000000004","role":"authenticated","aal":"aal2"}',true);
 select is((select count(*)::int from public.announcements where tenant_id = current_setting('test.at')::uuid), 0, 'Tenant khác không thấy bài');
-select set_config('request.jwt.claims','{"sub":"a4100000-0000-4000-8000-000000000001","role":"authenticated"}',true);
+select set_config('request.jwt.claims','{"sub":"a4100000-0000-4000-8000-000000000001","role":"authenticated","aal":"aal2"}',true);
 select is((select count(*)::int from public.announcements where tenant_id = current_setting('test.at')::uuid), 2, 'Người đăng thấy mọi bài của công ty');
 reset role;
 

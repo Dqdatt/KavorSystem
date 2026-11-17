@@ -1,5 +1,7 @@
 -- Chấm công: bất biến, chống trùng, chỉ đọc dữ liệu của chính mình.
 begin;
+-- Kiểm policy RLS (lớp phòng thủ). Production chỉ cấp 7 bảng Realtime cho authenticated: xem browser_token.test.sql
+grant select on all tables in schema public to authenticated;
 create extension if not exists pgtap with schema extensions;
 select plan(9);
 
@@ -24,11 +26,11 @@ select throws_ok($$delete from public.attendance_events$$, 'P0001', 'attendance_
 select throws_ok($$insert into public.employee_devices (tenant_id, employee_id, installation_id, platform) values ('10000000-0000-4000-8000-000000000001','60000000-0000-4000-8000-000000000142','install-ha-0002','ios')$$, '23505', null, 'Mỗi nhân viên chỉ một thiết bị đang hoạt động');
 
 set local role authenticated;
-select set_config('request.jwt.claims', '{"sub":"a0000000-0000-4000-8000-00000000000a","role":"authenticated"}', true);
+select set_config('request.jwt.claims', '{"sub":"a0000000-0000-4000-8000-00000000000a","role":"authenticated","aal":"aal2"}', true);
 select is((select count(*)::int from public.attendance_events where client_event_id = 'evt-ha-000001'), 1, 'Hà thấy bản ghi của mình');
 select is((select count(*)::int from public.attendance_events where employee_id <> '60000000-0000-4000-8000-000000000142'), 0, 'Hà chỉ thấy bản ghi của chính mình');
 select ok((select count(*) from public.work_locations) > 0 and (select count(*) from public.work_locations where tenant_id <> '10000000-0000-4000-8000-000000000001') = 0, 'Hà thấy địa điểm làm việc của công ty mình');
-select set_config('request.jwt.claims', '{"sub":"c0000000-0000-4000-8000-00000000000c","role":"authenticated"}', true);
+select set_config('request.jwt.claims', '{"sub":"c0000000-0000-4000-8000-00000000000c","role":"authenticated","aal":"aal2"}', true);
 select is((select count(*)::int from public.attendance_events where employee_id = '60000000-0000-4000-8000-000000000142'), 0, 'Linh không thấy chấm công của Hà');
 select is((select count(*)::int from public.employee_devices), 0, 'Linh không thấy thiết bị của Hà');
 reset role;

@@ -69,6 +69,7 @@ export class AttendanceAdmin {
 
   /* Nút "Nhắc": người trong phạm vi hôm nay chưa chấm vào (trừ nghỉ phép cả ngày); employeeIds giới hạn thêm */
   async remind(ctx: AdminContext, b: Body): Promise<ReminderResult> {
+    ctx.require("attendance.adjust"); // nhắc là thao tác của HR (HCNS/Quản trị viên công ty); Kiểm soát, quản lý chỉ xem
     const only = uuids(b, "employeeIds", 2000);
     const { rows } = await this.board(ctx);
     const items = rows.filter((r) => (r.state === "not_started" || r.state === "absent") && r.leave?.half !== "full" && (!only || only.includes(r.employee.id)))

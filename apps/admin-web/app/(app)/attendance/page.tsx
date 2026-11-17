@@ -53,6 +53,7 @@ const stateOf = (r: TodayRow): [string, string] => {
 };
 
 function Today({ tz, tenantId }: { tz: string; tenantId: string }) {
+  const me = useMe();
   const [date, setDate] = useState(tenantToday(tz));
   /* ?filter= từ Tổng quan (việc cần xử lý) */
   const initial = useSearchParams().get("filter");
@@ -95,7 +96,7 @@ function Today({ tz, tenantId }: { tz: string; tenantId: string }) {
                 <td className="num">{r.clockIn ? <><b>{fmtTime(r.clockIn.at, tz)}</b>{r.clockIn.offline ? <span className="source-tag">offline</span> : null}</> : "—"}</td>
                 <td className="num muted">{r.clockOut ? <>{fmtTime(r.clockOut.at, tz)}{r.early ? <small className="text-red"><i className="vs" />sớm {dur(r.clockOut.earlyMinutes)}</small> : null}{r.clockOut.offline ? <span className="source-tag">offline</span> : null}</> : "—"}</td>
                 <td><Status v={stateOf(r)} />{r.rejectedCount ? <span className="source-tag" title="Số lần bị từ chối">{r.rejectedCount} bị từ chối</span> : null}</td>
-                <td className="act muted">{date === tenantToday(tz) && (r.state === "not_started" || r.state === "absent") && r.leave?.half !== "full"
+                <td className="act muted">{date === tenantToday(tz) && can(me, "attendance.adjust") && (r.state === "not_started" || r.state === "absent") && r.leave?.half !== "full"
                   ? <button className="btn small" disabled={!!busy} onClick={(ev) => { ev.stopPropagation(); void remind(r.employee.id, "attendance/remind", { employeeIds: [r.employee.id] }, { one: { name: r.employee.fullName, what: "chấm công" } }); }}><Icon name="bell" />Nhắc</button>
                   : <Icon name="chevR" size={16} />}</td>
               </tr>

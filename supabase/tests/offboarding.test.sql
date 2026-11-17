@@ -60,7 +60,7 @@ create function pg_temp.as_user(u text, q text) returns int language plpgsql as 
 declare n int;
 begin
   set local role authenticated;
-  perform set_config('request.jwt.claims', json_build_object('sub', u, 'role', 'authenticated')::text, true);
+  perform set_config('request.jwt.claims', json_build_object('sub', u, 'role', 'authenticated', 'aal', 'aal2')::text, true);
   execute q into n;
   reset role;
   return n;

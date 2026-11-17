@@ -386,7 +386,7 @@ export class EmployeesAdmin {
 
   /* ---------- Tài khoản ---------- */
   async invite(ctx: AdminContext, id: string): Promise<{ invitedAt: string; inviteCount: number }> {
-    ctx.require("membership.invite");
+    await ctx.requireEmployee("membership.invite", id);
     await ctx.requireEmployee("employee.read", id);
     const emp = await this.row(ctx, id);
     if (emp.user_id) throw conflict("Nhân viên đã kích hoạt tài khoản.");
@@ -423,10 +423,11 @@ export class EmployeesAdmin {
   /* Khóa đăng nhập: membership chuyển suspended. Mọi request sau đó (kể cả token còn hạn, làm mới phiên, Realtime) bị chặn
      vì API và RLS đều kiểm tra membership. Hồ sơ nhân sự giữ nguyên. */
   async setLocked(ctx: AdminContext, id: string, locked: boolean, reason: string | null): Promise<{ account: AccountStatus }> {
-    ctx.require("membership.disable");
+    await ctx.requireEmployee("membership.disable", id);
     await ctx.requireEmployee("employee.read", id);
     const emp = await this.row(ctx, id);
     if (!emp.user_id) throw conflict("Nhân viên chưa kích hoạt tài khoản nên chưa có gì để khóa.");
+    if (!locked && emp.status === "terminated") throw conflict("Nhân viên đã nghỉ việc nên không mở khóa tài khoản được.");
     if (locked && emp.user_id === ctx.userId) throw conflict("Bạn không thể tự khóa tài khoản của mình.");
     if (locked && (!reason || reason.length < 5)) throw invalid("Cần ghi lý do khóa tài khoản (ít nhất 5 ký tự).");
     const { data: m } = await ctx.db.from("memberships").select("id, status").eq("tenant_id", ctx.tenantId).eq("user_id", emp.user_id).maybeSingle();

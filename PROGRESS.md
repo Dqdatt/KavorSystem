@@ -10,6 +10,17 @@ simulator hay iPhone** vì phiên cloud không có Mac). Người dùng giao "c�
 ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AGENT_PLAYBOOK.md`; kiểm tra toàn bộ bằng `bash tools/verify-all.sh`.
 
 ## Đã xong
+- Kế hoạch hoàn thiện v1 (16/11, Claude Desktop): `docs/plans/hoan-thien-v1.md` — định nghĩa xong, luật phạm vi, 5 đợt; `docs/TASKS.md` chia theo đợt.
+- Đợt 1 bảo mật (16/11, Claude Desktop):
+  - MFA bị lách + CCCD/BHXH: migration `202612080001_browser_token_rls.sql` thu mọi quyền của anon/authenticated trên schema public, chỉ cấp
+    lại SELECT 7 bảng Realtime + policy hạn chế `<bảng>_mfa` đòi `aal2`; `/api/realtime` không cấp token phiên aal1. Policy cũ giữ làm lớp phòng thủ
+    (pgTAP policy tự cấp lại SELECT trong giao dịch, claims có `aal2`); pgTAP mới `browser_token` (11). Đã thử local: Realtime aal2 nhận sự kiện,
+    aal1 không; PostgREST aal1 0 dòng; `employee_profiles` 42501 cả aal2. Ghi chú hồ sơ không còn nói "mỗi lần xem CCCD được ghi".
+  - Đăng nhập: `trust proxy` = 1 lớp (trước `true`, giả X-Forwarded-For được) + lớp giới hạn theo định danh trên mọi IP (`limitAuth`, 20 lần/15 phút,
+    cả Console); quên mật khẩu trả `email: null` (chỉ email che), đặt lại nhận mã NV hoặc email; tìm email bằng `eq` (citext), mã NV bằng
+    `ilike` đã thoát `% _ \`; `next=` sau đăng nhập (web HR + Console) chỉ nhận cùng origin.
+  - Phân quyền: mời/khóa kiểm phạm vi theo `membership.invite/disable`; không mở khóa người đã nghỉ; nhắc chấm công cần `attendance.adjust`
+    (nút web ẩn với Kiểm soát/quản lý); lý do nghỉ trong lịch chỉ hiện với nhân viên trong phạm vi `request.read`.
 - Xem số tài khoản (16/11, Claude Desktop): HR/Kế toán (`employee.sensitive.read`) chỉ nhận 4 số cuối + `revealable` ở hồ sơ, Mức lương,
   bảng lương đầu vào, đơn sửa hồ sơ; "Hiện số" qua `POST admin/employees/:id/bank-account/reveal` / `admin/requests/:id/bank-account/reveal`,
   mỗi lượt ghi audit `bank_account.revealed` (chỉ 4 số cuối) trước khi trả. File xuất bảng lương đầu vào giữ số đầy đủ (audit đếm số tài khoản).

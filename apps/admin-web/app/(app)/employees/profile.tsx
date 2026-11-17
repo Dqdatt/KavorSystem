@@ -200,7 +200,7 @@ export function EmployeeProfile({ id }: { id: string }) {
           ]} />
         </Section>
       </div>
-      <div className="note info" style={{ marginTop: 16 }}><Icon name="lock" /><span>CCCD và số tài khoản được che bớt. Chỉ vai trò có quyền dữ liệu nhạy cảm mới xem đầy đủ, mỗi lần xem được ghi vào lịch sử.</span></div></> : null}
+      <div className="note info" style={{ marginTop: 16 }}><Icon name="lock" /><span>CCCD và số tài khoản được che bớt. Chỉ vai trò có quyền dữ liệu nhạy cảm mới xem đầy đủ; mỗi lần hiện số tài khoản được ghi vào lịch sử.</span></div></> : null}
 
       {tab === "attendance" && can(me, "attendance.read") ? <>
         {ts.data ? <div className="grid one-two">

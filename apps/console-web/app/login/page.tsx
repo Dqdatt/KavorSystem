@@ -34,7 +34,12 @@ function LoginForm() {
 
   useEffect(() => { if (params.get("switch")) void fetch("/api/auth/logout", { method: "POST" }); }, [params]);
 
-  const done = () => { const next = params.get("next"); router.replace(next && next.startsWith("/") && !next.startsWith("//") ? next : "/"); router.refresh(); };
+  /* Chỉ quay lại trang cùng origin: so chuỗi "/" bị lách bằng "/\evil.com" (trình duyệt đọc \ thành /) */
+  const done = () => {
+    let to = "/";
+    try { const u = new URL(params.get("next") ?? "/", location.origin); if (u.origin === location.origin) to = u.pathname + u.search + u.hash; } catch { /* next hỏng: về trang chủ */ }
+    router.replace(to); router.refresh();
+  };
   async function run(e: FormEvent, fn: () => Promise<void>) {
     e.preventDefault(); setBusy(true); setError(null);
     try { await fn(); } catch (err) {

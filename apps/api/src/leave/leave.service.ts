@@ -309,9 +309,10 @@ export class LeaveService {
     ]);
     if (error) throw error;
     /* Lý do nghỉ có thể nhạy cảm: chỉ người xem được đơn mới thấy (lấy từ phiên bản hiện tại của đơn) */
-    const rows0 = (data ?? []) as unknown as Array<{ requests: { id: string; current_version: number } }>;
+    const canRead = ctx.can("request.read") ? await ctx.scopedEmployeeIds("request.read") : new Set<string>();
+    const rows0 = ((data ?? []) as unknown as Array<{ employee_id: string; requests: { id: string; current_version: number } }>).filter((d) => canRead.has(d.employee_id));
     const reasons = new Map<string, string>();
-    if (ctx.can("request.read") && rows0.length) {
+    if (rows0.length) {
       const { data: vs, error: ve } = await db.from("request_versions").select("request_id, version_no, payload").in("request_id", [...new Set(rows0.map((d) => d.requests.id))]);
       if (ve) throw ve;
       const cur = new Map(rows0.map((d) => [d.requests.id, d.requests.current_version]));

@@ -2,6 +2,8 @@
 -- loại lao động hợp lệ, RLS (nhân viên thấy của mình, quản lý không có document.read không thấy, không thấy danh mục công ty khác).
 -- Dùng seed: Hà HD0142 (nhân viên), Huy HDG0003 (quản lý của Hà), tenant Hải Đăng 1000…0001, tenant Mẫu B 1000…0002. Không giả định DB trống.
 begin;
+-- Kiểm policy RLS (lớp phòng thủ). Production chỉ cấp 7 bảng Realtime cho authenticated: xem browser_token.test.sql
+grant select on all tables in schema public to authenticated;
 create extension if not exists pgtap with schema extensions;
 select plan(11);
 
@@ -43,11 +45,11 @@ insert into public.memberships (tenant_id, user_id, employee_id, status) values
 on conflict (tenant_id, employee_id) do update set user_id = excluded.user_id, status = 'active';
 
 set local role authenticated;
-select set_config('request.jwt.claims', '{"sub":"a2010000-0000-4000-8000-000000000142","role":"authenticated","app_metadata":{"active_tenant_id":"10000000-0000-4000-8000-000000000001"}}', true);
+select set_config('request.jwt.claims', '{"sub":"a2010000-0000-4000-8000-000000000142","role":"authenticated","aal":"aal2","app_metadata":{"active_tenant_id":"10000000-0000-4000-8000-000000000001"}}', true);
 select is((select count(*)::int from public.employee_checklist_status where employee_id = '60000000-0000-4000-8000-000000000142' and item_id = 'a2010000-0000-4000-8000-000000000001'), 1, 'Nhân viên thấy giấy tờ đã nộp của mình');
 select is((select count(*)::int from public.document_checklist_items where id = 'a2010000-0000-4000-8000-000000000001'), 1, 'Nhân viên thấy danh mục công ty mình');
 select is((select count(*)::int from public.document_checklist_items where id = 'a2010000-0000-4000-8000-000000000003'), 0, 'Không thấy danh mục công ty khác');
-select set_config('request.jwt.claims', '{"sub":"a2010000-0000-4000-8000-000000000003","role":"authenticated","app_metadata":{"active_tenant_id":"10000000-0000-4000-8000-000000000001"}}', true);
+select set_config('request.jwt.claims', '{"sub":"a2010000-0000-4000-8000-000000000003","role":"authenticated","aal":"aal2","app_metadata":{"active_tenant_id":"10000000-0000-4000-8000-000000000001"}}', true);
 select is((select count(*)::int from public.employee_checklist_status where employee_id = '60000000-0000-4000-8000-000000000142' and item_id = 'a2010000-0000-4000-8000-000000000001'), 0, 'Quản lý (không có quyền tài liệu) không thấy giấy tờ của nhân viên');
 reset role;
 

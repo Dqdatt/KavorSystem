@@ -2,6 +2,9 @@
 -- MST/công đoàn, RLS (nhân viên thấy của mình, quản lý không thấy), bảng đầu vào đã chốt bất biến và client không đọc được.
 -- Dùng dữ liệu seed (Thảo HD0007: tenant_admin + hr_ops; Huy HDG0003: quản lý của Hà HD0142). Không giả định DB trống.
 begin;
+-- Kiểm policy RLS (lớp phòng thủ). Production chỉ cấp 7 bảng Realtime cho authenticated: xem browser_token.test.sql
+grant select on all tables in schema public to authenticated;
+revoke select on public.payroll_input_sheets from authenticated; -- bảng chưa từng cấp cho client
 create extension if not exists pgtap with schema extensions;
 select plan(14);
 
@@ -48,13 +51,13 @@ select throws_ok($$ delete from public.payroll_input_sheets where id = 'a1820000
 
 -- ---------- RLS ----------
 set local role authenticated;
-select set_config('request.jwt.claims','{"sub":"a1800000-0000-4000-8000-000000000142","role":"authenticated"}',true);
+select set_config('request.jwt.claims','{"sub":"a1800000-0000-4000-8000-000000000142","role":"authenticated","aal":"aal2"}',true);
 select is((select count(*)::int from public.employee_dependents where id = 'a1810000-0000-4000-8000-000000000001') + (select count(*)::int from public.employee_tax_profiles)
   + (select count(*)::int from public.employee_dependents where employee_id <> '60000000-0000-4000-8000-000000000142'), 2, 'Nhân viên thấy người phụ thuộc + MST của mình, không thấy của người khác');
-select set_config('request.jwt.claims','{"sub":"a1800000-0000-4000-8000-000000000003","role":"authenticated"}',true);
+select set_config('request.jwt.claims','{"sub":"a1800000-0000-4000-8000-000000000003","role":"authenticated","aal":"aal2"}',true);
 select is((select count(*)::int from public.employee_dependents where employee_id = '60000000-0000-4000-8000-000000000142')
   + (select count(*)::int from public.employee_compensations where employee_id = '60000000-0000-4000-8000-000000000142'), 0, 'Quản lý trực tiếp không thấy lương/người phụ thuộc');
-select set_config('request.jwt.claims','{"sub":"a1800000-0000-4000-8000-000000000007","role":"authenticated"}',true);
+select set_config('request.jwt.claims','{"sub":"a1800000-0000-4000-8000-000000000007","role":"authenticated","aal":"aal2"}',true);
 select ok((select count(*)::int from public.employee_compensations where employee_id = '60000000-0000-4000-8000-000000000142') >= 1, 'HCNS thấy lương của nhân viên');
 select is((select count(*)::int from public.employee_dependents where id = 'a1810000-0000-4000-8000-000000000001'), 1, 'HCNS thấy người phụ thuộc');
 select throws_ok($$ select count(*) from public.payroll_input_sheets $$, '42501', null, 'Client không đọc trực tiếp bảng đầu vào đã chốt');

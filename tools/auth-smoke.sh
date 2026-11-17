@@ -58,11 +58,15 @@ check "Làm mới phiên" "$(echo "$r" | field data.me.employeeCode)" HD0142
 
 curl -s -X DELETE "$MAIL/api/v1/messages" >/dev/null
 sleep 31  # Supabase giới hạn 1 email OTP / 30 giây cho cùng địa chỉ
-r=$(post auth/password/forgot "{\"identifier\":\"$EMAIL\"}")
-check "Gửi OTP quên mật khẩu" "$(echo "$r" | field data.sent)" True
+r=$(post auth/password/forgot '{"identifier":"HD0142"}')
+check "Gửi OTP quên mật khẩu bằng mã NV" "$(echo "$r" | field data.sent)" True
+check "Không trả email đầy đủ cho người chỉ biết mã NV" "$(echo "$r" | field data.email)" ""
 code=$(otp)
-r=$(post auth/password/reset "{\"email\":\"$EMAIL\",\"code\":\"$code\",\"newPassword\":\"$PW2\"}")
-check "Đặt lại mật khẩu" "$(echo "$r" | field data.me.employeeCode)" HD0142
+r=$(post auth/password/reset "{\"email\":\"HD0142\",\"code\":\"$code\",\"newPassword\":\"$PW2\"}")
+check "Đặt lại mật khẩu bằng mã NV" "$(echo "$r" | field data.me.employeeCode)" HD0142
+
+r=$(post auth/login '{"identifier":"HD014_","password":"x"}')
+check "Mã có ký tự đại diện _ không khớp nhầm HD0142" "$(echo "$r" | field error.code)" AUTH_INVALID_CREDENTIALS
 
 r=$(post auth/login "{\"identifier\":\"HD0142\",\"password\":\"$PW1\"}")
 check "Mật khẩu cũ không dùng được nữa" "$(echo "$r" | field error.code)" AUTH_INVALID_CREDENTIALS

@@ -1,34 +1,33 @@
-# HANDOFF — 16/11/2026 (phiên 16)
+# HANDOFF — 17/11/2026 (phiên 17)
 
-**Mục tiêu phiên vừa rồi:** review toàn bộ dự án (RLS, lương/tạm ứng/auth, API, web, mobile) tìm lỗi và chỗ cải thiện — chỉ đọc, chưa sửa code.
+**Mục tiêu phiên:** chốt kế hoạch hoàn thiện v1 (không sửa mãi) và làm Đợt 1 — bảo mật.
 
 ## Đã xong
-- `verify-all.sh` bản đầy đủ ĐẠT: typecheck, unit, pgTAP 656, 30 smoke, build, lint DB (2 cảnh báo 42804 ở `offboard_employee`/`pause_employee`, smoke vẫn đạt).
-- 24 việc mới ghi cuối `docs/TASKS.md` (mục "Từ review toàn bộ"), nặng trước, có file:dòng; bổ sung vào việc CCCD/BHXH đã có.
-- Đã tự xác nhận (đọc code/DB): MFA bị lách khi đọc DB; `decide_approval` duyệt trùng bỏ qua bước sau; trần 1000 dòng cắt bảng công; mobile crash offline (`reqItems` Map trong cache); hàng đợi chấm công không gắn NV; `trust proxy`/`forgotPassword` lộ email; sửa hồ sơ ghi trước khi kiểm phạm vi; `useEsc` đóng modal.
-- Đã kiểm, KHÔNG lỗi: công thức lương/BH/thuế (`calc.ts`, `cycle-calc.ts`), `replace_payroll_results` đúng phạm vi, tạm ứng 1 đơn/tháng, MFA ở API, purge tenant, nhập file (chỉ bổ sung chỗ trống, kiểm phạm vi), không rò dữ liệu chéo công ty. Log `[payroll] lỗi DB` chỉ in `message` (dòng lỗi PostgREST nằm ở `details`) → không lộ lương.
+- Kế hoạch `docs/plans/hoan-thien-v1.md` (người dùng đã chốt): định nghĩa "xong v1", luật phạm vi (chỉ P0 được chen vào), 5 đợt cố định;
+  `docs/TASKS.md` chia theo đợt + mục "Sau v1 (đóng băng)".
+- Đợt 1 xong và đã deploy (chi tiết PROGRESS "Đã xong"): `a6d559e`; migration `202612080001_browser_token_rls.sql` (token trình duyệt chỉ đọc 7 bảng
+  Realtime, bắt buộc aal2); `/api/realtime` chặn aal1; đăng nhập (`limitAuth` theo tài khoản, `trust proxy` 1, quên mật khẩu không trả email,
+  `ilikeExact`, `next=` cùng origin); phân quyền nhỏ (mời/khóa theo `membership.*`, không mở khóa người đã nghỉ, nhắc chấm công cần
+  `attendance.adjust`, lý do nghỉ theo phạm vi `request.read`).
+- Kiểm: verify-all đầy đủ trên API code mới — typecheck, unit 89, pgTAP 667, 33 smoke, build, lint DB. Smoke `overtime` lỗi theo ngày (seed vào 07:52
+  vào ngày 16) → smoke chấm vào 07:50. Realtime local: aal2 nhận sự kiện, aal1 không.
 
 ## Đang dở
-- Chưa sửa mục nào trong 24 việc. Chưa commit: `HANDOFF.md`, `docs/TASKS.md`; `docs/plans/roadmap-competitive.md` vẫn untracked (người dùng chưa quyết).
-- `a6d559e` vẫn CHƯA deploy (migration `202612070001` cloud chưa chạy, nhánh chưa push).
-- DB local vừa bị verify-all reset sạch: smoke account phải kích hoạt lại khi cần (`tools/smoke-lib.sh`).
+- API local cổng 4000 (terminal của người dùng) vẫn chạy code cũ → chạy lại `bash tools/dev-backend.sh` trước khi thử local. Có thể còn API thử
+  cổng 4100 do phiên này bật (tắt được: `lsof -ti tcp:4100 | xargs kill`). iOS Simulator đã tắt (máy quá tải).
+- `docs/plans/roadmap-competitive.md` vẫn untracked (mục 6 "Cần người dùng chốt" của kế hoạch v1).
 
 ## Quyết định đã chốt
-- Review chỉ ghi việc, không sửa; người dùng chọn việc sửa ở phiên sau.
-- Hướng sửa MFA/RLS: API dùng service role hết, mobile không dùng supabase-js → thu SELECT của `authenticated` mọi bảng trừ 7 bảng Realtime (`_lib/client.ts:63`), `/api/realtime` từ chối aal1. Gộp luôn việc CCCD/BHXH.
-- Dữ liệu online là thật: chỉ xem; test ghi trên DB local.
+- Làm theo kế hoạch v1; việc không phải P0 ghi "Sau v1". Không review toàn dự án/so prototype tới hết v1.
+- Bảng mới: không GRANT cho authenticated (trừ bảng Realtime + policy `_mfa`) — AGENTS.md "Cạm bẫy".
+- Nhắc chấm công chỉ HCNS/Quản trị viên công ty (quản lý, Kiểm soát không còn nút). Muốn quản lý nhắc được → quyền riêng (sau v1).
+- shortcut `main.ts`: giả định 1 proxy trước API trên Render (không có tài liệu chính thức); sai thì lớp IP thành theo định danh.
 
-## Nợ Ponytail
-- Không có `shortcut:` mới. Nợ cũ: `apps/api/src/timesheet/pause.ts` (50% theo ngày lịch, nghỉ ốm không cộng đơn lẻ).
-
-## Việc tiếp theo
-1. Sửa `decide_approval` (khóa `requests` trước, `select … for update` bước duyệt) — migration mới + pgTAP duyệt 2 lần — `[opus xhigh]`
-2. MFA bị lách + CCCD/BHXH: thu quyền SELECT, chặn aal1 ở `/api/realtime`, sửa pgTAP — `[opus xhigh]`
-3. Trần 1000 dòng: helper phân trang chung + chia lô `.in()`, smoke ≥ 30 NV đủ công — `[opus xhigh]`
-(Deploy `a6d559e` có thể làm trước, độc lập — `[opus high]`)
+## Việc tiếp theo — Đợt 2 (đúng số công/lương, phiên chính Opus xhigh)
+1. `decide_approval` duyệt 2 lần bỏ qua bước sau (migration mới, test gọi song song)
+2. Trần 1000 dòng: helper phân trang + chia lô `.in()`, bộ dữ liệu ≥ 30 NV đủ tháng công (dùng lại Đợt 5) — phải lên online trước khi công ty thật khóa kỳ tháng 12
+3. Race tạo dữ liệu; phép tồn năm trước; sửa hồ sơ NV gom một RPC
 
 ## File cần đọc đầu tiên
-- `docs/TASKS.md` (mục "Từ review toàn bộ"), `AGENTS.md` (Cạm bẫy RLS + token trình duyệt)
-- `supabase/migrations/202610250001_timesheet_requests.sql` (`decide_approval`)
-- `apps/admin-web/app/api/realtime/route.ts`, `apps/admin-web/app/_lib/client.ts`
-- `apps/api/src/timesheet/timesheet.service.ts` (`events`, `adjustments`)
+- `docs/plans/hoan-thien-v1.md`, `docs/TASKS.md` (Đợt 2), `AGENTS.md` (Cạm bẫy RLS)
+- `supabase/migrations/202610250001_timesheet_requests.sql` (`decide_approval`), `apps/api/src/timesheet/timesheet.service.ts` (`events`)

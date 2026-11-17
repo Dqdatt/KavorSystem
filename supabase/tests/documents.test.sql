@@ -1,5 +1,7 @@
 -- Tài liệu nhân sự: dữ liệu riêng trong transaction, chạy được cả sau smoke (không giả định DB trống).
 begin;
+-- Kiểm policy RLS (lớp phòng thủ). Production chỉ cấp 7 bảng Realtime cho authenticated: xem browser_token.test.sql
+grant select on all tables in schema public to authenticated;
 create extension if not exists pgtap with schema extensions;
 select plan(32);
 
@@ -94,18 +96,18 @@ select throws_ok($$update public.employee_documents set archived_at = now() wher
 
 -- ---------- RLS ----------
 set local role authenticated;
-select set_config('request.jwt.claims','{"sub":"a5100000-0000-4000-8000-000000000002","role":"authenticated"}',true);
+select set_config('request.jwt.claims','{"sub":"a5100000-0000-4000-8000-000000000002","role":"authenticated","aal":"aal2"}',true);
 select is((select string_agg(title, ',') from public.employee_documents), 'Hợp đồng lao động (sửa)', 'Nhân viên chỉ thấy tài liệu "HR + Nhân viên" của mình');
 select is((select count(*)::int from public.document_versions), 2, 'Nhân viên thấy các phiên bản tài liệu của mình');
 select throws_ok($$select public.create_employee_document(current_setting('test.dt')::uuid, 'a5100000-0000-4000-8000-000000000001', 'e5100000-0000-4000-8000-000000000002', '{"category":"other","title":"x"}', '{}')$$,
   '42501', null, 'Client không gọi được hàm ghi');
-select set_config('request.jwt.claims','{"sub":"a5100000-0000-4000-8000-000000000003","role":"authenticated"}',true);
+select set_config('request.jwt.claims','{"sub":"a5100000-0000-4000-8000-000000000003","role":"authenticated","aal":"aal2"}',true);
 select is((select string_agg(title, ',') from public.employee_documents), 'Quyết định bổ nhiệm', 'Nhân viên phòng B chỉ thấy của mình');
-select set_config('request.jwt.claims','{"sub":"a5100000-0000-4000-8000-000000000005","role":"authenticated"}',true);
+select set_config('request.jwt.claims','{"sub":"a5100000-0000-4000-8000-000000000005","role":"authenticated","aal":"aal2"}',true);
 select is((select count(*)::int from public.employee_documents), 2, 'HR phòng A thấy cả tài liệu "Chỉ HR" của phòng mình, không thấy phòng B');
-select set_config('request.jwt.claims','{"sub":"a5100000-0000-4000-8000-000000000004","role":"authenticated"}',true);
+select set_config('request.jwt.claims','{"sub":"a5100000-0000-4000-8000-000000000004","role":"authenticated","aal":"aal2"}',true);
 select is((select count(*)::int from public.employee_documents where tenant_id = current_setting('test.dt')::uuid), 0, 'Tenant khác không thấy');
-select set_config('request.jwt.claims','{"sub":"a5100000-0000-4000-8000-000000000001","role":"authenticated"}',true);
+select set_config('request.jwt.claims','{"sub":"a5100000-0000-4000-8000-000000000001","role":"authenticated","aal":"aal2"}',true);
 select is((select count(*)::int from public.employee_documents), 3, 'Admin toàn công ty thấy mọi tài liệu');
 reset role;
 
@@ -115,9 +117,9 @@ select throws_ok($$select public.add_document_version(current_setting('test.dt')
   'P0001', 'DOCUMENT_ARCHIVED', 'Tài liệu đã gỡ không thêm phiên bản');
 select throws_ok($$update public.employee_documents set title = 'x' where id = current_setting('test.d1')::uuid$$, 'P0001', 'DOCUMENT_ARCHIVED', 'Tài liệu đã gỡ không sửa');
 set local role authenticated;
-select set_config('request.jwt.claims','{"sub":"a5100000-0000-4000-8000-000000000002","role":"authenticated"}',true);
+select set_config('request.jwt.claims','{"sub":"a5100000-0000-4000-8000-000000000002","role":"authenticated","aal":"aal2"}',true);
 select is((select count(*)::int from public.employee_documents), 0, 'Tài liệu đã gỡ không còn với nhân viên');
-select set_config('request.jwt.claims','{"sub":"a5100000-0000-4000-8000-000000000005","role":"authenticated"}',true);
+select set_config('request.jwt.claims','{"sub":"a5100000-0000-4000-8000-000000000005","role":"authenticated","aal":"aal2"}',true);
 select is((select count(*)::int from public.employee_documents where archived_at is not null), 1, 'HR vẫn thấy tài liệu đã gỡ để tra cứu');
 reset role;
 

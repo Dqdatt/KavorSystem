@@ -73,6 +73,7 @@ export type ActivationStartRequest = { employeeCode: string; email: string };
 export type ActivationVerifyRequest = { email: string; code: string; password: string; privacyAccepted?: boolean; installationId?: string };
 export type LoginRequest = { identifier: string; password: string };
 export type PasswordForgotRequest = { identifier: string };
+/* email: định danh đã nhập ở bước quên mật khẩu (email hoặc mã NV) — giữ tên trường cho app đã cài */
 export type PasswordResetRequest = { email: string; code: string; newPassword: string };
 export type RefreshRequest = { refreshToken: string };
 /* destination: email đã che bớt để hiển thị ("th***@haidang.vn") */

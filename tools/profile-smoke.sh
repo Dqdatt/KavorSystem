@@ -55,7 +55,8 @@ check "Quản lý không Hiện số ở hồ sơ → 403/404" "$(status POST "a
 check "Kế toán thấy tài khoản đã duyệt ở Mức lương (4 số cuối, được Hiện số)" "$(call GET admin/compensations "$PAY" | py "[(r['bank']['bankName'], 'accountNo' in r['bank'], r['bank'].get('revealable')) for r in d['rows'] if r['employee']['code']=='HD0142'][0]")" "('Techcombank', False, True)"
 check "Kế toán Hiện số ở Mức lương" "$(call POST "admin/employees/$HA/bank-account/reveal" "$PAY" '{}' | py "d['accountNo']")" "$ACC"
 check "Bảng lương đầu vào không trả số đầy đủ; file xuất có số đầy đủ để chuyển khoản" "$(call GET admin/payroll/inputs "$PAY" | grep -c "$ACC" || :) $(curl -s "$API/admin/payroll/inputs/export" -H "authorization: Bearer $PAY" | grep -c "$ACC" || :)" "0 1"
-check "Trình duyệt (token Kế toán) không đọc thẳng được bảng ngân hàng qua PostgREST" "$(curl -s "$SUPABASE_URL/rest/v1/employee_bank_accounts?select=account_no" -H "apikey: $ANON" -H "authorization: Bearer $PAY")" "[]"
+_bank=$(curl -s "$SUPABASE_URL/rest/v1/employee_bank_accounts?select=account_no" -H "apikey: $ANON" -H "authorization: Bearer $PAY" | field code)
+check "Trình duyệt (token Kế toán) không đọc thẳng được bảng ngân hàng qua PostgREST" "$_bank" "42501"
 
 echo "— Đề nghị khác: chỉ đổi địa chỉ, hủy và từ chối"
 R2=$(call POST me/requests/profile "$EMP" '{"address":"Quận 1, TP.HCM"}'); ID2=$(echo "$R2" | field data.id)

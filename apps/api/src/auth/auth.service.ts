@@ -41,6 +41,17 @@ export class RateLimiter {
   }
 }
 
+/* IP lấy từ X-Forwarded-For có thể bị giả qua proxy → thêm lớp theo định danh trên mọi IP (ngưỡng lỏng hơn để người khác khó
+   khóa hộ): dò mật khẩu/OTP của một tài khoản vẫn bị chặn dù đổi IP liên tục */
+const perAccount = new RateLimiter(20, 15 * 60_000);
+export function limitAuth<T>(l: RateLimiter, kind: string, ip: string, id: string, fn: () => Promise<T>, account = perAccount): Promise<T> {
+  const k = `${kind}:${id.trim().toLowerCase()}`;
+  return account.guard(k, () => l.guard(`${k}:${ip}`, fn));
+}
+
+/* Khớp nguyên văn (không phân biệt hoa thường) bằng ilike: thoát ký tự mẫu; PostgREST đổi * thành % nên định danh có * là không hợp lệ */
+export const ilikeExact = (s: string) => (s.includes("*") ? null : s.trim().replace(/[\\%_]/g, "\\$&"));
+
 export class AuthService {
   private readonly loginLimiter = new RateLimiter(5, 5 * 60_000);
   private readonly otpLimiter = new RateLimiter(5, 15 * 60_000);
@@ -49,7 +60,7 @@ export class AuthService {
 
   /* ---------- Kích hoạt tài khoản ---------- */
   async startActivation(employeeCode: string, email: string, ip: string, correlationId: string): Promise<OtpSentResponse> {
-    return this.otpLimiter.guard(`act:${ip}:${email.toLowerCase()}`, async () => {
+    return limitAuth(this.otpLimiter, "act", ip, email, async () => {
     /* Tìm theo email (khóa duy nhất của tài khoản đăng nhập) rồi đối chiếu mã: mã như ADMIN01, NV001 trùng giữa các công ty.
        Không tiết lộ mã nào tồn tại: cùng một thông báo khi sai mã hoặc sai email */
     const emp = await this.findEmployeeByEmail(email);
@@ -70,7 +81,7 @@ export class AuthService {
 
   /* consent: nhân viên đã tích đồng ý xử lý dữ liệu cá nhân ở màn kích hoạt → ghi nhận với điều khoản hiện hành */
   async verifyActivation(email: string, code: string, password: string, ip: string, correlationId: string, consent?: { installationId?: string; userAgent?: string }): Promise<AuthResult> {
-    return this.otpLimiter.guard(`actv:${ip}:${email.toLowerCase()}`, async () => {
+    return limitAuth(this.otpLimiter, "actv", ip, email, async () => {
     const emp = await this.findEmployeeByEmail(email);
     if (!emp || emp.user_id) throw new AuthError(AUTH_ERRORS.otpInvalid, "Mã OTP không đúng hoặc đã hết hạn.", 400);
     const problems = passwordProblems(password, emp.employee_code);
@@ -128,7 +139,7 @@ export class AuthService {
 
   /* ---------- Đăng nhập ---------- */
   async login(identifier: string, password: string, ip: string, correlationId: string): Promise<AuthResult> {
-    return this.loginLimiter.guard(`login:${ip}:${identifier.toLowerCase()}`, async () => {
+    return limitAuth(this.loginLimiter, "login", ip, identifier, async () => {
     const emp = await this.resolveEmployee(identifier);
     const invalid = new AuthError(AUTH_ERRORS.invalidCredentials, "Mã nhân viên hoặc mật khẩu không đúng.", 401);
     if (!emp) throw invalid;
@@ -151,7 +162,7 @@ export class AuthService {
 
   /* ---------- Quên / đặt lại mật khẩu ---------- */
   async forgotPassword(identifier: string, ip: string, correlationId: string): Promise<OtpSentResponse> {
-    return this.otpLimiter.guard(`fg:${ip}:${identifier.toLowerCase()}`, async () => {
+    return limitAuth(this.otpLimiter, "fg", ip, identifier, async () => {
     const emp = await this.resolveEmployee(identifier);
     if (!emp?.user_id) throw new AuthError(AUTH_ERRORS.employeeNotFound, "Không tìm thấy tài khoản đã kích hoạt với thông tin này.", 404);
     const { data: u } = await this.sb.admin.auth.admin.getUserById(emp.user_id);
@@ -159,14 +170,19 @@ export class AuthService {
     if (!email) throw new AuthError(AUTH_ERRORS.employeeNotFound, "Không tìm thấy tài khoản đã kích hoạt với thông tin này.", 404);
     await this.sendOtp(email);
     await this.audit(emp.tenant_id, emp.user_id, "auth.password_reset.otp_sent", emp.id, correlationId);
-    return { sent: true, email, destination: maskEmail(email), expiresInSeconds: OTP_TTL_SECONDS };
+    /* Chỉ trả email đã che: người chỉ biết mã NV không được biết email; bước đặt lại nhận lại đúng định danh đã nhập */
+    return { sent: true, email: null, destination: maskEmail(email), expiresInSeconds: OTP_TTL_SECONDS };
     });
   }
 
-  async resetPassword(email: string, code: string, newPassword: string, ip: string, correlationId: string): Promise<AuthResult> {
-    return this.otpLimiter.guard(`rs:${ip}:${email.toLowerCase()}`, async () => {
-    const emp = await this.findEmployeeByEmail(email);
+  /* identifier: mã NV hoặc email đã dùng ở bước quên mật khẩu (trường "email" của request, giữ tên cho app cũ) */
+  async resetPassword(identifier: string, code: string, newPassword: string, ip: string, correlationId: string): Promise<AuthResult> {
+    return limitAuth(this.otpLimiter, "rs", ip, identifier, async () => {
+    const emp = await this.resolveEmployee(identifier);
     if (!emp?.user_id) throw new AuthError(AUTH_ERRORS.otpInvalid, "Mã OTP không đúng hoặc đã hết hạn.", 400);
+    const { data: u } = await this.sb.admin.auth.admin.getUserById(emp.user_id);
+    const email = u.user?.email;
+    if (!email) throw new AuthError(AUTH_ERRORS.otpInvalid, "Mã OTP không đúng hoặc đã hết hạn.", 400);
     const problems = passwordProblems(newPassword, emp.employee_code);
     if (problems.length) throw new AuthError(AUTH_ERRORS.weakPassword, problems.join(" "), 400);
     const userId = await this.verifyOtp(email, code);
@@ -265,14 +281,16 @@ export class AuthService {
   }
 
   private async findEmployeeByCode(code: string): Promise<EmployeeRow | null> {
-    const { data } = await this.sb.admin.from("employees").select(EMPLOYEE_COLS).ilike("employee_code", code.trim()).limit(2);
+    const pattern = ilikeExact(code);
+    if (pattern === null) return null;
+    const { data } = await this.sb.admin.from("employees").select(EMPLOYEE_COLS).ilike("employee_code", pattern).limit(2);
     /* Cùng mã ở nhiều công ty: không đoán, yêu cầu đăng nhập bằng email */
     if (data && data.length > 1) throw new AuthError(AUTH_ERRORS.employeeNotFound, "Mã nhân viên này tồn tại ở nhiều công ty. Hãy dùng email công ty.", 409);
     return (data?.[0] as EmployeeRow | undefined) ?? null;
   }
 
   private async findEmployeeByEmail(email: string): Promise<EmployeeRow | null> {
-    const { data } = await this.sb.admin.from("employees").select(EMPLOYEE_COLS).ilike("work_email", email.trim()).limit(2);
+    const { data } = await this.sb.admin.from("employees").select(EMPLOYEE_COLS).eq("work_email", email.trim()).limit(2);
     if (data && data.length > 1) throw new AuthError(AUTH_ERRORS.employeeNotFound, "Email này gắn với nhiều hồ sơ. Liên hệ phòng Nhân sự.", 409);
     return (data?.[0] as EmployeeRow | undefined) ?? null;
   }

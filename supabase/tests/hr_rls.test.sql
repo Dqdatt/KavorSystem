@@ -1,6 +1,8 @@
 -- Quyền HR theo permission + phạm vi, cách ly tenant, chống mất Tenant Admin, phiên bản bất biến.
 -- Dùng dữ liệu seed (Thảo: tenant_admin + hr_ops toàn công ty; Huy: manager phòng Marketing; Bình: admin tenant B).
 begin;
+-- Kiểm policy RLS (lớp phòng thủ). Production chỉ cấp 7 bảng Realtime cho authenticated: xem browser_token.test.sql
+grant select on all tables in schema public to authenticated;
 create extension if not exists pgtap with schema extensions;
 select plan(28);
 
@@ -36,7 +38,7 @@ select set_config('test.a_employees', (select count(*)::text from public.employe
 set local role authenticated;
 
 -- HR (Thảo): toàn tenant A, không thấy tenant B
-select set_config('request.jwt.claims', '{"sub":"a1000000-0000-4000-8000-000000000007","role":"authenticated"}', true);
+select set_config('request.jwt.claims', '{"sub":"a1000000-0000-4000-8000-000000000007","role":"authenticated","aal":"aal2"}', true);
 select is((select count(*)::int from public.employees), current_setting('test.a_employees')::int, 'HR thấy mọi nhân viên tenant A');
 select is((select count(*)::int from public.employees where tenant_id <> '10000000-0000-4000-8000-000000000001'), 0, 'HR không thấy nhân viên tenant B');
 select is((select count(*)::int from public.attendance_events where client_event_id like 'rls-evt-%'), 2, 'HR thấy chấm công cả hai phòng ban');
@@ -47,7 +49,7 @@ select ok(public.has_permission('schedule.manage', '10000000-0000-4000-8000-0000
 select throws_ok($$select * from public.scoped_employees('a1000000-0000-4000-8000-000000000003', '10000000-0000-4000-8000-000000000001', 'employee.read')$$, '42501', null, 'Client không gọi được hàm phạm vi với người dùng tùy ý');
 
 -- Quản lý (Huy): chỉ phòng Marketing
-select set_config('request.jwt.claims', '{"sub":"a1000000-0000-4000-8000-000000000003","role":"authenticated"}', true);
+select set_config('request.jwt.claims', '{"sub":"a1000000-0000-4000-8000-000000000003","role":"authenticated","aal":"aal2"}', true);
 -- Không đếm cứng (DB có thể đã có thêm người do smoke/E2E): mọi người thấy được thuộc phòng Marketing, gồm 2 người seed
 select is((select count(*)::int from public.employees e where not exists (select 1 from public.employee_assignments a where a.employee_id = e.id
   and a.department_id = '40000000-0000-4000-8000-000000000005' and a.effective_from <= public.tenant_today(e.tenant_id) and (a.effective_to is null or a.effective_to >= public.tenant_today(e.tenant_id)))),
@@ -60,14 +62,14 @@ select ok(not public.has_permission('schedule.manage', '10000000-0000-4000-8000-
 select ok((select count(*) from public.policy_assignments) >= 3, 'Quản lý có schedule.read nên xem được cách áp dụng ca');
 
 -- Nhân viên (Hà): chỉ dữ liệu của mình
-select set_config('request.jwt.claims', '{"sub":"a1000000-0000-4000-8000-000000000142","role":"authenticated"}', true);
+select set_config('request.jwt.claims', '{"sub":"a1000000-0000-4000-8000-000000000142","role":"authenticated","aal":"aal2"}', true);
 select is((select count(*)::int from public.employees), 1, 'Nhân viên chỉ thấy hồ sơ của mình');
 select is((select count(*)::int from public.attendance_events where client_event_id like 'rls-evt-%'), 1, 'Nhân viên chỉ thấy chấm công của mình');
 select is((select count(*)::int from public.audit_logs), 0, 'Nhân viên không đọc được audit');
 select is((select count(*)::int from public.policy_assignments), 0, 'Nhân viên không có schedule.read');
 
 -- Admin tenant B: không thấy gì của tenant A
-select set_config('request.jwt.claims', '{"sub":"a1000000-0000-4000-8000-000000000b01","role":"authenticated"}', true);
+select set_config('request.jwt.claims', '{"sub":"a1000000-0000-4000-8000-000000000b01","role":"authenticated","aal":"aal2"}', true);
 select is((select count(*)::int from public.employees where tenant_id = '10000000-0000-4000-8000-000000000001'), 0, 'Admin tenant B không thấy nhân viên tenant A');
 select is((select count(*)::int from public.attendance_events), 0, 'Admin tenant B không thấy chấm công tenant A');
 select is((select count(*)::int from public.employee_devices), 0, 'Admin tenant B không thấy thiết bị tenant A');

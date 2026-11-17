@@ -53,9 +53,9 @@ select throws_ok(format($$update public.support_access_sessions set status = 'ap
 
 -- RLS
 set local role authenticated;
-select set_config('request.jwt.claims', '{"sub":"a8100000-0000-4000-8000-000000000001","role":"authenticated"}', true);
+select set_config('request.jwt.claims', '{"sub":"a8100000-0000-4000-8000-000000000001","role":"authenticated","aal":"aal2"}', true);
 select is((select count(*)::int from public.support_access_sessions), 2, 'Thành viên tenant thấy yêu cầu hỗ trợ của công ty mình');
-select set_config('request.jwt.claims', '{"sub":"b1000000-0000-4000-8000-0000000000a1","role":"authenticated"}', true);
+select set_config('request.jwt.claims', '{"sub":"b1000000-0000-4000-8000-0000000000a1","role":"authenticated","aal":"aal2"}', true);
 select is((select count(*)::int from public.support_access_sessions), 0, 'Người ngoài tenant (kể cả nhân viên Kavor) không đọc trực tiếp');
 select throws_ok($$select public.support_session_active(gen_random_uuid())$$, '42501', null, 'Client không gọi hàm kiểm tra phiên');
 reset role;

@@ -1,6 +1,8 @@
 -- Minh chứng đính kèm đơn: chỉ đơn giải trình/nghỉ đang chờ, tối đa 3 file, bất biến; đơn cần minh chứng không duyệt được bước cuối khi chưa có
 -- file (bước HR đã bỏ qua thì bước quản lý là bước cuối); RLS. Không giả định DB trống (năm 2025 + id riêng).
 begin;
+-- Kiểm policy RLS (lớp phòng thủ). Production chỉ cấp 7 bảng Realtime cho authenticated: xem browser_token.test.sql
+grant select on all tables in schema public to authenticated;
 create extension if not exists pgtap with schema extensions;
 select plan(13);
 
@@ -54,9 +56,9 @@ select throws_ok(format('delete from public.request_attachments where request_id
 
 -- RLS
 set local role authenticated;
-select set_config('request.jwt.claims', '{"sub":"a8000000-0000-4000-8000-000000000005","role":"authenticated"}', true);
+select set_config('request.jwt.claims', '{"sub":"a8000000-0000-4000-8000-000000000005","role":"authenticated","aal":"aal2"}', true);
 select is((select count(*)::int from public.request_attachments where request_id = current_setting('test.r3')::uuid), 3, 'Người gửi thấy minh chứng của mình');
-select set_config('request.jwt.claims', '{"sub":"a8000000-0000-4000-8000-000000000142","role":"authenticated"}', true);
+select set_config('request.jwt.claims', '{"sub":"a8000000-0000-4000-8000-000000000142","role":"authenticated","aal":"aal2"}', true);
 select is((select count(*)::int from public.request_attachments where request_id = current_setting('test.r3')::uuid), 0, 'Nhân viên khác không thấy');
 reset role;
 

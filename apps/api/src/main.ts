@@ -18,8 +18,10 @@ async function bootstrap() {
   const port = config.port;
 
   app.setGlobalPrefix("api/v1");
-  /* IP thật của client cho giới hạn số lần thử (API đứng sau proxy ở staging) */
-  app.getHttpAdapter().getInstance().set("trust proxy", config.env !== "development");
+  /* IP client cho giới hạn số lần thử. Không dùng `true`: Express lấy IP trái nhất của X-Forwarded-For, client tự giả được.
+     shortcut: giả định một proxy (Render) trước API; nếu thêm lớp proxy (CDN), req.ip thành IP proxy chung → lớp giới hạn theo IP
+     thành theo định danh (vẫn chặn dò, dễ bị khóa hộ hơn) — khi đó đặt đúng số lớp. Lớp theo tài khoản: limitAuth (auth.service). */
+  app.getHttpAdapter().getInstance().set("trust proxy", config.env === "development" ? false : 1);
   app.enableCors({
     origin: config.corsOrigins,
     credentials: true,

@@ -73,11 +73,11 @@ update public.employees set user_id = 'a3000000-0000-4000-8000-000000000142' whe
 update public.employees set user_id = 'a3000000-0000-4000-8000-000000000003' where id = '60000000-0000-4000-8000-000000000003';
 update public.employees set user_id = 'a3000000-0000-4000-8000-000000000001' where id = '60000000-0000-4000-8000-000000000001';
 set local role authenticated;
-select set_config('request.jwt.claims', '{"sub":"a3000000-0000-4000-8000-000000000142","role":"authenticated"}', true);
+select set_config('request.jwt.claims', '{"sub":"a3000000-0000-4000-8000-000000000142","role":"authenticated","aal":"aal2"}', true);
 select is((select count(*)::int from public.requests where request_no like 'TEST-GT-%'), 3, 'Người gửi thấy đơn của mình');
-select set_config('request.jwt.claims', '{"sub":"a3000000-0000-4000-8000-000000000003","role":"authenticated"}', true);
+select set_config('request.jwt.claims', '{"sub":"a3000000-0000-4000-8000-000000000003","role":"authenticated","aal":"aal2"}', true);
 select is((select count(*)::int from public.approval_tasks where request_id = 'f0000000-0000-4000-8000-000000000001'), 2, 'Quản lý được giao thấy các bước của đơn');
-select set_config('request.jwt.claims', '{"sub":"a3000000-0000-4000-8000-000000000001","role":"authenticated"}', true);
+select set_config('request.jwt.claims', '{"sub":"a3000000-0000-4000-8000-000000000001","role":"authenticated","aal":"aal2"}', true);
 select is((select count(*)::int from public.requests where request_no like 'TEST-GT-%'), 0, 'Nhân viên khác không thấy đơn');
 
 select * from finish();

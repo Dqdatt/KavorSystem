@@ -63,7 +63,7 @@ select throws_ok($$ select public.create_tenant_with_admin_code('CODE-V', 'Sai m
 
 -- ---------- Client không chạm được bảng/hàm nền tảng ----------
 set local role authenticated;
-select set_config('request.jwt.claims', '{"sub":"b0000000-0000-4000-8000-0000000000a1","role":"authenticated"}', true);
+select set_config('request.jwt.claims', '{"sub":"b0000000-0000-4000-8000-0000000000a1","role":"authenticated","aal":"aal2"}', true);
 select throws_ok($$ select * from public.platform_operators $$, '42501', null, 'Client không đọc được danh sách nhân viên Kavor');
 select throws_ok($$ select public.create_tenant_with_admin('HACK', 'x', null, 'trial', 5, 'A B', 'a@b.test', null) $$, '42501', null, 'Client không tự tạo tenant được');
 

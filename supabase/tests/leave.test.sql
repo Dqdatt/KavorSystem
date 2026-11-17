@@ -1,6 +1,8 @@
 -- Nghỉ phép: bộ mẫu (loại nghỉ, quy định, luồng duyệt), sổ phép dạng ledger bất biến, đơn nghỉ giữ chỗ → duyệt trừ phép /
 -- từ chối/hủy trả lại, chặn trùng ngày, kỳ đã khóa, thông báo, RLS. Không giả định DB trống (dùng năm 2025 + id riêng).
 begin;
+-- Kiểm policy RLS (lớp phòng thủ). Production chỉ cấp 7 bảng Realtime cho authenticated: xem browser_token.test.sql
+grant select on all tables in schema public to authenticated;
 create extension if not exists pgtap with schema extensions;
 select plan(21);
 
@@ -73,9 +75,9 @@ insert into auth.users (id, email) values ('a7000000-0000-4000-8000-000000000005
 update public.employees set user_id = 'a7000000-0000-4000-8000-000000000005' where id = '60000000-0000-4000-8000-000000000005';
 update public.employees set user_id = 'a7000000-0000-4000-8000-000000000142' where id = '60000000-0000-4000-8000-000000000142';
 set local role authenticated;
-select set_config('request.jwt.claims', '{"sub":"a7000000-0000-4000-8000-000000000005","role":"authenticated"}', true);
+select set_config('request.jwt.claims', '{"sub":"a7000000-0000-4000-8000-000000000005","role":"authenticated","aal":"aal2"}', true);
 select is((select count(*)::int from public.leave_transactions where account_id = 'a6000000-0000-4000-8000-000000000005') > 0, true, 'Nhân viên đọc được sổ phép của mình');
-select set_config('request.jwt.claims', '{"sub":"a7000000-0000-4000-8000-000000000142","role":"authenticated"}', true);
+select set_config('request.jwt.claims', '{"sub":"a7000000-0000-4000-8000-000000000142","role":"authenticated","aal":"aal2"}', true);
 select is((select count(*)::int from public.leave_transactions where account_id = 'a6000000-0000-4000-8000-000000000005'), 0, 'Nhân viên khác không đọc được');
 reset role;
 

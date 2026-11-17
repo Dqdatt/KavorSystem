@@ -1,5 +1,7 @@
 -- Tham số luật lương: có 2 phiên bản 2026 (đã sửa 10/11: đoàn phí, ngưỡng 10%, miễn thuế ăn giữa ca), người dùng đọc được, phiên bản đã hiệu lực bất biến, phiên bản tương lai sửa được.
 begin;
+-- Kiểm policy RLS (lớp phòng thủ). Production chỉ cấp 7 bảng Realtime cho authenticated: xem browser_token.test.sql
+grant select on all tables in schema public to authenticated;
 create extension if not exists pgtap with schema extensions;
 select plan(8);
 select ok((select count(*) from public.payroll_law_versions where effective_from in ('2026-01-01','2026-07-01')) = 2, 'Có phiên bản 01/01 và 01/07/2026');

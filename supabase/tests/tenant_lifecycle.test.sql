@@ -16,7 +16,7 @@ create function pg_temp.as_admin(q text) returns int language plpgsql as $$
 declare n int;
 begin
   set local role authenticated;
-  perform set_config('request.jwt.claims', '{"sub":"a7100000-0000-4000-8000-000000000001","role":"authenticated"}', true);
+  perform set_config('request.jwt.claims', '{"sub":"a7100000-0000-4000-8000-000000000001","role":"authenticated","aal":"aal2"}', true);
   execute q into n;
   reset role;
   return n;
@@ -44,7 +44,7 @@ select throws_ok(format($$update public.tenants set status = 'active' where id =
 select is(pg_temp.as_admin($$select count(*)::int from public.employees$$), 0, 'Đã đóng: RLS không trả hồ sơ');
 
 set local role authenticated;
-select set_config('request.jwt.claims', '{"sub":"a7100000-0000-4000-8000-000000000001","role":"authenticated"}', true);
+select set_config('request.jwt.claims', '{"sub":"a7100000-0000-4000-8000-000000000001","role":"authenticated","aal":"aal2"}', true);
 select throws_ok($$select count(*) from public.platform_plans$$, '42501', null, 'Client không đọc bảng gói');
 reset role;
 

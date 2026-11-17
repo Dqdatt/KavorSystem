@@ -60,7 +60,7 @@ select throws_ok($$ update public.notifications set title = 'x' where link_id = 
 insert into auth.users (id, email) values ('a4000000-0000-4000-8000-000000000142', 'ha.notif@example.test');
 update public.employees set user_id = 'a4000000-0000-4000-8000-000000000142' where id = '60000000-0000-4000-8000-000000000142';
 set local role authenticated;
-select set_config('request.jwt.claims', '{"sub":"a4000000-0000-4000-8000-000000000142","role":"authenticated"}', true);
+select set_config('request.jwt.claims', '{"sub":"a4000000-0000-4000-8000-000000000142","role":"authenticated","aal":"aal2"}', true);
 select is((select array_agg(distinct recipient_employee_id)::text from public.notifications), '{60000000-0000-4000-8000-000000000142}', 'Nhân viên chỉ thấy thông báo của mình');
 reset role;
 

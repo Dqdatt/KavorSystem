@@ -1,6 +1,8 @@
 -- Làm thêm giờ: bộ mẫu (quy định, luồng duyệt), đơn OT tạo nguyên tử, chặn trùng giờ, kỳ đã khóa, bất biến, thông báo, RLS.
 -- Không giả định DB trống (dùng năm 2025 + id riêng).
 begin;
+-- Kiểm policy RLS (lớp phòng thủ). Production chỉ cấp 7 bảng Realtime cho authenticated: xem browser_token.test.sql
+grant select on all tables in schema public to authenticated;
 create extension if not exists pgtap with schema extensions;
 select plan(11);
 
@@ -41,7 +43,7 @@ select throws_ok($$ select public.create_overtime_request('10000000-0000-4000-80
 insert into auth.users (id, email) values ('a8000000-0000-4000-8000-000000000142', 'ha.ot@example.test');
 update public.employees set user_id = 'a8000000-0000-4000-8000-000000000142' where id = '60000000-0000-4000-8000-000000000142';
 set local role authenticated;
-select set_config('request.jwt.claims', '{"sub":"a8000000-0000-4000-8000-000000000142","role":"authenticated"}', true);
+select set_config('request.jwt.claims', '{"sub":"a8000000-0000-4000-8000-000000000142","role":"authenticated","aal":"aal2"}', true);
 select is((select count(*)::int from public.overtime_entries where employee_id = '60000000-0000-4000-8000-000000000005'), 0, 'Nhân viên khác không đọc được OT của người khác');
 reset role;
 

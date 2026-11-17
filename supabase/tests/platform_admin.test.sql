@@ -35,7 +35,7 @@ select throws_ok($$ update public.platform_operators set status = 'disabled' whe
 select throws_ok($$ update public.platform_operators set role = 'platform_operator' where user_id = 'b2000000-0000-4000-8000-0000000000a1' $$,
   '23514', null, 'Không hạ vai trò quản trị viên cuối cùng');
 set local role authenticated;
-select set_config('request.jwt.claims', '{"sub":"b2000000-0000-4000-8000-0000000000a1","role":"authenticated"}', true);
+select set_config('request.jwt.claims', '{"sub":"b2000000-0000-4000-8000-0000000000a1","role":"authenticated","aal":"aal2"}', true);
 select throws_ok($$ select * from public.platform_operator_invites $$, '42501', null, 'Client không đọc được lời mời nhân viên Kavor');
 
 select * from finish();

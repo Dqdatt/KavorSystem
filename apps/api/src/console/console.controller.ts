@@ -2,7 +2,7 @@ import { Body, Controller, Get, Headers, HttpCode, HttpException, Inject, Param,
 import { ADMIN_ERRORS, AUTH_ERRORS, type ApiEnvelope, type AuthSession, type ConsoleAuthResult } from "@kavor/contracts";
 import type { Session } from "@supabase/supabase-js";
 import type { CorrelatedRequest } from "../correlation.middleware.js";
-import { AuthError, RateLimiter, refreshFailure } from "../auth/auth.service.js";
+import { AuthError, RateLimiter, limitAuth, refreshFailure } from "../auth/auth.service.js";
 import { SupabaseGateway } from "../auth/supabase.js";
 import type { MfaAdmin } from "../admin/mfa.service.js";
 import { EMAIL, req, type Body as Json } from "../admin/validate.js";
@@ -61,7 +61,7 @@ export class ConsoleController {
     return this.envelope(r, async (sb) => {
       const email = req(b, "email", { pattern: EMAIL, max: 200 }).toLowerCase();
       const password = req(b, "password", { max: 128 });
-      return this.loginLimiter.guard(`console:${r.ip}:${email}`, async (): Promise<ConsoleAuthResult> => {
+      return limitAuth(this.loginLimiter, "console", String(r.ip), email, async (): Promise<ConsoleAuthResult> => {
         const invalidLogin = new AuthError(AUTH_ERRORS.invalidCredentials, "Email hoặc mật khẩu không đúng.", 401);
         const { data, error } = await sb.authClient().auth.signInWithPassword({ email, password });
         if (error || !data.session) throw invalidLogin;
@@ -96,7 +96,7 @@ export class ConsoleController {
   passwordStart(@Req() r: CorrelatedRequest, @Body() b: Json) { return this.envelope(r, (_sb, svc) => svc.operators.startPassword(b)); }
   @Post("auth/password/verify") @HttpCode(200)
   passwordVerify(@Req() r: CorrelatedRequest, @Body() b: Json) {
-    return this.envelope(r, (_sb, svc, cid) => this.otpLimiter.guard(`console-otp:${r.ip}:${String(b?.email ?? "").toLowerCase()}`, () => svc.operators.verifyPassword(b, cid)));
+    return this.envelope(r, (_sb, svc, cid) => limitAuth(this.otpLimiter, "console-otp", String(r.ip), String(b?.email ?? ""), () => svc.operators.verifyPassword(b, cid)));
   }
 
   @Get("mfa")
