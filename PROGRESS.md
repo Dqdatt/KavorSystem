@@ -10,7 +10,7 @@ simulator hay iPhone** vì phiên cloud không có Mac). Người dùng giao "c�
 ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AGENT_PLAYBOOK.md`; kiểm tra toàn bộ bằng `bash tools/verify-all.sh`.
 
 ## Đã xong
-- Vòng 1 v1 — P0 còn lại của Đợt 3–4 (18/11, Claude Desktop), chưa deploy:
+- Vòng 1 v1 — P0 còn lại của Đợt 3–4 (18/11, Claude Desktop), đã deploy `1c79ea4` (migration `202612120001` lên cloud qua `supabase db query --linked` + ghi lịch sử, rồi push; Render/Vercel success):
   - Mobile: `reqItems` (Map) lưu dạng mảng cặp trong cache → mở app mất mạng bấm đơn không crash; widget mô phỏng ở bản thật chỉ báo toast;
     hàng đợi chấm công gắn `emp`, đăng xuất giữ lại và chỉ người chấm gửi khi đăng nhập lại (sheet đăng xuất báo số lần chưa gửi),
     lỗi tạm (401/429/5xx/chờ đồng ý/máy chờ duyệt) giữ lại, đọc-sửa-ghi qua `locked()`; nhãn bước Kế toán ở chi tiết đơn.

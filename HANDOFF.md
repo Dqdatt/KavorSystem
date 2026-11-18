@@ -1,8 +1,8 @@
 # HANDOFF — 18/11/2026 (phiên 19)
 
-**Mục tiêu phiên vừa rồi:** vòng 1 của v1 — sửa nốt P0 Đợt 3–4, thử Simulator + Android emulator. Xong code và kiểm; **chưa deploy**.
+**Mục tiêu phiên vừa rồi:** vòng 1 của v1 — sửa nốt P0 Đợt 3–4, thử Simulator + Android emulator. Xong, **đã deploy `1c79ea4`** (18/11 ~08:09).
 
-## Đã xong (commit vòng 1, chưa push)
+## Đã xong (đã deploy)
 - Mobile: crash `reqItems` khi mở app mất mạng; widget mô phỏng không đổi giờ thật; hàng đợi chấm công gắn `emp` + `locked()` + `keepQueued`;
   nhãn bước Kế toán ở chi tiết đơn; Android GPS nền không hỏi "Location Accuracy" lặp (`mayShowUserSettingsDialog`).
 - API/web: `csvCell` chặn công thức CSV; mailer/trạm thư/OTP ghi log nguyên nhân, trạm 401/404 → `EMAIL_NOT_CONFIGURED`; tạo NV kèm mời lỗi → `inviteError`.
@@ -11,8 +11,8 @@
   `tools/punch-queue-mobile-test.mjs` 10 ca; Simulator + Android emulator Release theo kịch bản trong TASKS Đợt 3.
 
 ## Đang dở (cần người dùng)
-1. **Deploy vòng 1** (hỏi trước khi làm): migration `202612120001` lên cloud bằng `tools/cloud-supabase.sh` **trước**, rồi push nhánh
-   `claude/ecstatic-pascal-dblg7v` (Render + Vercel tự deploy). Migration chỉ thay định nghĩa hàm, không đổi dữ liệu. Kiểm online chỉ xem.
+1. ~~Deploy vòng 1~~ xong: migration `202612120001` áp lên cloud bằng `supabase db query --linked -f` (cùng giao dịch ghi `supabase_migrations.schema_migrations`),
+   push `53d41db..1c79ea4`; GitHub deployment Render/Vercel `success`, health + trang đăng nhập 200. Chưa đăng nhập xem dữ liệu online.
 2. **Cài iPhone 11 qua cáp**: build `xcodebuild … -destination 'generic/platform=iOS' -derivedDataPath ios/build-device` với
    `EXPO_PUBLIC_API_URL=https://kavor-api.onrender.com/api/v1` (xóa `$TMPDIR/metro-cache`, không bật QA) → `xcrun devicectl device install app`.
 3. 6 mục "Cần người dùng chốt" (`docs/plans/hoan-thien-v1.md`); `docs/plans/roadmap-competitive.md` vẫn chưa commit (mục 6).
