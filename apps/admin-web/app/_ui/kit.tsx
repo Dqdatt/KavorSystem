@@ -184,9 +184,9 @@ export function ErrorLine({ text }: { text: string | null }) { return text ? <p 
 const EMPTY_ICONS: Array<[RegExp, string]> = [[/còn đơn|bị từ chối|việc cần xử lý|thiếu giấy tờ/i, "check"], [/tìm thấy|phù hợp/i, "search"], [/giữ vai trò/i, "shield"],
   [/đơn|tạm ứng/i, "checks"], [/thiết bị/i, "phone"], [/bài/i, "news"], [/hỗ trợ|yêu cầu/i, "help"], [/nhân viên|nhân sự|ai /i, "users"], [/giấy tờ|tài liệu/i, "file"],
   [/địa điểm/i, "pin"], [/ca|lịch|phép/i, "calendar"], [/lương|phụ cấp/i, "pay"]];
-export function Empty({ title, text, icon }: { title: string; text?: string; icon?: string }) {
+export function Empty({ title, text, icon, action }: { title: string; text?: string; icon?: string; action?: ReactNode }) {
   const ic = icon ?? EMPTY_ICONS.find(([re]) => re.test(title))?.[1] ?? "info";
-  return <div className="empty-state"><span className="ring"><Icon name={ic} size={24} /></span><b>{title}</b>{text ? <span>{vs(text)}</span> : null}</div>;
+  return <div className="empty-state"><span className="ring"><Icon name={ic} size={24} /></span><b>{title}</b>{text ? <span>{vs(text)}</span> : null}{action}</div>;
 }
 export function LoadError({ error, retry }: { error: { message: string } | null; retry: () => void }) {
   if (!error) return null;

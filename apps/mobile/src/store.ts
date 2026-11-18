@@ -658,6 +658,8 @@ export function openPin(ok: () => void) {
    Công ty có điều khoản dữ liệu cá nhân mới chưa đồng ý thì hỏi trước (ADR 0001 §5). */
 async function signIn(employeeId: string, result?: AuthResult, viaPassword = false) {
   clearPayroll(); clearAnnouncements(); clearDocuments(); S.profile = null; S.pinUntil = 0;
+  /* Người khác đăng nhập trên máy: bỏ dữ liệu của người trước (bảng công, đơn, thông báo… khôi phục từ máy) */
+  if (result && S.me?.employeeId !== result.me.employeeId) { const fresh = makeState(); for (const k of CACHED) (S as Record<string, unknown>)[k] = fresh[k]; }
   if (result) S.me = result.me;
   let session = await saveSession({ employeeId, ...(result ? { auth: result.session, me: result.me } : {}) });
   /* Đăng xuất xóa phiên trên máy: hỏi lại máy chủ xem máy này đã được duyệt làm thiết bị chấm công chưa */
@@ -769,7 +771,8 @@ function persistSoon() {
     if (S.stale || !isLoggedIn() || !lastToday) return;
     const data: Record<string, unknown> = {};
     for (const k of CACHED) data[k] = S[k] instanceof Map ? [...S[k].entries()] : S[k];
-    const json = JSON.stringify({ v: 1, emp: S.me?.employeeCode ?? "", day: dayKey(), today: lastToday, data });
+    /* emp = id nhân viên (uuid): mã NV trùng giữa các công ty (NV001…) */
+    const json = JSON.stringify({ v: 1, emp: S.me?.employeeId ?? "", day: dayKey(), today: lastToday, data });
     if (json !== cacheWritten) { cacheWritten = json; void saveLastData(json); }
   }, 3000);
 }
@@ -921,7 +924,7 @@ async function checkPending(manual: boolean) {
       const sess = await loadSession();
       if (sess) await saveSession({ employeeId: sess.employeeId, deviceRegistered: true });
       S.err = null; S.stack = ["home"]; render("fade"); toast("HR đã duyệt thiết bị này · bạn có thể chấm công");
-      void loadToday();
+      void loadToday(); refreshWork();
     } else if (st !== "pending") { stopPendingWatch(); await deviceLost(t.device); }
     else { S.att.info = t.device; if (manual) { emit(); toast("Chưa có thay đổi. HR sẽ xử lý trong giờ hành chính."); } }
   } catch (e) {
@@ -1129,7 +1132,7 @@ export async function restoreSession() {
   let hadCache = false;
   if (REMOTE) {
     S.me = (await loadSession())?.me ?? session.me ?? null;
-    if (session.deviceRegistered) hadCache = await restoreLastData(S.me?.employeeCode ?? "");
+    if (session.deviceRegistered) hadCache = await restoreLastData(S.me?.employeeId ?? "");
     if (!session.deviceRegistered && await deviceActiveOnServer()) session = (await saveSession({ employeeId: session.employeeId, deviceRegistered: true }));
   }
   const target: Route = session.deviceRegistered ? "home" : "device";
@@ -1378,7 +1381,7 @@ export const ACT = {
         if (sess) await saveSession({ employeeId: sess.employeeId, deviceRegistered: true });
         S.att.device = d.deviceModel ?? deviceSummary().model;
         S.stack = ["home"]; render("fade"); toast(`Đã đăng ký ${S.att.device} làm thiết bị chấm công`);
-        void loadToday();
+        void loadToday(); refreshWork();
       }, (e) => { attError(e); return true; });
       return;
     }
@@ -1781,7 +1784,7 @@ export function quickItems(): Array<[string, "tap" | "plane" | "clock" | "moon" 
     ["ot", "moon", "Làm thêm giờ", REMOTE && S.otData?.policy ? `Tháng này ${dec(S.otData.usage.monthHours)}/${dec(S.otData.policy.monthlyLimitHours)} giờ` : "Đăng ký OT"],
     ["advance", "cash", "Tạm ứng lương", REMOTE ? (!S.advData ? "Xem hạn mức" : S.advData.ineligible ? "Chưa áp dụng" : S.advData.current ? "Đã dùng lượt tháng này" : `Hạn mức ${vnd(S.advData.limit)}`)
       : advEligible() ? "Chưa áp dụng" : S.advance ? "Đã dùng lượt tháng này" : "Hạn mức 4,5 triệu"],
-    ["payslips", "receipt", "Phiếu lương", "Tháng 09/2026"],
+    ["payslips", "receipt", "Phiếu lương", REMOTE ? "Xem phiếu đã công bố" : "Tháng 09/2026"],
     ["_edit", "user", "Sửa hồ sơ", "Gửi HR duyệt"],
   ];
 }

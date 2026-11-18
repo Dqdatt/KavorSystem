@@ -33,12 +33,12 @@ export default function Page() {
       <LoadError error={shifts.error ?? locs.error} retry={reloadAll} />
       <div className="grid two">
         <div className={`col-stack${equal ? " fill" : ""}`}>
-          {shifts.data && !shifts.data.length ? <article className="card"><Empty title="Chưa có mẫu ca" /></article> : null}
+          {shifts.data && !shifts.data.length ? <article className="card"><Empty title="Chưa có mẫu ca" action={manage ? <button className="btn primary" onClick={() => setShiftForm("new")}><Icon name="plus" />Tạo ca</button> : null} /></article> : null}
           {!shifts.data && !shifts.error ? <article className="card"><div className="card-body"><SkeletonLines lines={5} /></div></article> : null}
           {(shifts.data ?? []).map((s, i) => <ShiftCard key={s.id} s={s} manage={manage} onCreate={i === 0 ? () => setShiftForm("new") : undefined} onNew={() => setShiftForm(s)} onStop={() => setStopping({ kind: "shift", id: s.id, name: s.name })} onChanged={() => void shifts.reload()} />)}
         </div>
         <div className={`col-stack${equal ? " fill" : ""}`}>
-          {locs.data && !locs.data.length ? <article className="card"><Empty title="Chưa có địa điểm chấm công" /></article> : null}
+          {locs.data && !locs.data.length ? <article className="card"><Empty title="Chưa có địa điểm chấm công" text="Thiếu địa điểm thì nhân viên chưa chấm công được." action={manage ? <button className="btn primary" onClick={() => setLocForm("new")}><Icon name="plus" />Thêm địa điểm</button> : null} /></article> : null}
           {!locs.data && !locs.error ? <article className="card"><div className="card-body"><SkeletonLines lines={5} /></div></article> : null}
           {(locs.data ?? []).map((l, i) => <LocationCard key={l.id} l={l} manage={manage} onCreate={i === 0 ? () => setLocForm("new") : undefined} unapplied={l.active && !!assigned.data && !applied.has(l.id)} onNew={() => setLocForm(l)} onStop={() => setStopping({ kind: "work_location", id: l.id, name: l.name })} onApply={() => setCreating({ kind: "work_location", targetId: l.id })} onChanged={() => void locs.reload()} />)}
         </div>
