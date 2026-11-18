@@ -77,7 +77,7 @@ Mỗi lỗi phân loại theo luật 1. Xong khi: trọn vòng không có P0, k�
 3. Tham số luật đang "Cần đối chiếu" (thuế suất biểu 5 bậc, ngưỡng khấu trừ 10% thời vụ): Kế toán/chuyên gia xác nhận trước kỳ lương thật.
 4. Dữ liệu cá nhân thật đang lưu ở Singapore: cần người hiểu luật xác nhận thủ tục chuyển dữ liệu ra nước ngoài.
 5. Phạm vi "phòng ban" có gồm phòng ban con không.
-6. `roadmap-competitive.md`: giữ làm định hướng sau v1 (phần "Hiện trạng" đã cũ — Kavor đã tự tính lương) hay bỏ.
+6. `roadmap-competitive.md`: giữ làm định hướng sau v1 (phần "Hiện trạng" đã cũ — Kavor đã tự tính lương) hay bỏ. **Chốt 18/11: giữ làm định hướng sau v1** (đã commit, có ghi chú hiện trạng cũ).
 
 ## Đóng băng sau v1
 
