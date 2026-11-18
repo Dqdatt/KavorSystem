@@ -1,34 +1,33 @@
 # HANDOFF — 18/11/2026 (phiên 19)
 
-**Mục tiêu phiên vừa rồi:** vòng 1 của v1 — sửa nốt P0 Đợt 3–4, thử Simulator + Android emulator. Xong, **đã deploy `1c79ea4`** (18/11 ~08:09).
+**Mục tiêu phiên vừa rồi:** vòng 1 của v1 — sửa nốt P0 Đợt 3–4, thử Simulator + Android emulator, deploy, cài iPhone 11. Xong hết.
 
-## Đã xong (đã deploy)
-- Mobile: crash `reqItems` khi mở app mất mạng; widget mô phỏng không đổi giờ thật; hàng đợi chấm công gắn `emp` + `locked()` + `keepQueued`;
-  nhãn bước Kế toán ở chi tiết đơn; Android GPS nền không hỏi "Location Accuracy" lặp (`mayShowUserSettingsDialog`).
-- API/web: `csvCell` chặn công thức CSV; mailer/trạm thư/OTP ghi log nguyên nhân, trạm 401/404 → `EMAIL_NOT_CONFIGURED`; tạo NV kèm mời lỗi → `inviteError`.
-- Migration `202612120001_offboard_admin_tenant_date.sql`: chặn nghỉ quản trị viên cuối theo ngày công ty (trước dùng UTC → hở 00:00–07:00 VN).
-- Kiểm: verify-all đầy đủ tối 17/11 (smoke lương MFA lỗi giả do tải, chạy lại đạt); sau đó pgTAP 695 + smoke offboard + requests đạt;
-  `tools/punch-queue-mobile-test.mjs` 10 ca; Simulator + Android emulator Release theo kịch bản trong TASKS Đợt 3.
+## Đã xong
+- `1c79ea4` (đã deploy 18/11 ~08:09, Render/Vercel success): mobile crash `reqItems` offline; widget mô phỏng không đổi giờ thật; hàng đợi chấm công
+  gắn `emp` + `locked()` + `keepQueued`; nhãn bước Kế toán; Android GPS nền không hỏi "Location Accuracy" lặp; `csvCell` chặn công thức CSV;
+  mailer/trạm thư/OTP ghi log nguyên nhân + `inviteError`; migration `202612120001` (quản trị viên cuối theo ngày công ty, đã áp lên cloud).
+- Kiểm: verify-all đầy đủ, pgTAP 695 (đạt cả lúc 06:33 VN), smoke offboard/requests, test hàng đợi 10 ca, Simulator + Android emulator Release.
+- Đã cài iPhone 11 "Dqdatt" bản `1c79ea4` trỏ API online. Các commit sau `1c79ea4` chỉ là tài liệu, **chưa push** (đi cùng lần push code sau).
 
-## Đang dở (cần người dùng)
-1. ~~Deploy vòng 1~~ xong: migration `202612120001` áp lên cloud bằng `supabase db query --linked -f` (cùng giao dịch ghi `supabase_migrations.schema_migrations`),
-   push `53d41db..1c79ea4`; GitHub deployment Render/Vercel `success`, health + trang đăng nhập 200. Chưa đăng nhập xem dữ liệu online.
-2. ~~Cài iPhone 11~~ xong 18/11: bản Release `1c79ea4` trỏ API online (không QA) đã cài qua `devicectl`; người dùng tự mở thử trên máy.
-3. 6 mục "Cần người dùng chốt" (`docs/plans/hoan-thien-v1.md`); `docs/plans/roadmap-competitive.md` vẫn chưa commit (mục 6).
+## Đang dở
+- Không có code dở. `docs/plans/roadmap-competitive.md` chưa commit — chờ người dùng quyết (mục 6 của "Cần người dùng chốt").
+- Chưa đăng nhập bản online xem dữ liệu sau deploy; người dùng tự mở app trên iPhone thử (không chấm công thử — dữ liệu thật).
 
 ## Quyết định đã chốt
-- Đăng xuất **không xóa** lần chấm chưa gửi: giữ trên máy gắn mã NV, chỉ người đó gửi khi đăng nhập lại (tránh mất công); quá hạn offline thì máy chủ từ chối và app báo.
-- Lỗi tạm thời giữ trong hàng đợi: mạng/5xx/401/429/chờ đồng ý điều khoản/máy chờ duyệt. Lỗi khác bỏ và báo.
+- Đăng xuất **không xóa** lần chấm chưa gửi: giữ trên máy gắn mã NV, chỉ người đó gửi khi đăng nhập lại; quá hạn offline thì máy chủ từ chối, app báo.
+- Lỗi tạm giữ trong hàng đợi: mạng/5xx/401/429/chờ đồng ý điều khoản/máy chờ duyệt; lỗi khác bỏ và báo.
+- Migration cloud không cần mật khẩu: `supabase db query --linked -f` (cùng giao dịch ghi `schema_migrations`), xem ghi nhớ deploy.
+- Tạm ứng: hạn mức theo từng đơn (17/11). Phạm vi v1 đã cắt (17/11): chỉ P0, còn lại "Sau v1" trong TASKS.
 
 ## Nợ Ponytail
-- `attendance.ts`: lần chấm của người không bao giờ đăng nhập lại nằm mãi trên máy (shortcut có ghi trong code).
-- `leave.service.ts`: sổ phép năm trước theo quy định hiện hành (Sau v1).
+- `apps/mobile/src/attendance.ts`: lần chấm của người không bao giờ đăng nhập lại nằm mãi trên máy — dọn theo tuổi nếu thấy hàng đợi phình (Sau v1).
+- `leave.service.ts`: sổ phép năm trước theo quy định hiện hành — khi quy định có lịch sử theo năm.
 
-## Việc tiếp theo — vòng 2 (UAT) `[opus high]`
-- `bash tools/db-reset.sh && bash tools/scale-data.sh 30`, theo `docs/TEST_WORKFLOW.md`: Console → HR → app → chấm công → đơn → duyệt → khóa kỳ →
-  tính lương → phiếu (iPhone + Android emulator). Chỉ sửa P0; còn lại ghi Sau v1. Deploy một lần cuối vòng.
-- Thử API mới không đụng cổng 4000 của người dùng: bật API thứ hai `API_PORT=4100` (lệnh trong `tools/dev-backend.sh`), app build trỏ 4100.
-- APK Release thử local cần tạm `usesCleartextTraffic` (xem AGENTS Cạm bẫy); emulator khởi động xong máy rất tải — tắt Simulator trước.
+## Việc tiếp theo
+1. **Người dùng** chốt 6 mục "Cần người dùng chốt" (`docs/plans/hoan-thien-v1.md`), nhất là tham số thuế (Kế toán xác nhận) — trước vòng 2.
+2. **Vòng 2 — UAT trọn vòng** `[opus high]` (phần lương `[opus xhigh]`): `bash tools/db-reset.sh && bash tools/scale-data.sh 30`, theo
+   `docs/TEST_WORKFLOW.md`: Console → HR → app → chấm công → đơn → duyệt → khóa kỳ → tính lương → phiếu. Chỉ sửa P0, còn lại ghi Sau v1; deploy cuối vòng.
+   Thử API mới ở cổng 4100 (lệnh trong `tools/dev-backend.sh`); APK Release thử local cần tạm `usesCleartextTraffic` (AGENTS Cạm bẫy).
 
 ## File cần đọc đầu tiên
 - `docs/TASKS.md` (Đợt 5), `docs/TEST_WORKFLOW.md`, `docs/plans/hoan-thien-v1.md`, `AGENTS.md` (Cạm bẫy)
