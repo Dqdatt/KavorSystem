@@ -36,7 +36,9 @@ crash luồng chính) ghi vào "Sau v1", không làm trước khi xong v1. Chi t
   - [x] Chuẩn bị: db-reset, `scale-data.sh 30`, backend/admin/console, app Simulator + Android emulator trỏ API local — [haiku] (18/11: kỳ công 2026-10, API mới cổng 4100, `.claude/launch.json` cấu hình `*-4100`; APK tạm `usesCleartextTraffic` — gỡ sau UAT)
   - [x] Nhánh A — công ty mới (Console → HR thiết lập/nhập NV/mời → app kích hoạt → chấm công → đơn → duyệt → bản tin/tài liệu → Console vận hành) — [opus high] (18/11: 2 P0 đã sửa chưa commit — nút thêm địa điểm/ca khi trống, app hiện dữ liệu người trước; kết quả `docs/plans/uat-vong2-ketqua.md`; Android chưa thử lại bản sửa)
   - [x] Nhánh B — Hải Đăng + 30 NV: khóa kỳ → bảng lương đầu vào → Kavor tính → duyệt (2 Kế toán) → công bố → phiếu trên app; đối chiếu tay vài người — [opus xhigh] (18/11: trọn vòng đạt, khớp tay từng đồng; sửa phiếu lương app thiếu tên khoản (BLLĐ Đ95) + nhãn "09/2026" ghi cứng)
-  - [ ] Sửa P0 tìm được; lỗi khác ghi "Sau v1"; ghi kết quả vào PROGRESS; verify-all; deploy cuối vòng — [opus high]
+  - [x] Sửa P0 tìm được; lỗi khác ghi "Sau v1"; ghi kết quả vào PROGRESS; verify-all; deploy cuối vòng — [opus high] (18/11: `9ca3593` đã push, Vercel + CI đạt)
+  - [ ] Thử lại Android emulator bản mới (đổi người khác công ty không lộ dữ liệu, phiếu lương có tên khoản) khi máy rảnh — tắt Simulator trước; xong thì gỡ `android:usesCleartextTraffic` tạm trong AndroidManifest — [haiku]
+  - [ ] Cài iPhone 11 (bản online) bản mobile mới qua cáp (lệnh build trong PROGRESS "Cài bản mới lên iPhone", API online) — [haiku]
 
 ## Sau v1 (đóng băng — không làm trước khi xong v1)
 - Cắt khỏi Đợt 3–4 ngày 17/11 (không sai tiền/công, không mất dữ liệu; người dùng đồng ý để xong v1 trong 2 vòng):
