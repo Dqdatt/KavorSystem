@@ -10,7 +10,7 @@
 - Đã cài iPhone 11 "Dqdatt" bản `1c79ea4` trỏ API online. Các commit sau `1c79ea4` chỉ là tài liệu, **chưa push** (đi cùng lần push code sau).
 
 ## Đang dở
-- Không có code dở. `docs/plans/roadmap-competitive.md` chưa commit — chờ người dùng quyết (mục 6 của "Cần người dùng chốt").
+- Không có code dở. Mục 6 đã chốt: giữ `roadmap-competitive.md` làm định hướng sau v1 (`6e59d8e`).
 - Chưa đăng nhập bản online xem dữ liệu sau deploy; người dùng tự mở app trên iPhone thử (không chấm công thử — dữ liệu thật).
 
 ## Quyết định đã chốt
@@ -24,7 +24,7 @@
 - `leave.service.ts`: sổ phép năm trước theo quy định hiện hành — khi quy định có lịch sử theo năm.
 
 ## Việc tiếp theo
-1. **Người dùng** chốt 6 mục "Cần người dùng chốt" (`docs/plans/hoan-thien-v1.md`), nhất là tham số thuế (Kế toán xác nhận) — trước vòng 2.
+1. **Người dùng** chốt 5 mục còn lại "Cần người dùng chốt" (`docs/plans/hoan-thien-v1.md`), nhất là tham số thuế (Kế toán xác nhận) — trước vòng 2.
 2. **Vòng 2 — UAT trọn vòng** `[opus high]` (phần lương `[opus xhigh]`): `bash tools/db-reset.sh && bash tools/scale-data.sh 30`, theo
    `docs/TEST_WORKFLOW.md`: Console → HR → app → chấm công → đơn → duyệt → khóa kỳ → tính lương → phiếu. Chỉ sửa P0, còn lại ghi Sau v1; deploy cuối vòng.
    Thử API mới ở cổng 4100 (lệnh trong `tools/dev-backend.sh`); APK Release thử local cần tạm `usesCleartextTraffic` (AGENTS Cạm bẫy).
