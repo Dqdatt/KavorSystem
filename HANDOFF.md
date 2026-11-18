@@ -13,8 +13,7 @@
 ## Đang dở (cần người dùng)
 1. ~~Deploy vòng 1~~ xong: migration `202612120001` áp lên cloud bằng `supabase db query --linked -f` (cùng giao dịch ghi `supabase_migrations.schema_migrations`),
    push `53d41db..1c79ea4`; GitHub deployment Render/Vercel `success`, health + trang đăng nhập 200. Chưa đăng nhập xem dữ liệu online.
-2. **Cài iPhone 11 qua cáp**: build `xcodebuild … -destination 'generic/platform=iOS' -derivedDataPath ios/build-device` với
-   `EXPO_PUBLIC_API_URL=https://kavor-api.onrender.com/api/v1` (xóa `$TMPDIR/metro-cache`, không bật QA) → `xcrun devicectl device install app`.
+2. ~~Cài iPhone 11~~ xong 18/11: bản Release `1c79ea4` trỏ API online (không QA) đã cài qua `devicectl`; người dùng tự mở thử trên máy.
 3. 6 mục "Cần người dùng chốt" (`docs/plans/hoan-thien-v1.md`); `docs/plans/roadmap-competitive.md` vẫn chưa commit (mục 6).
 
 ## Quyết định đã chốt

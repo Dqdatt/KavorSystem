@@ -22,8 +22,8 @@ crash luồng chính) ghi vào "Sau v1", không làm trước khi xong v1. Chi t
 - [x] Mobile crash khi mở app lúc mất mạng rồi bấm đơn/thông báo: `reqItems` (Map) nằm trong `CACHED` (`store.ts:762`) → khôi phục thành `{}` → `.get` lỗi — [sonnet] (18/11: lưu Map dạng mảng cặp, bản lưu cũ bỏ qua; thử Simulator mất mạng mở TU-0001 không crash)
 - [x] Mobile: widget mô phỏng ở bản thật sửa `S.clockIn` (`store.ts:1714`) → lần chấm thật sau thành "ra", máy chủ báo sai thứ tự — [sonnet] (18/11: bản thật chỉ báo toast)
 - [x] Mobile chấm công offline: hàng đợi không gắn NV và không xóa khi đăng xuất (máy dùng chung → người sau gửi hộ); lỗi tạm thời (chờ đồng ý điều khoản, máy chờ duyệt, 429) bị xóa khỏi hàng đợi; race `enqueue`/`flushQueue` — `attendance.ts:116-145` — [opus high] (18/11: gắn `emp`, giữ khi đăng xuất và chỉ người đó gửi; `keepQueued`; khóa `locked()`; test 10 ca, Simulator đạt)
-- [ ] Build Release cài iPhone 11 + thử Android emulator: mất mạng mở app bấm đơn/thông báo không crash; chấm offline → đăng xuất → người khác đăng nhập thì không gửi hộ — [opus high]
-  (18/11: Simulator + Android emulator Release đạt; Android sửa thêm hộp thoại "Location Accuracy" hỏi lặp khi từ chối. Còn cài iPhone 11 qua cáp)
+- [x] Build Release cài iPhone 11 + thử Android emulator: mất mạng mở app bấm đơn/thông báo không crash; chấm offline → đăng xuất → người khác đăng nhập thì không gửi hộ — [opus high]
+  (18/11: Simulator + Android emulator Release đạt; Android sửa thêm hộp thoại "Location Accuracy" hỏi lặp khi từ chối; đã cài iPhone 11 bản `1c79ea4`)
 
 ## Đợt 4 — Web & API toàn vẹn (vòng 1; phạm vi cắt 17/11)
 - [x] CSV xuất (đơn, bảng công, bảng lương đầu vào) chặn công thức `= + - @` (file mở bằng Excel của Kế toán) — tách từ việc validate API — [sonnet] (18/11: `apps/api/src/csv.ts`)
