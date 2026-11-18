@@ -33,8 +33,8 @@ crash luồng chính) ghi vào "Sau v1", không làm trước khi xong v1. Chi t
 - [x] Người dùng chốt 6 mục "Cần người dùng chốt" trong `docs/plans/hoan-thien-v1.md` (18/11: TS-3010 là công ty thử dữ liệu thật; bản đồ, tham số luật, máy chủ Singapore dùng tạm; phòng con làm Sau v1)
 - [ ] UAT trọn vòng trên DB local, công ty mẫu ≥ 30 NV, một tháng công (`docs/TEST_WORKFLOW.md`, iPhone + Android emulator): Console → HR → app → chấm công → đơn → duyệt → khóa kỳ → Kavor tính lương → công bố → phiếu trên app; không còn P0 — [opus high]
   - [x] Cập nhật `TEST_WORKFLOW.md` + `TEST_CASES.md` (cũ từ 30/10: còn ghi "lương nhập từ file, chưa tự tính", bảng công chưa có phép/OT) theo hiện trạng — [opus high] (18/11: 2 nhánh A công ty mới / B Hải Đăng + 30 NV lương)
-  - [ ] Chuẩn bị: db-reset, `scale-data.sh 30`, backend/admin/console, app Simulator + Android emulator trỏ API local — [haiku]
-  - [ ] Nhánh A — công ty mới (Console → HR thiết lập/nhập NV/mời → app kích hoạt → chấm công → đơn → duyệt → bản tin/tài liệu → Console vận hành) — [opus high]
+  - [x] Chuẩn bị: db-reset, `scale-data.sh 30`, backend/admin/console, app Simulator + Android emulator trỏ API local — [haiku] (18/11: kỳ công 2026-10, API mới cổng 4100, `.claude/launch.json` cấu hình `*-4100`; APK tạm `usesCleartextTraffic` — gỡ sau UAT)
+  - [x] Nhánh A — công ty mới (Console → HR thiết lập/nhập NV/mời → app kích hoạt → chấm công → đơn → duyệt → bản tin/tài liệu → Console vận hành) — [opus high] (18/11: 2 P0 đã sửa chưa commit — nút thêm địa điểm/ca khi trống, app hiện dữ liệu người trước; kết quả `docs/plans/uat-vong2-ketqua.md`; Android chưa thử lại bản sửa)
   - [ ] Nhánh B — Hải Đăng + 30 NV: khóa kỳ → bảng lương đầu vào → Kavor tính → duyệt (2 Kế toán) → công bố → phiếu trên app; đối chiếu tay vài người — [opus xhigh]
   - [ ] Sửa P0 tìm được; lỗi khác ghi "Sau v1"; ghi kết quả vào PROGRESS; verify-all; deploy cuối vòng — [opus high]
 
@@ -52,6 +52,9 @@ crash luồng chính) ghi vào "Sau v1", không làm trước khi xong v1. Chi t
 - [ ] Web còn ngưỡng nghiệp vụ cứng trái ADR 0001: lương ≥ 1.000.000 (chặn thực tập/CTV), thử việc 85–100%, đoàn phí 0–5%, mốc 5 triệu (`employees/pay.tsx:124`, `settings/page.tsx:91`, `requests/page.tsx:161`) — [opus high]
 - [ ] `requests.items()` (danh sách/xuất CSV đơn) `.in()` theo mọi id đơn: > ~200 đơn trong một lần xuất → URL quá dài, lỗi 500 (lỗi rõ, không sai số) — chia lô bằng `allIn` (db/rows.ts) — [sonnet]
 - [ ] Hồ sơ nhân viên sắp vào làm hiện trống phòng ban/quản lý (`detail`/`enrich` lấy phân công theo hôm nay); phạm vi và sửa hồ sơ đã theo phân công sắp hiệu lực (17/11) — [sonnet]
+- [ ] App sau UAT vòng 2 (18/11): kẹt màn E16 sau khi Console mở lại công ty (phải tắt hẳn app) + app đang mở không tự báo tạm khóa; ở màn E15 vẫn gọi `/auth/refresh` lặp; "Widget chấm công" hướng dẫn thêm widget chưa có thật — [sonnet]
+- [ ] Tạm ứng: không cảnh báo khi NV chưa có tài khoản ngân hàng (app "Nhận vào tài khoản nhận lương", web "Xác nhận đã chi"); một người (quản lý kiêm Kế toán) duyệt cả 2 bước — người dùng quyết có chặn không — [opus xhigh]
+- [ ] Lặt vặt UAT vòng 2: ca mặc định "Người tạo: Người dùng"; ô mã NV gợi ý "HD0301" ở mọi công ty; web HR kích hoạt chỉ một ô mật khẩu (Console có ô nhập lại) — [haiku]
 - [ ] Trước khi công ty đầu tiên trả lương theo số Kavor: Kế toán/chuyên gia xác nhận tham số luật "Cần đối chiếu" (biểu thuế 5 bậc, khấu trừ 10% thời vụ) — [opus xhigh]
 - [ ] Trước khi dùng chính thức: người hiểu luật xác nhận thủ tục chuyển dữ liệu cá nhân ra nước ngoài (Supabase Singapore) — việc của người dùng, không phải code
 - [ ] Trước pilot: bản đồ production có key (VietMap/Goong/Map4D) thay tile.openstreetmap.de + Photon, đổi qua `NEXT_PUBLIC_MAP_TILE_URL`/geocoder; kiểm đăng ký ở VN + tiền tạm giữ trước — [sonnet]
