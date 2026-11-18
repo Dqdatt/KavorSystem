@@ -2,6 +2,8 @@
 
 Dùng cho người dùng tự thử trên Mac + iPhone theo đúng thứ tự một khách hàng thật. Ghi kết quả vào cột **KQ**:
 `Đạt` / `Lỗi: <mô tả + ảnh>` / `Bỏ qua: <lý do>`. Lỗi nào cũng ghi lại, kể cả chữ khó hiểu hay bố cục xấu.
+Cập nhật 18/11/2026 (vòng 2 UAT): mục 1–8, 10–12 làm trên **công ty mới**; mục 9 (lương) làm trên **Hải Đăng + 30 nhân viên** đủ công kỳ trước
+(kỳ công tháng này của công ty mới chưa kết thúc nên chưa khóa/tính lương được). Luồng tổng: `docs/TEST_WORKFLOW.md`.
 
 Quy ước:
 - **Mailpit** = hộp thư dev http://127.0.0.1:55324 — mọi thư mời và mã OTP (email) nằm ở đây, chưa gửi email thật.
@@ -16,8 +18,8 @@ Quy ước:
 
 | Mã | Bước | Kết quả mong đợi | KQ |
 |---|---|---|---|
-| P-01 | Agent chạy `bash tools/db-reset.sh`, `bash tools/dev-backend.sh`, `pnpm dev:admin`, `pnpm dev:console` | http://localhost:3001 (Console) và http://localhost:3000 (web HR) mở được; Mailpit mở được | |
-| P-02 | App trên iPhone build với `EXPO_PUBLIC_API_URL=http://<IP Mac>:4000/api/v1`, iPhone cùng Wi-Fi với Mac | App mở được màn đăng nhập | |
+| P-01 | Agent chạy `bash tools/db-reset.sh && bash tools/scale-data.sh 30`, `bash tools/dev-backend.sh`, `pnpm dev:admin`, `pnpm dev:console` | scale-data in ra tháng kỳ công đã sinh (ghi lại); http://localhost:3001 (Console) và http://localhost:3000 (web HR) mở được; Mailpit mở được | |
+| P-02 | App build với `EXPO_PUBLIC_API_URL` trỏ API local: iOS Simulator + Android emulator (`10.0.2.2`, APK Release tạm `usesCleartextTraffic`); iPhone thật thì `http://<IP Mac>:4000/api/v1`, cùng Wi-Fi | App mở được màn đăng nhập | |
 | P-03 | Chuẩn bị 3 email giả (vd. `boss@abc.test`, `ketoan@abc.test`, `nv1@abc.test`) — không cần có thật, thư rơi vào Mailpit | — | |
 
 ## 1. Kavor Console — quản trị viên đầu tiên (không chạy lệnh)
@@ -61,6 +63,7 @@ Quy ước:
 | C-32 | Tạo với mã sai định dạng (`ab`, có dấu cách…) | Báo định dạng mã (3–20 ký tự, chữ in hoa, số, gạch) | |
 | C-33 | Mở chi tiết ABC-001 → gửi lại thư mời quản trị viên | Thư mới trong Mailpit (bấm 2 lần liền → báo đợi 1 phút) | |
 | C-34 | **Gói dịch vụ**: xem thẻ gói và số doanh nghiệp mỗi gói | ABC-001 được đếm vào gói Dùng thử | |
+| C-35 | **Tham số luật lương**: xem phiên bản đang hiệu lực → **Tính thử** một mức lương | Có lương tối thiểu vùng, tỷ lệ BH, giảm trừ gia cảnh, biểu thuế; mục "Cần đối chiếu" được đánh dấu; phiên bản đã hiệu lực không sửa đè được (chỉ **Tạo phiên bản mới**) | |
 
 ## 4. Web HR — quản trị viên công ty kích hoạt
 
@@ -76,12 +79,13 @@ Quy ước:
 
 | Mã | Bước | Kết quả mong đợi | KQ |
 |---|---|---|---|
-| H-10 | **Tổng quan → Thiết lập ban đầu** | Danh sách bước còn thiếu; mỗi bước ghi rõ thiếu gì (vd. "Đã tạo 1 địa điểm nhưng chưa áp dụng…") và nút Mở đi đúng chỗ | |
+| H-10 | **Cài đặt → Thiết lập ban đầu** (hoặc thẻ ở Tổng quan) | Danh sách bước còn thiếu; mỗi bước ghi rõ thiếu gì (vd. "Đã tạo 1 địa điểm nhưng chưa áp dụng…") và nút Mở đi đúng chỗ | |
 | H-11 | **Cài đặt doanh nghiệp → Doanh nghiệp**: sửa thông tin, tải logo, ảnh bìa, liên hệ phòng Nhân sự | Lưu được; logo hiện ở web; (sau này) app hiện logo + liên hệ HR | |
 | H-12 | **Cài đặt → Quy định** (các ô nhập thẳng hàng, ghi chú luật nằm dưới ô): xem Phép năm, Làm thêm giờ, Giải trình công, Tạm ứng lương, Nhắc nhở | Có sẵn bộ mẫu theo luật VN; thêm phiên bản mới có ngày hiệu lực được; không sửa đè phiên bản cũ | |
 | H-13 | Quy định **Làm thêm giờ**: đổi "Tối đa mỗi ngày làm việc" (vd. 3 giờ) từ hôm nay | Phiên bản mới hiệu lực từ hôm nay | |
 | H-14 | **Cài đặt → Ngày lễ** | Có lịch lễ VN; thêm ngày nghỉ riêng của công ty được | |
 | H-15 | **Cài đặt → Dữ liệu cá nhân** | Có điều khoản; nhân viên phải đồng ý khi kích hoạt app | |
+| H-15b | **Cài đặt → Kỳ công & lương**: ngày bắt đầu kỳ công; **Quy chế lương**: vùng, lương thử việc thử nhập 80% | 80% bị chặn (≥ 85%, BLLĐ Điều 26); lưu được giá trị hợp lệ | |
 | H-16 | **Cơ cấu tổ chức → Danh sách → Thêm đơn vị**: phòng "Kinh doanh", phòng con "Kinh doanh miền Nam". *(Công ty mới chỉ có sẵn 2 phòng: Ban Giám đốc, Hành chính – Nhân sự — phải làm bước này thì H-30 mới chọn được phòng Kinh doanh)* | Hiện trong cây và sơ đồ; có trong danh sách chọn phòng ban khi thêm nhân viên | |
 | H-17 | **Ngừng** một phòng đang có nhân viên | Bị chặn, nêu lý do; phòng trống thì ngừng được | |
 | H-18 | **Ca & địa điểm → Mẫu ca** | Có ca mặc định; thêm ca mới (vd. 08:00–17:00, nghỉ trưa) được | |
@@ -95,7 +99,7 @@ Quy ước:
 | H-30 | **Nhân viên → Thêm nhân viên**: `NV001`, `nv1@abc.test`, phòng Kinh doanh, **quản lý trực tiếp = ADMIN01**, tích "Gửi email mời" | Hồ sơ tạo được; Mailpit có thư mời app | |
 | H-31 | Thêm `KT001` (`ketoan@abc.test`), quản lý = ADMIN01 | Tạo được | |
 | H-32 | Thêm nhân viên trùng mã hoặc trùng email | Báo trùng | |
-| H-33 | **Nhập từ file**: tải file mẫu, mở Excel, thêm 3 dòng (1 dòng cố ý sai email), lưu CSV UTF-8 → tải lên | Xem trước báo đúng dòng lỗi, không nhập khi còn lỗi; sửa xong nhập được cả 3 | |
+| H-33 | **Nhập từ file** (hộp 3 bước): **Tải mẫu** .xlsx, thêm 3 dòng (1 dòng cố ý sai email) → kéo thả file → xem trước | Xem trước báo đúng dòng lỗi, không nhập khi còn lỗi; sửa xong nhập được cả 3 | |
 | H-34 | File CSV Excel lưu bằng dấu chấm phẩy | Vẫn đọc được | |
 | H-35 | Nút **Gửi lời mời (N)** cho người chưa mời | Gửi hàng loạt; người đã kích hoạt/thiếu email bị bỏ qua có lý do | |
 | H-36 | **Vai trò & phân quyền → Gán vai trò**: ADMIN01 = **Kế toán** | Gán được; menu Lương & tạm ứng hiện đủ | |
@@ -103,6 +107,9 @@ Quy ước:
 | H-38 | Gán **Nhân sự vận hành** phạm vi một phòng cho một nhân viên → người đó đăng nhập web | Chỉ thấy nhân viên phòng đó | |
 | H-39 | Thu hồi vai trò ở H-38 | Mất quyền ngay | |
 | H-40 | Thêm nhân viên vượt giới hạn gói (Console đổi giới hạn còn 3 trước) | Báo đã đủ nhân sự của gói; Console đổi lại 50 thì thêm được | |
+| H-41 | (ADMIN01, Kế toán) hồ sơ NV001 → **Lương** → **Nhập lương** (hoặc **Lương & tạm ứng → Mức lương**) | Lưu được; người không phải Kế toán không thấy số tiền; NV001 có hạn mức tạm ứng | |
+| H-42 | **Lương & tạm ứng → Khoản phụ cấp** → **Thêm khoản mẫu** | Có các khoản mẫu (cách tính theo công/cố định/chuyên cần, chịu thuế/miễn thuế) | |
+| H-43 | Hồ sơ NV001 → **Lương** → tài khoản ngân hàng → **Hiện số** | Mặc định chỉ 4 số cuối; hiện số đầy đủ được ghi vào nhật ký | |
 
 ## 7. App iPhone — nhân viên
 
@@ -113,11 +120,13 @@ Quy ước:
 | M-02b | Hồ sơ: avatar góc trên đúng chữ viết tắt tên mình; Bảo mật và thiết bị → Thiết bị chấm công đúng máy (iPhone 11, iOS…, ngày đăng ký); cuộn Hồ sơ xuống → mở Bảo mật/Widget → quay lại | Không phải dữ liệu mẫu; Hồ sơ giữ nguyên chỗ đang cuộn | |
 | M-03 | Ở ngoài bán kính địa điểm → nhấn giữ **Vào ca** | Báo ngoài phạm vi, không ghi nhận | |
 | M-04 | Trong bán kính → nhấn giữ **Vào ca** | Ghi nhận giờ vào; web HR **Chấm công → Hôm nay** thấy ngay | |
-| M-05 | Tắt Wi-Fi + 4G → **Ra ca** → bật lại mạng | Lần chấm vào hàng đợi rồi tự gửi khi có mạng | |
+| M-05 | Tắt Wi-Fi + 4G → **Ra ca** → bật lại mạng | Trang chủ hiện "Chờ gửi" + "N lần lưu trên máy"; có mạng thì tự gửi, web thấy giờ thật lúc chấm | |
+| M-05b | Tắt mạng → chấm → **Đăng xuất** (báo còn N lần chưa gửi) → người khác đăng nhập máy đó, bật mạng | Không gửi hộ lần chấm của NV001; NV001 đăng nhập lại thì gửi | |
+| M-05c | Mất mạng, mở lại app → bấm vào đơn / thông báo | Không crash; hiện dữ liệu đã lưu | |
 | M-06 | **+ → Xin nghỉ phép**: chọn khoảng 2 ngày | Dải ngày tô màu; số dư phép trừ tạm (giữ chỗ) | |
 | M-07 | **+ → Làm thêm giờ**: bánh xe giờ | Phút đi theo bước 5; vượt giới hạn ngày (H-13) bị chặn | |
 | M-08 | **+ → Giải trình công** cho ngày thiếu công | Gửi được | |
-| M-09 | **+ → Tạm ứng** | Lần đầu bắt tạo PIN 6 số (chặn PIN dễ như 123456); sau đó nhập PIN/Face ID mới gửi được; hạn mức theo lương cơ bản (chưa nhập lương thì báo không có hạn mức) | |
+| M-09 | **+ → Tạm ứng lương** | Lần đầu bắt tạo PIN 6 số (chặn PIN dễ như 123456); sau đó nhập PIN/Face ID mới gửi được; hạn mức = % lương cơ bản, kiểm từng đơn (vượt → "Vượt hạn mức"; chưa nhập lương thì báo không có hạn mức) | |
 | M-10 | Nhập sai PIN 5 lần | Xóa PIN + đăng xuất | |
 | M-11 | **Hồ sơ → Đề nghị sửa**: đổi số điện thoại + tài khoản ngân hàng | Hồ sơ hiện thẻ "đang chờ HR" | |
 | M-12 | **Hồ sơ → Bảo mật và thiết bị → Đổi mã PIN** | Đổi được (cần PIN cũ) | |
@@ -134,20 +143,34 @@ Quy ước:
 | H-51 | Từ chối đơn làm thêm M-07 có lý do | App thấy "Bị từ chối" + lý do | |
 | H-52 | Duyệt giải trình M-08 | Bảng công ngày đó được sửa (không sửa lần chấm gốc) | |
 | H-53 | Duyệt đề nghị sửa hồ sơ M-11 | Hồ sơ app + web đổi; nơi khác chỉ hiện 4 số cuối tài khoản | |
-| H-54 | Tạm ứng M-09: quản lý duyệt → Kế toán **Lương & tạm ứng → Tạm ứng** xử lý → đánh dấu đã chi | App thấy trạng thái theo từng bước | |
-| H-55 | **Chấm công → Bảng công**: xem kỳ công tháng này | Có ngày công NV001; **lưu ý**: ngày nghỉ phép chưa được cộng công (giới hạn đã biết) | |
-| H-56 | **Khóa kỳ công** | Khóa xong không sửa/giải trình vào kỳ đó được | |
+| H-54 | Tạm ứng M-09: quản lý duyệt → (vượt ngưỡng: HR) → Kế toán **Lương & tạm ứng → Tạm ứng** → **Xem & duyệt** → **Xác nhận đã chi** | App thấy trạng thái theo từng bước; bấm duyệt 2 lần liền không bỏ qua bước sau | |
+| H-55 | **Chấm công → Bảng công tháng**: xem kỳ công tháng này | Ngày công NV001 đúng; ngày nghỉ phép đã duyệt hiện loại nghỉ (có/không lương), ngày lễ "Ngày lễ", OT đã duyệt có nhãn OT | |
+| H-56 | **Khóa kỳ công** (kỳ chưa kết thúc / còn ngày thiếu công chưa giải trình / còn thiết bị chờ duyệt) | Bị chặn, nêu lý do; kỳ đủ điều kiện thì khóa được, khóa xong không sửa/giải trình vào kỳ đó; **Mở lại kỳ công** cần lý do | |
 | H-57 | **Nghỉ phép**: sổ phép NV001 | Có giao dịch cấp/giữ chỗ/trừ khớp đơn | |
+| H-58 | Bảng công tháng → ngày thiếu giờ ra của NV001 → **Sửa giờ** (lý do bắt buộc) → **Lưu điều chỉnh** | Ngày đó đủ công; NV001 nhận thông báo; không tự sửa công của mình được; kỳ đã khóa thì không sửa được | |
+| H-59 | **Chấm công → Hôm nay** → **Nhắc** người chưa chấm | App người đó nhận thông báo nhắc | |
+| H-5A | Hồ sơ một NV → ⋮ → **Chuyển sang tạm nghỉ** (Nghỉ không lương, từ hôm nay) → **Kết thúc tạm nghỉ** | Bảng công hiện "Tạm nghỉ" các ngày đó; kết thúc xong chấm công lại bình thường | |
+| H-5B | Hồ sơ một NV có đơn chờ duyệt → ⋮ → **Cho nghỉ việc** (ngày cuối = hôm nay) | Đơn chờ bị hủy; sau ngày cuối tài khoản bị khóa, app không vào được | |
 
-## 9. Lương (cần hai Kế toán)
+## 9. Lương — công ty Hải Đăng + 30 nhân viên SC0001–SC0030 (kỳ công trước, cần hai Kế toán)
+
+Tài khoản Hải Đăng (kích hoạt trên trang đăng nhập web/app, OTP ở Mailpit, web cần ứng dụng xác thực): **HD0007** `thao.mai@haidang.vn` (HR Admin),
+**HD0215** `nhung.do@haidang.vn` và **HD0216** `chau.nguyen@example.test` (Kế toán). SC0001…: lương 10.900.000 ₫, đủ công thứ 2–6 kỳ trước.
 
 | Mã | Bước | Kết quả mong đợi | KQ |
 |---|---|---|---|
-| H-60 | (ADMIN01) **Lương & tạm ứng → Lương cơ bản**: nhập lương NV001 | Lưu được; người không phải Kế toán không thấy số tiền | |
-| H-61 | **Kỳ lương → Mở kỳ lương** → **Tải file mẫu** → điền số → **Nhập kết quả lương** | Xem trước đúng; nhập được | |
-| H-62 | **Gửi kiểm tra** → ADMIN01 thử tự duyệt | Bị chặn (người nhập ≠ người duyệt) | |
-| H-63 | Đăng nhập KT001 (kích hoạt web như H-01, mã KT001) → **Duyệt kỳ lương** → **Công bố phiếu lương** | Công bố được | |
-| H-64 | App NV001 → **Phiếu lương** | Mở bằng PIN/Face ID, số khớp file | |
+| H-60 | (HD0007) **Lương & tạm ứng → Bảng lương kỳ này**, chọn kỳ trước → **Chốt bảng** khi kỳ công chưa khóa | Bị chặn: khóa kỳ công ở Bảng công trước khi chốt | |
+| H-61 | **Chấm công → Bảng công tháng**, kỳ trước | 30 người SC đủ công, không ngày thiếu (bảng > 1.000 lượt chấm vẫn đủ, không mất người cuối) → **Khóa kỳ công** được | |
+| H-62 | **Bảng lương kỳ này** (kỳ trước): xem thẻ Nhân viên / Cần rà soát / Chưa nhập lương → **Chốt bảng** (ghi chú cho Kế toán) | Đủ 30 người SC; người Hải Đăng chưa có lương hiện ở "Chưa nhập lương" (ghi lại số); trạng thái "Đã chốt"; **Xuất Excel** mở được, ô bắt đầu bằng `= + - @` không thành công thức | |
+| H-63 | (HD0215) **Kỳ lương → Mở kỳ lương** (kỳ trước) → **Kavor tính lương** → xem trước | Mỗi người có dòng lương theo công kèm công thức, BH (hoặc lý do không đóng), thuế TNCN, thực nhận = tổng thu nhập − khấu trừ; có cảnh báo tham số luật "Cần đối chiếu"; HD0007 (không phải Kế toán) không có nút này | |
+| H-64 | **Ghi vào kỳ lương (N người)** | Kỳ chuyển "Đã nhập"; N và tổng thực nhận khớp xem trước | |
+| H-65 | Đối chiếu tay SC0001 và một người khác: lương theo công, BH người lao động, giảm trừ, thuế, thực nhận theo tham số luật Console (C-35) | Khớp đến từng đồng (lệch → ghi lại cả hai số) | |
+| H-66 | **Gửi kiểm tra** → HD0215 thử **Duyệt kỳ lương** | Bị chặn (người tính/nhập ≠ người duyệt) | |
+| H-67 | (Tùy chọn) HD0216 **Duyệt kỳ lương** → **Mở lại** với lý do → HD0215 **Gửi kiểm tra** lại | Về "Đã nhập", nhật ký ghi lý do; không ai có nút → ghi lại (quyền mở lại không nằm trong vai trò mặc định) | |
+| H-68 | (HD0216) **Duyệt kỳ lương** → **Công bố phiếu lương** | "Đã công bố"; không nhập/tính lại được nữa | |
+| H-69 | App: kích hoạt SC0001 (mã + `sc0001@scale.test`) → **Phiếu lương** | Mở bằng PIN/Face ID; số khớp web H-64 | |
+| H-69b | **Đánh dấu đã trả lương** → **Đóng kỳ lương** | "Đã trả lương" → "Đã đóng" | |
+| H-69c | (Cách cũ, tùy chọn) kỳ khác → **Nhập kết quả** → **Tải file mẫu** → điền số → **Bắt đầu kiểm tra** | Xem trước đúng; nhập được | |
 
 ## 10. Bản tin và tài liệu
 
@@ -167,7 +190,7 @@ Quy ước:
 | C-40 | Chi tiết ABC-001 → **Đổi gói** (Starter, 100) có lý do | Web HR Cài đặt thấy gói mới | |
 | C-41 | **Tạm khóa** ABC-001 có lý do | Web HR và app báo "Công ty tạm ngừng sử dụng Kavor"; Hải Đăng vẫn dùng bình thường | |
 | C-42 | **Mở lại** | Web HR + app dùng lại được | |
-| C-43 | **Quyền hỗ trợ → Yêu cầu truy cập** ABC-001 (mã phiếu, lý do, phạm vi Cấu hình công ty) | Web HR (ADMIN01) thấy banner yêu cầu | |
+| C-43 | **Quyền hỗ trợ → Yêu cầu quyền hỗ trợ** ABC-001 (mã phiếu, lý do, phạm vi Cấu hình công ty) | Web HR (ADMIN01) thấy banner yêu cầu | |
 | C-44 | Web HR **Cài đặt → Hỗ trợ Kavor → Duyệt** → Console **Mở phiên** | Console xem chỉ đọc, có đếm ngược; không có lương/liên hệ cá nhân | |
 | C-45 | Web HR **Thu hồi** | Console mất quyền xem ngay | |
 | C-46 | **Khôi phục chủ sở hữu**: ops1 tạo yêu cầu đặt lại xác thực cho ADMIN01 → quản trị viên Console duyệt | Người tạo không tự duyệt được; người thứ hai duyệt được; ADMIN01 đăng nhập phải quét QR mới | |
@@ -187,7 +210,9 @@ Quy ước:
 | S-04 | Đăng nhập Console bằng tài khoản web HR (boss@abc.test) | Báo "Email hoặc mật khẩu không đúng" | |
 
 ## Giới hạn đã biết của bản dev (không cần báo lỗi)
-- Chỉ chạy trên Mac + iPhone cùng Wi-Fi; thư chỉ vào Mailpit; thông báo chỉ đến khi app đang mở (chưa có push khi tắt app).
-- Bảng công chưa cộng ngày nghỉ phép / giờ làm thêm đã duyệt; lương là nhập kết quả từ file (chưa tự tính); chưa có widget.
+- Chỉ chạy trên Mac (+ iPhone cùng Wi-Fi); thư chỉ vào Mailpit; thông báo chỉ đến khi app đang mở (chưa có push khi tắt app; thông báo cục bộ chỉ
+  nhắc hạn giải trình công). Widget chấm công chỉ là màn mô phỏng.
+- Tham số luật "Cần đối chiếu" (biểu thuế 5 bậc, khấu trừ 10% thời vụ) dùng tạm; khóa kỳ công chưa chặn khi còn đơn làm thêm giờ chờ duyệt.
+- Phạm vi "phòng ban" chỉ gồm đúng phòng đó, chưa gồm phòng con (H-38).
 - Bản đồ dùng máy chủ cộng đồng (dev); production sẽ dùng nhà cung cấp bản đồ Việt Nam.
 - Reset DB (`tools/db-reset.sh`) xóa mọi thứ: quản trị viên Console phải kích hoạt lại (C-01).

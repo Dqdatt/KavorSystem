@@ -17,6 +17,8 @@
 - Đăng xuất **không xóa** lần chấm chưa gửi: giữ trên máy gắn mã NV, chỉ người đó gửi khi đăng nhập lại; quá hạn offline thì máy chủ từ chối, app báo.
 - Lỗi tạm giữ trong hàng đợi: mạng/5xx/401/429/chờ đồng ý điều khoản/máy chờ duyệt; lỗi khác bỏ và báo.
 - Migration cloud không cần mật khẩu: `supabase db query --linked -f` (cùng giao dịch ghi `schema_migrations`), xem ghi nhớ deploy.
+- 6 mục "Cần người dùng chốt" (18/11): TS-3010 chưa phải pilot (thử, dữ liệu thật, chưa có hạn khóa kỳ); bản đồ, tham số luật,
+  máy chủ Singapore dùng tạm trong v1; phạm vi "phòng ban" sẽ gồm phòng con — Sau v1 (các cổng "trước pilot/lương thật" ở TASKS).
 - Tạm ứng: hạn mức theo từng đơn (17/11). Phạm vi v1 đã cắt (17/11): chỉ P0, còn lại "Sau v1" trong TASKS.
 
 ## Nợ Ponytail
@@ -24,7 +26,7 @@
 - `leave.service.ts`: sổ phép năm trước theo quy định hiện hành — khi quy định có lịch sử theo năm.
 
 ## Việc tiếp theo
-1. **Người dùng** chốt 5 mục còn lại "Cần người dùng chốt" (`docs/plans/hoan-thien-v1.md`), nhất là tham số thuế (Kế toán xác nhận) — trước vòng 2.
+1. ~~Người dùng chốt 5 mục còn lại~~ — xong 18/11 (xem "Quyết định đã chốt").
 2. **Vòng 2 — UAT trọn vòng** `[opus high]` (phần lương `[opus xhigh]`): `bash tools/db-reset.sh && bash tools/scale-data.sh 30`, theo
    `docs/TEST_WORKFLOW.md`: Console → HR → app → chấm công → đơn → duyệt → khóa kỳ → tính lương → phiếu. Chỉ sửa P0, còn lại ghi Sau v1; deploy cuối vòng.
    Thử API mới ở cổng 4100 (lệnh trong `tools/dev-backend.sh`); APK Release thử local cần tạm `usesCleartextTraffic` (AGENTS Cạm bẫy).

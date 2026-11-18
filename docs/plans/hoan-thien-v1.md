@@ -70,13 +70,18 @@ HR nhập NV → mời → app kích hoạt → chấm công (iPhone + Android e
 khóa kỳ → bảng lương đầu vào → Kavor tính → duyệt → công bố → phiếu trên app.
 Mỗi lỗi phân loại theo luật 1. Xong khi: trọn vòng không có P0, kết quả ghi vào PROGRESS.
 
-## Cần người dùng chốt (không phải code, trước Đợt 5)
+## Cần người dùng chốt (không phải code, trước Đợt 5) — đã chốt hết 18/11
 
 1. Công ty online `TS-3010` (30 NV) có phải công ty pilot không; ngày họ khóa kỳ công đầu tiên (đặt hạn cho Đợt 2).
+   **Chốt 18/11:** chưa phải pilot — vẫn là công ty thử nhưng dữ liệu thật (online chỉ xem); chưa có hạn khóa kỳ.
 2. Bản đồ production (mạng VNPT chặn OSM): mua key dịch vụ bản đồ VN, hay v1 chỉ nhập tọa độ lấy từ điện thoại tại chỗ.
+   **Chốt 18/11:** v1 giữ như hiện tại (tile.openstreetmap.de + Photon, tọa độ lấy bằng điện thoại); mua key trước pilot (Sau v1).
 3. Tham số luật đang "Cần đối chiếu" (thuế suất biểu 5 bậc, ngưỡng khấu trừ 10% thời vụ): Kế toán/chuyên gia xác nhận trước kỳ lương thật.
+   **Chốt 18/11:** dùng tạm số hiện tại; bắt buộc xác nhận trước khi công ty đầu tiên trả lương theo số Kavor (Sau v1).
 4. Dữ liệu cá nhân thật đang lưu ở Singapore: cần người hiểu luật xác nhận thủ tục chuyển dữ liệu ra nước ngoài.
+   **Chốt 18/11:** v1 tạm giữ Singapore; người hiểu luật xác nhận trước khi dùng chính thức (Sau v1).
 5. Phạm vi "phòng ban" có gồm phòng ban con không.
+   **Chốt 18/11:** giữ phòng ban con (công ty tự tạo khi cần); phạm vi "phòng ban" sẽ gồm cả cây — làm Sau v1 (hiện chỉ đúng phòng đó).
 6. `roadmap-competitive.md`: giữ làm định hướng sau v1 (phần "Hiện trạng" đã cũ — Kavor đã tự tính lương) hay bỏ. **Chốt 18/11: giữ làm định hướng sau v1** (đã commit, có ghi chú hiện trạng cũ).
 
 ## Đóng băng sau v1

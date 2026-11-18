@@ -648,8 +648,8 @@ ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AG
 - Đặt lại MFA (web HR hoặc Console) không đăng xuất phiên aal2 đang mở của người đó (hết hạn sau ≤ 1 giờ).
 - Nhập nhân viên: chưa cập nhật hồ sơ cũ bằng file, chưa đọc .xlsx/kết nối Google Sheets. Gửi lời mời hàng loạt chạy tuần tự trong request
   (300 người ≈ vài chục giây với SMTP chậm) — cần hàng đợi nền khi có SMTP thật.
-- Phân quyền: phạm vi "phòng ban" chỉ gồm đúng phòng đó, **không gồm phòng ban con** (`scoped_employees` so khớp `department_id`) — cần quyết
-  định có tính cả cây không. Chưa có vai trò tùy chỉnh, người duyệt thứ hai khi gán vai trò nhạy cảm, import cơ cấu, phiên bản tên đơn vị (đổi tên sửa
+- Phân quyền: phạm vi "phòng ban" chỉ gồm đúng phòng đó, **không gồm phòng ban con** (`scoped_employees` so khớp `department_id`) — đã quyết
+  18/11: tính cả cây, làm sau v1. Chưa có vai trò tùy chỉnh, người duyệt thứ hai khi gán vai trò nhạy cảm, import cơ cấu, phiên bản tên đơn vị (đổi tên sửa
   tại chỗ + audit).
 - Support access: chưa báo Tenant Admin qua thông báo app/email khi có yêu cầu (chỉ banner web), chưa có phạm vi nhạy cảm cần duyệt hai lớp, chưa
   tích hợp hệ thống ticket; banner web cần kênh Realtime đã đăng ký (vài giây sau khi mở trang) mới tự cập nhật theo thao tác của người khác.

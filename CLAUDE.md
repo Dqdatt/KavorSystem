@@ -13,6 +13,7 @@ pnpm + Turborepo · Next.js (`apps/admin-web` :3000, `apps/console-web` :3001) �
 - `pnpm dev:backend` (Supabase + Mailpit + API, không tự nạp lại code API) · `pnpm dev:admin` · `pnpm dev:console` · `pnpm dev:mobile`
 - `bash tools/verify-all.sh [--quick]` — bắt buộc đạt trước khi báo xong/commit
 - `bash tools/db-reset.sh && bash tools/<module>-smoke.sh` · `supabase test db` (pgTAP)
+- Thử tay trọn vòng (UAT): `docs/TEST_WORKFLOW.md` + `docs/TEST_CASES.md`; ≥ 30 NV đủ công kỳ trước: `bash tools/scale-data.sh 30` (Hải Đăng)
 
 ## Cấu trúc
 - `apps/admin-web/app/(app)/<trang>` — web HR; `_ui/kit.tsx` component dùng chung; `(app)/shell.tsx` khung
@@ -29,6 +30,7 @@ pnpm + Turborepo · Next.js (`apps/admin-web` :3000, `apps/console-web` :3001) �
 Lương/tạm ứng/luật lương (`apps/api/src/payroll`, `advance`), phân quyền/RLS/vai trò, MFA/auth/phiên, purge tenant, đồng bộ dữ liệu nhập file.
 
 ## Lưu ý
+- Online: công ty `TS-3010` là công ty thử nhưng **dữ liệu thật** — chỉ xem, không lưu/gửi/xác nhận/chấm công thử.
 - Push nhánh `claude/ecstatic-pascal-dblg7v` = deploy Render/Vercel (`docs/DEPLOY.md`) — chạy verify-all trước.
 - Biến môi trường: `.env.example` (API_*, SUPABASE_*, NEXT_PUBLIC_*, EXPO_PUBLIC_*); `pnpm dev:backend` tự ghi `apps/admin-web/.env.local`.
 - Không commit `.env`, key, thư mục build/native sinh ra. Việc đang mở: `docs/TASKS.md`.
