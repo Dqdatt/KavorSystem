@@ -87,10 +87,11 @@ function remotePayslipSpec(): ScreenSpec {
     <View key="top"><Cap>Thực lĩnh</Cap><Amt mt={4}>{money(p.net)}</Amt><Fine>{p.workDays === null ? "Chưa cung cấp ngày công" : `${dec(p.workDays)} ngày công`}</Fine></View>,
     <Card key="c" pad>
       <SecT>Thu nhập</SecT>
-      {p.items.filter((i) => i.kind === "earning").map((i) => <Ln key={i.id} k={i.label ?? i.name} v={money(i.amount)} />)}
+      {/* Tên khoản luôn hiện (BLLĐ Điều 95: phiếu ghi rõ nội dung khoản), công thức/ghi chú Kavor tính để dòng phụ */}
+      {p.items.filter((i) => i.kind === "earning").map((i) => <Ln key={i.id} k={i.name} sub={i.label && i.label !== i.name ? i.label : undefined} v={money(i.amount)} />)}
       <Ln k="Tổng thu nhập" v={money(p.gross)} kind="tot" />
       <SecT style={{ marginTop: 18 }}>Khấu trừ</SecT>
-      {p.items.filter((i) => i.kind === "deduction").map((i) => <Ln key={i.id} k={i.label ?? i.name} v={"−" + money(i.amount)} vStyle={{ color: C.bad }} />)}
+      {p.items.filter((i) => i.kind === "deduction").map((i) => <Ln key={i.id} k={i.name} sub={i.label && i.label !== i.name ? i.label : undefined} v={"−" + money(i.amount)} vStyle={{ color: C.bad }} />)}
       <Ln k="Tổng khấu trừ" v={"−" + money(p.deduction)} kind="tot" vStyle={{ color: C.bad }} />
       <Ln k="Thực lĩnh" v={money(p.net)} kind="net" />
     </Card>,

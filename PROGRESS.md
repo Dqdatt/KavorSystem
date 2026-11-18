@@ -10,6 +10,19 @@ simulator hay iPhone** vì phiên cloud không có Mac). Người dùng giao "c�
 ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AGENT_PLAYBOOK.md`; kiểm tra toàn bộ bằng `bash tools/verify-all.sh`.
 
 ## Đã xong
+- UAT vòng 2 (18/11, Claude Desktop) — kết quả từng mục `docs/plans/uat-vong2-ketqua.md`, việc Sau v1 mới trong `docs/TASKS.md`:
+  - Nhánh A (công ty mới ABC-001, Console → HR → app): đạt; 2 P0 đã sửa ở `d71f286` — web không có nút "Thêm địa điểm"/"Tạo ca" khi trống
+    (`Empty.action`); app hiện dữ liệu người trước trên máy (cache khóa theo `employeeId`, `signIn` bỏ trường CACHED khi đổi người, đăng ký/duyệt máy tải lại hết).
+  - Nhánh B (Hải Đăng, kỳ 2026-10, 30 NV SC lương 10,9 tr): trọn vòng lương đạt — chặn chốt khi chưa khóa kỳ (UI + API 409), khóa kỳ, chốt bảng,
+    HD0215 mở kỳ + Kavor tính + ghi 34 dòng, tự duyệt bị 403, HD0216 duyệt → công bố (tính lại 409) → phiếu trên app → đã trả → đóng. Khớp tay:
+    SC0001 thực nhận 9.755.500 (BH NV 10,5% = 1.144.500, thuế 0), tổng 292.665.000, chi phí công ty 403.845.000 (23,5%); thuế kiểm qua Tính thử 30 tr
+    (1 NPT 257.500; 0 NPT 635.000 = bậc 5% + 10%).
+  - Sửa thêm (vòng này): phiếu lương app chỉ hiện công thức, thiếu tên khoản BHXH/BHYT/BHTN/Lương cơ bản (BLLĐ Điều 95) — `money.tsx` tên làm nhãn,
+    công thức dòng phụ; trang chủ app "Phiếu lương 09/2026 · Đã công bố" ghi cứng ở bản thật — `home.tsx`.
+  - Kiểm: verify-all đầy đủ ở API 4100 (28 phút, tải 17–19): typecheck, unit, build, lint DB, 30/31 smoke đạt; 2 lỗi môi trường, chạy lại đạt —
+    pgTAP payroll #3 đếm thành phần lương trên dữ liệu UAT (chạy trước reset; DB sạch 695/695), operators-smoke chờ OTP gửi tới
+    `CONSOLE_BOOTSTRAP_EMAIL` trong `.env.local` trong khi API 4100 (Preview) không đọc file đó (chạy lại bỏ đọc file → đạt); typecheck + test mobile đạt; iOS Simulator Release bản mới: phiếu có tên khoản, trang chủ "Phiếu lương · Xem phiếu".
+    Android: APK mới cài + mở được, emulator treo giữa chừng (máy tải 17) — chưa thử hết, cần thử lại khi máy rảnh.
 - Vòng 1 v1 — P0 còn lại của Đợt 3–4 (18/11, Claude Desktop), đã deploy `1c79ea4` (migration `202612120001` lên cloud qua `supabase db query --linked` + ghi lịch sử, rồi push; Render/Vercel success):
   - Mobile: `reqItems` (Map) lưu dạng mảng cặp trong cache → mở app mất mạng bấm đơn không crash; widget mô phỏng ở bản thật chỉ báo toast;
     hàng đợi chấm công gắn `emp`, đăng xuất giữ lại và chỉ người chấm gửi khi đăng nhập lại (sheet đăng xuất báo số lần chưa gửi),

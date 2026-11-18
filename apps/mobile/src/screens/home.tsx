@@ -289,7 +289,7 @@ export function homeSpec(): ScreenSpec {
       <Card key="mine">
         <RowBtn icon={<Gi n="plane" s={24} />} title="Phép năm còn lại" right={<RowStrong>{dec(lvAvail())} ngày</RowStrong>} onPress={() => go("leave")} />
         <RowBtn icon={<Gi n="cash" s={24} />} title="Hạn mức tạm ứng" right={<RowStrong>{advR}</RowStrong>} onPress={() => go("advance")} />
-        <RowBtn icon={<Gi n="receipt" s={24} />} title="Phiếu lương 09/2026" right="Đã công bố" onPress={() => go("payslips")} />
+        <RowBtn icon={<Gi n="receipt" s={24} />} title={REMOTE ? "Phiếu lương" : "Phiếu lương 09/2026"} right={REMOTE ? "Xem phiếu" : "Đã công bố"} onPress={() => go("payslips")} />
       </Card>,
       <Card key="short" style={{ flexDirection: "row", flexWrap: "wrap", paddingVertical: 20, paddingHorizontal: 10, rowGap: 20 }}>
         {shorts.map(([r, icon, label]) => <Short key={r} r={r} icon={icon} label={label} />)}
