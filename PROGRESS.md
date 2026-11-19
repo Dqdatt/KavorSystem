@@ -639,6 +639,7 @@ ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AG
   repo công khai → xóa), Realtime/SMTP chưa kiểm trên cloud. Repo GitHub đang công khai: không commit khóa.
 
 ## Quyết định đã chốt
+- Tạm ứng 2 bước (người dùng, nhắc lại 19/11): **chặn** một người (quản lý trực tiếp kiêm Kế toán) duyệt cả 2 bước — như kỳ lương. Làm ở Vòng 1.
 - Tạm ứng (17/11/2026, người dùng): hạn mức kiểm theo từng đơn (≤ % lương cứng), không cộng dồn các đơn trong tháng — giữ như hiện tại.
 - Chưa mua dịch vụ trả phí nào (hosting, domain, Resend, Supabase Pro, Apple Developer) cho tới khi hệ thống hoàn thiện; tiếp tục dev và test trên máy local + iPhone qua cáp. Staging làm sau — vì người dùng đang trong giai đoạn dev (người dùng quyết định 24/10).
 - Kavor Console (23/10, Claude quyết định kỹ thuật theo ADR 0001): nhân viên Kavor là bảng riêng, đăng nhập riêng, luôn bắt buộc MFA; chỉ thấy số liệu vận hành và danh sách Tenant Admin, không đọc dữ liệu HR. Console không tự thêm/bớt admin ngoài luồng khôi phục; khôi phục cần ghi cách xác minh, người thứ hai duyệt, hết hạn 24 giờ, công ty thấy trong audit. Nhân viên Kavor đầu tiên tạo bằng dòng lệnh.

@@ -48,7 +48,7 @@ Mỗi vòng: làm theo thứ tự module (AGENTS.md) → verify-all → deploy �
 - [x] Dọn code (`/ponytail ultra`): `_ui/google-location-map.tsx` (không dùng được ở VN), helper chép nhiều bản (`toBase64`×4, `fold`×3, cộng tháng×5, `STATE`/`ASSIGN_STATE`), import thừa ~12 chỗ, `sb`/`idParam` thừa ở org/settings service — [haiku]
 
 ### Vòng 1 — đúng số, bảo mật, toàn vẹn dữ liệu
-- [ ] Tạm ứng: không cảnh báo khi NV chưa có tài khoản ngân hàng (app "Nhận vào tài khoản nhận lương", web "Xác nhận đã chi"); một người (quản lý kiêm Kế toán) duyệt cả 2 bước — người dùng quyết có chặn không — [opus xhigh]
+- [ ] Tạm ứng: không cảnh báo khi NV chưa có tài khoản ngân hàng (app "Nhận vào tài khoản nhận lương", web "Xác nhận đã chi"); một người (quản lý kiêm Kế toán) duyệt cả 2 bước → **chặn** (người dùng chốt; giống kỳ lương: người duyệt bước 2 ≠ bước 1) — [opus xhigh]
 - [ ] `payroll_law` (`202611270001:23`) khóa sửa tham số luật theo `current_date` (UTC): 00:00–07:00 VN ngày hiệu lực Console vẫn sửa được — đổi sang ngày VN — [opus xhigh]
 - [ ] Phạm vi "phòng ban" gồm cả phòng ban con (`scoped_employees` hiện so khớp đúng `department_id`; bản tin đã tính cả cây) + pgTAP — [opus xhigh]
 - [ ] Phép tồn: sổ năm trước bổ sung theo quy định phép năm đang áp dụng hôm nay (shortcut 17/11, `leave.service.ts`) — đổi khi quy định có lịch sử theo năm — [opus high]
@@ -75,14 +75,14 @@ Mỗi vòng: làm theo thứ tự module (AGENTS.md) → verify-all → deploy �
 - [ ] Lệch prototype còn lại (đối chiếu "Điểm mới" 15/11): hồ sơ có thẻ tóm tắt cố định bên trái; Tính thử lương tự cập nhật + thanh phân bổ; đơn nghỉ hiện số dư phép; xem trước tài liệu (ov:docview) + yêu cầu tài liệu (docreq) — [opus high]
 - [ ] Console: 16 chỗ chữ < 12px (tenants, support, recoveries) + 3 chỗ `kavor.css`; chưa có `PageActions`; gộp `kit.tsx`/`client.ts` Console trùng web HR vào `@kavor/web-ui` — [sonnet]
 
-### Tùy chọn — người dùng chốt giữ (xếp vào vòng 2) hay bỏ khỏi bản hoàn thiện
+### Tùy chọn — mặc định KHÔNG làm trong 2 vòng; người dùng muốn mục nào thì kéo vào Vòng 2
 - [ ] (Tùy chọn) HR điều chỉnh công: xóa một giờ chấm sai (hiện chỉ đặt giờ), ca qua đêm; tab Lịch sử hồ sơ hiện ngày được sửa — [opus high]
 - [ ] (Tùy chọn) Tạm nghỉ: mobile báo "Đang tạm nghỉ" ở màn chấm công; tính 50% theo ngày làm việc của ca thay vì ngày lịch; tạm ứng khi đang tạm nghỉ — [opus high]
 - [ ] (Tùy chọn) Chuyển người duyệt khi quản lý trực tiếp nghỉ việc (bước "Quản lý trực tiếp" giao đích danh, hiện chỉ cảnh báo) — [opus high]
 - [ ] (Tùy chọn) "Nhắc người duyệt" ở chi tiết đơn chờ duyệt (prototype có; hiện chỉ nhắc tự động theo hạn) — [opus high]
 - [ ] (Tùy chọn) Hộp nhập file: sửa dòng lỗi ngay trên bảng như prototype — cần API nhận dòng đã sửa; xem hộp ở màn hẹp — [opus high]
 
-### Việc của người dùng (không phải code)
+### Việc của người dùng (không phải code) — đã chốt 18/11 dùng tạm (`docs/plans/hoan-thien-v1.md`), không chặn bản hoàn thiện
 - [ ] Trước khi công ty đầu tiên trả lương theo số Kavor: Kế toán/chuyên gia xác nhận tham số luật "Cần đối chiếu" (biểu thuế 5 bậc, khấu trừ 10% thời vụ) — [opus xhigh]
 - [ ] Trước khi dùng chính thức: người hiểu luật xác nhận thủ tục chuyển dữ liệu cá nhân ra nước ngoài (Supabase Singapore) — việc của người dùng, không phải code
 - [ ] Trước pilot: bản đồ production có key (VietMap/Goong/Map4D) thay tile.openstreetmap.de + Photon, đổi qua `NEXT_PUBLIC_MAP_TILE_URL`/geocoder; kiểm đăng ký ở VN + tiền tạm giữ trước — [sonnet]

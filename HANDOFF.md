@@ -18,17 +18,20 @@ Người dùng: **không dùng `giao`** ở dự án này — workflow agent Cla
 - **Chưa push** (push = deploy Render/Vercel). Thay đổi không có migration; API chỉ đổi nhãn "Hệ thống" + dọn constructor.
 - API 4100 (Preview `api-4100`) còn chạy; DB local đang có dữ liệu payroll-smoke + BX0002 đã kích hoạt.
 
+## Quyết định đã chốt (đừng hỏi lại — xem PROGRESS "Quyết định đã chốt", `docs/plans/hoan-thien-v1.md`)
+- Tạm ứng 2 bước: **chặn** một người duyệt cả 2 bước.
+- Tham số luật, máy chủ Singapore, bản đồ OSM: dùng tạm (chốt 18/11), không chặn bản hoàn thiện.
+- Mục "(Tùy chọn)": mặc định không làm trong 2 vòng, người dùng muốn thì kéo vào Vòng 2.
+
 ## Chờ người dùng
-- Tạm ứng 2 bước: một người (quản lý trực tiếp kiêm Kế toán) duyệt cả 2 bước — có chặn không. Claude đề nghị **chặn** (giống kỳ lương).
-- 5 mục "(Tùy chọn)" trong TASKS: giữ (xếp vào Vòng 2) hay bỏ khỏi bản hoàn thiện.
-- Việc không phải code: xác nhận tham số luật lương, thủ tục chuyển dữ liệu ra nước ngoài, key bản đồ production.
+- Push `9b4c875` + commit tài liệu (deploy).
 
 ## Nợ Ponytail
 - Không có `shortcut:` mới. Cũ: `attendance.ts` hàng đợi của người không đăng nhập lại; `leave.service.ts` sổ phép năm trước.
 - `payroll/advances.tsx` ~dòng 43 biểu thức `cur === … ? cur : cur` thừa — sửa cùng mục "chọn tháng neo" Vòng 2.
 
 ## Việc tiếp theo — Vòng 1 (đúng số, bảo mật, toàn vẹn) `docs/TASKS.md`
-1. Tạm ứng (sau khi người dùng quyết) + `payroll_law` ngày VN + phạm vi phòng ban con + phép tồn theo năm `[opus xhigh]` — phiên chính tự làm.
+1. Tạm ứng (chặn 1 người duyệt 2 bước + cảnh báo thiếu tài khoản ngân hàng) + `payroll_law` ngày VN + phạm vi phòng ban con + phép tồn theo năm `[opus xhigh]` — phiên chính tự làm.
 2. Mobile bảo mật, validate API, ghi nửa chừng, ngừng phòng ban, requests chia lô, hồ sơ sắp vào làm, app E16/E15, ngưỡng cứng ADR, hiệu năng.
 3. verify-all → deploy → UAT ngắn phần đã sửa. Rồi Vòng 2 → bản hoàn thiện.
 
