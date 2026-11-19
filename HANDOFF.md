@@ -3,7 +3,7 @@
 **Mục tiêu phiên vừa rồi:** làm nốt việc vặt Đợt 5 → v1 xong; gom "Sau v1" thành 2 vòng hoàn thiện (người dùng: 1–2 vòng nữa là xong toàn hệ thống).
 Người dùng: **không dùng `giao`** ở dự án này — workflow agent Claude (timcode/laptrinh/chaylenh/kiemtra).
 
-## Đã xong (commit phiên này, CHƯA push)
+## Đã xong (đã push `d22f97f` 19/11 09:40: CI database/verify + Vercel 2 project đạt, API online health ok)
 - Việc vặt UAT vòng 2: người tạo ca hệ thống = "Hệ thống" (`schedule.service.ts`); placeholder mã NV "VD: NV0001"; ô nhập lại mật khẩu ở
   kích hoạt web HR (`login/page.tsx`); app ngày dd/MM (`money.tsx` payDate, `store.ts` punchLabel); widget ngày/khoảng cách thật (`screens/profile.tsx`);
   đăng xuất web HR/Console dùng Modal thay `confirm()`.
@@ -15,7 +15,6 @@ Người dùng: **không dùng `giao`** ở dự án này — workflow agent Cla
 - `docs/TASKS.md`: Đợt 5 xong → **v1 xong**; "Sau v1" chia Vòng 1 / Vòng 2 / Tùy chọn / Việc của người dùng.
 
 ## Đang dở
-- **Chưa push** (push = deploy Render/Vercel). Thay đổi không có migration; API chỉ đổi nhãn "Hệ thống" + dọn constructor.
 - API 4100 (Preview `api-4100`) còn chạy; DB local đang có dữ liệu payroll-smoke + BX0002 đã kích hoạt.
 
 ## Quyết định đã chốt (đừng hỏi lại — xem PROGRESS "Quyết định đã chốt", `docs/plans/hoan-thien-v1.md`)
@@ -24,7 +23,7 @@ Người dùng: **không dùng `giao`** ở dự án này — workflow agent Cla
 - Mục "(Tùy chọn)": mặc định không làm trong 2 vòng, người dùng muốn thì kéo vào Vòng 2.
 
 ## Chờ người dùng
-- Push `9b4c875` + commit tài liệu (deploy).
+- Không có. iPhone 11 bản 19/11 (ký Apple ID miễn phí) hết hạn ~26/11 → cắm máy cài lại.
 
 ## Nợ Ponytail
 - Không có `shortcut:` mới. Cũ: `attendance.ts` hàng đợi của người không đăng nhập lại; `leave.service.ts` sổ phép năm trước.
