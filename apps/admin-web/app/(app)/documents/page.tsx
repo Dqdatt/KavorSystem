@@ -7,7 +7,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { DOCUMENT_CATEGORIES, type DocumentBoard, type DocumentCategory, type DocumentDetail, type DocumentExpiry, type DocumentMeta,
   type DocumentVisibility, type ChecklistGaps, type EmployeeDocument, type EmployeeListItem } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
-import { vs, PageActions, Dl, Drawer, Empty, ErrorLine, Field, Icon, LoadError, Modal, MoreMenu, Person, Status, fmtDate, fmtDateTime, num, useAction, useMe, useRemind } from "../../_ui/kit";
+import { vs, PageActions, Dl, Drawer, Empty, ErrorLine, Field, Icon, LoadError, Modal, MoreMenu, Person, Status, fmtDate, fmtDateTime, num, toBase64, useAction, useMe, useRemind } from "../../_ui/kit";
 import Link from "next/link";
 import { ReasonModal } from "../../_ui/reason-modal";
 import { ChecklistCatalog } from "./checklist";
@@ -22,8 +22,6 @@ function Expiry({ d }: { d: Pick<EmployeeDocument, "expiresOn" | "expiry"> }) {
   if (!d.expiresOn) return <span className="muted">Không thời hạn</span>;
   return d.expiry === "soon" || d.expiry === "expired" ? <Status v={[`Hết hạn ${fmtDate(d.expiresOn)}`, tone[d.expiry]]} /> : <>{fmtDate(d.expiresOn)}</>;
 }
-const toBase64 = (file: File) => new Promise<string>((ok, bad) => { const r = new FileReader(); r.onload = () => ok(String(r.result)); r.onerror = () => bad(r.error); r.readAsDataURL(file); });
-
 type Tab = "docs" | "miss" | "cat";
 
 function DocumentsPage() {

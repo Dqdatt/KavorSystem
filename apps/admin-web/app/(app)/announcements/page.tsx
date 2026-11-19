@@ -7,8 +7,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { ANNOUNCEMENT_CATEGORIES, ANNOUNCEMENT_MAX_BYTES, type AnnouncementAdmin, type AnnouncementBoard, type AnnouncementCategory,
   type AnnouncementDetail, type AnnouncementInput, type AnnouncementStatus, type AnnouncementUnit } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
-import { vs, PageActions, Drawer, Empty, ErrorLine, Field, Icon, LoadError, Modal, Person, Status, fmtDateTime, can, num, useAction, useMe, useRemind } from "../../_ui/kit";
-import { Select, SkeletonLines, SkeletonRows } from "@kavor/web-ui";
+import { vs, PageActions, Drawer, Empty, ErrorLine, Field, Icon, LoadError, Modal, Person, Status, fmtDateTime, can, num, toBase64, useAction, useMe, useRemind } from "../../_ui/kit";
+import { Select, SkeletonLines } from "@kavor/web-ui";
 import { RichText, RichTextEditor } from "../../_ui/rich-text";
 
 const STATUS: Record<AnnouncementStatus, [string, string]> = { draft: ["Nháp", "muted"], scheduled: ["Hẹn giờ", "info"], published: ["Đang hiện", ""], expired: ["Hết hạn", "warn"], archived: ["Đã gỡ", "muted"] };
@@ -21,7 +21,6 @@ function ReadTicks({ reads, total, lg }: { reads: number; total: number; lg?: bo
   const n = Math.min(Math.max(total, 1), 30), on = total ? Math.round((reads / total) * n) : 0;
   return <span className={`ticks ${lg ? "lg" : ""}`} aria-hidden="true">{Array.from({ length: n }, (_, i) => <i key={i} className={i < on ? "m" : ""} />)}</span>;
 }
-const ICON: Record<AnnouncementCategory, [string, string]> = { notice: ["news", ""], policy: ["file", "blue"], event: ["calendar", "violet"] };
 const kb = (n: number) => (n >= 1024 * 1024 ? `${(n / 1024 / 1024).toLocaleString("vi-VN", { maximumFractionDigits: 1 })} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
 const pct = (a: AnnouncementAdmin) => (a.recipients ? Math.round((a.reads / a.recipients) * 100) : 0);
 const audienceText = (a: Pick<AnnouncementAdmin, "audience" | "units">) =>
@@ -221,7 +220,7 @@ function Editor({ a, units, onClose, onSaved }: { a: AnnouncementAdmin | null; u
     await run("save", async () => {
       let item = a ? await call<AnnouncementAdmin>("PATCH", `announcements/${a.id}`, body) : await call<AnnouncementAdmin>("POST", "announcements", body);
       if (file) {
-        const dataBase64 = await new Promise<string>((ok, bad) => { const r = new FileReader(); r.onload = () => ok(String(r.result)); r.onerror = () => bad(r.error); r.readAsDataURL(file); });
+        const dataBase64 = await toBase64(file);
         item = await call<AnnouncementAdmin>("POST", `announcements/${item.id}/attachment`, { fileName: file.name, dataBase64 });
       } else if (dropFile && item.attachment) item = await call<AnnouncementAdmin>("POST", `announcements/${item.id}/attachment/remove`, {});
       onClose(); onSaved(item, publish);

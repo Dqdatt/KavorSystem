@@ -2,7 +2,7 @@
 /* Thành phần giao diện theo đúng class của Kavor HR Admin Prototype.html (app/kavor-desktop.css) */
 import { Fragment, createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import type { AccountStatus, AdminMe, DeviceStatus, EmployeeStatus, EmploymentType, ReminderResult } from "@kavor/contracts";
+import type { AccountStatus, AdminMe, PolicyAssignment, DeviceStatus, EmployeeStatus, EmploymentType, ReminderResult } from "@kavor/contracts";
 import { Hint } from "@kavor/web-ui";
 import { call } from "../_lib/client";
 import { ICONS } from "./icons";
@@ -48,6 +48,8 @@ export function longDate(date: string) {
   const wd = ["Chủ Nhật", "Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy"][d.getUTCDay()];
   return `${wd}, ${d.getUTCDate()} tháng ${d.getUTCMonth() + 1}, ${d.getUTCFullYear()}`;
 }
+export const toBase64 = (file: File) => new Promise<string>((ok, bad) => { const r = new FileReader(); r.onload = () => ok(String(r.result)); r.onerror = () => bad(r.error); r.readAsDataURL(file); });
+export const shiftMonth = (m: string, n: number) => { const [y, mo] = m.split("-").map(Number) as [number, number]; const d = new Date(Date.UTC(y, mo - 1 + n, 1)); return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`; };
 export const tenantToday = (tz: string) => new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
 /* Thâm niên từ ngày vào làm tới hôm nay (cả hai dạng YYYY-MM-DD): "x năm y tháng" / "y tháng" / "dưới 1 tháng" */
 export function tenure(hireDate: string, today: string) {
@@ -81,6 +83,7 @@ export const REJECT_REASON: Record<string, string> = {
 };
 /* "Phòng ban: Marketing"; tầng công ty chỉ ghi "Toàn công ty" */
 export const scopeText = (s: { scopeType: string; scopeName: string }) => (s.scopeType === "tenant" ? "Toàn công ty" : s.scopeType === "self" ? s.scopeName : `${SCOPE[s.scopeType] ?? s.scopeType}: ${s.scopeName}`);
+export const ASSIGN_STATE: Record<PolicyAssignment["state"], [string, string]> = { active: ["Đang áp dụng", ""], scheduled: ["Sắp áp dụng", "info"], ended: ["Đã kết thúc", "muted"], cancelled: ["Đã hủy", "muted"] };
 export const SCOPE: Record<string, string> = { tenant: "Toàn công ty", legal_entity: "Pháp nhân", branch: "Chi nhánh", department: "Phòng ban", employee: "Cá nhân" };
 export function Status({ v }: { v: [string, string] }) { return <span className={`status ${v[1]}`}>{vs(v[0])}</span>; }
 

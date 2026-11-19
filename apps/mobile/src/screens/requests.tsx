@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { Animated, Pressable, StyleSheet, View } from "react-native";
 import { Blur } from "../blur";
-import { C, EASE, F, GL, glass, tint } from "../theme";
+import { C, EASE, F, GL, tint } from "../theme";
 import { Gi, Ic } from "../icons";
 import { Illus } from "../illus";
 import { Avatar, Balanced, Btn, BtnRow, Card, Chip, Chips, Empty, InfoRow, LinkBtn, Note, RowBtn, Seg, SectionHead, St, T, Tag, Timeline } from "../ui";

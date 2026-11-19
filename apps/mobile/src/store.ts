@@ -824,7 +824,7 @@ function flushPunches(): Promise<void> {
   flushRun = (async () => { do { flushAgain = false; await flushOnce(); } while (flushAgain); })().finally(() => { flushRun = null; });
   return flushRun;
 }
-const punchLabel = (p: QueuedPunch) => `${p.kind === "in" ? "vào" : "ra"} ca lúc ${hm(secOfDay(new Date(p.occurredAt ?? p.queuedAt)))}${new Date(p.occurredAt ?? p.queuedAt).toDateString() === new Date().toDateString() ? "" : ` ngày ${new Date(p.occurredAt ?? p.queuedAt).toLocaleDateString("vi-VN")}`}`;
+const punchLabel = (p: QueuedPunch) => `${p.kind === "in" ? "vào" : "ra"} ca lúc ${hm(secOfDay(new Date(p.occurredAt ?? p.queuedAt)))}${new Date(p.occurredAt ?? p.queuedAt).toDateString() === new Date().toDateString() ? "" : ` ngày ${new Date(p.occurredAt ?? p.queuedAt).toLocaleDateString("vi-VN").replace(/\D+/g, "/")}`}`;
 /* Máy chủ không nhận lần đã lưu: bỏ giờ hiển thị tạm (nếu là hôm nay) */
 function undoLocal(p: QueuedPunch) {
   const at = new Date(p.occurredAt ?? p.queuedAt);

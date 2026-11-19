@@ -31,51 +31,62 @@ crash luồng chính) ghi vào "Sau v1", không làm trước khi xong v1. Chi t
 
 ## Đợt 5 — Chạy thử trọn vòng
 - [x] Người dùng chốt 6 mục "Cần người dùng chốt" trong `docs/plans/hoan-thien-v1.md` (18/11: TS-3010 là công ty thử dữ liệu thật; bản đồ, tham số luật, máy chủ Singapore dùng tạm; phòng con làm Sau v1)
-- [ ] UAT trọn vòng trên DB local, công ty mẫu ≥ 30 NV, một tháng công (`docs/TEST_WORKFLOW.md`, iPhone + Android emulator): Console → HR → app → chấm công → đơn → duyệt → khóa kỳ → Kavor tính lương → công bố → phiếu trên app; không còn P0 — [opus high]
+- [x] UAT trọn vòng trên DB local, công ty mẫu ≥ 30 NV, một tháng công (`docs/TEST_WORKFLOW.md`, iPhone + Android emulator): Console → HR → app → chấm công → đơn → duyệt → khóa kỳ → Kavor tính lương → công bố → phiếu trên app; không còn P0 — [opus high]
   - [x] Cập nhật `TEST_WORKFLOW.md` + `TEST_CASES.md` (cũ từ 30/10: còn ghi "lương nhập từ file, chưa tự tính", bảng công chưa có phép/OT) theo hiện trạng — [opus high] (18/11: 2 nhánh A công ty mới / B Hải Đăng + 30 NV lương)
   - [x] Chuẩn bị: db-reset, `scale-data.sh 30`, backend/admin/console, app Simulator + Android emulator trỏ API local — [haiku] (18/11: kỳ công 2026-10, API mới cổng 4100, `.claude/launch.json` cấu hình `*-4100`; APK tạm `usesCleartextTraffic` — gỡ sau UAT)
   - [x] Nhánh A — công ty mới (Console → HR thiết lập/nhập NV/mời → app kích hoạt → chấm công → đơn → duyệt → bản tin/tài liệu → Console vận hành) — [opus high] (18/11: 2 P0 đã sửa chưa commit — nút thêm địa điểm/ca khi trống, app hiện dữ liệu người trước; kết quả `docs/plans/uat-vong2-ketqua.md`; Android chưa thử lại bản sửa)
   - [x] Nhánh B — Hải Đăng + 30 NV: khóa kỳ → bảng lương đầu vào → Kavor tính → duyệt (2 Kế toán) → công bố → phiếu trên app; đối chiếu tay vài người — [opus xhigh] (18/11: trọn vòng đạt, khớp tay từng đồng; sửa phiếu lương app thiếu tên khoản (BLLĐ Đ95) + nhãn "09/2026" ghi cứng)
   - [x] Sửa P0 tìm được; lỗi khác ghi "Sau v1"; ghi kết quả vào PROGRESS; verify-all; deploy cuối vòng — [opus high] (18/11: `9ca3593` đã push, Vercel + CI đạt)
-  - [ ] Thử lại Android emulator bản mới (đổi người khác công ty không lộ dữ liệu, phiếu lương có tên khoản) khi máy rảnh — tắt Simulator trước; xong thì gỡ `android:usesCleartextTraffic` tạm trong AndroidManifest — [haiku]
-  - [ ] Cài iPhone 11 (bản online) bản mobile mới qua cáp (lệnh build trong PROGRESS "Cài bản mới lên iPhone", API online) — [haiku]
+  - [x] Thử lại Android emulator bản mới (đổi người khác công ty không lộ dữ liệu, phiếu lương có tên khoản) khi máy rảnh — tắt Simulator trước; xong thì gỡ `android:usesCleartextTraffic` tạm trong AndroidManifest — [haiku] (19/11: BX0002 Mẫu B → đăng xuất → HD0142 Hải Đăng không lộ dữ liệu, PIN tạo mới; phiếu 11/2026 có tên khoản, ngày "19/11"; widget hiện ngày thật; đã gỡ cleartext)
+  - [x] Cài iPhone 11 (bản online) bản mobile mới qua cáp (lệnh build trong PROGRESS "Cài bản mới lên iPhone", API online) — [haiku] (19/11: bản có việc vặt 19/11, chưa commit lúc build)
 
-## Sau v1 (đóng băng — không làm trước khi xong v1)
-- Cắt khỏi Đợt 3–4 ngày 17/11 (không sai tiền/công, không mất dữ liệu; người dùng đồng ý để xong v1 trong 2 vòng):
-- [ ] Mobile: GPS độ chính xác cao mỗi 1 giây không tắt khi rời trang chủ (pin); giờ/ngày hiển thị theo múi giờ máy thay vì công ty; POST tạo đơn không idempotent (timeout 15 giây → gửi lại ra đơn trùng); `S.net`/NetBar là mã chết — [sonnet]
-- [ ] Mobile bảo mật: che màn hình lương/tài liệu khi vào nền + khóa PIN khi vào nền (hiện mở 5 phút); deep link bỏ qua màn đồng ý/đăng ký máy và tự đặt role; đăng xuất đúng lúc refresh thì phiên được ghi lại; xóa file đính kèm tạm trong cache — [opus high]
+## Sau v1 — gom thành 2 vòng hoàn thiện (mục tiêu người dùng 19/11/2026: 1–2 vòng nữa là xong toàn hệ thống)
+Mỗi vòng: làm theo thứ tự module (AGENTS.md) → verify-all → deploy → UAT ngắn phần đã sửa. Việc mới phát sinh không phải P0 xếp vào vòng 2, không mở vòng 3.
+
+### Việc vặt (xong 19/11, chưa deploy)
+- [x] Lặt vặt UAT vòng 2: ca mặc định "Người tạo: Người dùng"; ô mã NV gợi ý "HD0301" ở mọi công ty; web HR kích hoạt chỉ một ô mật khẩu (Console có ô nhập lại); app "Công bố 18-11" lệch kiểu ngày "05/11"; màn Widget hiện ngày/khoảng cách mẫu ở bản thật; nút Đăng xuất web dùng `confirm()` trình duyệt thay hộp thoại của app — [haiku]
+- [x] Dọn code (`/ponytail ultra`): `_ui/google-location-map.tsx` (không dùng được ở VN), helper chép nhiều bản (`toBase64`×4, `fold`×3, cộng tháng×5, `STATE`/`ASSIGN_STATE`), import thừa ~12 chỗ, `sb`/`idParam` thừa ở org/settings service — [haiku]
+
+### Vòng 1 — đúng số, bảo mật, toàn vẹn dữ liệu
+- [ ] Tạm ứng: không cảnh báo khi NV chưa có tài khoản ngân hàng (app "Nhận vào tài khoản nhận lương", web "Xác nhận đã chi"); một người (quản lý kiêm Kế toán) duyệt cả 2 bước — người dùng quyết có chặn không — [opus xhigh]
+- [ ] `payroll_law` (`202611270001:23`) khóa sửa tham số luật theo `current_date` (UTC): 00:00–07:00 VN ngày hiệu lực Console vẫn sửa được — đổi sang ngày VN — [opus xhigh]
+- [ ] Phạm vi "phòng ban" gồm cả phòng ban con (`scoped_employees` hiện so khớp đúng `department_id`; bản tin đã tính cả cây) + pgTAP — [opus xhigh]
+- [ ] Phép tồn: sổ năm trước bổ sung theo quy định phép năm đang áp dụng hôm nay (shortcut 17/11, `leave.service.ts`) — đổi khi quy định có lịch sử theo năm — [opus high]
+- [ ] Mobile bảo mật: che màn hình lương/tài liệu khi vào nền + khóa PIN khi vào nền (hiện mở 5 phút); deep link bỏ qua màn đồng ý/đăng ký máy và tự đặt role; đăng xuất đúng lúc refresh thì phiên được ghi lại; màn đăng nhập điền sẵn mã NV người trước sau khi đăng xuất (máy dùng chung); xóa file đính kèm tạm trong cache — [opus high]
+- [ ] Validate API: id không phải uuid → 500 (`schedule.service.ts`), `?q=a&q=b`, `?status` sai enum; tạo NV nhận `terminated`/`leaving` lách luồng nghỉ việc; email so khớp phân biệt hoa thường + chưa có unique `lower(work_email)`; `markRead` với `ids: []` đánh dấu đọc hết — [opus high]
 - [ ] Ghi nửa chừng: tạo ca/địa điểm/quy định chèn định nghĩa rồi mới chèn phiên bản 1 → lỗi để lại định nghĩa mồ côi chiếm mã, không sửa được (`schedule.service.ts:48,134`, `rules.service.ts:41`) — [sonnet]
 - [ ] Không ngừng được phòng ban/chức danh từng có người nghỉ: `endUnit` đếm phân công/vai trò của người đã nghỉ, `offboard_employee` không đóng `effective_to` (`org.service.ts:176`) — [opus high]
-- [ ] Validate API: id không phải uuid → 500 (`schedule.service.ts`), `?q=a&q=b`, `?status` sai enum; tạo NV nhận `terminated`/`leaving` lách luồng nghỉ việc; email so khớp phân biệt hoa thường + chưa có unique `lower(work_email)`; `markRead` với `ids: []` đánh dấu đọc hết — [opus high]
+- [ ] Mobile: GPS độ chính xác cao mỗi 1 giây không tắt khi rời trang chủ (pin); giờ/ngày hiển thị theo múi giờ máy thay vì công ty; POST tạo đơn không idempotent (timeout 15 giây → gửi lại ra đơn trùng); `S.net`/NetBar là mã chết — [sonnet]
+- [ ] `requests.items()` (danh sách/xuất CSV đơn) `.in()` theo mọi id đơn: > ~200 đơn trong một lần xuất → URL quá dài, lỗi 500 (lỗi rõ, không sai số) — chia lô bằng `allIn` (db/rows.ts) — [sonnet]
+- [ ] Hồ sơ nhân viên sắp vào làm hiện trống phòng ban/quản lý (`detail`/`enrich` lấy phân công theo hôm nay); phạm vi và sửa hồ sơ đã theo phân công sắp hiệu lực (17/11) — [sonnet]
+- [ ] App sau UAT vòng 2 (18/11): kẹt màn E16 sau khi Console mở lại công ty (phải tắt hẳn app) + app đang mở không tự báo tạm khóa; ở màn E15 vẫn gọi `/auth/refresh` lặp; "Widget chấm công" hướng dẫn thêm widget chưa có thật — [sonnet]
+- [ ] Web còn ngưỡng nghiệp vụ cứng trái ADR 0001: lương ≥ 1.000.000 (chặn thực tập/CTV), thử việc 85–100%, đoàn phí 0–5%, mốc 5 triệu (`employees/pay.tsx:124`, `settings/page.tsx:91`, `requests/page.tsx:161`) — [opus high]
+- [ ] Hiệu năng: N+1 ở bảng phép (`balance()` từng NV) và bản tin (RPC từng bài); danh sách đơn đọc toàn bộ lịch sử tenant mỗi lần mở; đếm exact `attendance_events` ở trang Cài đặt; mời 300 người gửi thư tuần tự (quá timeout Render) — [opus high]
+
+### Vòng 2 — trải nghiệm, truy cập, khớp prototype
+- [ ] Lương sau UAT vòng 2 nhánh B (18/11): ô kỳ ở Bảng lương tự về tháng hiện tại khi quay lại trang; chi tiết dòng kỳ lương không hiện "Thuế TNCN 0 ₫" + giảm trừ (Tính thử có), web `payroll/cycles.tsx:238` hiện công thức thay tên khoản; khối lỗi kỳ lương chữ dính "…duyệt payroll cảnh báo đối chiếu…", mọi cảnh báo nhóm "Khác"; kỳ trống còn ghi "nhập file kết quả CSV"; đầu trang Kế toán hiện vai trò "Nhân viên"; Tổng quan Kế toán thứ hai không nhắc kỳ chờ duyệt; ngày trả dự kiến đã qua không cảnh báo; người 0 công vẫn nhận phiếu 0 ₫; màn đã duyệt chưa hướng dẫn xin quyền "Mở lại kỳ lương" (không có trong vai trò mặc định) — [sonnet]
 - [ ] Web hộp thoại: Esc đóng dropdown `Select` đóng luôn modal (`useEsc` ở `_ui/kit.tsx:112` không kiểm `defaultPrevented`, lớp chồng đóng cả hai), bấm nền đóng modal đang nhập; soạn bản tin lỗi đính kèm → lưu lại tạo bài trùng (`announcements/page.tsx:221`); nhập CSV kỳ lương bấm đúp → 2 lượt nhập (`payroll/cycles.tsx:278`); Cài đặt `key={tab}` mất sửa đổi khi đổi tab — [sonnet]
 - [ ] Web: chọn tháng neo theo tháng đang xem nên không quay lại tháng mới nhất (`attendance/month.tsx:49`, `overtime.tsx:40`, `payroll/advances.tsx:44`); `slaLabel` quá hạn < 30 phút hiện "Còn 1 giờ" (`_ui/request.tsx:43`); 10 ô tìm kiếm không bỏ dấu (đưa `fold` vào web-ui) — [sonnet]
 - [ ] Truy cập web: `Field` không gắn nhãn với ô nhập/`Select`; modal không đưa/giữ/trả focus — [sonnet]
 - [ ] Thông báo duyệt sửa hồ sơ lặp chữ "Sửa hồ sơ Sửa email…" — [sonnet]
-- [ ] Web còn ngưỡng nghiệp vụ cứng trái ADR 0001: lương ≥ 1.000.000 (chặn thực tập/CTV), thử việc 85–100%, đoàn phí 0–5%, mốc 5 triệu (`employees/pay.tsx:124`, `settings/page.tsx:91`, `requests/page.tsx:161`) — [opus high]
-- [ ] `requests.items()` (danh sách/xuất CSV đơn) `.in()` theo mọi id đơn: > ~200 đơn trong một lần xuất → URL quá dài, lỗi 500 (lỗi rõ, không sai số) — chia lô bằng `allIn` (db/rows.ts) — [sonnet]
-- [ ] Hồ sơ nhân viên sắp vào làm hiện trống phòng ban/quản lý (`detail`/`enrich` lấy phân công theo hôm nay); phạm vi và sửa hồ sơ đã theo phân công sắp hiệu lực (17/11) — [sonnet]
-- [ ] App sau UAT vòng 2 (18/11): kẹt màn E16 sau khi Console mở lại công ty (phải tắt hẳn app) + app đang mở không tự báo tạm khóa; ở màn E15 vẫn gọi `/auth/refresh` lặp; "Widget chấm công" hướng dẫn thêm widget chưa có thật — [sonnet]
-- [ ] Tạm ứng: không cảnh báo khi NV chưa có tài khoản ngân hàng (app "Nhận vào tài khoản nhận lương", web "Xác nhận đã chi"); một người (quản lý kiêm Kế toán) duyệt cả 2 bước — người dùng quyết có chặn không — [opus xhigh]
-- [ ] Lặt vặt UAT vòng 2: ca mặc định "Người tạo: Người dùng"; ô mã NV gợi ý "HD0301" ở mọi công ty; web HR kích hoạt chỉ một ô mật khẩu (Console có ô nhập lại); app "Công bố 18-11" lệch kiểu ngày "05/11"; màn Widget hiện ngày/khoảng cách mẫu ở bản thật; nút Đăng xuất web dùng `confirm()` trình duyệt thay hộp thoại của app — [haiku]
-- [ ] Lương sau UAT vòng 2 nhánh B (18/11): ô kỳ ở Bảng lương tự về tháng hiện tại khi quay lại trang; chi tiết dòng kỳ lương không hiện "Thuế TNCN 0 ₫" + giảm trừ (Tính thử có), web `payroll/cycles.tsx:238` hiện công thức thay tên khoản; khối lỗi kỳ lương chữ dính "…duyệt payroll cảnh báo đối chiếu…", mọi cảnh báo nhóm "Khác"; kỳ trống còn ghi "nhập file kết quả CSV"; đầu trang Kế toán hiện vai trò "Nhân viên"; Tổng quan Kế toán thứ hai không nhắc kỳ chờ duyệt; ngày trả dự kiến đã qua không cảnh báo; người 0 công vẫn nhận phiếu 0 ₫; màn đã duyệt chưa hướng dẫn xin quyền "Mở lại kỳ lương" (không có trong vai trò mặc định) — [sonnet]
-- [ ] Trước khi công ty đầu tiên trả lương theo số Kavor: Kế toán/chuyên gia xác nhận tham số luật "Cần đối chiếu" (biểu thuế 5 bậc, khấu trừ 10% thời vụ) — [opus xhigh]
-- [ ] Trước khi dùng chính thức: người hiểu luật xác nhận thủ tục chuyển dữ liệu cá nhân ra nước ngoài (Supabase Singapore) — việc của người dùng, không phải code
-- [ ] Trước pilot: bản đồ production có key (VietMap/Goong/Map4D) thay tile.openstreetmap.de + Photon, đổi qua `NEXT_PUBLIC_MAP_TILE_URL`/geocoder; kiểm đăng ký ở VN + tiền tạm giữ trước — [sonnet]
-- [ ] Phạm vi "phòng ban" gồm cả phòng ban con (`scoped_employees` hiện so khớp đúng `department_id`; bản tin đã tính cả cây) + pgTAP — [opus xhigh]
-- [ ] `payroll_law` (`202611270001:23`) khóa sửa tham số luật theo `current_date` (UTC): 00:00–07:00 VN ngày hiệu lực Console vẫn sửa được — đổi sang ngày VN — [opus xhigh]
-- [ ] Phép tồn: sổ năm trước bổ sung theo quy định phép năm đang áp dụng hôm nay (shortcut 17/11, `leave.service.ts`) — đổi khi quy định có lịch sử theo năm — [opus high]
-- [ ] (Tùy chọn) HR điều chỉnh công: xóa một giờ chấm sai (hiện chỉ đặt giờ), ca qua đêm; tab Lịch sử hồ sơ hiện ngày được sửa — [opus high]
-- [ ] (Tùy chọn) Tạm nghỉ: mobile báo "Đang tạm nghỉ" ở màn chấm công; tính 50% theo ngày làm việc của ca thay vì ngày lịch; tạm ứng khi đang tạm nghỉ — [opus high]
-- [ ] (Tùy chọn) Chuyển người duyệt khi quản lý trực tiếp nghỉ việc (bước "Quản lý trực tiếp" giao đích danh, hiện chỉ cảnh báo) — [opus high]
-- [ ] (Tùy chọn) "Nhắc người duyệt" ở chi tiết đơn chờ duyệt (prototype có; hiện chỉ nhắc tự động theo hạn) — [opus high]
 - [ ] Thời hạn thử việc trong hồ sơ → "hết thử việc" ở khối Sắp tới — [opus high]
 - [ ] Tìm đơn theo mã trong Ctrl K; nút Ctrl K trên màn hẹp; "Xuất danh sách" chấm công hôm nay; ô "Người đang áp dụng" (Ca & địa điểm); phân trang bảng Ngày lễ — [sonnet]
 - [ ] P3 lương: trang Lương theo prototype (tổng quỹ lương nhiều kỳ, cơ cấu quỹ, hộp Chốt bảng 4 bước); xem thanh 4 bước bằng Kế toán HD0215 — [opus xhigh]
 - [ ] Lệch prototype còn lại (đối chiếu "Điểm mới" 15/11): hồ sơ có thẻ tóm tắt cố định bên trái; Tính thử lương tự cập nhật + thanh phân bổ; đơn nghỉ hiện số dư phép; xem trước tài liệu (ov:docview) + yêu cầu tài liệu (docreq) — [opus high]
-- [ ] (Tùy chọn) Hộp nhập file: sửa dòng lỗi ngay trên bảng như prototype — cần API nhận dòng đã sửa; xem hộp ở màn hẹp — [opus high]
-- [ ] Hiệu năng: N+1 ở bảng phép (`balance()` từng NV) và bản tin (RPC từng bài); danh sách đơn đọc toàn bộ lịch sử tenant mỗi lần mở; đếm exact `attendance_events` ở trang Cài đặt; mời 300 người gửi thư tuần tự (quá timeout Render) — [opus high]
 - [ ] Console: 16 chỗ chữ < 12px (tenants, support, recoveries) + 3 chỗ `kavor.css`; chưa có `PageActions`; gộp `kit.tsx`/`client.ts` Console trùng web HR vào `@kavor/web-ui` — [sonnet]
-- [ ] Dọn code (`/ponytail ultra`): `_ui/google-location-map.tsx` (không dùng được ở VN), helper chép nhiều bản (`toBase64`×4, `fold`×3, cộng tháng×5, `STATE`/`ASSIGN_STATE`), import thừa ~12 chỗ, `sb`/`idParam` thừa ở org/settings service — [haiku]
+
+### Tùy chọn — người dùng chốt giữ (xếp vào vòng 2) hay bỏ khỏi bản hoàn thiện
+- [ ] (Tùy chọn) HR điều chỉnh công: xóa một giờ chấm sai (hiện chỉ đặt giờ), ca qua đêm; tab Lịch sử hồ sơ hiện ngày được sửa — [opus high]
+- [ ] (Tùy chọn) Tạm nghỉ: mobile báo "Đang tạm nghỉ" ở màn chấm công; tính 50% theo ngày làm việc của ca thay vì ngày lịch; tạm ứng khi đang tạm nghỉ — [opus high]
+- [ ] (Tùy chọn) Chuyển người duyệt khi quản lý trực tiếp nghỉ việc (bước "Quản lý trực tiếp" giao đích danh, hiện chỉ cảnh báo) — [opus high]
+- [ ] (Tùy chọn) "Nhắc người duyệt" ở chi tiết đơn chờ duyệt (prototype có; hiện chỉ nhắc tự động theo hạn) — [opus high]
+- [ ] (Tùy chọn) Hộp nhập file: sửa dòng lỗi ngay trên bảng như prototype — cần API nhận dòng đã sửa; xem hộp ở màn hẹp — [opus high]
+
+### Việc của người dùng (không phải code)
+- [ ] Trước khi công ty đầu tiên trả lương theo số Kavor: Kế toán/chuyên gia xác nhận tham số luật "Cần đối chiếu" (biểu thuế 5 bậc, khấu trừ 10% thời vụ) — [opus xhigh]
+- [ ] Trước khi dùng chính thức: người hiểu luật xác nhận thủ tục chuyển dữ liệu cá nhân ra nước ngoài (Supabase Singapore) — việc của người dùng, không phải code
+- [ ] Trước pilot: bản đồ production có key (VietMap/Goong/Map4D) thay tile.openstreetmap.de + Photon, đổi qua `NEXT_PUBLIC_MAP_TILE_URL`/geocoder; kiểm đăng ký ở VN + tiền tạm giữ trước — [sonnet]
+- Ghi chú: Cắt khỏi Đợt 3–4 ngày 17/11 (không sai tiền/công, không mất dữ liệu; người dùng đồng ý để xong v1 trong 2 vòng):
 
 ## Đã xong (trước kế hoạch v1)
 - [x] Rà bản online/local web HR v2 với prototype v2, sửa lệch từng trang (1ab49be, ec8236f, 8454334, 977f0cc)

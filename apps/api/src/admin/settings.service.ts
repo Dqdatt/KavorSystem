@@ -4,7 +4,6 @@
 import type {
   BrandingKind, CompanySettings, HolidayYear, PlatformPolicy, PrivacyOverview, SetupChecklist, SetupStep, SupportContact,
 } from "@kavor/contracts";
-import type { SupabaseGateway } from "../auth/supabase.js";
 import { all } from "../db/rows.js";
 import { BRANDING_MAX_BYTES, brandingVersion, sniffImage, type BrandingStore } from "../company/branding.js";
 import { calendarsOf, holidaysOf, supportOf } from "../company/company.service.js";
@@ -14,7 +13,7 @@ import type { ScheduleAdmin } from "./schedule.service.js";
 import { planOf } from "../tenancy/plan.js";
 import { loadPlacements } from "../attendance/policy.js";
 import { managerTierOk, type PayrollConfig } from "@kavor/contracts";
-import { EMAIL, date, nullableText, number, oneOf, req, text, uuid, type Body } from "./validate.js";
+import { EMAIL, date, nullableText, number, oneOf, req, text, type Body } from "./validate.js";
 
 const KINDS: readonly BrandingKind[] = ["logo", "cover"];
 const PHONE = /^[0-9+ ().-]{6,20}$/;
@@ -54,7 +53,7 @@ export const periodStartDayOf = (attendance: unknown) => {
 };
 
 export class SettingsAdmin {
-  constructor(private readonly sb: SupabaseGateway, private readonly store: BrandingStore, private readonly schedule: ScheduleAdmin) {}
+  constructor(private readonly store: BrandingStore, private readonly schedule: ScheduleAdmin) {}
 
   private async load(ctx: AdminContext): Promise<{ t: TenantRow; s: SettingsRow }> {
     const [{ data: t, error }, { data: s }] = await Promise.all([
@@ -383,4 +382,3 @@ export class SettingsAdmin {
 }
 
 export const yearParam = (v?: string) => (v && /^\d{4}$/.test(v) ? Number(v) : undefined);
-export const idParam = (id: string) => uuid({ id }, "id")!;

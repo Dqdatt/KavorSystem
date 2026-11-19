@@ -10,6 +10,12 @@ simulator hay iPhone** vì phiên cloud không có Mac). Người dùng giao "c�
 ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AGENT_PLAYBOOK.md`; kiểm tra toàn bộ bằng `bash tools/verify-all.sh`.
 
 ## Đã xong
+- Đợt 5 xong → **v1 xong** (19/11, Claude Desktop). Việc vặt UAT vòng 2: người tạo ca hệ thống hiện "Hệ thống"; gợi ý mã NV "VD: NV0001";
+  kích hoạt web HR có ô nhập lại mật khẩu; app ngày dd/MM (Hermes ra "18-11"); widget hiện ngày/khoảng cách thật; đăng xuất web HR/Console dùng Modal.
+  Dọn code: bỏ Google Maps; gộp `toBase64`/`shiftMonth`/`ASSIGN_STATE` vào `_ui/kit.tsx`, `fold` từ `@kavor/web-ui`; bỏ import thừa, tham số `sb` thừa.
+  Kiểm: verify-all đầy đủ ở API 4100 đạt (operators chạy lại đạt — lỗi môi trường, xem AGENTS); Android emulator bản Release mới: Mẫu B → đăng xuất →
+  Hải Đăng không lộ dữ liệu, PIN tạo mới, phiếu 11/2026 có tên khoản; đã gỡ cleartext. iPhone 11 cài bản Release online mới.
+  "Sau v1" gom thành Vòng 1 (đúng số/bảo mật/toàn vẹn) + Vòng 2 (trải nghiệm/prototype) trong `docs/TASKS.md` — mục tiêu người dùng: 1–2 vòng là xong.
 - UAT vòng 2 (18/11, Claude Desktop) — kết quả từng mục `docs/plans/uat-vong2-ketqua.md`, việc Sau v1 mới trong `docs/TASKS.md`:
   - Nhánh A (công ty mới ABC-001, Console → HR → app): đạt; 2 P0 đã sửa ở `d71f286` — web không có nút "Thêm địa điểm"/"Tạo ca" khi trống
     (`Empty.action`); app hiện dữ liệu người trước trên máy (cache khóa theo `employeeId`, `signIn` bỏ trường CACHED khi đổi người, đăng ký/duyệt máy tải lại hết).

@@ -7,7 +7,6 @@ import type {
 } from "@kavor/contracts";
 import { NEAR_LIMIT_RATIO, canOperate } from "@kavor/contracts";
 import { AuthError } from "../auth/auth.service.js";
-import type { SupabaseGateway } from "../auth/supabase.js";
 import { conflict, forbidden, invalid, notFound } from "../admin/context.js";
 import type { Mailer } from "../admin/mailer.js";
 import { EMAIL, nullableText, number, oneOf, req, text, uuid, type Body } from "../admin/validate.js";
@@ -33,7 +32,7 @@ const TENANT_COLS = "id, code, display_name, legal_name, tax_code, timezone, pla
 const RECOVERY_COLS = "id, tenant_id, kind, target_employee_id, new_admin_name, new_admin_email, verification, reason, requested_by, requested_at, expires_at, status, decided_by, decided_at, decision_note, result";
 
 export class ConsoleService {
-  constructor(private readonly sb: SupabaseGateway, private readonly mailer: Mailer, private readonly adminWebUrl: string) {}
+  constructor(private readonly mailer: Mailer, private readonly adminWebUrl: string) {}
 
   /* ---------- Tenant ---------- */
   private async summaries(ctx: ConsoleContext, only?: string): Promise<ConsoleTenant[]> {

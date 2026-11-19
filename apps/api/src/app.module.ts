@@ -68,7 +68,7 @@ import type { TimesheetServices } from "./timesheet/timesheet.controller.js";
         if (!sb) return null;
         const c = loadConfig();
         const mailer = new Mailer(c.mail);
-        return { console: new ConsoleService(sb, mailer, c.adminWebUrl), mfa: new MfaAdmin(sb), support: new SupportService(sb), operators: new OperatorsService(sb, mailer, c.consoleWebUrl, c.consoleBootstrap), law: new PayrollLawService() };
+        return { console: new ConsoleService(mailer, c.adminWebUrl), mfa: new MfaAdmin(sb), support: new SupportService(sb), operators: new OperatorsService(sb, mailer, c.consoleWebUrl, c.consoleBootstrap), law: new PayrollLawService() };
       },
     },
     { provide: BrandingStore, inject: [SupabaseGateway], useFactory: (sb: SupabaseGateway | null) => (sb ? new BrandingStore(sb) : null) },
@@ -82,8 +82,8 @@ import type { TimesheetServices } from "./timesheet/timesheet.controller.js";
         return {
           attendance, schedule, company,
           employees: new EmployeesAdmin(sb, new Mailer(loadConfig().mail), attendance),
-          settings: new SettingsAdmin(sb, branding, schedule), rules: new RulesAdmin(schedule), mfa: new MfaAdmin(sb),
-          timesheets: new TimesheetAdmin(ts.timesheets, ts.requests), requests: ts.requests, notifications: ts.notifications, leave: ts.leave, overtime: ts.overtime, advance: ts.advance, payroll: ts.payroll, inputs: ts.inputs, announcements: ts.announcements, documents: ts.documents, checklist: new ChecklistService(), support: new SupportService(sb), org: new OrgAdmin(sb), importer: new EmployeeImport(sb), structure: new StructureAdmin(sb), law: new PayrollLawService(),
+          settings: new SettingsAdmin(branding, schedule), rules: new RulesAdmin(schedule), mfa: new MfaAdmin(sb),
+          timesheets: new TimesheetAdmin(ts.timesheets, ts.requests), requests: ts.requests, notifications: ts.notifications, leave: ts.leave, overtime: ts.overtime, advance: ts.advance, payroll: ts.payroll, inputs: ts.inputs, announcements: ts.announcements, documents: ts.documents, checklist: new ChecklistService(), support: new SupportService(sb), org: new OrgAdmin(), importer: new EmployeeImport(sb), structure: new StructureAdmin(sb), law: new PayrollLawService(),
         };
       },
     },

@@ -41,8 +41,6 @@ function tierOf(b: Body): number | null | undefined {
 }
 
 export class OrgAdmin {
-  constructor(private readonly sb: SupabaseGateway) {}
-
   private async today(ctx: AdminContext) {
     const { data } = await ctx.db.from("tenants").select("timezone").eq("id", ctx.tenantId).single();
     return localParts(new Date(), (data?.timezone as string) ?? "Asia/Ho_Chi_Minh").date;

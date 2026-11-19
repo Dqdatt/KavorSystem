@@ -11,7 +11,7 @@ import {
 } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
 import { SupportPanel } from "../../_ui/support";
-import { vs, PageActions, PageSub, Empty, ErrorLine, Field, Icon, LoadError, Modal, MoreMenu, SCOPE, Status, can, fmtDate, fmtDateTime, num, tenantToday, useAction, useMe } from "../../_ui/kit";
+import { vs, ASSIGN_STATE, PageActions, PageSub, Empty, ErrorLine, Field, Icon, LoadError, Modal, MoreMenu, SCOPE, Status, can, fmtDate, fmtDateTime, num, tenantToday, toBase64, useAction, useMe } from "../../_ui/kit";
 import { ReasonModal } from "../../_ui/reason-modal";
 import { Hint, Select, SkeletonRows } from "@kavor/web-ui";
 
@@ -206,7 +206,7 @@ function BrandImage({ kind, version, manage, onSaved }: { kind: BrandingKind; ve
   const pick = async (file: File | undefined) => {
     if (!file) return;
     if (file.size > 2 * 1024 * 1024) { await run("x", async () => { throw new Error("Ảnh tối đa 2 MB."); }); return; }
-    const dataBase64 = await new Promise<string>((ok, bad) => { const r = new FileReader(); r.onload = () => ok(String(r.result)); r.onerror = () => bad(r.error); r.readAsDataURL(file); });
+    const dataBase64 = await toBase64(file);
     await run("up", async () => onSaved(await call<CompanySettings>("POST", `settings/branding/${kind}`, { dataBase64 })), logo ? "Đã cập nhật logo" : "Đã cập nhật ảnh bìa");
   };
   const box = { border: "1px dashed var(--line-strong)", borderRadius: 12, background: "var(--surface-2)", display: "grid", placeItems: "center", overflow: "hidden", color: "var(--muted)", fontSize: 12 } as const;
@@ -264,7 +264,6 @@ const fieldRows = (kind: RuleKind, config: RuleConfig): Array<[string, string]> 
   return [f.label, f.type === "bool" ? (v ? "Có" : "Không") : `${typeof v === "number" ? num(v) : v} ${f.unit ?? ""}`.trim()];
 });
 const Kv = ({ rows }: { rows: Array<[string, string]> }) => <div className="kv">{rows.map(([l, v]) => <div key={l}><span>{l}</span><b className="num">{v}</b></div>)}</div>;
-const ASSIGN_STATE: Record<PolicyAssignment["state"], [string, string]> = { active: ["Đang áp dụng", ""], scheduled: ["Sắp áp dụng", "info"], ended: ["Đã kết thúc", "muted"], cancelled: ["Đã hủy", "muted"] };
 
 function Rules({ setAction }: { setAction: SetAction }) {
   const me = useMe();

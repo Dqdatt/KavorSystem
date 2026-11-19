@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation";
 import { useState, type ReactNode } from "react";
 import { OPERATOR_ROLES, type OperatorMe } from "@kavor/contracts";
 import { ThemeToggle } from "@kavor/web-ui";
-import { Icon, MeContext, ToastProvider, initials, longDate, tenantToday } from "../_ui/kit";
+import { Icon, MeContext, Modal, ToastProvider, initials, longDate, tenantToday } from "../_ui/kit";
 
 type NavItem = { href: string; label: string; icon: string };
 /* Chỉ hiện trang đã làm (tenant, gói dịch vụ, khôi phục chủ sở hữu, audit). Các mục khác của prototype (Usage — đã gộp bảng
@@ -21,10 +21,12 @@ const TITLES: Record<string, string> = { "/": "Tổng quan nền tảng", "/tena
 export function Shell({ me, children }: { me: OperatorMe; children: ReactNode }) {
   const path = usePathname();
   const [menu, setMenu] = useState(false);
+  const [asking, setAsking] = useState(false);
+  const [out, setOut] = useState(false);
   const active = (href: string) => (href === "/" ? path === "/" : path.startsWith(href));
 
   async function logout() {
-    if (!confirm("Đăng xuất khỏi Kavor Console?")) return;
+    setOut(true);
     await fetch("/api/auth/logout", { method: "POST" }).catch(() => null);
     window.location.href = "/login";
   }
@@ -51,7 +53,7 @@ export function Shell({ me, children }: { me: OperatorMe; children: ReactNode })
             ))}
             <div className="sidebar-spacer" />
             <div className="nav-sep" />
-            <button className="nav-item" onClick={logout}><span className="nav-icon"><Icon name="logout" /></span><span className="nav-text">Đăng xuất</span></button>
+            <button className="nav-item" onClick={() => setAsking(true)}><span className="nav-icon"><Icon name="logout" /></span><span className="nav-text">Đăng xuất</span></button>
             <div className="sidebar-user" title={me.email}>
               <span className="avatar purple">{initials(me.fullName)}</span>
               <span className="user-copy"><b>{me.fullName}</b><span>{OPERATOR_ROLES[me.role].label}</span></span>
@@ -70,6 +72,12 @@ export function Shell({ me, children }: { me: OperatorMe; children: ReactNode })
             </header>
             <div className="workspace">{children}</div>
           </section>
+          {asking ? (
+            <Modal title="Đăng xuất khỏi Kavor Console?" onClose={() => setAsking(false)}
+              foot={<><button className="btn ghost" onClick={() => setAsking(false)}>Hủy</button><button className="btn primary" disabled={out} onClick={() => void logout()}>Đăng xuất</button></>}>
+              <p>Bạn sẽ cần đăng nhập lại để tiếp tục.</p>
+            </Modal>
+          ) : null}
         </ToastProvider>
       </main>
     </MeContext.Provider>

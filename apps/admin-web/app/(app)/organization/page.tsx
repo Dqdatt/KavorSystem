@@ -8,7 +8,7 @@ import { MANAGEMENT_TIERS, ORG_UNIT_KINDS, type EmployeeListItem, type Managemen
 import { call, useApi } from "../../_lib/client";
 import { PageActions, PageSub, Avatar, Empty, ErrorLine, Field, Icon, LoadError, Modal, MoreMenu, Person, Status, can, fmtDate, num, useAction, useMe } from "../../_ui/kit";
 import { StructureModal } from "../../_ui/structure-plan";
-import { Select, Skeleton, SkeletonLines } from "@kavor/web-ui";
+import { Select, SkeletonLines } from "@kavor/web-ui";
 
 type Edit = { mode: "create"; kind: OrgUnitKind; parent?: OrgUnit } | { mode: "edit"; unit: OrgUnit };
 type Tab = "tree" | "unit" | "title";

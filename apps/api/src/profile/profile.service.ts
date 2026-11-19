@@ -1,7 +1,7 @@
 /* Hồ sơ cá nhân + đề nghị sửa (docs/plans/profile-change.md). Nhân viên đề nghị sửa điện thoại, email cá nhân, địa chỉ, liên hệ khẩn cấp,
    tài khoản ngân hàng; HR duyệt (luồng "profile_change"), duyệt xong trigger SQL áp vào hồ sơ. Số tài khoản đầy đủ chỉ trả cho chính
    nhân viên; người có employee.sensitive.read xem qua revealBank (mỗi lượt ghi nhật ký); nội dung đơn/audit chỉ có 4 số cuối. */
-import type { BankAccountReveal, BankAccountView, EmergencyContact, PersonalInfo, ProfileChangeInput, ProfileField, ProfileValues, RequestItem } from "@kavor/contracts";
+import type { BankAccountReveal, BankAccountView, EmergencyContact, PersonalInfo, ProfileField, ProfileValues, RequestItem } from "@kavor/contracts";
 import { AuthError, type EmployeeRow } from "../auth/auth.service.js";
 import type { SupabaseGateway } from "../auth/supabase.js";
 import { conflict, invalid, notFound, type AdminContext } from "../admin/context.js";

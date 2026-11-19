@@ -30,6 +30,7 @@ function LoginForm() {
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
   const [newPw, setNewPw] = useState("");
+  const [newPw2, setNewPw2] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
@@ -122,12 +123,14 @@ function LoginForm() {
             <form onSubmit={(e) => run(e, async () => {
               const p = passwordProblems(newPw, code);
               if (p.length) throw new Error(p.join(" "));
+              if (newPw !== newPw2) throw new Error("Hai lần nhập mật khẩu không khớp.");
               await post("/api/auth/activate/verify", { email, code: otp.trim(), password: newPw }); done();
             })}>
               <h1>Nhập mã và đặt mật khẩu</h1>
               <p className="lg-sub">{info}</p>
               <Fld id="otp" label="Mã OTP (6 số)" icon="mail"><input id="otp" placeholder="Mã OTP 6 số" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={otp} onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))} required /></Fld>
               <Fld id="npw" label="Mật khẩu mới" icon="lock"><PasswordInput id="npw" placeholder="Mật khẩu mới" autoComplete="new-password" value={newPw} onChange={(e) => setNewPw(e.target.value)} required /></Fld>
+              <Fld id="npw2" label="Nhập lại mật khẩu" icon="lock"><PasswordInput id="npw2" placeholder="Nhập lại mật khẩu" autoComplete="new-password" value={newPw2} onChange={(e) => setNewPw2(e.target.value)} required /></Fld>
               <p className="lg-hint">Ít nhất 8 ký tự, có chữ hoa và số, không chứa mã nhân viên.</p>
               {err}
               <button className="btn primary lg-btn" disabled={busy}>{busy ? "Đang kích hoạt…" : "Kích hoạt và đăng nhập"}</button>

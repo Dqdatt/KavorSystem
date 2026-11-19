@@ -65,7 +65,7 @@ function collect(node: ReactNode, out: Opt[]): Opt[] {
   return out;
 }
 
-const fold = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/g, "d").replace(/Đ/g, "D").toLowerCase();
+export const fold = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/g, "d").replace(/Đ/g, "D").toLowerCase();
 
 export function Select({ value, onChange, children, disabled, className, style, placeholder, id, ...rest }: SelectProps) {
   const options = useMemo(() => collect(children, []), [children]);

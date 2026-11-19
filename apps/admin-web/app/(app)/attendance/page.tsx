@@ -3,7 +3,7 @@ import { Suspense, useMemo, useState, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { AdminAttendanceEvent, AdminDevice, AttendanceBoard, TimesheetBoard, TodayRow } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
-import { vs, PageActions, PageSub, DEVICE, Empty, Icon, LoadError, Person, REJECT_REASON, Status, can, dur, fmtDate, fmtDateTime, fmtTime, longDate, meters, tenantToday, useAction, useMe, useRemind } from "../../_ui/kit";
+import { PageActions, PageSub, DEVICE, Empty, Icon, LoadError, Person, REJECT_REASON, Status, can, dur, fmtDate, fmtDateTime, fmtTime, longDate, meters, tenantToday, useAction, useMe, useRemind } from "../../_ui/kit";
 import { ReasonModal } from "../../_ui/reason-modal";
 import { EmployeeMonth, MonthTab } from "./month";
 import { OvertimeTab } from "./overtime";

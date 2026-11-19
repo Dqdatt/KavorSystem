@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { AdminDevice, EmployeeTimesheet, RequestItem, TimesheetBoard, TimesheetDay } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
-import { vs, Drawer, Empty, Field, Icon, LoadError, Modal, Person, Status, dur, fmtDate, fmtDateTime, num, tenantToday, useAction, useMe } from "../../_ui/kit";
+import { vs, Drawer, Empty, Field, Icon, LoadError, Modal, Person, Status, dur, fmtDate, fmtDateTime, num, tenantToday, useAction, shiftMonth, useMe } from "../../_ui/kit";
 import { ReasonModal } from "../../_ui/reason-modal";
 import { MonthMini } from "../employees/profile";
 import { REQUEST_STATUS, RequestModal, requestSummary } from "../../_ui/request";
@@ -24,7 +24,6 @@ function gridDates(start: string, end: string) {
 const WD = ["", "T2", "T3", "T4", "T5", "T6", "T7", "CN"];
 /* "2026-10" → "Tháng 10/2026"; danh sách 6 kỳ gần nhất để chọn */
 const monthLabel = (m: string) => `Tháng ${Number(m.slice(5))}/${m.slice(0, 4)}`;
-const shiftMonth = (m: string, n: number) => { const [y, mo] = m.split("-").map(Number) as [number, number]; const d = new Date(Date.UTC(y, mo - 1 + n, 1)); return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`; };
 
 export function MonthTab({ setAction }: { setAction: (n: ReactNode) => void }) {
   const me = useMe();

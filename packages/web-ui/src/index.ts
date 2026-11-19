@@ -1,4 +1,4 @@
-export { Select } from "./select";
+export { Select, fold } from "./select";
 export type { SelectChangeEvent, SelectProps } from "./select";
 export { ThemeSwitch, ThemeSync, ThemeToggle, themeInitScript } from "./theme";
 export { Hint } from "./hint";

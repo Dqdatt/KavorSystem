@@ -5,7 +5,7 @@ import type { BulkInviteResult, ChecklistGaps, EmployeeListItem, OrgOptions } fr
 import { call, useApi } from "../../_lib/client";
 import { PageActions, PageSub, ACCOUNT, EMP_STATUS, EMPLOYMENT, Empty, Icon, LoadError, Modal, Person, Status, can, fmtDate, tenantToday, tenure, useAction, useMe, useRemind } from "../../_ui/kit";
 import { ImportModal } from "../../_ui/employee-import";
-import { Select, SkeletonRows } from "@kavor/web-ui";
+import { Select, SkeletonRows, fold } from "@kavor/web-ui";
 import { EmployeeForm } from "./profile";
 
 /* Chip lọc nhanh có số đếm: trên danh sách đã tải (đã lọc phòng ban/trạng thái), không tính ô tìm */
@@ -50,7 +50,6 @@ function EmployeesPage() {
   const all = list.data ?? [];
   /* Nhóm theo phòng ban (A–Z), trong phòng theo tên rồi họ — cách đọc danh sách quen thuộc ở VN */
   const rows = useMemo(() => {
-    const fold = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/g, "d");
     const k = fold(q.trim());
     const pass = (QUICK.find((c) => c[0] === quick) ?? QUICK[0]!)[2];
     const base = (list.data ?? []).filter(pass);

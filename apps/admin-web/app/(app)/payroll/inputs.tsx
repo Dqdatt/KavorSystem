@@ -5,12 +5,11 @@
 import { useMemo, useState, type ReactNode } from "react";
 import type { PayrollInputRow, PayrollInputSheet } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
-import { PageActions, Thk, EMPLOYMENT, Empty, ErrorLine, Field, Icon, LoadError, Modal, Person, Status, fmtDate, fmtDateTime, num, useAction, useMe } from "../../_ui/kit";
+import { PageActions, Thk, EMPLOYMENT, Empty, ErrorLine, Field, Icon, LoadError, Modal, Person, Status, fmtDate, fmtDateTime, num, useAction, shiftMonth, useMe } from "../../_ui/kit";
 import { money } from "../../_ui/request";
 import { Hint, Select, SkeletonRows } from "@kavor/web-ui";
 
 const monthLabel = (m: string) => `Tháng ${Number(m.slice(5))}/${m.slice(0, 4)}`;
-const shiftMonth = (m: string, n: number) => { const [y, mo] = m.split("-").map(Number) as [number, number]; const d = new Date(Date.UTC(y, mo - 1 + n, 1)); return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`; };
 const hours = (m: number) => (m / 60).toLocaleString("vi-VN", { maximumFractionDigits: 2 });
 
 export function Inputs({ tabs }: { tabs: ReactNode }) {

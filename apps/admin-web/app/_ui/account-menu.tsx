@@ -4,11 +4,13 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { ThemeSwitch } from "@kavor/web-ui";
-import { Icon, can, initials, scopeText, useMe } from "./kit";
+import { Icon, Modal, can, initials, scopeText, useMe } from "./kit";
 
 export function AccountMenu() {
   const me = useMe();
   const [open, setOpen] = useState(false);
+  const [asking, setAsking] = useState(false);
+  const [out, setOut] = useState(false);
   const box = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!open) return;
@@ -20,7 +22,7 @@ export function AccountMenu() {
   }, [open]);
 
   async function logout() {
-    if (!confirm("Đăng xuất khỏi Kavor HR?")) return;
+    setOut(true);
     await fetch("/api/auth/logout", { method: "POST" }).catch(() => null);
     window.location.href = "/login";
   }
@@ -57,8 +59,14 @@ export function AccountMenu() {
           <div className="account-sep" />
           <div className="account-row"><span>Giao diện</span><ThemeSwitch /></div>
           <div className="account-sep" />
-          <button role="menuitem" className="account-item danger" onClick={() => void logout()}><Icon name="logout" />Đăng xuất</button>
+          <button role="menuitem" className="account-item danger" onClick={() => { setOpen(false); setAsking(true); }}><Icon name="logout" />Đăng xuất</button>
         </div>
+      ) : null}
+      {asking ? (
+        <Modal title="Đăng xuất khỏi Kavor HR?" onClose={() => setAsking(false)}
+          foot={<><button className="btn ghost" onClick={() => setAsking(false)}>Hủy</button><button className="btn primary" disabled={out} onClick={() => void logout()}>Đăng xuất</button></>}>
+          <p>Bạn sẽ cần đăng nhập lại để tiếp tục.</p>
+        </Modal>
       ) : null}
     </div>
   );

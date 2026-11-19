@@ -2,12 +2,12 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { EmployeeListItem } from "@kavor/contracts";
+import { fold } from "@kavor/web-ui";
 import { useApi } from "../_lib/client";
 import { Avatar, Empty, Icon, can, useMe } from "./kit";
 
 export type CmdPage = { href: string; label: string; icon: string };
 type Row = { g: string; t: string; s?: string; icon?: string; emp?: string; href: string };
-const fold = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/g, "d");
 
 /* Thao tác nhanh: chỉ route/tham số đã có thật; prototype còn tìm mã đơn — chưa có API nên bỏ */
 const ACTIONS: Array<{ icon: string; t: string; href: string; perm: string }> = [

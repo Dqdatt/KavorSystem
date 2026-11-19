@@ -2,13 +2,13 @@
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import type { AdminDevice, EmployeeDetail, EmployeeLeave, EmployeeStatus, EmployeeTimesheet, EmploymentType, ChecklistGaps, OffboardPreview, OffboardResult, OrgOptions, PauseReason, PauseResult, RequestItem, RequestQueue, TerminationReason } from "@kavor/contracts";
-import { MANAGEMENT_TIERS, MANAGEMENT_TIERS_EN, managerTierOk, type AdminMe } from "@kavor/contracts";
+import { managerTierOk, type AdminMe } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
 import { EmployeePaySection } from "./pay";
 import { EmployeeChecklistSection } from "../documents/checklist";
 import { vs,
-  ACCOUNT, Avatar, DEVICE, Dl, EMP_STATUS, EMPLOYMENT, ErrorLine, Field, Icon, LoadError, Modal, MoreMenu, Phrases, REJECT_REASON, Section, Status, scopeText,
-  PageSub, ago, can, fmtDate, fmtDateTime, tenantToday, tenure, useAction, useMe, useToast,
+  ACCOUNT, Avatar, DEVICE, Dl, EMP_STATUS, EMPLOYMENT, ErrorLine, Field, Icon, LoadError, Modal, MoreMenu, Phrases, Section, Status, scopeText,
+  PageSub, can, fmtDate, fmtDateTime, tenantToday, tenure, useAction, useMe, useToast,
 } from "../../_ui/kit";
 import { BankLine } from "../../_ui/bank-account";
 import { ReasonModal } from "../../_ui/reason-modal";
@@ -421,7 +421,7 @@ export function EmployeeForm({ org, employee, onClose, onSaved }: { org: OrgOpti
       foot={<><button className="btn ghost" onClick={onClose}>Hủy</button><button className="btn primary" disabled={!!busy} onClick={save}>{busy ? "Đang lưu…" : employee ? "Lưu thay đổi" : "Tạo hồ sơ"}</button></>}>
       <div className="form-grid">
         <Field label="Họ và tên"><input value={f.fullName} onChange={set("fullName")} placeholder="Nguyễn Văn A" /></Field>
-        <Field label="Mã nhân viên"><input value={f.employeeCode} onChange={set("employeeCode")} placeholder="HD0301" /></Field>
+        <Field label="Mã nhân viên"><input value={f.employeeCode} onChange={set("employeeCode")} placeholder="VD: NV0001" /></Field>
         <Field label="Email công ty" note={employee?.account === "active" || employee?.account === "locked" ? "Đã kích hoạt: không đổi được email đăng nhập" : undefined}>
           <input type="email" value={f.workEmail} onChange={set("workEmail")} disabled={employee?.account === "active" || employee?.account === "locked"} />
         </Field>

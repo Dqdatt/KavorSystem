@@ -58,7 +58,7 @@ export function payslipSpec(): ScreenSpec {
 /* ---------- Phiếu lương thật: giữ khung prototype, lấy toàn bộ số tiền/nhãn từ API ---------- */
 const payMonth = (month: string) => `${month.slice(5, 7)}/${month.slice(0, 4)}`;
 const payDate = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value.slice(8, 10)}/${value.slice(5, 7)}`
-  : new Date(value).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", ...(S.ts?.timezone ? { timeZone: S.ts.timezone } : {}) });
+  : new Date(value).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", ...(S.ts?.timezone ? { timeZone: S.ts.timezone } : {}) }).replace(/\D+/g, "/");
 const payTimeline = (c: import("@kavor/contracts").PayrollCycle) => `Công bố ${c.publishedAt ? payDate(c.publishedAt) : "—"} · ${c.paidAt ? `đã trả ${payDate(c.paidAt)}` : `dự kiến trả ${payDate(c.payDate)}`}`;
 function payrollWaiting(error: string): ScreenSpec["body"] {
   return error ? [<Note key="err" icon="info">{error}</Note>, <Btn key="retry" kind="ghost" block onPress={ACT.payrollRetry}>Thử lại</Btn>]

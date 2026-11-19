@@ -13,8 +13,8 @@ import { Foot, TopBar, type ScreenSpec } from "../screen";
 import { useClock } from "../clock";
 import { REMOTE } from "../api/http";
 import { DOCUMENT_CATEGORIES, type NotificationKind } from "@kavor/contracts";
-import { dec, gh, hm } from "../data";
-import { ACT, REMINDER_GO, S, changeAvatar, go, jump, setBioPref, setPerm, lvAvail, phase, profileFieldsText, shiftMinutes, toast, worked, type ErrKind, type Route } from "../store";
+import { dec, gh, hm, pad } from "../data";
+import { ACT, REMINDER_GO, S, changeAvatar, go, jump, setBioPref, setPerm, lvAvail, WD_ISO_FULL, fmtM, phase, profileFieldsText, shiftMinutes, toast, worked, type ErrKind, type Route } from "../store";
 
 /* Ảnh bìa mặc định của Kavor (dùng khi công ty chưa tải ảnh bìa riêng) */
 const COVER = '<svg viewBox="0 0 320 124" preserveAspectRatio="xMidYMid slice"><defs><linearGradient id="pfSky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#CFF5E4"/><stop offset="1" stop-color="#F3FCF8"/></linearGradient></defs><rect width="320" height="124" fill="url(#pfSky)"/><circle cx="252" cy="36" r="15" fill="#FFF4D6"/><path d="M0 22c18 8 30 30 34 58l6 44H0z" fill="#2E9C77" opacity=".55"/><path d="M320 14c-20 10-34 34-38 64l-4 46h42z" fill="#2E9C77" opacity=".55"/><path d="M0 80c40-20 70-16 110-8s80-18 120-10 60 0 90-8v70H0z" fill="#A7F3D0"/><path d="M0 96c50-14 100-4 150-10s90-14 170 0v42H0z" fill="#34C79A"/><path d="M0 108c60-8 120 4 190-4s90-4 130 2v18H0z" fill="#0B7A5A"/></svg>';
@@ -187,7 +187,8 @@ function WidgetMed({ style }: { style?: object }) {
   const busy = ws === "busy";
   if (busy) lbl = "ĐANG GỬI";
   if (ws === "ok") { cls = "ok"; lbl = "ĐÃ GHI"; icn = "check"; }
-  const status = ws === "ok" ? (S.clockOut ? "Đã ra ca " + hm(S.clockOut) : "Đã vào ca " + hm(S.clockIn!)) : ph === "out" ? `Trong ca từ ${hm(S.clockIn!)}` : ph === "done" ? `${hm(S.clockIn!)} – ${hm(S.clockOut!)}` : "Thứ Sáu, 16/10";
+  const nd = new Date();
+  const status = ws === "ok" ? (S.clockOut ? "Đã ra ca " + hm(S.clockOut) : "Đã vào ca " + hm(S.clockIn!)) : ph === "out" ? `Trong ca từ ${hm(S.clockIn!)}` : ph === "done" ? `${hm(S.clockIn!)} – ${hm(S.clockOut!)}` : `${WD_ISO_FULL[nd.getDay() || 7]}, ${pad(nd.getDate())}/${pad(nd.getMonth() + 1)}`;
   const btnBg = cls === "out" ? { experimental_backgroundImage: "linear-gradient(155deg, rgba(214,251,234,0.96), rgba(167,243,208,0.9))", boxShadow: GL.tintSh } : cls === "off" ? { backgroundColor: "rgba(255,255,255,0.22)", boxShadow: "inset 0px 1px 0px rgba(255,255,255,0.5)" } : cls === "ok" ? { experimental_backgroundImage: "linear-gradient(225deg, #3BB565, #6CCB8C)", boxShadow: GL.tintSh } : { experimental_backgroundImage: GL.tint, boxShadow: GL.tintSh };
   const fg = cls === "out" ? C.emerald : cls === "off" ? "rgba(255,255,255,0.85)" : "#fff";
   return (
@@ -197,7 +198,7 @@ function WidgetMed({ style }: { style?: object }) {
         <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}><Logo size={16} /><T style={styles.wh}>Kavor</T></View>
         <T style={{ fontSize: 38, lineHeight: 38, fontFamily: F.light, color: "#fff", fontVariant: ["tabular-nums"] }}>{hm(now)}</T>
         <T style={styles.ws}>{status}</T>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}><Ic n="pin" s={13} w={2.2} color={S.inRange ? "#B8F5D9" : "#FFC2C6"} /><T style={{ fontSize: 11.5, fontFamily: F.semibold, color: S.inRange ? "#B8F5D9" : "#FFC2C6" }}>{S.inRange ? "Trong vùng · 1,8 m" : "Cách văn phòng 126 m"}</T></View>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}><Ic n="pin" s={13} w={2.2} color={S.inRange ? "#B8F5D9" : "#FFC2C6"} /><T style={{ fontSize: 11.5, fontFamily: F.semibold, color: S.inRange ? "#B8F5D9" : "#FFC2C6" }}>{S.inRange ? "Trong vùng" + (S.att.distM != null ? " · " + fmtM(S.att.distM) : "") : S.att.distM != null ? "Cách địa điểm " + fmtM(S.att.distM) : "Ngoài vùng"}</T></View>
       </View>
       <View style={{ width: 104, height: 104 }}>
         <View pointerEvents="none" style={{ position: "absolute", top: -8, left: -8, right: -8, bottom: -8, borderRadius: 60, backgroundColor: "rgba(255,255,255,0.14)" }} />

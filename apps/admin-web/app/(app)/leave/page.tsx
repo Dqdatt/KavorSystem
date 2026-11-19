@@ -6,7 +6,7 @@ import { Suspense, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { LEAVE_TX_KINDS, type EmployeeLeave, type LeaveBalance, type LeaveBoard, type LeaveMonth, type LeaveMonthEntry, type RequestItem } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
-import { vs, PageActions, PageSub, Thk, Avatar, Dl, Drawer, Empty, ErrorLine, Field, Icon, LoadError, Person, Status, fmtDate, fmtDateTime, tenantToday, useAction, useMe } from "../../_ui/kit";
+import { vs, PageActions, PageSub, Thk, Avatar, Dl, Drawer, Empty, ErrorLine, Field, Icon, LoadError, Person, Status, fmtDate, fmtDateTime, shiftMonth, tenantToday, useAction, useMe } from "../../_ui/kit";
 import { REQUEST_STATUS, RequestModal, requestSummary } from "../../_ui/request";
 import { Select, SkeletonLines, SkeletonRows, Hint } from "@kavor/web-ui";
 
@@ -19,7 +19,6 @@ const WD_LONG = ["Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu
 const dowOf = (date: string) => (new Date(`${date}T00:00:00Z`).getUTCDay() + 6) % 7; /* 0 = T2 */
 const daysIn = (mo: string) => new Date(Date.UTC(Number(mo.slice(0, 4)), Number(mo.slice(5, 7)), 0)).getUTCDate();
 const leadOf = (mo: string) => dowOf(`${mo}-01`);
-const shiftMo = (mo: string, by: number) => { const d = new Date(Date.UTC(Number(mo.slice(0, 4)), Number(mo.slice(5, 7)) - 1 + by, 1)); return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}`; };
 const given = (n: string) => n.trim().split(/\s+/).pop()!;
 const dm = (date: string) => `${date.slice(8, 10)}/${date.slice(5, 7)}`;
 
@@ -71,7 +70,7 @@ function LeavePage() {
   const live = { tables: ["requests", "approval_tasks"], tenantId: me.tenant.id };
   const board = useApi<LeaveBoard>(`leave?year=${year}`, live);
   const cal = useApi<LeaveMonth>(`leave/calendar?month=${mo}`, live);
-  const b = board.data, m = b?.metrics, bal = b?.rows.find((r) => r.balance)?.balance;
+  const b = board.data, bal = b?.rows.find((r) => r.balance)?.balance;
   const curCal = useApi<LeaveMonth>(`leave/calendar?month=${cur}`, live);
   const entries = cal.data?.month === mo ? cal.data.entries : null;
   const curEntries = curCal.data?.month === cur ? curCal.data.entries : null;
@@ -206,12 +205,12 @@ function Calendar({ entries, days, mo, setMo, cur, today, day, pick, dept, setDe
   const depts = [...new Set((entries ?? []).map((x) => x.employee.department).filter((x): x is string => !!x))].sort();
   const sel = days.get(day) ?? [];
   const up = [...days.entries()].filter(([d]) => d > today).sort(([a], [b]) => a.localeCompare(b)).flatMap(([d, l]) => l.map((x) => ({ d, ...x })));
-  const lead = leadOf(mo), pn = daysIn(shiftMo(mo, -1));
+  const lead = leadOf(mo), pn = daysIn(shiftMonth(mo, -1));
   const dn = dowOf(day);
   return (
     <div className="grid cal-grid top">
       <article className="card">
-        <div className="card-head"><div className="rw"><button className="iconbtn bare" aria-label="Tháng trước" onClick={() => setMo(shiftMo(mo, -1))}><Icon name="chevL" /></button><h3 style={{ fontSize: 18 }}>Tháng {Number(mo.slice(5, 7))}, {mo.slice(0, 4)}</h3><button className="iconbtn bare" aria-label="Tháng sau" onClick={() => setMo(shiftMo(mo, 1))}><Icon name="chevR" /></button>{mo !== cur ? <button className="btn small" onClick={() => setMo(cur)}>Về tháng {Number(cur.slice(5, 7))}</button> : null}</div>
+        <div className="card-head"><div className="rw"><button className="iconbtn bare" aria-label="Tháng trước" onClick={() => setMo(shiftMonth(mo, -1))}><Icon name="chevL" /></button><h3 style={{ fontSize: 18 }}>Tháng {Number(mo.slice(5, 7))}, {mo.slice(0, 4)}</h3><button className="iconbtn bare" aria-label="Tháng sau" onClick={() => setMo(shiftMonth(mo, 1))}><Icon name="chevR" /></button>{mo !== cur ? <button className="btn small" onClick={() => setMo(cur)}>Về tháng {Number(cur.slice(5, 7))}</button> : null}</div>
           <div className="row-actions"><span className="legend"><span><i style={{ background: "var(--t-np-bg)" }} />Đã duyệt</span><span><i style={{ boxShadow: "inset 0 0 0 1.5px var(--t-np-fill)" }} />Chờ duyệt</span><span><i style={{ background: "var(--surface-3)" }} />Đã qua</span></span>
             <Select className="select" value={dept} onChange={(e) => setDept(e.target.value)} aria-label="Lọc phòng ban"><option value="">Mọi phòng ban</option>{depts.map((d) => <option key={d} value={d}>{d}</option>)}</Select></div></div>
         <div className="card-body"><div className="lcal">{WD.map((x) => <b key={x}>{x}</b>)}

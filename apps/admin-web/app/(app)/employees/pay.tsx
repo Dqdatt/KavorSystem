@@ -17,7 +17,7 @@ const monthText = (m: string | null) => (m ? `${m.slice(5)}/${m.slice(0, 4)}` : 
 
 export function EmployeePaySection({ employeeId, name }: { employeeId: string; name: string }) {
   const me = useMe();
-  const { data: p, error, reload, setData } = useApi<EmployeePay>(`employees/${employeeId}/pay`);
+  const { data: p, error, setData } = useApi<EmployeePay>(`employees/${employeeId}/pay`);
   const [edit, setEdit] = useState<null | "salary" | "tax" | "dep">(null);
   const [dep, setDep] = useState<EmployeeDependent | null>(null);
   const [remove, setRemove] = useState<EmployeeDependent | null>(null);

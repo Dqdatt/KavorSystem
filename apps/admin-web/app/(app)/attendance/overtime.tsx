@@ -4,12 +4,11 @@
 import { useState } from "react";
 import { overtimeAttendanceShort, overtimeAttendanceText, type OvertimeBoard, type RequestItem } from "@kavor/contracts";
 import { useApi } from "../../_lib/client";
-import { vs, PageActions, Empty, Icon, LoadError, Person, Status, fmtDateTime, useMe } from "../../_ui/kit";
+import { vs, PageActions, Empty, Icon, LoadError, Person, Status, shiftMonth, useMe } from "../../_ui/kit";
 import { REQUEST_STATUS, RequestModal, requestSummary } from "../../_ui/request";
 import { Select, SkeletonRows, Hint } from "@kavor/web-ui";
 
 const h = (n: number) => n.toLocaleString("vi-VN", { maximumFractionDigits: 1 });
-const shift = (m: string, n: number) => { const [y, mo] = m.split("-").map(Number) as [number, number]; const d = new Date(Date.UTC(y, mo - 1 + n, 1)); return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`; };
 
 /* Vạch giờ như prototype: a = đã duyệt, w = đang chờ, còn lại để trống (tối đa n vạch) */
 function Ticks({ n, a, w }: { n: number; a: number; w: number }) {
@@ -37,7 +36,7 @@ export function OvertimeTab() {
       <div className="grid one-two">
         <article className="card">
           <PageActions><Select className="select" value={cur ?? ""} onChange={(e) => setMonth(e.target.value)} aria-label="Tháng">
-              {cur ? [0, -1, -2, -3, -4, -5].map((n) => shift(cur, n)).map((x) => <option key={x} value={x}>Tháng {Number(x.slice(5))}/{x.slice(0, 4)}</option>) : null}
+              {cur ? [0, -1, -2, -3, -4, -5].map((n) => shiftMonth(cur, n)).map((x) => <option key={x} value={x}>Tháng {Number(x.slice(5))}/{x.slice(0, 4)}</option>) : null}
             </Select></PageActions>
           <div className="card-head"><div><h3>Tổng hợp theo nhân viên</h3></div></div>
           {b && !b.rows.length ? <Empty title="Chưa có ai đăng ký làm thêm" text="Nhân viên đăng ký OT trên app; đơn đi qua luồng Quản lý → HR." /> : (

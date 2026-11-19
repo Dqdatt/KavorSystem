@@ -20,8 +20,9 @@ step "pgTAP (supabase test db)"; OUT=$(supabase test db 2>&1); echo "$OUT" >>"$L
 if echo "$OUT" | grep -q "^Result: PASS"; then echo "✔  $(echo "$OUT" | grep -o 'Tests=[0-9]*')"; else bad; fi
 
 if [ "${1:-}" != "--quick" ]; then
-  if ! curl -s -o /dev/null --max-time 3 http://127.0.0.1:4000/api/v1/health; then
-    echo "API chưa chạy (http://127.0.0.1:4000). Chạy: bash tools/dev-backend.sh — rồi chạy lại." >&2; exit 1
+  # API=http://localhost:4100/api/v1 để thử API thứ hai mà không đụng API 4000 đang dùng (smoke-lib đọc cùng biến)
+  if ! curl -s -o /dev/null --max-time 3 "${API:-http://127.0.0.1:4000/api/v1}/health"; then
+    echo "API chưa chạy (${API:-http://127.0.0.1:4000/api/v1}). Chạy: bash tools/dev-backend.sh — rồi chạy lại." >&2; exit 1
   fi
   for s in tools/*-smoke.sh; do
     name=$(basename "$s" -smoke.sh)

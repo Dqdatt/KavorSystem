@@ -3,13 +3,12 @@ import { useState } from "react";
 import dynamic from "next/dynamic";
 import type { LocationDef, OrgOptions, PolicyAssignment, PolicyKind, PolicyScopeType, ShiftDef, ShiftVersion } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
-import { vs, Empty, ErrorLine, Field, Icon, LoadError, Modal, SCOPE, Status, can, fmtDate, tenantToday, useAction, useMe } from "../../_ui/kit";
+import { vs, ASSIGN_STATE, Empty, ErrorLine, Field, Icon, LoadError, Modal, SCOPE, Status, can, fmtDate, tenantToday, useAction, useMe } from "../../_ui/kit";
 import { ReasonModal } from "../../_ui/reason-modal";
 import { Select, SkeletonLines, SkeletonRows } from "@kavor/web-ui";
 
-/* Leaflet cần window → chỉ tải phía trình duyệt. Chọn vị trí (form) dùng Google Maps khi có NEXT_PUBLIC_GOOGLE_MAPS_API_KEY, không thì Leaflet + tile OSM (bản dev);
-   bản đồ xem trên thẻ địa điểm luôn là Leaflet chỉ-đọc. */
-const LocationMap = dynamic(() => (process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ? import("../../_ui/google-location-map") : import("../../_ui/location-map")),
+/* Leaflet cần window → chỉ tải phía trình duyệt. Chọn vị trí (form) dùng Leaflet + tile OSM; bản đồ xem trên thẻ địa điểm luôn là Leaflet chỉ-đọc. */
+const LocationMap = dynamic(() => import("../../_ui/location-map"),
   { ssr: false, loading: () => <div className="location-map-canvas" /> });
 const MapView = dynamic(() => import("../../_ui/location-map"), { ssr: false, loading: () => <div className="location-map-canvas mini" /> });
 
@@ -221,7 +220,6 @@ function LocationForm({ loc, onClose, onSaved }: { loc: LocationDef | null; onCl
   );
 }
 
-const STATE: Record<PolicyAssignment["state"], [string, string]> = { active: ["Đang áp dụng", ""], scheduled: ["Sắp áp dụng", "info"], ended: ["Đã kết thúc", "muted"], cancelled: ["Đã hủy", "muted"] };
 
 function Assignments({ data, error, reload, manage, onCreate }: { data: PolicyAssignment[] | null; error: { message: string } | null; reload: () => void | Promise<unknown>; manage: boolean; onCreate: () => void }) {
   const [ending, setEnding] = useState<PolicyAssignment | null>(null);
@@ -244,7 +242,7 @@ function Assignments({ data, error, reload, manage, onCreate }: { data: PolicyAs
               <td className="nowrap"><span className="tag">{SCOPE[a.scopeType]}</span>{a.scope ? <> <span className="small muted">{a.scope.name}</span></> : null}</td>
               <td className="num nowrap">{fmtDate(a.effectiveFrom)} → {a.effectiveTo ? fmtDate(a.effectiveTo) : "không thời hạn"}</td>
               <td className="wrap"><span className="sub">{a.createdBy ?? "Dữ liệu mẫu"}</span>{a.reason ? <small className="muted" style={{ display: "block" }}>{a.reason}</small> : null}</td>
-              <td><Status v={STATE[a.state]} /></td>
+              <td><Status v={ASSIGN_STATE[a.state]} /></td>
               <td>{manage && (a.state === "active" || a.state === "scheduled") ? <button className="btn small ghost" onClick={() => setEnding(a)}>{a.state === "scheduled" ? "Hủy" : "Kết thúc"}</button> : null}</td>
             </tr>
           ))}

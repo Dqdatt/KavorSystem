@@ -219,7 +219,7 @@ export class ScheduleAdmin {
       return {
         id: a.id, kind: a.kind, target: { id: a.target_id, name: target ?? "—" }, scopeType: a.scope_type,
         scope: a.scope_id ? { id: a.scope_id, name: index.scopeName(a.scope_type, a.scope_id) } : null,
-        effectiveFrom: a.effective_from, effectiveTo: a.effective_to, reason: a.reason, createdAt: a.created_at, createdBy: a.created_by ? creator.get(a.created_by) ?? "Người dùng" : null, state,
+        effectiveFrom: a.effective_from, effectiveTo: a.effective_to, reason: a.reason, createdAt: a.created_at, createdBy: a.created_by ? creator.get(a.created_by) ?? "Hệ thống" : null, state,
       };
     }).sort((x, y) => rank[x.state]! - rank[y.state]! || SCOPES.indexOf(x.scopeType) - SCOPES.indexOf(y.scopeType) || y.effectiveFrom.localeCompare(x.effectiveFrom));
   }

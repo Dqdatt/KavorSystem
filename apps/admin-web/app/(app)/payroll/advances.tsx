@@ -6,12 +6,11 @@ import { useState } from "react";
 import type { AdvanceBoard, CompensationBoard, CompensationRow, RequestItem } from "@kavor/contracts";
 import { call, useApi } from "../../_lib/client";
 import { CompensationEditor } from "../employees/pay";
-import { vs, Empty, Field, Icon, LoadError, Modal, Person, Status, fmtDate, fmtDateTime, useAction, useMe } from "../../_ui/kit";
+import { vs, Empty, Field, Icon, LoadError, Modal, Person, Status, fmtDate, fmtDateTime, useAction, shiftMonth, useMe } from "../../_ui/kit";
 import { BankAccountNo } from "../../_ui/bank-account";
 import { REQUEST_STATUS, RequestModal, money } from "../../_ui/request";
 import { Select, SkeletonRows } from "@kavor/web-ui";
 
-const shift = (m: string, n: number) => { const [y, mo] = m.split("-").map(Number) as [number, number]; const d = new Date(Date.UTC(y, mo - 1 + n, 1)); return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`; };
 
 function state(r: RequestItem): [string, string] {
   if (r.type === "salary_advance" && r.payout) return ["Đã chi", ""];
@@ -41,7 +40,7 @@ export function Advances() {
           <b style={{ fontSize: 12 }}>Đơn trừ vào lương tháng</b>
           <span className="toolbar-spacer" />
           <Select className="select" value={cur ?? ""} onChange={(e) => setMonth(e.target.value)} aria-label="Tháng khấu trừ">
-            {cur ? [1, 0, -1, -2, -3, -4, -5].map((n) => shift(cur === b?.month && !month ? cur : cur, n)).map((x) => <option key={x} value={x}>Tháng {Number(x.slice(5))}/{x.slice(0, 4)}</option>) : null}
+            {cur ? [1, 0, -1, -2, -3, -4, -5].map((n) => shiftMonth(cur === b?.month && !month ? cur : cur, n)).map((x) => <option key={x} value={x}>Tháng {Number(x.slice(5))}/{x.slice(0, 4)}</option>) : null}
           </Select>
         </div>
         {b && !b.rows.length ? <Empty title="Chưa có đơn tạm ứng nào" text="Nhân viên gửi đơn trên app; đơn qua Quản lý (và HR khi vượt ngưỡng) rồi tới Kế toán." /> : (
