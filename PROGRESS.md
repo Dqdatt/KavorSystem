@@ -639,6 +639,9 @@ ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AG
   repo công khai → xóa), Realtime/SMTP chưa kiểm trên cloud. Repo GitHub đang công khai: không commit khóa.
 
 ## Quyết định đã chốt
+- Phát hành (người dùng, 19/11): **v1 `d22f97f` là bản phát hành**, không sửa vô hạn. Hạ tầng miễn phí, Apple ID miễn phí, bản đồ/tham số luật/Singapore
+  dùng tạm; dịch vụ trả phí (Apple Developer, hosting, domain…) và quảng bá chỉ làm khi có khách hàng. Vòng 1/2 trong TASKS là backlog theo nhu cầu khách.
+  Thay quyết định 24/10 "chưa mua gì tới khi hệ thống hoàn thiện" bằng "mua khi có khách". Khách đầu tiên: mua Apple Developer + sửa 4 mục ưu tiên (TASKS).
 - Tạm ứng 2 bước (người dùng, nhắc lại 19/11): **chặn** một người (quản lý trực tiếp kiêm Kế toán) duyệt cả 2 bước — như kỳ lương. Làm ở Vòng 1.
 - Tạm ứng (17/11/2026, người dùng): hạn mức kiểm theo từng đơn (≤ % lương cứng), không cộng dồn các đơn trong tháng — giữ như hiện tại.
 - Chưa mua dịch vụ trả phí nào (hosting, domain, Resend, Supabase Pro, Apple Developer) cho tới khi hệ thống hoàn thiện; tiếp tục dev và test trên máy local + iPhone qua cáp. Staging làm sau — vì người dùng đang trong giai đoạn dev (người dùng quyết định 24/10).

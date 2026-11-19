@@ -29,7 +29,10 @@ Người dùng: **không dùng `giao`** ở dự án này — workflow agent Cla
 - Không có `shortcut:` mới. Cũ: `attendance.ts` hàng đợi của người không đăng nhập lại; `leave.service.ts` sổ phép năm trước.
 - `payroll/advances.tsx` ~dòng 43 biểu thức `cur === … ? cur : cur` thừa — sửa cùng mục "chọn tháng neo" Vòng 2.
 
-## Việc tiếp theo — Vòng 1 (đúng số, bảo mật, toàn vẹn) `docs/TASKS.md`
+## Phát hành (chốt 19/11)
+- **v1 `d22f97f` là bản phát hành.** Không sửa vô hạn; dùng tạm hạ tầng/Apple ID miễn phí; mua dịch vụ + quảng bá khi có khách. Chi tiết TASKS "Phát hành".
+
+## Việc tiếp theo — backlog, chỉ làm khi người dùng giao (ưu tiên 4 mục "khách đầu tiên" trong TASKS)
 1. Tạm ứng (chặn 1 người duyệt 2 bước + cảnh báo thiếu tài khoản ngân hàng) + `payroll_law` ngày VN + phạm vi phòng ban con + phép tồn theo năm `[opus xhigh]` — phiên chính tự làm.
 2. Mobile bảo mật, validate API, ghi nửa chừng, ngừng phòng ban, requests chia lô, hồ sơ sắp vào làm, app E16/E15, ngưỡng cứng ADR, hiệu năng.
 3. verify-all → deploy → UAT ngắn phần đã sửa. Rồi Vòng 2 → bản hoàn thiện.

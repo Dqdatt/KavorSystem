@@ -1,5 +1,13 @@
 # Việc đang mở
 
+## Phát hành (người dùng chốt 19/11/2026)
+**v1 (`d22f97f`, deploy 19/11) là bản phát hành.** Không sửa vô hạn: hạ tầng miễn phí + Apple ID miễn phí dùng tạm; dịch vụ trả phí và quảng bá
+làm khi có khách hàng (có tiền). Vòng 1/Vòng 2 bên dưới là backlog — làm dần, ưu tiên theo nhu cầu khách thật, không chặn phát hành.
+- [ ] Khi có khách đầu tiên, TRƯỚC khi họ dùng thật: mua Apple Developer → TestFlight/App Store cho iPhone nhân viên (Android: phát APK hoặc Play)
+- [ ] Khi có khách đầu tiên: sửa 4 mục họ sẽ gặp sớm (đều trong Vòng 1) — đơn trùng khi mạng chậm (POST tạo đơn không idempotent),
+  tạm ứng chặn 1 người duyệt 2 bước, ngừng phòng ban từng có người nghỉ, ngưỡng lương ≥ 1 triệu (nếu khách có thực tập/CTV) — [opus xhigh]
+- [ ] Trước kỳ lương thật đầu tiên trả theo số Kavor: Kế toán xác nhận tham số luật (chốt 18/11)
+
 Theo kế hoạch v1 (`docs/plans/hoan-thien-v1.md`): làm đúng thứ tự đợt; việc mới không phải P0 (sai tiền/công, lộ dữ liệu, mất dữ liệu,
 crash luồng chính) ghi vào "Sau v1", không làm trước khi xong v1. Chi tiết từng mục: file:dòng ghi kèm (từ review 16/11/2026).
 
@@ -40,8 +48,8 @@ crash luồng chính) ghi vào "Sau v1", không làm trước khi xong v1. Chi t
   - [x] Thử lại Android emulator bản mới (đổi người khác công ty không lộ dữ liệu, phiếu lương có tên khoản) khi máy rảnh — tắt Simulator trước; xong thì gỡ `android:usesCleartextTraffic` tạm trong AndroidManifest — [haiku] (19/11: BX0002 Mẫu B → đăng xuất → HD0142 Hải Đăng không lộ dữ liệu, PIN tạo mới; phiếu 11/2026 có tên khoản, ngày "19/11"; widget hiện ngày thật; đã gỡ cleartext)
   - [x] Cài iPhone 11 (bản online) bản mobile mới qua cáp (lệnh build trong PROGRESS "Cài bản mới lên iPhone", API online) — [haiku] (19/11: bản có việc vặt 19/11, chưa commit lúc build)
 
-## Sau v1 — gom thành 2 vòng hoàn thiện (mục tiêu người dùng 19/11/2026: 1–2 vòng nữa là xong toàn hệ thống)
-Mỗi vòng: làm theo thứ tự module (AGENTS.md) → verify-all → deploy → UAT ngắn phần đã sửa. Việc mới phát sinh không phải P0 xếp vào vòng 2, không mở vòng 3.
+## Sau v1 — backlog 2 vòng (không chặn phát hành; làm dần theo nhu cầu khách)
+Mỗi vòng: làm theo thứ tự module (AGENTS.md) → verify-all → deploy → UAT ngắn phần đã sửa. Việc mới phát sinh không phải P0 xếp vào vòng 2.
 
 ### Việc vặt (xong 19/11, chưa deploy)
 - [x] Lặt vặt UAT vòng 2: ca mặc định "Người tạo: Người dùng"; ô mã NV gợi ý "HD0301" ở mọi công ty; web HR kích hoạt chỉ một ô mật khẩu (Console có ô nhập lại); app "Công bố 18-11" lệch kiểu ngày "05/11"; màn Widget hiện ngày/khoảng cách mẫu ở bản thật; nút Đăng xuất web dùng `confirm()` trình duyệt thay hộp thoại của app — [haiku]
