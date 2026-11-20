@@ -94,6 +94,9 @@ Cùng mã `apps/mobile/src`, build bằng `experiments/kavor-pwa` (README trong 
 | Framework / lệnh | để Vercel đọc `vercel.json` (cài pnpm ở gốc repo, `npm run build:api`, xuất `dist/`, hàm `api/proxy.mjs` ở `sin1`) |
 | Biến môi trường | `KAVOR_API_URL` = `https://kavor-api.onrender.com/api/v1`, `ENABLE_EXPERIMENTAL_COREPACK=1` |
 
+- Lần tạo đầu: Vercel chỉ thấy cây thư mục nhánh `main` (chưa có `experiments/`) và chỉ tạo project khi deploy đầu đạt → tạo với Root `./`,
+  Preset **Other**, override Build `mkdir -p public && echo Kavor > public/index.html` / Output `public` / Install `echo skip`; sau đó Settings →
+  Environments → Production → Branch Tracking = nhánh deploy, Build and Deployment → Root `experiments/kavor-pwa` + tắt override, rồi push.
 - Branch Tracking như bước 3. Không cần thêm địa chỉ PWA vào `API_CORS_ORIGINS`: PWA gọi API qua `/api/v1` cùng origin (hàm proxy).
 - Refresh token nằm trong cookie HttpOnly do hàm proxy đặt; JS của trang chỉ thấy chữ giữ chỗ `httponly`.
 - Render: đặt `MOBILE_IOS_URL` và `MOBILE_ANDROID_URL` = địa chỉ PWA → thư mời có link, mở bằng Safari → Chia sẻ → Thêm vào MH chính.
