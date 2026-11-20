@@ -89,6 +89,8 @@ Mỗi vòng: làm theo thứ tự module (AGENTS.md) → verify-all → deploy �
 - [ ] (Tùy chọn) Chuyển người duyệt khi quản lý trực tiếp nghỉ việc (bước "Quản lý trực tiếp" giao đích danh, hiện chỉ cảnh báo) — [opus high]
 - [ ] (Tùy chọn) "Nhắc người duyệt" ở chi tiết đơn chờ duyệt (prototype có; hiện chỉ nhắc tự động theo hạn) — [opus high]
 - [ ] (Tùy chọn) Hộp nhập file: sửa dòng lỗi ngay trên bảng như prototype — cần API nhận dòng đã sửa; xem hộp ở màn hẹp — [opus high]
+- [ ] (Tùy chọn) PWA thử nghiệm `experiments/kavor-pwa` (ngoài git): đã sửa dải trống đáy iOS 20/11; còn khôi phục service worker cache offline
+  (HTML network-first, không xóa cache ảnh `kavor-img`), gom 3 cơ chế chuyển hướng `react-native`, thử iPhone thật + bản `build:api` — [opus high]
 
 ### Việc của người dùng (không phải code) — đã chốt 18/11 dùng tạm (`docs/plans/hoan-thien-v1.md`), không chặn bản hoàn thiện
 - [ ] Trước khi công ty đầu tiên trả lương theo số Kavor: Kế toán/chuyên gia xác nhận tham số luật "Cần đối chiếu" (biểu thuế 5 bậc, khấu trừ 10% thời vụ) — [opus xhigh]
