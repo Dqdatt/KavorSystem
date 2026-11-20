@@ -3,7 +3,7 @@
 ## Phát hành (người dùng chốt 19/11/2026)
 **v1 (`d22f97f`, deploy 19/11) là bản phát hành.** Không sửa vô hạn: hạ tầng miễn phí + Apple ID miễn phí dùng tạm; dịch vụ trả phí và quảng bá
 làm khi có khách hàng (có tiền). Vòng 1/Vòng 2 bên dưới là backlog — làm dần, ưu tiên theo nhu cầu khách thật, không chặn phát hành.
-- [ ] Khi có khách đầu tiên, TRƯỚC khi họ dùng thật: mua Apple Developer → TestFlight/App Store cho iPhone nhân viên (Android: phát APK hoặc Play)
+- [ ] Khi có khách đầu tiên, TRƯỚC khi họ dùng thật: mua Apple Developer → TestFlight/App Store cho iPhone nhân viên (Android: phát APK hoặc Play); ngày duyệt làm theo `docs/DEPLOY.md` 7c (không sửa code)
 - [ ] Khi có khách đầu tiên: sửa 4 mục họ sẽ gặp sớm (đều trong Vòng 1) — đơn trùng khi mạng chậm (POST tạo đơn không idempotent),
   tạm ứng chặn 1 người duyệt 2 bước, ngừng phòng ban từng có người nghỉ, ngưỡng lương ≥ 1 triệu (nếu khách có thực tập/CTV) — [opus xhigh]
 - [ ] Trước kỳ lương thật đầu tiên trả theo số Kavor: Kế toán xác nhận tham số luật (chốt 18/11)
@@ -89,7 +89,8 @@ Mỗi vòng: làm theo thứ tự module (AGENTS.md) → verify-all → deploy �
 - [ ] (Tùy chọn) Chuyển người duyệt khi quản lý trực tiếp nghỉ việc (bước "Quản lý trực tiếp" giao đích danh, hiện chỉ cảnh báo) — [opus high]
 - [ ] (Tùy chọn) "Nhắc người duyệt" ở chi tiết đơn chờ duyệt (prototype có; hiện chỉ nhắc tự động theo hạn) — [opus high]
 - [ ] (Tùy chọn) Hộp nhập file: sửa dòng lỗi ngay trên bảng như prototype — cần API nhận dòng đã sửa; xem hộp ở màn hẹp — [opus high]
-- [ ] (Tùy chọn) PWA thử nghiệm `experiments/kavor-pwa` (ngoài git): đã sửa dải trống đáy iOS 20/11; còn khôi phục service worker cache offline
+- [x] PWA `experiments/kavor-pwa` vào repo (20/11): service worker cache offline, refresh token trong cookie HttpOnly (`api/proxy.mjs`), máy "(PWA)", banner link cài, link trong thư mời
+- [ ] Người dùng: tạo project Vercel `kavor-app` + đặt `MOBILE_IOS_URL`/`MOBILE_ANDROID_URL` trên Render (`docs/DEPLOY.md` 7b), thử PWA trên iPhone thật qua 4G — [haiku]
   (HTML network-first, không xóa cache ảnh `kavor-img`), gom 3 cơ chế chuyển hướng `react-native`, thử iPhone thật + bản `build:api` — [opus high]
 
 ### Việc của người dùng (không phải code) — đã chốt 18/11 dùng tạm (`docs/plans/hoan-thien-v1.md`), không chặn bản hoàn thiện

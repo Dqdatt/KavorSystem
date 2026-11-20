@@ -67,7 +67,7 @@ import type { TimesheetServices } from "./timesheet/timesheet.controller.js";
       useFactory: (sb: SupabaseGateway | null) => {
         if (!sb) return null;
         const c = loadConfig();
-        const mailer = new Mailer(c.mail);
+        const mailer = new Mailer(c.mail, c.appLinks);
         return { console: new ConsoleService(mailer, c.adminWebUrl), mfa: new MfaAdmin(sb), support: new SupportService(sb), operators: new OperatorsService(sb, mailer, c.consoleWebUrl, c.consoleBootstrap), law: new PayrollLawService() };
       },
     },
@@ -79,9 +79,10 @@ import type { TimesheetServices } from "./timesheet/timesheet.controller.js";
         if (!sb || !branding || !company || !ts) return null;
         const attendance = new AttendanceAdmin(sb);
         const schedule = new ScheduleAdmin(sb);
+        const c = loadConfig();
         return {
           attendance, schedule, company,
-          employees: new EmployeesAdmin(sb, new Mailer(loadConfig().mail), attendance),
+          employees: new EmployeesAdmin(sb, new Mailer(c.mail, c.appLinks), attendance),
           settings: new SettingsAdmin(branding, schedule), rules: new RulesAdmin(schedule), mfa: new MfaAdmin(sb),
           timesheets: new TimesheetAdmin(ts.timesheets, ts.requests), requests: ts.requests, notifications: ts.notifications, leave: ts.leave, overtime: ts.overtime, advance: ts.advance, payroll: ts.payroll, inputs: ts.inputs, announcements: ts.announcements, documents: ts.documents, checklist: new ChecklistService(), support: new SupportService(sb), org: new OrgAdmin(), importer: new EmployeeImport(sb), structure: new StructureAdmin(sb), law: new PayrollLawService(),
         };

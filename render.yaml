@@ -33,3 +33,8 @@ services:
         sync: false
       - key: CONSOLE_BOOTSTRAP_EMAIL
         sync: false
+      # Link cài app nhân viên (mail mời + banner PWA): link PWA, ngày Apple duyệt đổi thành link App Store
+      - key: MOBILE_IOS_URL
+        sync: false
+      - key: MOBILE_ANDROID_URL
+        sync: false

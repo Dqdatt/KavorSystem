@@ -1,0 +1,14 @@
+{
+  "name": "kavor-pwa",
+  "version": "0.1.0",
+  "private": true,
+  "main": "index.ts",
+  "scripts": {
+    "dev": "./node_modules/.bin/expo start --web --port 8090",
+    "build": "ln -sfn ../../apps/mobile/node_modules node_modules && rm -rf dist && ./node_modules/.bin/expo export --platform web --output-dir dist --clear && node tools/postbuild.mjs",
+    "build:api": "EXPO_PUBLIC_API_URL=/api/v1 npm run build",
+    "build:qa": "EXPO_PUBLIC_KAVOR_QA=1 npm run build",
+    "serve": "node tools/serve.mjs",
+    "test": "node --test \"tools/*.test.mjs\""
+  }
+}

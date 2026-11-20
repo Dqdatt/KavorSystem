@@ -48,3 +48,16 @@ test("gửi thư: trạm HTTPS được ưu tiên hơn SMTP; khóa trạm ngắn
     return true;
   });
 });
+
+test("link cài app: không đặt thì null, hợp lệ thì đọc được", () => {
+  assert.deepEqual(loadConfig({ NODE_ENV: "development" }).appLinks, { ios: null, android: null });
+  const c = loadConfig({ NODE_ENV: "development", MOBILE_IOS_URL: " https://apps.apple.com/app/x ", MOBILE_ANDROID_URL: "" });
+  assert.deepEqual(c.appLinks, { ios: "https://apps.apple.com/app/x", android: null });
+});
+
+test("link cài app sai URL hoặc http ở production thì báo lỗi", () => {
+  assert.throws(() => loadConfig({ NODE_ENV: "development", MOBILE_IOS_URL: "không phải url" }), (e: unknown) => e instanceof ConfigError && e.problems.some((p) => p.includes("MOBILE_IOS_URL")));
+  assert.throws(() => loadConfig({ NODE_ENV: "development", MOBILE_IOS_URL: "javascript:alert(1)" }), (e: unknown) => e instanceof ConfigError && e.problems.some((p) => p.includes("http(s)")));
+  assert.throws(() => loadConfig({ NODE_ENV: "production", SUPABASE_URL: "https://x.supabase.co", SUPABASE_SERVICE_ROLE_KEY: "k", API_CORS_ORIGINS: "https://admin.kavor.vn", MOBILE_ANDROID_URL: "http://play.test/x" }),
+    (e: unknown) => e instanceof ConfigError && e.problems.some((p) => p.includes("MOBILE_ANDROID_URL") && p.includes("https")));
+});

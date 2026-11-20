@@ -3,21 +3,28 @@
 import nodemailer, { type Transporter } from "nodemailer";
 import { ADMIN_ERRORS } from "@kavor/contracts";
 import { AuthError } from "../auth/auth.service.js";
-import type { MailConfig } from "../config.js";
+import type { AppConfig, MailConfig } from "../config.js";
 
 /* webUrl: lời mời quản trị viên (Kavor Console) — kích hoạt trên web HR/Admin thay vì ứng dụng điện thoại */
 export type InviteMail = { to: string; fullName: string; employeeCode: string; companyName: string; invitedBy: string; webUrl?: string };
 
 const escape = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 
-export function inviteContent(m: InviteMail) {
+const NO_LINKS: AppConfig["appLinks"] = { ios: null, android: null };
+
+export function inviteContent(m: InviteMail, links = NO_LINKS) {
   if (m.webUrl) return adminInviteContent(m, m.webUrl);
   const subject = `${m.companyName} mời bạn dùng Kavor`;
+  /* iPhone và Android dùng chung một link (PWA) thì chỉ ghi một lần, không kèm tên máy */
+  const pairs: [string, string | null][] = links.ios && links.ios === links.android ? [["", links.ios]] : [["iPhone ", links.ios], ["Android ", links.android]];
+  const found = pairs.filter((p): p is [string, string] => !!p[1]);
+  const step1Text = found.length ? `Cài ứng dụng Kavor trên điện thoại: ${found.map(([n, u]) => `${n}${u}`).join(" · ")}` : "Cài ứng dụng Kavor trên điện thoại.";
+  const step1Html = found.length ? `Cài ứng dụng <b>Kavor</b> trên điện thoại: ${found.map(([n, u]) => `${n}<a href="${escape(u)}">${escape(u)}</a>`).join(" · ")}` : "Cài ứng dụng <b>Kavor</b> trên điện thoại.";
   const text = [
     `Chào ${m.fullName},`,
     ``,
     `${m.invitedBy} (${m.companyName}) đã tạo tài khoản Kavor cho bạn.`,
-    `1. Cài ứng dụng Kavor trên điện thoại.`,
+    `1. ${step1Text}`,
     `2. Chọn "Kích hoạt tài khoản", nhập mã nhân viên ${m.employeeCode} và email ${m.to}.`,
     `3. Nhập mã OTP gửi về email này rồi đặt mật khẩu.`,
     ``,
@@ -26,7 +33,7 @@ export function inviteContent(m: InviteMail) {
   const html = `<div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:520px;margin:auto;color:#14231c">
 <h2 style="color:#065f46;margin:0 0 12px">Chào ${escape(m.fullName)},</h2>
 <p>${escape(m.invitedBy)} (${escape(m.companyName)}) đã tạo tài khoản Kavor cho bạn.</p>
-<ol style="line-height:1.7"><li>Cài ứng dụng <b>Kavor</b> trên điện thoại.</li>
+<ol style="line-height:1.7"><li>${step1Html}</li>
 <li>Chọn <b>Kích hoạt tài khoản</b>, nhập mã nhân viên <b style="font-family:monospace">${escape(m.employeeCode)}</b> và email <b>${escape(m.to)}</b>.</li>
 <li>Nhập mã OTP gửi về email này rồi đặt mật khẩu.</li></ol>
 <p style="color:#5b6b63;font-size:13px">Nếu bạn không làm việc tại ${escape(m.companyName)}, hãy bỏ qua thư này.</p></div>`;
@@ -81,11 +88,11 @@ type Message = { to: string; subject: string; text: string; html: string };
 
 export class Mailer {
   private transport: Transporter | null;
-  constructor(private readonly config: MailConfig | null) {
+  constructor(private readonly config: MailConfig | null, private readonly links = NO_LINKS) {
     this.transport = config?.kind === "smtp" ? nodemailer.createTransport(config.smtpUrl) : null;
   }
 
-  async sendInvite(m: InviteMail) { await this.deliver({ to: m.to, ...inviteContent(m) }); }
+  async sendInvite(m: InviteMail) { await this.deliver({ to: m.to, ...inviteContent(m, this.links) }); }
   async sendOperatorInvite(m: OperatorInviteMail) { await this.deliver({ to: m.to, ...operatorInviteContent(m) }); }
 
   private async deliver(msg: Message) {

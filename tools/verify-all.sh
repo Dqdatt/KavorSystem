@@ -15,6 +15,8 @@ bad() { echo "✘  (xem $LOG)"; FAIL=1; }
 
 step "Typecheck (mọi package)"; if pnpm -s typecheck >>"$LOG" 2>&1; then ok; else bad; fi
 step "Unit test"; if pnpm -s test >>"$LOG" 2>&1; then ok; else bad; fi
+# PWA (experiments/kavor-pwa) nằm ngoài workspace: proxy giữ refresh token trong cookie HttpOnly
+step "Unit test PWA (proxy cookie)"; if (cd experiments/kavor-pwa && node --test "tools/*.test.mjs") >>"$LOG" 2>&1; then ok; else bad; fi
 # supabase test db có thể trả mã lỗi do telemetry (PostHog timeout) dù test đạt → đọc dòng "Result:"
 step "pgTAP (supabase test db)"; OUT=$(supabase test db 2>&1); echo "$OUT" >>"$LOG"
 if echo "$OUT" | grep -q "^Result: PASS"; then echo "✔  $(echo "$OUT" | grep -o 'Tests=[0-9]*')"; else bad; fi
@@ -32,6 +34,8 @@ if [ "${1:-}" != "--quick" ]; then
   done
   bash tools/db-reset.sh >>"$LOG" 2>&1
   step "Build"; if pnpm -s build >>"$LOG" 2>&1; then ok; else bad; fi
+  # Mã apps/mobile thêm module native mới mà chưa có shim thì PWA build lỗi ở đây (Vercel cũng build y như vậy)
+  step "Build PWA (bản nối API)"; if (cd experiments/kavor-pwa && npm run -s build:api) >>"$LOG" 2>&1; then ok; else bad; fi
   # Lint cần gỡ extension pgtap do test để lại
   docker exec supabase_db_kavor-system psql -U postgres -c "drop extension if exists pgtap" >/dev/null 2>&1
   step "Lint DB (supabase db lint)"; LINT=$(supabase db lint 2>&1); echo "$LINT" >>"$LOG"

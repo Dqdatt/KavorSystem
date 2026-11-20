@@ -17,6 +17,8 @@ export type AppConfig = {
   adminWebUrl: string;
   /* Địa chỉ Kavor Console ghi trong thư mời nhân viên Kavor */
   consoleWebUrl: string;
+  /* Link cài app nhân viên — PWA hoặc App Store/Google Play; đổi biến trên Render là đổi link trong mail mời và banner PWA */
+  appLinks: { ios: string | null; android: string | null };
   /* Email được tự kích hoạt làm quản trị viên Console đầu tiên khi nền tảng chưa có quản trị viên nào (không cần chạy lệnh).
      Dev/test mặc định admin@kavor.test; staging/production phải đặt CONSOLE_BOOTSTRAP_EMAIL nếu muốn bật. */
   consoleBootstrap: { email: string; fullName: string } | null;
@@ -93,10 +95,23 @@ export function loadConfig(source: Source = process.env): AppConfig {
   const consoleWebUrl = (get("CONSOLE_WEB_URL") ?? "http://localhost:3001").replace(/\/+$/, "");
   try { new URL(consoleWebUrl); } catch { problems.push(`CONSOLE_WEB_URL không phải URL hợp lệ: "${consoleWebUrl}"`); }
 
+  const appLink = (key: string) => {
+    const v = get(key);
+    if (!v) return null;
+    try {
+      const p = new URL(v).protocol;
+      /* Link vào href thư mời và nút "Tải app": chỉ http(s), không nhận javascript:/data: */
+      if (p !== "https:" && p !== "http:") problems.push(`${key} phải là link http(s): "${v}"`);
+      else if (p !== "https:" && required) problems.push(`${key} phải dùng https ở staging/production`);
+    } catch { problems.push(`${key} không phải URL hợp lệ: "${v}"`); }
+    return v;
+  };
+  const appLinks = { ios: appLink("MOBILE_IOS_URL"), android: appLink("MOBILE_ANDROID_URL") };
+
   const bootstrapEmail = (get("CONSOLE_BOOTSTRAP_EMAIL") ?? (required ? undefined : "admin@kavor.test"))?.toLowerCase();
   if (bootstrapEmail && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(bootstrapEmail)) problems.push(`CONSOLE_BOOTSTRAP_EMAIL không phải email hợp lệ: "${bootstrapEmail}"`);
   const consoleBootstrap = bootstrapEmail ? { email: bootstrapEmail, fullName: get("CONSOLE_BOOTSTRAP_NAME") ?? "Quản trị Kavor" } : null;
 
   if (problems.length) throw new ConfigError(problems);
-  return { env, port, corsOrigins, supabase, mail, adminWebUrl, consoleWebUrl, consoleBootstrap };
+  return { env, port, corsOrigins, supabase, mail, adminWebUrl, consoleWebUrl, appLinks, consoleBootstrap };
 }

@@ -639,6 +639,9 @@ ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AG
   repo công khai → xóa), Realtime/SMTP chưa kiểm trên cloud. Repo GitHub đang công khai: không commit khóa.
 
 ## Quyết định đã chốt
+- App nhân viên (người dùng, 20/11): **dùng PWA `experiments/kavor-pwa` trước app native**; lên App Store không code lại — cùng mã `apps/mobile/src`,
+  chỉ đổi biến `MOBILE_IOS_URL` trên Render (thư mời + banner PWA), nhân viên chuyển máy qua trang Thiết bị (HR duyệt). Link cài để ở biến
+  Render, không làm trang cấu hình trên Console (chỉ đổi một lần). Thay quyết định 19/11 "PWA chỉ thử, không đụng hệ thống". Xem `docs/DEPLOY.md` 7b/7c.
 - Phát hành (người dùng, 19/11): **v1 `d22f97f` là bản phát hành**, không sửa vô hạn. Hạ tầng miễn phí, Apple ID miễn phí, bản đồ/tham số luật/Singapore
   dùng tạm; dịch vụ trả phí (Apple Developer, hosting, domain…) và quảng bá chỉ làm khi có khách hàng. Vòng 1/2 trong TASKS là backlog theo nhu cầu khách.
   Thay quyết định 24/10 "chưa mua gì tới khi hệ thống hoàn thiện" bằng "mua khi có khách". Khách đầu tiên: mua Apple Developer + sửa 4 mục ưu tiên (TASKS).

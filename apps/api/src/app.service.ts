@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { loadConfig } from "./config.js";
 
 @Injectable()
 export class AppService {
@@ -17,6 +18,7 @@ export class AppService {
       environment: process.env.NODE_ENV ?? "development",
       surfaces: ["admin-web", "console-web", "mobile-ios", "mobile-android"],
       database: "PostgreSQL/Supabase",
+      appLinks: loadConfig().appLinks,
     };
   }
 

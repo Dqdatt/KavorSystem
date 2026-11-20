@@ -7,7 +7,7 @@ Nghị định 13/2023), gói miễn phí không dùng cho khách thật (Vercel
 |---|---|---|
 | CSDL, đăng nhập, file | Supabase Free (Singapore) | Tạm dừng nếu 7 ngày không có truy vấn — bật lại trên Dashboard |
 | API | Render Free (Singapore), `render.yaml` | Ngủ sau 15 phút không ai gọi, thức dậy ~1 phút → bước 6 giữ thức |
-| Web HR + Console | Vercel Hobby (2 project) | |
+| Web HR + Console + PWA nhân viên | Vercel Hobby (3 project) | |
 | Email OTP + thư mời | Gmail SMTP (mật khẩu ứng dụng) | ~500 thư/ngày |
 
 Nếu bất kỳ dịch vụ nào đòi thẻ hoặc giữ tiền: **dừng lại**, không nhập thẻ.
@@ -56,6 +56,7 @@ https://render.com → đăng nhập GitHub → New → **Blueprint** → chọn
 | `MAIL_RELAY_URL` | `https://<web HR>/api/internal/mail` |
 | `MAIL_RELAY_SECRET` | chuỗi ngẫu nhiên ≥ 32 ký tự (`openssl rand -hex 32`), **giống hệt** biến cùng tên trên Vercel web HR |
 | `CONSOLE_BOOTSTRAP_EMAIL` | email của bạn — quản trị Console đầu tiên |
+| `MOBILE_IOS_URL` / `MOBILE_ANDROID_URL` | link cài app ghi trong thư mời và banner PWA: hiện là địa chỉ PWA (bước 7b); ngày Apple duyệt đổi `MOBILE_IOS_URL` thành link App Store (bước 7c) |
 
 **Thư mời đi qua web HR:** Render Free chặn cổng SMTP (từ 9/2026), nên API không gửi thẳng Gmail mà POST nội dung thư tới
 `/api/internal/mail` của web HR trên Vercel (Vercel mở cổng 587), kèm `MAIL_RELAY_SECRET`. Web HR cần `SMTP_URL`
@@ -82,6 +83,36 @@ https://cron-job.org (miễn phí) → tạo job gọi `https://kavor-api.onrend
 ## 7. App iPhone
 Build Release với `EXPO_PUBLIC_API_URL=https://kavor-api.onrender.com/api/v1` (lệnh trong PROGRESS "Cài bản mới lên iPhone"; xóa
 `$TMPDIR/metro-cache` trước, không bật QA). App ký bằng Apple ID miễn phí hết hạn sau 7 ngày — cắm Mac cài lại.
+
+## 7b. PWA nhân viên (dùng thay app iPhone khi chưa có Apple Developer)
+Cùng mã `apps/mobile/src`, build bằng `experiments/kavor-pwa` (README trong đó). Vercel → Add New → Project → repo `KavorSystem`:
+
+| | |
+|---|---|
+| Project name | `kavor-app` (địa chỉ ví dụ `https://kavor-app.vercel.app`) |
+| Root Directory | `experiments/kavor-pwa` — bật "Include files outside the root directory" (mặc định bật) |
+| Framework / lệnh | để Vercel đọc `vercel.json` (cài pnpm ở gốc repo, `npm run build:api`, xuất `dist/`, hàm `api/proxy.mjs` ở `sin1`) |
+| Biến môi trường | `KAVOR_API_URL` = `https://kavor-api.onrender.com/api/v1`, `ENABLE_EXPERIMENTAL_COREPACK=1` |
+
+- Branch Tracking như bước 3. Không cần thêm địa chỉ PWA vào `API_CORS_ORIGINS`: PWA gọi API qua `/api/v1` cùng origin (hàm proxy).
+- Refresh token nằm trong cookie HttpOnly do hàm proxy đặt; JS của trang chỉ thấy chữ giữ chỗ `httponly`.
+- Render: đặt `MOBILE_IOS_URL` và `MOBILE_ANDROID_URL` = địa chỉ PWA → thư mời có link, mở bằng Safari → Chia sẻ → Thêm vào MH chính.
+- Thử: mở địa chỉ PWA trên iPhone (4G), kích hoạt tài khoản thử, chấm công; trang Thiết bị trên web HR thấy máy tên "iPhone (PWA)".
+- Giới hạn: hàm Vercel nhận body tối đa 4,5 MB → file đính kèm > ~3 MB (sau base64) không gửi được qua PWA; không có thông báo khi app tắt.
+
+## 7c. Ngày Apple duyệt app (không sửa code)
+Trước khi nộp (cần Apple Developer 99 USD/năm):
+1. Tạo **công ty demo riêng** + tài khoản nhân viên demo cho người duyệt của Apple (KHÔNG dùng `TS-3010` — dữ liệu thật). Ghi vào App Review Information.
+2. Link chính sách quyền riêng tư (trang công khai) và mô tả lý do dùng vị trí/camera/Face ID khớp `apps/mobile/app.json`.
+3. Build Release với `EXPO_PUBLIC_API_URL=https://kavor-api.onrender.com/api/v1` như bước 7, ký bằng tài khoản Developer, nộp qua Xcode/Transporter.
+
+Khi app đã lên App Store:
+1. Render → Environment: `MOBILE_IOS_URL` = link App Store (`https://apps.apple.com/vn/app/...`) → Save (API tự khởi động lại).
+   Từ đó thư mời ghi link App Store; PWA tự hiện banner "Kavor đã có trên App Store" (banner hiện lại cả với người từng đóng banner cài PWA).
+2. Nhân viên cài app, đăng nhập: app native là máy mới → **chờ HR duyệt** ở trang Thiết bị (máy "iPhone 13…" cạnh máy "iPhone (PWA)").
+   Trong lúc chờ vẫn chấm công bằng PWA; HR duyệt xong thì máy PWA tự bị thu hồi.
+3. Android tương tự với `MOBILE_ANDROID_URL` khi có Google Play (hoặc giữ PWA).
+4. Giữ project `kavor-app` thêm một thời gian cho người chưa chuyển; tắt khi trang Thiết bị không còn máy "(PWA)" đang dùng.
 
 ## 8. Thử từ đầu
 Console (`CONSOLE_WEB_URL`) → Kích hoạt tài khoản bằng `CONSOLE_BOOTSTRAP_EMAIL` (OTP về Gmail) → tạo công ty → quản trị viên công ty kích

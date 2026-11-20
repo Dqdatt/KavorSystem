@@ -1,0 +1,16 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "installCommand": "cd ../.. && pnpm install --frozen-lockfile --filter @kavor/mobile...",
+  "buildCommand": "npm run build:api",
+  "outputDirectory": "dist",
+  "regions": ["sin1"],
+  "rewrites": [
+    { "source": "/api/v1/:path*", "destination": "/api/proxy?__p=:path*" },
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
+  ],
+  "headers": [
+    { "source": "/_expo/static/(.*)", "headers": [{ "key": "cache-control", "value": "public, max-age=31536000, immutable" }] },
+    { "source": "/(.*)", "headers": [{ "key": "x-content-type-options", "value": "nosniff" }, { "key": "referrer-policy", "value": "same-origin" }] }
+  ]
+}

@@ -23,3 +23,8 @@ supabase/.branches/
 # Ghi chú riêng trên máy (link dịch vụ online…), không đưa lên GitHub công khai
 private/
 exports/
+
+# PWA: node_modules là symlink tới apps/mobile/node_modules (mẫu "node_modules/" không khớp symlink); chứng chỉ LAN; ảnh smoke
+experiments/kavor-pwa/node_modules
+experiments/kavor-pwa/.cert/
+experiments/kavor-pwa/shots/

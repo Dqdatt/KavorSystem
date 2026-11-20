@@ -56,6 +56,7 @@ pnpm build
   Gán kết quả trước rồi kiểm: `_s1=$(call POST … "{\"a\":1,\"b\":2}") || :` rồi `check "…" "$_s1" …`. Không dùng `mktemp --suffix` (chỉ GNU).
 - `pod install`/`expo run:ios` lỗi Unicode Normalization nếu thiếu `LANG=en_US.UTF-8` (CocoaPods 1.17 + Ruby 4 khi shell không đặt locale UTF-8).
 - Code mobile nằm trong `apps/mobile/src/` (port 1:1 từ prototype). So sánh UI dùng `tools/ui-compare/` + deep link `kavor://qa/<state>` (cần `EXPO_PUBLIC_KAVOR_QA=1`); tên state trong `states.mjs` và `src/qa.ts` phải trùng nhau.
+- PWA `experiments/kavor-pwa` chạy nguyên `apps/mobile/src` trên react-native-web: thêm module native mới vào mobile thì thêm shim ở `experiments/kavor-pwa/shims` + `metro.config.js` (verify-all build PWA sẽ báo). Refresh token PWA nằm trong cookie HttpOnly của `api/proxy.mjs` — đừng đọc `auth.refreshToken` như token thật trên web.
 - `npx expo prebuild -p ios` (kể cả không `--clean`) tạo lại `ios/`: mất `DEVELOPMENT_TEAM`, `RCTNewArchEnabled` trong Info.plist và thư mục Pods. Sao lưu `project.pbxproj`/`Info.plist` trước rồi khôi phục; Pods cài lại khi `expo run:ios`.
 - Splash iOS là ảnh gradient toàn màn hình + logo: `ios/Kavor/Images.xcassets/SplashScreenGradient` (nguồn `apps/mobile/assets/splash-gradient.png`)
   và imageView `KAVOR-SplashGradient` trong `SplashScreen.storyboard` — sửa tay vì plugin expo-splash-screen chỉ hỗ trợ màu đặc; `expo prebuild` sẽ xóa,
