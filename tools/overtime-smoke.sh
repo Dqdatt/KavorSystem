@@ -50,7 +50,7 @@ echo "— Duyệt"
 call POST me/approvals/$T1/approve "$MGR" '{}' >/dev/null
 H1=$(call GET "admin/requests?status=pending" "$HR" | py "[i['myTaskId'] for i in d['items'] if i['no']=='$NO1'][0]")
 check "HR duyệt đơn OT" "$(call POST admin/approvals/$H1/approve "$HR" '{}' | field data.status)" approved
-check "Người gửi nhận thông báo" "$(call GET me/notifications "$EMP" | py "d['items'][0]['title']")" "Đơn $NO1 đã được duyệt"
+check "Người gửi nhận thông báo" "$(call GET me/notifications "$EMP" | py "d['items'][0]['title']")" "Đơn làm thêm giờ đã được duyệt"
 M=$(python3 -c "
 import datetime; d=datetime.date.fromisoformat('$WD'); s=26
 m=d.month+1 if d.day>=s else d.month; y=d.year+(1 if m==13 else 0); m=1 if m==13 else m; print(f'{y}-{m:02d}')")

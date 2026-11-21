@@ -40,7 +40,7 @@ r=$(adv 2000000); RQ=$(echo "$r" | field data.id); NO=$(echo "$r" | field data.n
 check "Đơn 2 triệu: bỏ qua HR" "$(echo "$r" | py "[s['status'] for s in d['steps']]")" "['pending', 'skipped', 'waiting']"
 check "Chưa duyệt chưa chi được → 409" "$(status POST admin/advances/$RQ/paid "$PAY" '{}')" 409
 call POST me/approvals/$T1/approve "$MGR" '{}' >/dev/null
-check "Kế toán nhận thông báo cần duyệt" "$(call GET admin/notifications "$PAY" | py "[n['title'] for n in d['items']]")" "['Đơn $NO cần bạn duyệt']"
+check "Kế toán nhận thông báo cần duyệt" "$(call GET admin/notifications "$PAY" | py "[n['title'] for n in d['items']]")" "['Trần Thu Hà xin tạm ứng lương']"
 check "HR không duyệt được bước Kế toán" "$(call GET "admin/requests?status=pending" "$HR" | py "[i['myTaskId'] for i in d['items'] if i['no']=='$NO'][0]")" "None"
 T3=$(call GET "admin/requests?status=pending" "$PAY" | py "[i['myTaskId'] for i in d['items'] if i['no']=='$NO'][0]")
 check "Kế toán duyệt → hoàn tất" "$(call POST admin/approvals/$T3/approve "$PAY" '{}' | field data.status)" approved
