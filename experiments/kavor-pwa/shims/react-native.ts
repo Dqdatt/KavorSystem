@@ -3,9 +3,12 @@
      Mã app cần biết iPhone thì dùng IS_IOS (apps/mobile/src/os.ts, đọc userAgent).
    - Alert: react-native-web không có hộp thoại → hộp thoại kiểu iOS dựng bằng DOM (./alert).
    - Kích thước cửa sổ: trên máy tính, app hiển thị trong khung rộng tối đa PHONE_MAX_W như điện thoại.
-   - Linking.openSettings: trình duyệt không mở được Cài đặt → hướng dẫn bằng hộp thoại. */
+   - Linking.openSettings: trình duyệt không mở được Cài đặt → hướng dẫn bằng hộp thoại.
+   - ScrollView: bỏ khóa `overflow` trong style để danh sách cuộn ngang không bị khóa trên web, và giả lập `snapToInterval`/`snapToOffsets` + `onMomentumScrollEnd` khi ngừng cuộn (react-native-web không hỗ trợ hai tính năng này). */
+import { createElement, forwardRef, useCallback, useEffect, useRef, type ComponentProps } from "react";
 import * as RNW from "react-native-web";
 import { webAlert } from "./alert";
+import { snapTarget } from "./scroll-snap";
 
 export * from "react-native-web";
 
@@ -72,3 +75,69 @@ export const Vibration = {
 };
 
 export const LogBox = { ignoreAllLogs() {}, ignoreLogs() {} };
+
+type ScrollViewProps = ComponentProps<typeof RNW.ScrollView> & {
+  snapToInterval?: number;
+  snapToOffsets?: number[];
+  onMomentumScrollEnd?: (e: { nativeEvent: { contentOffset: { x: number; y: number } } }) => void;
+};
+
+/* react-native-web dùng overflowX/Y: auto trên div; style overflow: "visible" từ app đè mất cuộn,
+   còn snapToInterval/snapToOffsets và onMomentumScrollEnd không được hỗ trợ trên web. */
+export const ScrollView = forwardRef<RNW.ScrollView, ScrollViewProps>(function ScrollView(p, ref) {
+  const innerRef = useRef<RNW.ScrollView | null>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const setRef = useCallback(
+    (node: RNW.ScrollView | null) => {
+      innerRef.current = node;
+      if (typeof ref === "function") ref(node);
+      else if (ref) (ref as { current: RNW.ScrollView | null }).current = node;
+    },
+    [ref],
+  );
+
+  useEffect(() => () => {
+    if (timerRef.current !== null) clearTimeout(timerRef.current);
+  }, []);
+
+  let style = p.style;
+  if (p.style) {
+    const flat = RNW.StyleSheet.flatten(p.style) as Record<string, unknown> | undefined;
+    if (flat && "overflow" in flat) {
+      const { overflow: _overflow, ...rest } = flat;
+      style = rest as typeof p.style;
+    }
+  }
+
+  const hasSnap =
+    (typeof p.snapToInterval === "number" && p.snapToInterval > 0) ||
+    (Array.isArray(p.snapToOffsets) && p.snapToOffsets.length > 0);
+
+  const onScroll: ScrollViewProps["onScroll"] = hasSnap
+    ? (e) => {
+        p.onScroll?.(e);
+        const { x, y } = e.nativeEvent.contentOffset;
+        if (timerRef.current !== null) clearTimeout(timerRef.current);
+        timerRef.current = setTimeout(() => {
+          timerRef.current = null;
+          const pos = p.horizontal ? x : y;
+          const t = snapTarget(pos, p.snapToInterval, p.snapToOffsets);
+          if (t === null) return;
+          if (Math.abs(t - pos) > 1) {
+            innerRef.current?.scrollTo(p.horizontal ? { x: t, animated: true } : { y: t, animated: true });
+            return;
+          }
+          p.onMomentumScrollEnd?.({ nativeEvent: { contentOffset: { x, y } } });
+        }, 120);
+      }
+    : p.onScroll;
+
+  return createElement(RNW.ScrollView, {
+    ...p,
+    ref: setRef,
+    style,
+    onScroll,
+    scrollEventThrottle: hasSnap ? (p.scrollEventThrottle ?? 16) : p.scrollEventThrottle,
+  });
+});
