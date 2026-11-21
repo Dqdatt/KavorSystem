@@ -1,5 +1,5 @@
 /* Web Push cho PWA nhân viên (migration 202612130001). Trình duyệt đăng ký endpoint của máy chủ push (Apple/Google/Mozilla/Microsoft)
-   cho nhân viên đang đăng nhập. Thông báo trong app được trigger SQL đưa vào hàng đợi; API rút hàng đợi mỗi 20 giây rồi gửi
+   cho nhân viên đang đăng nhập. Thông báo trong app được trigger SQL đưa vào hàng đợi; API rút hàng đợi mỗi 5 giây rồi gửi
    (thư viện web-push: ký VAPID + mã hóa đầu-cuối theo RFC 8291, máy chủ push không đọc được nội dung). */
 import webpush from "web-push";
 import type { PushSubscriptionInput } from "@kavor/contracts";
@@ -12,7 +12,8 @@ export type WebPushConfig = { publicKey: string; privateKey: string; subject: st
 type Claim = { notification_id: string; endpoint: string; p256dh: string; auth: string; kind: string; title: string; body: string; link_type: string | null; link_id: string | null; link_no: string | null };
 type Send = (sub: PushSubscriptionInput, payload: string) => Promise<unknown>;
 
-const DRAIN_MS = 20_000;
+/* 5 giây: hàng đợi rỗng thì push_claim chỉ là một truy vấn chỉ mục, đổi lại push tới máy nhanh */
+const DRAIN_MS = 5_000;
 const BATCH = 500;
 const PARALLEL = 20;
 /* Endpoint do trình duyệt gửi lên rồi API gọi tới: chỉ nhận máy chủ push thật, không cho trỏ vào mạng nội bộ/dịch vụ khác (SSRF) */
@@ -44,7 +45,7 @@ export class PushService {
   private readonly send: Send | null;
 
   constructor(private readonly sb: SupabaseGateway, cfg: WebPushConfig | null, send?: Send) {
-    this.send = send ?? (cfg ? (sub, payload) => webpush.sendNotification(sub, payload, { vapidDetails: cfg, TTL: 12 * 3600, timeout: 10_000 }) : null);
+    this.send = send ?? (cfg ? (sub, payload) => webpush.sendNotification(sub, payload, { vapidDetails: cfg, TTL: 12 * 3600, timeout: 10_000, urgency: "high" }) : null);
   }
 
   get enabled() { return !!this.send; }

@@ -51,7 +51,7 @@ check "HR tải lại file đính kèm" "$(curl -s "$API/admin/announcements/$ID
 echo "— Xuất bản ngay + thông báo"
 check "Xuất bản" "$(call POST "admin/announcements/$ID/publish" "$HR" '{}' | py "(d['status'], d['notifiedAt'] is not None)")" "('published', True)"
 check "Xuất bản lại → 409" "$(status POST "admin/announcements/$ID/publish" "$HR" '{}')" 409
-check "Thông báo đúng 2 người nhận, không chép nội dung" "$(sql "select count(*) || '/' || count(*) filter (where body like '%Ý một%') from public.notifications where link_type='announcement' and link_id='$ID'")" "2/0"
+check "Thông báo đúng 2 người nhận, kèm đoạn trích bài (không dấu ·)" "$(sql "select count(*) || '/' || count(*) filter (where title = 'Quan trọng: Quy định mới cho Marketing' and body = 'Phòng Nhân sự: Áp dụng từ tuần sau. - Ý một - Ý hai') from public.notifications where link_type='announcement' and link_id='$ID'")" "2/2"
 check "Nhân viên nhận thông báo có link bài" "$(call GET me/notifications "$EMP" | py "[(i['kind'], i['link']['type']) for i in d['items'] if i['link'] and i['link']['id']=='$ID']")" "[('announcement.published', 'announcement')]"
 check "Mở bài = đã đọc" "$(call GET "me/announcements/$ID" "$EMP" | py "(d['title'], d['readAt'] is not None, d['attachment']['name'])")" "('Quy định mới cho Marketing', True, 'Quy-dinh.pdf')"
 check "Mở lại không ghi thêm lượt đọc" "$(call GET "me/announcements/$ID" "$EMP" >/dev/null; sql "select count(*) from public.announcement_reads where announcement_id='$ID'")" 1

@@ -28,7 +28,7 @@ select set_config('test.r1', (public.create_advance_request('10000000-0000-4000-
   2000000, '2025-03-01')->>'id'), true);
 select matches((select request_no from public.requests where id = current_setting('test.r1')::uuid), '^TU-\d{4}$', 'Số đơn TU-xxxx');
 select is((select body from public.notifications where link_id = current_setting('test.r1')::uuid and kind = 'approval.pending'),
-  'Trừ vào lương 03/2025 · Chờ bạn duyệt · ' || (select request_no from public.requests where id = current_setting('test.r1')::uuid),
+  'Trừ vào lương 03/2025. Chờ bạn duyệt đơn ' || (select request_no from public.requests where id = current_setting('test.r1')::uuid) || '.',
   'Báo quản lý không kèm số tiền, có tháng khấu trừ và mã đơn');
 select throws_ok($$ select public.create_advance_request('10000000-0000-4000-8000-000000000001', '60000000-0000-4000-8000-000000000005', null, current_setting('test.wv')::uuid,
   '2025-02-26', '{"amount":1000000,"month":"2025-03"}', '{}',
@@ -43,7 +43,7 @@ select ok(exists (select 1 from public.notifications where link_id = current_set
 select is(public.decide_approval((select id from public.approval_tasks where request_id = current_setting('test.r1')::uuid and step_no = 3), null, true), 'approved', 'Kế toán duyệt → hoàn tất');
 update public.salary_advances set paid_at = now(), paid_by = 'a9200000-0000-4000-8000-000000000215', payout_note = 'CK 25/10' where request_id = current_setting('test.r1')::uuid;
 select is((select title || ' | ' || body from public.notifications where link_id = current_setting('test.r1')::uuid and kind = 'advance.paid'),
-  'Tạm ứng ' || (select request_no from public.requests where id = current_setting('test.r1')::uuid) || ' đã chi | 2.000.000 ₫ · trừ vào lương 03/2025 · CK 25/10', 'Đã chi → báo nhân viên');
+  'Đã chi tạm ứng lương | Trừ vào lương 03/2025. Ghi chú: CK 25/10. Mã đơn ' || (select request_no from public.requests where id = current_setting('test.r1')::uuid) || '.', 'Đã chi → báo nhân viên, không hiện số tiền');
 select throws_ok($$ update public.salary_advances set paid_at = now() where request_id = current_setting('test.r1')::uuid $$, 'P0001', 'ADVANCE_IMMUTABLE', 'Chỉ ghi nhận đã chi một lần');
 
 select * from finish();

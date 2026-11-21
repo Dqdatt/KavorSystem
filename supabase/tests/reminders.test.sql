@@ -15,7 +15,7 @@ select is(public.notify_reminders('10000000-0000-4000-8000-000000000001', 'remin
     jsonb_build_object('id', current_setting('test.noapp')), jsonb_build_object('id', gen_random_uuid()))), 1,
   'Nhắc chấm công: chỉ người có app trong công ty');
 select is((select title || ' | ' || body from public.notifications where recipient_employee_id = '60000000-0000-4000-8000-000000000142' and kind = 'reminder.attendance'),
-  'Bạn chưa chấm công hôm nay | Ca Hành chính 08:00–17:00 · Mở app để chấm công.', 'Nội dung nhắc chấm công có ca');
+  'Bạn chưa chấm công hôm nay | Ca Hành chính 08:00–17:00. Mở app để chấm công.', 'Nội dung nhắc chấm công có ca');
 select is(public.notify_reminders('10000000-0000-4000-8000-000000000001', 'reminder.attendance', '[{"id":"60000000-0000-4000-8000-000000000142"}]'), 0,
   'Nhắc lại trong ngày không tạo trùng');
 select is(public.notify_reminders('10000000-0000-4000-8000-000000000001', 'reminder.documents', '[{"id":"60000000-0000-4000-8000-000000000142","detail":"CCCD, Sổ BHXH"}]'), 1,

@@ -1,7 +1,7 @@
 -- Kiểm tra các hàm dựng chữ thông báo (teaser bản tin, tóm tắt đơn không lộ tiền, danh từ loại đơn).
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(6);
+select plan(7);
 
 insert into public.announcements (id, tenant_id, category, title, body, author_label, audience)
 values
@@ -43,6 +43,10 @@ select is(public.decide_approval('f7000000-0000-4000-8000-000000000005', null, f
 select is((select length(body) = 500 and body like 'Người duyệt: %'
     from public.notifications where link_id = 'f7000000-0000-4000-8000-000000000004' and kind = 'request.rejected'),
   true, 'Lý do từ chối dài được notify giới hạn ở 500 ký tự');
+
+-- Quy tắc: chữ thông báo không dùng dấu "·" (mọi thông báo sinh ra trong test này)
+select ok(not exists (select 1 from public.notifications where created_at = now() and position('·' in title || ' ' || coalesce(body, '')) > 0),
+  'Thông báo mới không dùng dấu ·');
 
 select * from finish();
 rollback;

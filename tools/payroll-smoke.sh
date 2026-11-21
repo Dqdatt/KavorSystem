@@ -159,7 +159,7 @@ check "Nhân viên khác chỉ thấy phiếu của mình" "$(call GET me/paysli
 check "HR không có kết quả không thấy phiếu người khác" "$(status GET me/payslips/$MON "$HR")" 404
 check "Tenant khác không thấy phiếu" "$(status GET me/payslips/$MON "$TB")" 404
 check "Danh sách phiếu công bố có lần xem" "$(call GET me/payslips "$EMP" | py "(len(d['items']), d['items'][0]['viewedAt']=='$VIEWED')")" "(1, True)"
-check "Thông báo công bố có link payslip, không có tiền" "$(call GET me/notifications "$EMP" | py "[(n['link']['type'], n['link']['no'], n['body']=='Bạn có thể mở phiếu lương để xem chi tiết.', not any(c.isdigit() for c in n['body'])) for n in d['items'] if n['kind']=='payslip.published']")" "[('payslip', '$MON', True, True)]"
+check "Thông báo công bố có link payslip, không có tiền" "$(call GET me/notifications "$EMP" | py "[(n['link']['type'], n['link']['no'], n['body']=='Chạm để xem lương thực nhận, các khoản cộng và khấu trừ.', not any(c.isdigit() for c in n['body'])) for n in d['items'] if n['kind']=='payslip.published']")" "[('payslip', '$MON', True, True)]"
 check "Tạm ứng khớp đã đánh dấu khấu trừ" "$(sql "select count(*) from public.salary_advances where request_id='$ADV' and deducted_cycle_id='$CID'")" 1
 check "Lệch/thiếu dòng vẫn công bố nhưng không đánh dấu khấu trừ" "$(sql "select count(*) from public.salary_advances where request_id in ('$ADV_LINH','$ADV_MGR') and deducted_cycle_id is null")" 2
 check "Công bố ghi hai sự kiện đối chiếu lệch không chứa tiền" "$(call GET "$ROOT" "$PAY1" | py "(len([e for e in d['events'] if e['action']=='advance_mismatch']), all(not any(c.isdigit() for c in e['reason']) for e in d['events'] if e['action']=='advance_mismatch'))")" "(2, True)"

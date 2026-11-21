@@ -224,7 +224,7 @@ select throws_ok($$update public.salary_advances set payout_note='đổi sau kh�
   'P0001','ADVANCE_IMMUTABLE','Không đổi nội dung tạm ứng sau khấu trừ');
 select is((select count(*)::int from public.notifications where kind='payslip.published' and tenant_id=current_setting('test.pt')::uuid),2,'Mỗi kết quả có một thông báo công bố');
 select is((select title from public.notifications where kind='payslip.published' and link_id=current_setting('test.pr')::uuid),
-  'Phiếu lương 03/2025 đã công bố','Tiêu đề công bố đúng tháng');
+  'Đã có phiếu lương tháng 03/2025','Tiêu đề công bố đúng tháng');
 select ok(not exists (select 1 from public.notifications where kind='payslip.published' and tenant_id=current_setting('test.pt')::uuid
   and (body ~ '[0-9]' or body like '%₫%' or link_type <> 'payslip')),'Thông báo không có số tiền, dùng link payslip');
 select throws_ok($$select pg_temp.pay_step('publish')$$,'P0001','PAYROLL_TRANSITION_INVALID','Không công bố hai lần');

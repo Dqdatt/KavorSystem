@@ -110,7 +110,7 @@ Cùng mã `apps/mobile/src`, build bằng `experiments/kavor-pwa` (README trong 
      Thiếu/sai một biến thì API báo lỗi cấu hình và không khởi động. Không đổi khóa về sau (mọi máy phải mở lại app để đăng ký lại).
   3. Push nhánh deploy (Render + Vercel build lại).
   4. Thử: iPhone iOS 16.4+, mở PWA **từ Màn hình chính** (trong tab Safari không có push) → cho phép thông báo (hoặc chạm thẻ "Bật thông báo"
-     ở trang chủ) → khóa máy → HR đăng bản tin cho người đó → thông báo đến trong ~20 giây (API rút hàng đợi 20 giây/lần; API đang ngủ thì
+     ở trang chủ) → khóa máy → HR đăng bản tin cho người đó → thông báo đến trong vài giây (API rút hàng đợi 5 giây/lần, gửi ưu tiên cao; API đang ngủ thì
      đến khi thức, bỏ thông báo cũ hơn 12 giờ). Chạm thông báo mở màn Thông báo. iOS Simulator không đăng ký Web Push được — phải thử máy thật.
 
 ## 7c. Ngày Apple duyệt app (không sửa code)

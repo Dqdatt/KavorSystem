@@ -734,6 +734,10 @@ ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AG
   Thêm: đăng ký thiết bị xong mới hỏi quyền lần đầu (trước đây bỏ sót); `IS_IOS` (`apps/mobile/src/os.ts`) vì Metro thay sẵn
   `Platform.OS`="web" khi build PWA → iPhone PWA từng lưu thiết bị `platform=android`, chữ hướng dẫn Android. iOS Simulator không đăng ký Web Push được (`subscribe` báo
   NotAllowedError kể cả khi chạm) → bước nhận push thật phải thử trên iPhone sau khi đặt `API_VAPID_*` trên Render.
+  Tối 21/11: push tới iPhone thật ✅. Viết lại chữ thông báo (migration `202612140001_notification_text.sql` — giao 003 + Claude sửa;
+  `202612140002_notification_text_pay.sql` — Claude): câu tiếng Việt, KHÔNG dấu "·" (quy tắc người dùng), không câu đệm, không số tiền
+  (tạm ứng/lương) vì màn hình khóa ai cũng đọc được; bản tin kèm đoạn trích 120 ký tự (bỏ quyết định cũ "không chép nội dung").
+  Push gửi `urgency: high`, rút hàng đợi 5 giây/lần (trước 20 giây).
 - 2026-11-05 — Claude (Desktop): lương đầu vào HCNS (A) + bảng lương đầu vào theo kỳ (B) theo quy trình HR → Kế toán người dùng chia sẻ.
   Đổi quyền: HCNS xem/sửa lương (sửa pgTAP `salary_advance` + `advance-smoke` theo quyền mới). Giai đoạn C (Kavor tự tính lương) chờ mẫu bảng tính.
 - 2026-11-05 — Claude (Desktop): sửa 4 lỗi test iPhone. (1) Chấm công lưu vào hàng đợi trên máy TRƯỚC khi gửi, hiện biên nhận ngay

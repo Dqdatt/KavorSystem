@@ -49,7 +49,7 @@ check "Danh sách tạm ứng tháng: 1 chờ chi" "$(echo "$r" | py "(d['metric
 check "HR không vào được danh sách chi" "$(status GET admin/advances "$HR")" 403
 check "Kế toán xác nhận đã chi" "$(call POST admin/advances/$RQ/paid "$PAY" '{"note":"CK Vietcombank 25/10"}' | py "(d['payout']['paidBy'], d['payout']['note'])")" "('Đỗ Hồng Nhung', 'CK Vietcombank 25/10')"
 check "Chi lại → 409" "$(status POST admin/advances/$RQ/paid "$PAY" '{}')" 409
-check "Nhân viên nhận thông báo đã chi" "$(call GET me/notifications "$EMP" | py "(d['items'][0]['kind'], d['items'][0]['title'])")" "('advance.paid', 'Tạm ứng $NO đã chi')"
+check "Nhân viên nhận thông báo đã chi" "$(call GET me/notifications "$EMP" | py "(d['items'][0]['kind'], d['items'][0]['title'])")" "('advance.paid', 'Đã chi tạm ứng lương')"
 check "Màn tạm ứng: đơn tháng này đã chi" "$(call GET me/advance "$EMP" | py "(d['current']['no'], d['current']['payout'] is not None, len(d['history']))")" "('$NO', True, 2)"
 
 echo "— Lương cơ bản"

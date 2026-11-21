@@ -1,5 +1,6 @@
 -- Viết lại chữ thông báo (đơn từ + bản tin) cho dễ đọc trên màn hình khóa iPhone (Web Push) và không lộ số tiền tạm ứng.
 -- Chỉ đổi chữ (title/body); giữ nguyên logic, điều kiện, kind, link và khóa chống trùng.
+-- Quy tắc chủ dự án: chữ thông báo không dùng dấu "·" — viết thành câu, kết thúc bằng dấu chấm.
 
 create or replace function public.request_type_noun(p_type text)
 returns text
@@ -16,7 +17,8 @@ as $$
   end;
 $$;
 
--- Như request_label nhưng không đưa số tiền tạm ứng lên màn hình khóa
+-- Như request_label (cùng cách đọc payload) nhưng viết thành cụm từ, không dấu "·", không số tiền tạm ứng:
+-- "Phép năm 20/11–21/11 (2 ngày)", "T7 22/11 từ 08:00 đến 12:00 (4 giờ)", "Trừ vào lương 11/2026", "T5 20/11, quên chấm vào"
 create or replace function public.notify_request_brief(p_request uuid)
 returns text
 language sql
@@ -25,10 +27,21 @@ security definer
 set search_path = public
 as $$
   select case
-    when r.request_type = 'salary_advance' then
-      'Trừ vào lương ' || to_char((v.payload->>'month' || '-01')::date, 'MM/YYYY')
-    else public.request_label(p_request)
-  end
+  when r.request_type = 'leave' then concat_ws(' ',
+      v.payload->>'leaveTypeName',
+      to_char((v.payload->>'from')::date, 'DD/MM') || case when v.payload->>'to' <> v.payload->>'from' then '–' || to_char((v.payload->>'to')::date, 'DD/MM') else '' end
+        || case v.payload->>'half' when 'am' then ' buổi sáng' when 'pm' then ' buổi chiều' else '' end,
+      '(' || replace(replace(to_char((v.payload->>'days')::numeric, 'FM990.0'), '.0', ''), '.', ',') || ' ngày)')
+  when r.request_type = 'overtime' then concat_ws(' ',
+      (array['T2','T3','T4','T5','T6','T7','CN'])[extract(isodow from r.work_date)::int] || ' ' || to_char(r.work_date, 'DD/MM'),
+      'từ ' || (v.payload->>'start') || ' đến ' || (v.payload->>'end'),
+      '(' || replace(replace(to_char((v.payload->>'hours')::numeric, 'FM990.0'), '.0', ''), '.', ',') || ' giờ)')
+  when r.request_type = 'salary_advance' then 'Trừ vào lương ' || to_char((v.payload->>'month' || '-01')::date, 'MM/YYYY')
+  when r.request_type = 'profile_change' then public.request_label(r.id)
+  else concat_ws(', ',
+    case when r.work_date is not null then (array['T2','T3','T4','T5','T6','T7','CN'])[extract(isodow from r.work_date)::int] || ' ' || to_char(r.work_date, 'DD/MM') end,
+    case v.payload->>'kind' when 'missing_in' then 'quên chấm vào' when 'missing_out' then 'quên chấm ra' when 'late' then 'đến muộn có lý do'
+      when 'early' then 'về sớm có lý do' when 'trip' then 'đi công tác' when 'device' then 'lỗi thiết bị/GPS' when 'other' then 'khác' end) end
   from public.requests r
   left join public.request_versions v on v.request_id = r.id and v.version_no = r.current_version
   where r.id = p_request;
@@ -84,7 +97,7 @@ begin
         when 'salary_advance' then ' xin tạm ứng lương'
         when 'profile_change' then ' xin sửa hồ sơ'
         else ' gửi đơn' end,
-      concat_ws(' · ', nullif(public.notify_request_brief(r.id), ''), 'Chờ bạn duyệt', r.request_no),
+      concat_ws('. ', nullif(public.notify_request_brief(r.id), ''), 'Chờ bạn duyệt đơn ' || r.request_no) || '.',
       'request', r.id, r.request_no, new.id, 'pending:' || new.id);
   end loop;
   return null;
@@ -112,18 +125,18 @@ begin
   if new.status = 'approved' then
     perform public.notify(new.tenant_id, new.requester_employee_id, 'request.approved',
       'Đơn ' || coalesce(noun, new.request_no) || ' đã được duyệt',
-      concat_ws(' · ', brief, coalesce(actor, 'Người duyệt') || ' duyệt' || case
+      concat_ws('. ', brief, coalesce(actor, 'Người duyệt') || ' đã duyệt' || case
         when new.request_type = 'explanation' then ', bảng công đã cập nhật'
         -- Trigger trừ phép (requests_leave_settle) chạy trước trigger này (theo thứ tự tên) nên giao dịch "đã nghỉ" đã có
         when exists (select 1 from public.leave_transactions where request_id = new.id and kind = 'consume') then ', đã trừ vào sổ phép'
-        else '' end, new.request_no),
+        else '' end, 'Mã đơn ' || new.request_no) || '.',
       'request', new.id, new.request_no, null, 'done:' || new.id);
   else
     perform public.notify(new.tenant_id, new.requester_employee_id, 'request.rejected',
       'Đơn ' || coalesce(noun, new.request_no) || ' bị từ chối',
-      concat_ws(' · ',
-        coalesce(actor, 'Người duyệt') || case when nullif(btrim(coalesce(note, '')), '') is null then ' từ chối, không ghi lý do' else ': ' || note end,
-        brief, new.request_no),
+      concat_ws('. ',
+        coalesce(actor, 'Người duyệt') || case when nullif(btrim(coalesce(note, '')), '') is null then ' từ chối, không ghi lý do' else ': ' || rtrim(btrim(note), '.') end,
+        brief, 'Mã đơn ' || new.request_no) || '.',
       'request', new.id, new.request_no, null, 'done:' || new.id);
   end if;
   return null;
@@ -155,7 +168,8 @@ begin
       if public.notify(t.tenant_id, rec, 'approval.due',
         'Đơn ' || coalesce(public.request_type_noun(t.request_type), t.request_no) || ' của ' || t.full_name
           || case when over then ' đã quá hạn duyệt' else ' sắp quá hạn duyệt' end,
-        'Hạn ' || to_char(t.due_at at time zone t.timezone, 'HH24:MI DD/MM') || ' · ' || t.request_no,
+        'Hạn duyệt ' || to_char(t.due_at at time zone t.timezone, 'HH24:MI') || ' ngày ' || to_char(t.due_at at time zone t.timezone, 'DD/MM')
+          || '. Mã đơn ' || t.request_no || '.',
         'request', t.request_id, t.request_no, t.id, 'due:' || t.id || case when over then ':over' else ':soon' end) then
         n := n + 1;
       end if;
@@ -184,7 +198,7 @@ begin
   loop
     teaser := public.announcement_teaser(a.id);
     perform public.notify(a.tenant_id, r, 'announcement.published',
-      case when a.important then 'Quan trọng · ' else '' end || a.title,
+      case when a.important then 'Quan trọng: ' else '' end || a.title,
       teaser,
       'announcement', a.id, null, null, 'announcement:' || a.id)
     from public.announcement_recipients(a.id) r;
@@ -204,15 +218,14 @@ as $$
 declare
   day date := public.tenant_today(p_tenant);
   a record;
-  teaser text;
   n integer := 0;
 begin
   if p_kind = 'reminder.announcement' then
-    select id, title into a from public.announcements
+    -- Tiêu đề và đoạn trích đọc cùng một lần để không ghép tiêu đề cũ với nội dung vừa sửa
+    select id, title, public.announcement_teaser(id) as teaser into a from public.announcements
     where id = p_ref and tenant_id = p_tenant and archived_at is null and publish_at <= now() and (visible_until is null or visible_until > now());
     if not found then raise exception 'ANNOUNCEMENT_NOT_REMINDABLE' using errcode = 'P0001'; end if;
-    teaser := public.announcement_teaser(a.id);
-    select count(*) filter (where public.notify(p_tenant, e.id, p_kind, 'Nhắc đọc: ' || a.title, teaser,
+    select count(*) filter (where public.notify(p_tenant, e.id, p_kind, 'Nhắc đọc: ' || a.title, a.teaser,
       'announcement', a.id, null, null, 'remind:announcement:' || a.id || ':' || day))::int into n
     from public.announcement_recipients(a.id) r
     join public.employees e on e.id = r and e.tenant_id = p_tenant and e.user_id is not null and e.status <> 'terminated'
@@ -223,7 +236,7 @@ begin
   if jsonb_typeof(p_items) <> 'array' or jsonb_array_length(p_items) > 2000 then raise exception 'REMINDER_ITEMS_INVALID' using errcode = 'P0001'; end if;
   select count(*) filter (where public.notify(p_tenant, e.id, p_kind,
     case p_kind when 'reminder.attendance' then 'Bạn chưa chấm công hôm nay' else 'Hồ sơ còn thiếu giấy tờ' end,
-    case p_kind when 'reminder.attendance' then concat_ws(' · ', nullif(i.detail, ''), 'Mở app để chấm công.')
+    case p_kind when 'reminder.attendance' then concat_ws('. ', nullif(rtrim(i.detail, '. '), ''), 'Mở app để chấm công.')
       else coalesce('Còn thiếu: ' || nullif(i.detail, '') || '. ', '') || 'Nộp bổ sung cho phòng Nhân sự.' end,
     null, null, null, null, 'remind:' || split_part(p_kind, '.', 2) || ':' || day))::int into n
   from (select distinct on (x->>'id') (x->>'id')::uuid as id, left(x->>'detail', 300) as detail from jsonb_array_elements(p_items) x) i
