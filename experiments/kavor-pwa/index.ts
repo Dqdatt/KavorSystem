@@ -1,6 +1,7 @@
 /* Điểm vào PWA: chạy nguyên app mobile (apps/mobile/src, chỉ đọc) trên react-native-web.
    Các module native được thay bằng bản web ở ./shims (xem metro.config.js). */
 import "./shims/pwa";
+import "./shims/geo-perm";
 import { registerRootComponent } from "expo";
 import { warmImages } from "./shims/imgcache";
 
