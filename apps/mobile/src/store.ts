@@ -10,7 +10,7 @@ import type { IllusKind } from "./illus";
 import { api, type Snapshot } from "./api";
 import { authenticate, biometricKind, biometricReady, clearQuickLogin, clearSession, loadBioPrefs, loadLastData, loadSession, saveLastData, loadSupport, quickLoginEmployee, quickRefreshToken, saveBioPrefs, saveSession, saveSupport, type BioPrefs , type BioKind } from "./auth";
 import { ApiError, REMOTE, advanceApi, announcementsApi, attendanceApi, documentsApi, authApi, companyApi, isNetworkError, leaveApi, notificationsApi, overtimeApi, payslipApi, setTokenSource, timesheetApi } from "./api/http";
-import { clearExplainReminders, onReminderTap, scheduleExplainReminders } from "./notify";
+import { clearExplainReminders, onPushTap, onReminderTap, scheduleExplainReminders, stopPush, syncPush } from "./notify";
 import { askFirstRun, askLoc, askNotif, openSystemSettings, readPerms, type Perms } from "./perms";
 import { chooseSource, pickAvatar, pickFile, type PickedFile } from "./attach";
 import { PIN_LENGTH, PIN_MAX_ATTEMPTS, checkPin, clearPin, hasPin, resetPinFailures, setPin, weakPin } from "./pin";
@@ -519,6 +519,10 @@ const replayReminder = REMOTE ? onReminderTap((date) => {
   if (!isLoggedIn() || ["login", "consent", "device"].includes(S.stack[0]!)) return;
   void loadTimesheet(S.ts?.period.month).then(() => { if (tsDay(date)?.canExplain) ACT.exFromDay(date); else tab("attendance"); });
 }) : () => {};
+const replayPushTap = REMOTE ? onPushTap(() => {
+  if (!isLoggedIn() || ["login", "consent", "device"].includes(S.stack[0]!)) return;
+  jump("notifications");
+}) : () => {};
 export const lvAvail = () => (REMOTE ? S.lvData?.balance?.available ?? 0 : S.leave.granted + S.leave.carry - S.leave.used - S.leave.pending);
 /* Số ngày của đơn đang chọn (bản dùng API): ngày làm việc theo lịch công ty trong khoảng; một ngày nửa buổi = 0,5 */
 export function lvrCount() {
@@ -666,7 +670,7 @@ async function signIn(employeeId: string, result?: AuthResult, viaPassword = fal
   if (REMOTE && !session.deviceRegistered && await deviceActiveOnServer()) session = await saveSession({ employeeId, deviceRegistered: true });
   const target: Route = session.deviceRegistered ? "home" : "device";
   /* Lần đầu vào trang chủ trên máy: hộp thoại quyền Thông báo, Vị trí của hệ điều hành; xong mới hỏi Face ID (không chồng hộp thoại) */
-  if (REMOTE && target === "home") setTimeout(() => { void askFirstRun().then((p) => { if (p) { S.perm = p; emit(); } else void refreshPerms(); if (viaPassword) void offerBio(); }); }, 900);
+  if (REMOTE && target === "home") setTimeout(() => { void askFirstRun().then((p) => { if (p) { S.perm = p; emit(); if (REMOTE && S.perm?.notif === "granted") void syncPush(); } else void refreshPerms(); if (viaPassword) void offerBio(); }); }, 900);
   if ((await loadCompany())?.privacy.required) { askConsent(target); return; }
   S.stack = [target];
   render(session.deviceRegistered ? "fade" : "push");
@@ -1066,7 +1070,7 @@ export async function setBioPref(key: keyof BioPrefs, on: boolean) {
 }
 
 /* ---------- Quyền Thông báo / Vị trí (Bảo mật và thiết bị) ---------- */
-export async function refreshPerms() { S.perm = await readPerms(); emit(); }
+export async function refreshPerms() { S.perm = await readPerms(); emit(); if (REMOTE && isLoggedIn() && S.perm?.notif === "granted") void syncPush(); }
 /* Bật: hỏi bằng hộp thoại của hệ điều hành nếu chưa hỏi lần nào, đã từ chối thì mở Cài đặt. Tắt: app không tự thu hồi được — mở Cài đặt.
    Tắt vị trí thì cảnh báo trước vì không chấm công được. */
 export function setPerm(kind: "notif" | "loc", on: boolean) {
@@ -1140,11 +1144,11 @@ export async function restoreSession() {
   S.stack = [target]; render();
   if (REMOTE) void loadCompany().then((c) => { if (c?.privacy.required) askConsent(target); });
   if (session.deviceRegistered) {
-    const today = loadToday(); refreshWork(); replayReminder();
+    const today = loadToday(); refreshWork(); replayReminder(); replayPushTap();
     /* Chưa có dữ liệu trên máy (lần đầu sau đăng nhập): giữ splash tới khi có dữ liệu hôm nay, tối đa 2 giây */
     if (REMOTE && !hadCache) await Promise.race([today, new Promise((r) => setTimeout(r, 2000))]);
   }
-  if (REMOTE && target === "home") setTimeout(() => { if (cur() !== "home") return; void askFirstRun().then((p) => { if (p) { S.perm = p; emit(); } else void refreshPerms(); }); }, 900);
+  if (REMOTE && target === "home") setTimeout(() => { if (cur() !== "home") return; void askFirstRun().then((p) => { if (p) { S.perm = p; emit(); if (REMOTE && S.perm?.notif === "granted") void syncPush(); } else void refreshPerms(); }); }, 900);
 }
 
 function pinSuccess() { S.pinUntil = Date.now() + 5 * 60 * 1000; const f = S.pinOk; S.pinOk = null; closeSheet(); f && f(); }
@@ -1689,7 +1693,7 @@ export const ACT = {
       if (!S.bio.login && sess?.auth) { await authApi.logout(sess.auth.accessToken).catch(() => undefined); await clearQuickLogin(); }
     });
     /* Đăng xuất: bỏ nhắc nhở và thông báo của người vừa dùng máy */
-    if (REMOTE) { void clearExplainReminders().catch(() => undefined); S.notifs = null; S.ts = null; S.profile = null; clearPayroll(); clearAnnouncements(); clearDocuments(); clearImages("avatar"); S.avatarVer = null; S.avatarSrc = null; }
+    if (REMOTE) { void clearExplainReminders().catch(() => undefined); void stopPush(); S.notifs = null; S.ts = null; S.profile = null; clearPayroll(); clearAnnouncements(); clearDocuments(); clearImages("avatar"); S.avatarVer = null; S.avatarSrc = null; }
     const lastCode = S.me?.employeeCode ?? S.profile?.employeeCode ?? "";
     /* Lần chấm chưa gửi vẫn nằm trên máy (gắn mã NV) và chỉ gửi khi chính người này đăng nhập lại */
     void clearSession(); S.pinUntil = 0; S.f = freshForms(); if (REMOTE) { S.f.lgId = lastCode; S.me = null; S.att.info = null; S.att.queued = 0; S.clockIn = null; S.clockOut = null; } closeSheet(); S.stack = ["login"]; render("fade");

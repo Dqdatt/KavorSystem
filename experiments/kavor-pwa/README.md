@@ -64,7 +64,7 @@ Script mở Chrome headless ở kích thước iPhone 11 (`390×844 @2x`), đi q
 
 1. **Bảo mật lưu trữ trên máy:** `localStorage` không được phần cứng mã hóa như iOS Keychain / Android Keystore. Refresh token đã chuyển sang cookie HttpOnly ở `api/proxy.mjs`; access token ngắn hạn, PIN băm, hàng đợi chấm công vẫn ở `localStorage`.
 2. **Thiết bị chấm công mới:** Mỗi trình duyệt/PWA sinh một `installationId` riêng trong `localStorage`. Khi nối API thật, nếu nhân viên đã có máy native thì trình duyệt sẽ là máy thứ hai và chờ HR duyệt thiết bị.
-3. **Thông báo đẩy & chạy nền:** Không có APNs/FCM hay geofence nền khi đóng hẳn PWA; lịch nhắc hạn giải trình chỉ bắn khi PWA còn mở.
+3. **Thông báo đẩy & chạy nền:** Có Web Push khi đã thêm vào Màn hình chính (iOS 16.4+) hoặc trên Android/máy tính; máy chủ cần biến `API_VAPID_*`. Không có geofence nền khi đóng hẳn PWA; lịch nhắc hạn giải trình chỉ bắn khi PWA còn mở.
 4. **Widget iOS:** Màn hướng dẫn widget (`widgetGuide`, `springHome`, `springLock`) vẫn xem thử được trong PWA nhưng iOS không cho PWA cung cấp widget màn hình chính.
 5. **File đính kèm tối đa 3 MB** (app native 5 MB): hàm Vercel nhận body ≤ 4,5 MB mà file gửi dạng base64.
 6. **Thêm module native mới vào `apps/mobile`** → phải thêm shim ở `shims/` + `metro.config.js`, nếu không `verify-all`/Vercel build PWA báo lỗi.

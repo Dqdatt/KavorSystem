@@ -42,6 +42,19 @@ self.addEventListener("fetch", (e) => {
   }
   e.respondWith(caches.open(VER).then((c) => c.match(r).then((hit) => hit || fetch(r).then((res) => { if (res.ok) void c.put(r, res.clone()); return res; }))));
 });
+self.addEventListener("push", (e) => {
+  let m = {};
+  try { m = (e.data && e.data.json()) || {}; } catch {}
+  e.waitUntil(
+    self.registration.showNotification(m.title || "Kavor", {
+      body: m.body || "",
+      tag: m.tag,
+      icon: "/icon-192.png",
+      badge: "/icon-192.png",
+      data: { ...(m.data || {}), push: true },
+    }),
+  );
+});
 self.addEventListener("notificationclick", (e) => {
   const n = e.notification;
   n.close();
@@ -50,7 +63,7 @@ self.addEventListener("notificationclick", (e) => {
       const msg = { type: "kavor-notification-click", title: n.title, body: n.body, data: n.data };
       const win = list[0];
       if (win) { win.postMessage(msg); return win.focus(); }
-      return self.clients.openWindow("/");
+      return self.clients.openWindow(n.data && n.data.push ? "/notifications" : "/");
     }),
   );
 });

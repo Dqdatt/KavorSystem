@@ -131,6 +131,7 @@ export const documentsApi = {
 export const notificationsApi = {
   feed: async () => call<NotificationFeed>("GET", "/me/notifications", undefined, await token()),
   read: async (ids?: string[]) => call<NotificationFeed>("POST", "/me/notifications/read", ids ? { ids } : {}, await token()),
+  pushSubscribe: async (sub: unknown) => call<{ enabled: boolean }>("POST", "/me/push/subscribe", sub, await token()),
 };
 
 export const isNetworkError = (e: unknown) => e instanceof ApiError && (e.code === "NETWORK" || e.status >= 500);
