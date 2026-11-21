@@ -670,7 +670,7 @@ async function signIn(employeeId: string, result?: AuthResult, viaPassword = fal
   if (REMOTE && !session.deviceRegistered && await deviceActiveOnServer()) session = await saveSession({ employeeId, deviceRegistered: true });
   const target: Route = session.deviceRegistered ? "home" : "device";
   /* Lần đầu vào trang chủ trên máy: hộp thoại quyền Thông báo, Vị trí của hệ điều hành; xong mới hỏi Face ID (không chồng hộp thoại) */
-  if (REMOTE && target === "home") setTimeout(() => { void askFirstRun().then((p) => { if (p) { S.perm = p; emit(); if (REMOTE && S.perm?.notif === "granted") void syncPush(); } else void refreshPerms(); if (viaPassword) void offerBio(); }); }, 900);
+  if (REMOTE && target === "home") setTimeout(() => firstRunPerms(viaPassword ? () => void offerBio() : undefined), 900);
   if ((await loadCompany())?.privacy.required) { askConsent(target); return; }
   S.stack = [target];
   render(session.deviceRegistered ? "fade" : "push");
@@ -730,7 +730,8 @@ function applyFix(f: Fix) {
   S.att.loc = near.l; S.att.distM = distM; S.att.accM = f.accuracyM; S.inRange = inRange;
   if (!same) emit();
 }
-if (REMOTE) onFix((f) => { if (!S.att.noLoc) applyFix(f); });
+/* Có vị trí tức là đã có quyền: iOS PWA đọc quyền lúc mở app có thể còn "prompt" tới lần lấy vị trí đầu → bỏ thẻ "chưa có quyền vị trí" */
+if (REMOTE) onFix((f) => { if (S.perm && S.perm.loc !== "granted") { S.perm = { ...S.perm, loc: "granted" }; emit(); } if (!S.att.noLoc) applyFix(f); });
 /* Chạm vào nút chấm công: bật GPS ngay, không đợi giữ đủ 1 giây */
 export function warmGps() { if (REMOTE) void watchFix(true); }
 let lastToday: AttendanceToday | null = null;
@@ -928,7 +929,7 @@ async function checkPending(manual: boolean) {
       const sess = await loadSession();
       if (sess) await saveSession({ employeeId: sess.employeeId, deviceRegistered: true });
       S.err = null; S.stack = ["home"]; render("fade"); toast("HR đã duyệt thiết bị này · bạn có thể chấm công");
-      void loadToday(); refreshWork();
+      void loadToday(); refreshWork(); setTimeout(() => firstRunPerms(), 900);
     } else if (st !== "pending") { stopPendingWatch(); await deviceLost(t.device); }
     else { S.att.info = t.device; if (manual) { emit(); toast("Chưa có thay đổi. HR sẽ xử lý trong giờ hành chính."); } }
   } catch (e) {
@@ -1071,6 +1072,11 @@ export async function setBioPref(key: keyof BioPrefs, on: boolean) {
 
 /* ---------- Quyền Thông báo / Vị trí (Bảo mật và thiết bị) ---------- */
 export async function refreshPerms() { S.perm = await readPerms(); emit(); if (REMOTE && isLoggedIn() && S.perm?.notif === "granted") void syncPush(); }
+/* Lần đầu vào trang chủ trên máy (đăng nhập, mở app, vừa đăng ký thiết bị): hộp thoại quyền Thông báo rồi Vị trí của hệ điều hành
+   (một lần); có quyền thông báo thì đăng ký Web Push. then: việc chạy sau, vd hỏi Face ID (không chồng hộp thoại) */
+function firstRunPerms(then?: () => void) {
+  void askFirstRun().then((p) => { if (p) { S.perm = p; emit(); if (p.notif === "granted") void syncPush(); } else void refreshPerms(); then?.(); });
+}
 /* Bật: hỏi bằng hộp thoại của hệ điều hành nếu chưa hỏi lần nào, đã từ chối thì mở Cài đặt. Tắt: app không tự thu hồi được — mở Cài đặt.
    Tắt vị trí thì cảnh báo trước vì không chấm công được. */
 export function setPerm(kind: "notif" | "loc", on: boolean) {
@@ -1148,7 +1154,7 @@ export async function restoreSession() {
     /* Chưa có dữ liệu trên máy (lần đầu sau đăng nhập): giữ splash tới khi có dữ liệu hôm nay, tối đa 2 giây */
     if (REMOTE && !hadCache) await Promise.race([today, new Promise((r) => setTimeout(r, 2000))]);
   }
-  if (REMOTE && target === "home") setTimeout(() => { if (cur() !== "home") return; void askFirstRun().then((p) => { if (p) { S.perm = p; emit(); if (REMOTE && S.perm?.notif === "granted") void syncPush(); } else void refreshPerms(); }); }, 900);
+  if (REMOTE && target === "home") setTimeout(() => { if (cur() === "home") firstRunPerms(); }, 900);
 }
 
 function pinSuccess() { S.pinUntil = Date.now() + 5 * 60 * 1000; const f = S.pinOk; S.pinOk = null; closeSheet(); f && f(); }
@@ -1385,7 +1391,7 @@ export const ACT = {
         if (sess) await saveSession({ employeeId: sess.employeeId, deviceRegistered: true });
         S.att.device = d.deviceModel ?? deviceSummary().model;
         S.stack = ["home"]; render("fade"); toast(`Đã đăng ký ${S.att.device} làm thiết bị chấm công`);
-        void loadToday(); refreshWork();
+        void loadToday(); refreshWork(); setTimeout(() => firstRunPerms(), 900);
       }, (e) => { attError(e); return true; });
       return;
     }

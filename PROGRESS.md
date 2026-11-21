@@ -685,7 +685,7 @@ ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AG
   (máy chủ cộng đồng, không hợp cho production; nhãn kèm phiên âm kiểu Đức). Cần chọn nhà cung cấp có key (VietMap/Goong/Map4D) trước pilot.
 - Ca qua đêm, tầng "loại hợp đồng", lịch xếp ca theo ngày chưa có. Trình duyệt nhúng trong app Claude không cấp quyền vị trí; nút "Dùng vị trí hiện tại của trình duyệt" cần Chrome/Safari thật.
 - Minh chứng chưa quét virus; Bảng công đã tính nghỉ phép (có lương = công) và hiện giờ OT đã duyệt (từ 24–25/10) (từ 31/10 chỉ tính phần trùng giờ chấm công), nhưng chưa có ca qua đêm; thiếu cả ngày chỉ giải trình theo giờ ca. Snapshot khóa kỳ chưa có trang xem lịch sử khóa/mở.
-- Thông báo trên mobile không đến tức thì (iPhone trong LAN không nối Realtime của Supabase local; chưa có push) — app hỏi lại mỗi 30 giây khi đang mở, và khi mở/quay lại app; app tắt thì không biết cho tới lần mở sau. E19 vẫn hỏi lại 8 giây/lần. Ngưỡng "sắp quá hạn" 4 giờ và chu kỳ quét 10 phút là hằng số của hệ thống, chưa cấu hình theo tenant. Thông báo phiếu lương đã mở phiếu thật qua PIN/Face ID; chờ xác nhận trên iPhone bản 26/10. Chưa có nhắc chấm công/thông báo bản tin/dọn thông báo cũ.
+- Thông báo trên app native không đến tức thì (iPhone trong LAN không nối Realtime của Supabase local; app native chưa có push — PWA có Web Push từ 21/11) — app hỏi lại mỗi 30 giây khi đang mở, và khi mở/quay lại app; app tắt thì không biết cho tới lần mở sau. E19 vẫn hỏi lại 8 giây/lần. Ngưỡng "sắp quá hạn" 4 giờ và chu kỳ quét 10 phút là hằng số của hệ thống, chưa cấu hình theo tenant. Thông báo phiếu lương đã mở phiếu thật qua PIN/Face ID; chờ xác nhận trên iPhone bản 26/10. Chưa có nhắc chấm công/thông báo bản tin/dọn thông báo cũ.
 - Nghỉ phép chưa có: ủy quyền người duyệt khi vắng, đơn vượt năm (phải tách), sửa loại nghỉ trên web (đang dùng mẫu), tầng "loại hợp đồng"; thâm niên tính tại 01/01 (đủ năm giữa năm thì năm sau mới cộng); phép tồn tự chuyển chỉ khi sổ năm trước có trong Kavor (năm đầu nhập tay).
 - Phạm vi/tầng dùng phân công tổ chức hiện tại; danh sách nhân viên/chấm công lọc trong bộ nhớ API — đủ cho vài nghìn nhân viên, cần phân trang ở SQL khi lớn hơn. RLS `employees` gọi hàm phạm vi theo từng dòng (chậm nếu client đọc trực tiếp nhiều dòng; hiện client không đọc trực tiếp).
 - Khi máy Mac quá tải (build Xcode), GoTrue chậm → web báo "Máy chủ xác thực đang bận" (không còn tự đăng xuất).
@@ -727,6 +727,12 @@ ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AG
   PIN/Face ID, tối đa 5 MB, "Thiếu hồ sơ" = chưa có hợp đồng còn hiệu lực.
 
 ## Nhật ký
+- 2026-11-21 — Claude (Desktop, dùng `giao`): sửa 3 phản hồi PWA iPhone. (1) Web Push cho PWA: migration `202612130001_web_push.sql`
+  (đăng ký theo trình duyệt, hàng đợi push từ trigger thông báo), API `push.service.ts` (chống SSRF, VAPID `API_VAPID_*`), PWA đăng ký khi có quyền
+  thông báo, hủy khi đăng xuất, bấm push mở màn Thông báo; thẻ "Bật thông báo" trên trang chủ. (2) Ô OTP tràn ngang/khung xanh (CSS `min-width:0`).
+  (3) "Chưa có quyền vị trí" dù đã cấp: shim `geo-perm.ts` nhớ quyền (iOS trả "prompt" mỗi lần mở) + có vị trí thì cập nhật quyền ngay.
+  Thêm: đăng ký thiết bị xong mới hỏi quyền lần đầu (trước đây bỏ sót). iOS Simulator không đăng ký Web Push được (`subscribe` báo
+  NotAllowedError kể cả khi chạm) → bước nhận push thật phải thử trên iPhone sau khi đặt `API_VAPID_*` trên Render.
 - 2026-11-05 — Claude (Desktop): lương đầu vào HCNS (A) + bảng lương đầu vào theo kỳ (B) theo quy trình HR → Kế toán người dùng chia sẻ.
   Đổi quyền: HCNS xem/sửa lương (sửa pgTAP `salary_advance` + `advance-smoke` theo quyền mới). Giai đoạn C (Kavor tự tính lương) chờ mẫu bảng tính.
 - 2026-11-05 — Claude (Desktop): sửa 4 lỗi test iPhone. (1) Chấm công lưu vào hàng đợi trên máy TRƯỚC khi gửi, hiện biên nhận ngay
