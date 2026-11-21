@@ -42,8 +42,8 @@ check "Chưa có thông báo" "$(call GET me/notifications "$MGR" | py "(len(d['
 B="{\"workDate\":\"$OUTDAY\",\"kind\":\"missing_out\",\"clockOut\":\"17:00\",\"reason\":\"Họp khách tới 17:00, quên chấm ra\"}"
 r=$(call POST me/requests/explanations "$EMP" "$B"); NO=$(echo "$r" | field data.no); T1=$(echo "$r" | field data.steps.0.taskId)
 r=$(call GET me/notifications "$MGR")
-check "Quản lý nhận \"$NO cần bạn duyệt\", bấm vào được để duyệt" "$(echo "$r" | py "(d['unread'], d['items'][0]['kind'], d['items'][0]['title'], d['items'][0]['link']['no'], d['items'][0]['actionable'])")" "(1, 'approval.pending', 'Trần Thu Hà gửi giải trình công', '$NO', True)"
-check "Nội dung có loại giải trình và mã đơn" "$(echo "$r" | py "'quên chấm ra' in d['items'][0]['body'] and 'Chờ bạn duyệt' in d['items'][0]['body'] and '$NO' in d['items'][0]['body']")" True
+check "Quản lý nhận thông báo giải trình, bấm vào được để duyệt" "$(echo "$r" | py "(d['unread'], d['items'][0]['kind'], d['items'][0]['title'], d['items'][0]['link']['no'], d['items'][0]['actionable'])")" "(1, 'approval.pending', 'Trần Thu Hà gửi giải trình công', '$NO', True)"
+check "Nội dung có loại giải trình và mã đơn" "$(echo "$r" | py "'quên chấm ra' in d['items'][0]['body'] and 'Chờ bạn duyệt đơn $NO.' in d['items'][0]['body'] and '·' not in d['items'][0]['body']")" True
 check "Người gửi không nhận thông báo duyệt" "$(call GET me/notifications "$EMP" | py "d['unread']")" 0
 check "HR chưa nhận khi bước quản lý chưa xong" "$(call GET admin/notifications "$HR" | py "d['unread']")" 0
 
@@ -55,14 +55,14 @@ check "HR nhận trên web" "$(echo "$r" | py "(d['unread'], d['items'][0]['titl
 T2=$(call GET "admin/requests?status=pending" "$HR" | py "[i['myTaskId'] for i in d['items'] if i['no']=='$NO'][0]")
 call POST "admin/approvals/$T2/approve" "$HR" '{}' >/dev/null
 r=$(call GET me/notifications "$EMP")
-check "Người gửi nhận \"đã được duyệt\" kèm người duyệt" "$(echo "$r" | py "(d['unread'], d['items'][0]['kind'], d['items'][0]['title'], 'Mai Phương Thảo duyệt' in d['items'][0]['body'])")" "(1, 'request.approved', 'Đơn giải trình công đã được duyệt', True)"
+check "Người gửi nhận \"đã được duyệt\" kèm người duyệt" "$(echo "$r" | py "(d['unread'], d['items'][0]['kind'], d['items'][0]['title'], 'Mai Phương Thảo đã duyệt' in d['items'][0]['body'])")" "(1, 'request.approved', 'Đơn giải trình công đã được duyệt', True)"
 
 echo "— Từ chối"
 B="{\"workDate\":\"$LATEDAY\",\"kind\":\"late\",\"clockIn\":\"08:00\",\"reason\":\"Kẹt xe do tai nạn trên cầu\"}"
 r=$(call POST me/requests/explanations "$EMP" "$B"); NO2=$(echo "$r" | field data.no); T3=$(echo "$r" | field data.steps.0.taskId)
 call POST "me/approvals/$T3/reject" "$MGR" '{"comment":"Không có minh chứng"}' >/dev/null
 DAYLBL=$(python3 -c "import datetime; d=datetime.date.fromisoformat('$LATEDAY'); print(['T2','T3','T4','T5','T6','T7','CN'][d.weekday()]+' '+d.strftime('%d/%m'))")
-check "Người gửi nhận \"bị từ chối\" kèm lý do" "$(call GET me/notifications "$EMP" | py "(d['items'][0]['title'], d['items'][0]['body'])")" "('Đơn giải trình công bị từ chối', 'Lê Quang Huy: Không có minh chứng · $DAYLBL · đến muộn có lý do · $NO2')"
+check "Người gửi nhận \"bị từ chối\" kèm lý do" "$(call GET me/notifications "$EMP" | py "(d['items'][0]['title'], d['items'][0]['body'])")" "('Đơn giải trình công bị từ chối', 'Lê Quang Huy: Không có minh chứng. $DAYLBL, đến muộn có lý do. Mã đơn $NO2.')"
 
 echo "— Máy mới được duyệt"
 call POST me/devices "$EMP" '{"installationId":"smoke-notif-iphone","platform":"ios","deviceModel":"iPhone 11"}' >/dev/null

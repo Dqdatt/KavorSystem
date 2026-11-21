@@ -41,7 +41,7 @@ select set_config('test.r1', (public.create_leave_request('10000000-0000-4000-80
 select is((select sum(amount)::numeric from public.leave_transactions where account_id = 'a6000000-0000-4000-8000-000000000005'), 10.00, 'Gửi đơn giữ chỗ 2 ngày');
 select matches((select request_no from public.requests where id = current_setting('test.r1')::uuid), '^NP-\d{4}$', 'Số đơn nghỉ NP-xxxx');
 select is((select body from public.notifications where link_id = current_setting('test.r1')::uuid and kind = 'approval.pending'),
-  'Phép năm · 10/03–11/03 · 2 ngày · Chờ bạn duyệt · ' || (select request_no from public.requests where id = current_setting('test.r1')::uuid),
+  'Phép năm 10/03–11/03 (2 ngày). Chờ bạn duyệt đơn ' || (select request_no from public.requests where id = current_setting('test.r1')::uuid) || '.',
   'Báo quản lý kèm loại nghỉ, ngày, số ngày và mã đơn');
 select throws_ok($$ select public.create_leave_request('10000000-0000-4000-8000-000000000001', '60000000-0000-4000-8000-000000000005', null, current_setting('test.wv')::uuid,
   '2025-02-26', current_setting('test.al')::uuid, '{"from":"2025-03-11","to":"2025-03-11","half":"am","days":0.5}', '{}',
