@@ -6,7 +6,7 @@
 
 ## Plan đã chốt (7 bước)
 1. ✅ `giao init`, sửa memory.
-2. ✅ (chưa commit) UI: `experiments/kavor-pwa/shims/pwa.ts` CSS `#root input,#root textarea{…;min-width:0;outline:none}`.
+2. ✅ (`cda37c0`) UI: `experiments/kavor-pwa/shims/pwa.ts` CSS `#root input,#root textarea{…;min-width:0;outline:none}`.
    Nguyên nhân: `<input>` có bề rộng mặc định ~20 ký tự nên `flex:1` không co được. Đã kiểm trên preview 375px: 6 ô vừa, mất khung xanh.
 3. ✅ Thử trên iOS 26 Simulator (PWA cài ra Màn hình chính):
    - Quyền vị trí được iOS nhớ (lấy vị trí không hỏi lại), nhưng mở lại app thì `permissions.query({name:"geolocation"})`
@@ -14,7 +14,7 @@
    - Hỏi quyền thông báo qua hẹn giờ vẫn hiện hộp thoại. `PushManager` có trong web app (`navigator.standalone`).
 4. ⏳ giao **001** `cho_duyet`: đã đọc diff nhánh `giao/001`, đúng đặc tả và test đạt. Chưa `giao xong`: còn thử trên PWA đã đăng nhập
    (Simulator, cùng lúc với bước 7).
-5. ✅ (chưa commit) Web Push phía máy chủ:
+5. ✅ (`cda37c0`) Web Push phía máy chủ:
    - Migration `202612130001_web_push.sql`: `push_subscriptions` và `push_outbox`; trigger `notifications_push` có điều kiện purge;
      `push_subscribe` (chuyển chủ theo endpoint, giữ 5 trình duyệt mới nhất); `push_claim` (lấy rồi xóa, bỏ thông báo đã đọc
      hoặc cũ hơn 12 giờ). pgTAP `web_push.test.sql` 16 test.
@@ -27,10 +27,13 @@
    - Đã kiểm: unit API 106/106; pgTAP push/purge/notifications đạt; `tools/push-smoke.sh` 11/11 trên API 4100 (bản đăng nhập vì DB
      chưa reset). Vòng gửi thật tới web.push.apple.com chạy hết, Apple trả 400 BadWebPushToken cho token giả, đúng như mong đợi.
    - Chưa: `verify-all` đầy đủ (cần db-reset, hỏi người dùng); PROGRESS.md (để sau bước 6).
-6. ☐ giao (sau bước 5): PWA đăng ký push.
-   - Service worker xử lý `push` và `notificationclick` (mở đúng bản tin/đơn).
-   - Shim `getDevicePushTokenAsync` trả `{type:"web", data}`; mobile đăng ký khi đã có quyền.
-   - Trang chủ thêm thẻ "Bật thông báo" khi quyền còn undetermined.
+6. ⏳ giao **002** (`cho_lam`): PWA đăng ký push. Đặc tả gồm:
+   - SW: xử lý `push`; bấm thông báo push khi chưa mở cửa sổ nào → mở `/notifications`.
+   - Shim: `getDevicePushTokenAsync` / `unregisterForNotificationsAsync`.
+   - Mobile (`notify.ts`): `syncPush` / `stopPush` / `onPushTap`, chỉ chạy khi có `PushManager`, nên native không làm gì.
+     `syncPush` gọi khi quyền thông báo đã cấp; `stopPush` gọi lúc đăng xuất.
+   - Trang chủ: thẻ "Bật thông báo" gọi thẳng `setPerm` (iOS cần người dùng chạm).
+   Duyệt: đọc diff nhánh `giao/002`; xem `onPushTap`/`replayPushTap` có đúng mẫu `onReminderTap` không, `stopPush` có nằm trong `logoutGo` không.
 7. ☐ Duyệt diff, preview, `verify-all`. Người dùng đặt 3 biến VAPID trên Render rồi thử iPhone. Push nhánh deploy khi người dùng bảo.
 
 ## Lưu ý giao
