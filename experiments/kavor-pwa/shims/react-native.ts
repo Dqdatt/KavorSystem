@@ -1,5 +1,6 @@
 /* "react-native" cho mã app khi chạy web: react-native-web + vài chỗ khác biệt.
-   - Platform.OS = "ios": app chạy theo nhánh iOS (nạp font, Face ID, blur, nút Hủy trong hộp thoại) — giao diện gốc là iPhone.
+   - Platform.OS = "ios" chỉ có tác dụng với thư viện đọc lúc chạy: Metro thay sẵn `Platform.OS` trong mã app thành "web" lúc build.
+     Mã app cần biết iPhone thì dùng IS_IOS (apps/mobile/src/os.ts, đọc userAgent).
    - Alert: react-native-web không có hộp thoại → hộp thoại kiểu iOS dựng bằng DOM (./alert).
    - Kích thước cửa sổ: trên máy tính, app hiển thị trong khung rộng tối đa PHONE_MAX_W như điện thoại.
    - Linking.openSettings: trình duyệt không mở được Cài đặt → hướng dẫn bằng hộp thoại. */

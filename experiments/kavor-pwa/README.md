@@ -12,7 +12,7 @@ Thư mục nằm ngoài `pnpm-workspace.yaml`/`turbo.json` (không có dependenc
 | Mã giao diện & nghiệp vụ | Dùng trực tiếp `../../apps/mobile/src` (32 màn hình/route, sheets, store, API client). |
 | `metro.config.js` | Ghim `react`/`react-dom` về đúng bản `19.2.3` của `apps/mobile` và chuyển hướng các module native sang `./shims/`. |
 | `babel.config.js` | Chuyển `experimental_backgroundImage` (React Native 0.86) thành `backgroundImage` để `react-native-web` vẽ đầy đủ mọi lớp gradient/liquid glass. |
-| `shims/react-native.ts` | Đặt `Platform.OS = "ios"`, giới hạn khung rộng tối đa `440px` trên máy tính, bổ sung `Alert.alert` kiểu iOS (`shims/alert.ts`), `Linking.openURL` chống chặn popup cho liên kết PDF ký 5 phút, và chuyển đường dẫn `/clock`, `/leaveNew`… thành deep link `kavor://`. |
+| `shims/react-native.ts` | Đặt `Platform.OS = "ios"` (chỉ thư viện đọc lúc chạy thấy; mã app bị Metro thay sẵn thành `"web"` → dùng `IS_IOS` trong `apps/mobile/src/os.ts`), giới hạn khung rộng tối đa `440px` trên máy tính, bổ sung `Alert.alert` kiểu iOS (`shims/alert.ts`), `Linking.openURL` chống chặn popup cho liên kết PDF ký 5 phút, và chuyển đường dẫn `/clock`, `/leaveNew`… thành deep link `kavor://`. |
 | `shims/safe-area-context.tsx` | Đọc `env(safe-area-inset-*)` trên iPhone khi cài ra Màn hình chính; trên trình duyệt thường/desktop giữ đệm trên `48px` như khung iPhone 11 để tỷ lệ khớp app native. |
 | `shims/secure-store.ts` | Lưu phiên, PIN băm (`SHA-256 + salt`), hàng đợi chấm công offline trong `localStorage` (`kavor-pwa:*`). |
 | `shims/local-authentication.ts` | Kết nối Face ID / Touch ID / vân tay thật của máy qua **WebAuthn platform authenticator** (chỉ mở khóa cục bộ như native; không có HTTPS/WebAuthn thì tự lùi về mã PIN 6 số). |

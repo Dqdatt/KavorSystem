@@ -1,6 +1,6 @@
 /* Chấm công thật: định danh cài đặt, lấy vị trí GPS và hàng đợi offline.
    Hàng đợi lưu trong Keychain/Keystore (mã hóa), gửi lại với cùng clientEventId nên máy chủ không ghi trùng. */
-import { Platform } from "react-native";
+import { IS_IOS } from "./os";
 import * as Crypto from "expo-crypto";
 import * as Device from "expo-device";
 import * as Location from "expo-location";
@@ -25,14 +25,14 @@ export const newEventId = () => Crypto.randomUUID();
 
 export function deviceSummary() {
   return {
-    model: Device.modelName ?? (Platform.OS === "ios" ? "iPhone" : "Android"),
-    os: `${Platform.OS === "ios" ? "iOS" : "Android"} ${Device.osVersion ?? ""}`.trim(),
+    model: Device.modelName ?? (IS_IOS ? "iPhone" : "Android"),
+    os: `${IS_IOS ? "iOS" : "Android"} ${Device.osVersion ?? ""}`.trim(),
     name: Device.deviceName ?? null,
   };
 }
 
 export async function deviceRegistration(appVersion: string): Promise<DeviceRegisterRequest> {
-  return { installationId: await installationId(), platform: Platform.OS === "ios" ? "ios" : "android", deviceModel: Device.modelName ?? undefined, osVersion: Device.osVersion ?? undefined, appVersion };
+  return { installationId: await installationId(), platform: IS_IOS ? "ios" : "android", deviceModel: Device.modelName ?? undefined, osVersion: Device.osVersion ?? undefined, appVersion };
 }
 
 export type Fix = { latitude: number; longitude: number; accuracyM: number; at: number };

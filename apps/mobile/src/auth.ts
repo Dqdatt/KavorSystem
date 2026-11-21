@@ -1,6 +1,6 @@
 /* Xác thực sinh trắc học thật (Face ID / Touch ID / vân tay) và lưu phiên trong Keychain/Keystore.
    Có API (REMOTE): phiên chứa access/refresh token thật. Chế độ dữ liệu mẫu: token giả lập. */
-import { Platform } from "react-native";
+import { IS_IOS } from "./os";
 import * as LocalAuthentication from "expo-local-authentication";
 import * as SecureStore from "expo-secure-store";
 
@@ -76,7 +76,7 @@ export async function biometricKind(): Promise<{ kind: BioKind; label: string }>
   const types: LocalAuthentication.AuthenticationType[] = await LocalAuthentication.supportedAuthenticationTypesAsync().catch(() => []);
   const face = types.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION);
   const finger = types.includes(LocalAuthentication.AuthenticationType.FINGERPRINT);
-  if (Platform.OS === "ios") return face ? { kind: "face", label: "Face ID" } : finger ? { kind: "finger", label: "Touch ID" } : { kind: "none", label: "sinh trắc học" };
+  if (IS_IOS) return face ? { kind: "face", label: "Face ID" } : finger ? { kind: "finger", label: "Touch ID" } : { kind: "none", label: "sinh trắc học" };
   return finger ? { kind: "finger", label: "vân tay" } : face ? { kind: "face", label: "khuôn mặt" } : { kind: "none", label: "sinh trắc học" };
 }
 export async function biometricLabel(): Promise<string> {

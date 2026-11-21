@@ -1,6 +1,7 @@
 /* Chọn minh chứng cho đơn (giải trình, nghỉ phép): chụp ảnh, thư viện ảnh hoặc tệp PDF. Ảnh chuyển về JPEG (iPhone chụp HEIC — máy chủ
    chỉ nhận PDF/PNG/JPEG/WebP) và nén để vừa 5 MB; máy chủ vẫn kiểm lại loại file theo nội dung. */
-import { Alert, Platform } from "react-native";
+import { Alert } from "react-native";
+import { IS_IOS } from "./os";
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
 
@@ -16,7 +17,7 @@ export function chooseSource(): Promise<Source | null> {
       { text: "Chọn ảnh", onPress: () => done("library") },
       { text: "Chọn tệp PDF", onPress: () => done("pdf") },
     ];
-    if (Platform.OS === "ios") opts.push({ text: "Hủy", style: "cancel", onPress: () => done(null) });
+    if (IS_IOS) opts.push({ text: "Hủy", style: "cancel", onPress: () => done(null) });
     Alert.alert("Thêm minh chứng", "Ảnh hoặc PDF, tối đa 5 MB", opts, { cancelable: true, onDismiss: () => done(null) });
   });
 }
@@ -30,7 +31,7 @@ export async function pickAvatar(hasAvatar: boolean): Promise<AvatarPick> {
       { text: "Chọn ảnh", onPress: () => done("library") },
     ];
     if (hasAvatar) opts.push({ text: "Gỡ ảnh đại diện", style: "destructive", onPress: () => done("remove") });
-    if (Platform.OS === "ios") opts.push({ text: "Hủy", style: "cancel", onPress: () => done(null) });
+    if (IS_IOS) opts.push({ text: "Hủy", style: "cancel", onPress: () => done(null) });
     Alert.alert("Ảnh đại diện", "Kéo và phóng to để cắt ảnh vuông", opts, { cancelable: true, onDismiss: () => done(null) });
   });
   if (!src || src === "remove") return src;

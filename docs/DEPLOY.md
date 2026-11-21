@@ -103,7 +103,15 @@ Cùng mã `apps/mobile/src`, build bằng `experiments/kavor-pwa` (README trong 
 - Refresh token nằm trong cookie HttpOnly do hàm proxy đặt; JS của trang chỉ thấy chữ giữ chỗ `httponly`.
 - Render: đặt `MOBILE_IOS_URL` và `MOBILE_ANDROID_URL` = địa chỉ PWA → thư mời có link, mở bằng Safari → Chia sẻ → Thêm vào MH chính.
 - Thử: mở địa chỉ PWA trên iPhone (4G), kích hoạt tài khoản thử, chấm công; trang Thiết bị trên web HR thấy máy tên "iPhone (PWA)".
-- Giới hạn: hàm Vercel nhận body tối đa 4,5 MB → file đính kèm > ~3 MB (sau base64) không gửi được qua PWA; không có thông báo khi app tắt.
+- Giới hạn: hàm Vercel nhận body tối đa 4,5 MB → file đính kèm > ~3 MB (sau base64) không gửi được qua PWA.
+- **Thông báo khi app tắt (Web Push, từ 21/11/2026)** — làm theo thứ tự:
+  1. Migration `202612130001_web_push.sql` lên Supabase Cloud: chạy lại `tools/cloud-supabase.sh` (mục 5; chỉ áp migration còn thiếu).
+  2. Render → Environment: thêm **cùng lúc đủ 3 biến** `API_VAPID_PUBLIC_KEY`, `API_VAPID_PRIVATE_KEY`, `API_VAPID_SUBJECT` (bảng mục 4).
+     Thiếu/sai một biến thì API báo lỗi cấu hình và không khởi động. Không đổi khóa về sau (mọi máy phải mở lại app để đăng ký lại).
+  3. Push nhánh deploy (Render + Vercel build lại).
+  4. Thử: iPhone iOS 16.4+, mở PWA **từ Màn hình chính** (trong tab Safari không có push) → cho phép thông báo (hoặc chạm thẻ "Bật thông báo"
+     ở trang chủ) → khóa máy → HR đăng bản tin cho người đó → thông báo đến trong ~20 giây (API rút hàng đợi 20 giây/lần; API đang ngủ thì
+     đến khi thức, bỏ thông báo cũ hơn 12 giờ). Chạm thông báo mở màn Thông báo. iOS Simulator không đăng ký Web Push được — phải thử máy thật.
 
 ## 7c. Ngày Apple duyệt app (không sửa code)
 Trước khi nộp (cần Apple Developer 99 USD/năm):

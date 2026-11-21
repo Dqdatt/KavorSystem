@@ -1,5 +1,6 @@
 import { useEffect, useRef, type ReactNode } from "react";
-import { Animated, Image, Platform, Pressable, StyleSheet, Switch, View } from "react-native";
+import { Animated, Image, Pressable, StyleSheet, Switch, View } from "react-native";
+import { IS_IOS } from "../os";
 import { Blur } from "../blur";
 import Svg, { Circle } from "react-native-svg";
 import { SvgXml } from "react-native-svg";
@@ -387,7 +388,7 @@ function ErrBody({ e, kind }: { e: ErrDef; kind?: ErrKind }) {
       <Illus kind={e.il} />
       <Balanced style={{ fontSize: 22, fontFamily: F.bold, marginTop: 4, textAlign: "center" }}>{e.t}</Balanced>
       <T style={{ color: C.ink2, maxWidth: 300, textAlign: "center" }}>{e.p}</T>
-      <T style={{ fontSize: 11.5, color: C.ink3, fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace" }}>{e.code}</T>
+      <T style={{ fontSize: 11.5, color: C.ink3, fontFamily: IS_IOS ? "Menlo" : "monospace" }}>{e.code}</T>
       {kind === "devicePending" ? <Card pad style={{ width: "100%", marginTop: 8 }}><Timeline cur={1} steps={REMOTE ? [["Đã gửi yêu cầu", pendingSent().label], ["HR xác nhận", "Phòng Nhân sự"], ["Đăng ký máy mới", pendingModel()]] : [["Đã gửi yêu cầu", "Hôm nay 08:03"], ["HR xác nhận", "Mai Phương Thảo"], ["Đăng ký máy mới", "iPhone 15"]]} /></Card> : null}
     </Animated.View>
   );
@@ -464,7 +465,7 @@ export function securitySpec(): ScreenSpec {
       </Card>,
       <SectionHead key="shp" title="Mã PIN" />,
       <Card key="pin"><RowBtn icon={<Gi n="lock" s={24} />} title="Đổi mã PIN" sub="6 số mở lương, tạm ứng và tài liệu trên máy này" onPress={ACT.changePin} /></Card>,
-      <Note key="n" icon="info">{Platform.OS === "ios"
+      <Note key="n" icon="info">{IS_IOS
         ? `Quyền dùng ${bio} của Kavor do iOS quản lý tại Cài đặt → ${S.bioKind === "finger" ? "Touch ID" : "Face ID"} & Mật mã. Nếu tắt ở đó, Kavor sẽ chỉ dùng mã PIN.`
         : `${bio[0]!.toUpperCase()}${bio.slice(1)} do Android quản lý tại Cài đặt → Bảo mật. Nếu xóa hết ${bio} ở đó, Kavor sẽ chỉ dùng mã PIN.`}</Note>,
       REMOTE ? <SectionHead key="shq" title="Quyền của ứng dụng" /> : null,

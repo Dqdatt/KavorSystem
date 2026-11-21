@@ -731,7 +731,8 @@ ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AG
   (đăng ký theo trình duyệt, hàng đợi push từ trigger thông báo), API `push.service.ts` (chống SSRF, VAPID `API_VAPID_*`), PWA đăng ký khi có quyền
   thông báo, hủy khi đăng xuất, bấm push mở màn Thông báo; thẻ "Bật thông báo" trên trang chủ. (2) Ô OTP tràn ngang/khung xanh (CSS `min-width:0`).
   (3) "Chưa có quyền vị trí" dù đã cấp: shim `geo-perm.ts` nhớ quyền (iOS trả "prompt" mỗi lần mở) + có vị trí thì cập nhật quyền ngay.
-  Thêm: đăng ký thiết bị xong mới hỏi quyền lần đầu (trước đây bỏ sót). iOS Simulator không đăng ký Web Push được (`subscribe` báo
+  Thêm: đăng ký thiết bị xong mới hỏi quyền lần đầu (trước đây bỏ sót); `IS_IOS` (`apps/mobile/src/os.ts`) vì Metro thay sẵn
+  `Platform.OS`="web" khi build PWA → iPhone PWA từng lưu thiết bị `platform=android`, chữ hướng dẫn Android. iOS Simulator không đăng ký Web Push được (`subscribe` báo
   NotAllowedError kể cả khi chạm) → bước nhận push thật phải thử trên iPhone sau khi đặt `API_VAPID_*` trên Render.
 - 2026-11-05 — Claude (Desktop): lương đầu vào HCNS (A) + bảng lương đầu vào theo kỳ (B) theo quy trình HR → Kế toán người dùng chia sẻ.
   Đổi quyền: HCNS xem/sửa lương (sửa pgTAP `salary_advance` + `advance-smoke` theo quyền mới). Giai đoạn C (Kavor tự tính lương) chờ mẫu bảng tính.
