@@ -19,6 +19,8 @@ export class AppService {
       surfaces: ["admin-web", "console-web", "mobile-ios", "mobile-android"],
       database: "PostgreSQL/Supabase",
       appLinks: loadConfig().appLinks,
+      /* Khóa công khai VAPID cho PWA đăng ký Web Push; null = máy chủ chưa bật push */
+      webPushKey: loadConfig().webPush?.publicKey ?? null,
     };
   }
 

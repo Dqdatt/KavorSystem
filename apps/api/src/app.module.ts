@@ -41,6 +41,7 @@ import { AnnouncementsService } from "./announcements/announcements.service.js";
 import { DocumentsService } from "./documents/documents.service.js";
 import { ChecklistService } from "./documents/checklist.service.js";
 import { ProfileService } from "./profile/profile.service.js";
+import { PushService } from "./push/push.service.js";
 import type { TimesheetServices } from "./timesheet/timesheet.controller.js";
 
 @Module({
@@ -58,8 +59,10 @@ import type { TimesheetServices } from "./timesheet/timesheet.controller.js";
         const timesheets = new TimesheetService(sb);
         const notifications = new NotificationsService(sb);
         notifications.startDueSweep();
+        const push = new PushService(sb, loadConfig().webPush);
+        push.startDrain();
         const requests = new RequestsService(sb, timesheets);
-        return { timesheets, requests, notifications, leave: new LeaveService(sb, timesheets, requests), overtime: new OvertimeService(sb, timesheets, requests), advance: new AdvanceService(sb, timesheets, requests), payroll: new PayrollService(sb, timesheets), inputs: new PayrollInputs(timesheets), announcements: new AnnouncementsService(sb), documents: new DocumentsService(sb), profile: new ProfileService(sb, requests) };
+        return { timesheets, requests, notifications, leave: new LeaveService(sb, timesheets, requests), overtime: new OvertimeService(sb, timesheets, requests), advance: new AdvanceService(sb, timesheets, requests), payroll: new PayrollService(sb, timesheets), inputs: new PayrollInputs(timesheets), announcements: new AnnouncementsService(sb), documents: new DocumentsService(sb), profile: new ProfileService(sb, requests), push };
       },
     },
     {

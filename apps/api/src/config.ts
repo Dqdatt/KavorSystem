@@ -22,6 +22,8 @@ export type AppConfig = {
   /* Email được tự kích hoạt làm quản trị viên Console đầu tiên khi nền tảng chưa có quản trị viên nào (không cần chạy lệnh).
      Dev/test mặc định admin@kavor.test; staging/production phải đặt CONSOLE_BOOTSTRAP_EMAIL nếu muốn bật. */
   consoleBootstrap: { email: string; fullName: string } | null;
+  /* Web Push cho PWA nhân viên (khóa VAPID, tạo bằng `npx web-push generate-vapid-keys`); null = tắt push */
+  webPush: { publicKey: string; privateKey: string; subject: string } | null;
 };
 
 type Source = Record<string, string | undefined>;
@@ -112,6 +114,18 @@ export function loadConfig(source: Source = process.env): AppConfig {
   if (bootstrapEmail && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(bootstrapEmail)) problems.push(`CONSOLE_BOOTSTRAP_EMAIL không phải email hợp lệ: "${bootstrapEmail}"`);
   const consoleBootstrap = bootstrapEmail ? { email: bootstrapEmail, fullName: get("CONSOLE_BOOTSTRAP_NAME") ?? "Quản trị Kavor" } : null;
 
+  const vapidPublic = get("API_VAPID_PUBLIC_KEY"), vapidPrivate = get("API_VAPID_PRIVATE_KEY"), vapidSubject = get("API_VAPID_SUBJECT");
+  let webPush: AppConfig["webPush"] = null;
+  if (vapidPublic || vapidPrivate || vapidSubject) {
+    /* Khóa P-256 dạng base64url: công khai 65 byte (87 ký tự), bí mật 32 byte (43 ký tự). Không in giá trị khóa vào lỗi. */
+    if (!vapidPublic || !/^[A-Za-z0-9_-]{87}$/.test(vapidPublic)) problems.push("API_VAPID_PUBLIC_KEY thiếu hoặc không phải khóa công khai VAPID (87 ký tự base64url)");
+    if (!vapidPrivate || !/^[A-Za-z0-9_-]{43}$/.test(vapidPrivate)) problems.push("API_VAPID_PRIVATE_KEY thiếu hoặc không phải khóa bí mật VAPID (43 ký tự base64url)");
+    if (!vapidSubject || !/^(mailto:[^@\s]+@[^@\s]+|https:\/\/\S+)$/.test(vapidSubject)) problems.push("API_VAPID_SUBJECT phải là mailto:email hoặc https://… (bên push liên hệ khi có sự cố)");
+    /* Apple trả 403 BadJwtToken cho mọi push nếu tên miền là loại dành riêng (đã thử 21/11/2026 với mailto:…@kavor.test) */
+    else if (/\.(test|local|localhost|invalid|example)([/:]|$)|[@/]localhost([/:]|$)/i.test(vapidSubject)) problems.push("API_VAPID_SUBJECT phải dùng tên miền thật (Apple từ chối .test/.local/localhost)");
+    else webPush = vapidPublic && vapidPrivate ? { publicKey: vapidPublic, privateKey: vapidPrivate, subject: vapidSubject } : null;
+  }
+
   if (problems.length) throw new ConfigError(problems);
-  return { env, port, corsOrigins, supabase, mail, adminWebUrl, consoleWebUrl, appLinks, consoleBootstrap };
+  return { env, port, corsOrigins, supabase, mail, adminWebUrl, consoleWebUrl, appLinks, consoleBootstrap, webPush };
 }

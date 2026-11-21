@@ -57,6 +57,8 @@ https://render.com → đăng nhập GitHub → New → **Blueprint** → chọn
 | `MAIL_RELAY_SECRET` | chuỗi ngẫu nhiên ≥ 32 ký tự (`openssl rand -hex 32`), **giống hệt** biến cùng tên trên Vercel web HR |
 | `CONSOLE_BOOTSTRAP_EMAIL` | email của bạn — quản trị Console đầu tiên |
 | `MOBILE_IOS_URL` / `MOBILE_ANDROID_URL` | link cài app ghi trong thư mời và banner PWA: hiện là địa chỉ PWA (bước 7b); ngày Apple duyệt đổi `MOBILE_IOS_URL` thành link App Store (bước 7c) |
+| `API_VAPID_PUBLIC_KEY` / `API_VAPID_PRIVATE_KEY` | Web Push cho PWA (miễn phí): chạy `cd apps/api && npx web-push generate-vapid-keys` trên máy, dán hai khóa. Giữ cố định: đổi khóa thì mọi máy phải mở lại app để đăng ký lại |
+| `API_VAPID_SUBJECT` | `mailto:<email thật của bạn>` — Apple từ chối tên miền `.test`/`.local` (mọi push iPhone lỗi 403) |
 
 **Thư mời đi qua web HR:** Render Free chặn cổng SMTP (từ 9/2026), nên API không gửi thẳng Gmail mà POST nội dung thư tới
 `/api/internal/mail` của web HR trên Vercel (Vercel mở cổng 587), kèm `MAIL_RELAY_SECRET`. Web HR cần `SMTP_URL`

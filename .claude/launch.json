@@ -1,7 +1,7 @@
 {
   "version": "0.0.1",
   "configurations": [
-    { "name": "api-4100", "runtimeExecutable": "bash", "runtimeArgs": ["-c", "cd apps/api && [ -f .env.local ] && { set -a; . ./.env.local; set +a; }; SRK=$(supabase status -o env | grep '^SERVICE_ROLE_KEY=' | cut -d= -f2- | tr -d '\"'); SUPABASE_URL=http://127.0.0.1:55321 SUPABASE_SERVICE_ROLE_KEY=\"$SRK\" SMTP_URL=smtp://127.0.0.1:55325 API_PORT=4100 exec pnpm exec tsx src/main.ts"], "port": 4100 },
+    { "name": "api-4100", "runtimeExecutable": "bash", "runtimeArgs": ["-c", "cd apps/api && [ -f .env.local ] && { set -a; . ./.env.local; set +a; }; [ -n \"${API_VAPID_PRIVATE_KEY:-}\" ] || eval \"$(node -e 'const k=require(`web-push`).generateVAPIDKeys(); console.log(`export API_VAPID_PUBLIC_KEY=${k.publicKey} API_VAPID_PRIVATE_KEY=${k.privateKey} API_VAPID_SUBJECT=mailto:dev@kavor.vn`)')\"; SRK=$(supabase status -o env | grep '^SERVICE_ROLE_KEY=' | cut -d= -f2- | tr -d '\"'); SUPABASE_URL=http://127.0.0.1:55321 SUPABASE_SERVICE_ROLE_KEY=\"$SRK\" SMTP_URL=smtp://127.0.0.1:55325 API_PORT=4100 exec pnpm exec tsx src/main.ts"], "port": 4100 },
     { "name": "admin-web", "runtimeExecutable": "pnpm", "runtimeArgs": ["--filter", "@kavor/admin-web", "dev"], "port": 3000 },
     { "name": "admin-web-4100", "runtimeExecutable": "bash", "runtimeArgs": ["-c", "KAVOR_API_URL=http://localhost:4100/api/v1 exec pnpm --filter @kavor/admin-web dev"], "port": 3000 },
     { "name": "console-web", "runtimeExecutable": "pnpm", "runtimeArgs": ["--filter", "@kavor/console-web", "dev"], "port": 3001 },

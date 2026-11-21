@@ -61,3 +61,22 @@ test("link cài app sai URL hoặc http ở production thì báo lỗi", () => {
   assert.throws(() => loadConfig({ NODE_ENV: "production", SUPABASE_URL: "https://x.supabase.co", SUPABASE_SERVICE_ROLE_KEY: "k", API_CORS_ORIGINS: "https://admin.kavor.vn", MOBILE_ANDROID_URL: "http://play.test/x" }),
     (e: unknown) => e instanceof ConfigError && e.problems.some((p) => p.includes("MOBILE_ANDROID_URL") && p.includes("https")));
 });
+
+test("Web Push: không đặt khóa VAPID thì tắt; đặt thiếu/sai thì báo lỗi, không in khóa bí mật", () => {
+  assert.equal(loadConfig({ NODE_ENV: "development" }).webPush, null);
+  const pub = "B".repeat(87), priv = "p".repeat(43);
+  assert.deepEqual(loadConfig({ NODE_ENV: "development", API_VAPID_PUBLIC_KEY: pub, API_VAPID_PRIVATE_KEY: priv, API_VAPID_SUBJECT: "mailto:ops@kavor.vn" }).webPush,
+    { publicKey: pub, privateKey: priv, subject: "mailto:ops@kavor.vn" });
+  assert.throws(() => loadConfig({ NODE_ENV: "development", API_VAPID_PUBLIC_KEY: pub, API_VAPID_PRIVATE_KEY: "bi-mat-sai", API_VAPID_SUBJECT: "ops" }), (e: unknown) => {
+    assert.ok(e instanceof ConfigError);
+    assert.ok(e.problems.some((p) => p.includes("API_VAPID_PRIVATE_KEY")));
+    assert.ok(e.problems.some((p) => p.includes("API_VAPID_SUBJECT")));
+    assert.ok(!e.message.includes("bi-mat-sai"));
+    return true;
+  });
+  for (const s of ["mailto:dev@kavor.test", "https://localhost:3000", "mailto:a@b.local"]) {
+    assert.throws(() => loadConfig({ NODE_ENV: "development", API_VAPID_PUBLIC_KEY: pub, API_VAPID_PRIVATE_KEY: priv, API_VAPID_SUBJECT: s }),
+      (e: unknown) => e instanceof ConfigError && e.problems.some((p) => p.includes("tên miền thật")), s);
+  }
+  assert.ok(loadConfig({ NODE_ENV: "development", API_VAPID_PUBLIC_KEY: pub, API_VAPID_PRIVATE_KEY: priv, API_VAPID_SUBJECT: "https://kavor-app.vercel.app" }).webPush);
+});

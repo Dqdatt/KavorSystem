@@ -14,6 +14,8 @@ SRK=$(supabase status -o env 2>/dev/null | grep -E '^SERVICE_ROLE_KEY=' | cut -d
 ANON=$(supabase status -o env 2>/dev/null | grep -E '^ANON_KEY=' | cut -d= -f2- | tr -d '"')
 # Web HR/Admin (pnpm dev:admin) đọc file này: Realtime cần URL + publishable key local. File bị .gitignore.
 printf 'KAVOR_API_URL=http://localhost:4000/api/v1\nSUPABASE_URL=http://127.0.0.1:55321\nSUPABASE_PUBLISHABLE_KEY=%s\n' "$ANON" > apps/admin-web/.env.local
+# Khóa VAPID thử cho Web Push của PWA trên máy dev: tạo một lần, ghi thêm vào apps/api/.env.local (bị .gitignore)
+grep -qs '^API_VAPID_PRIVATE_KEY=' apps/api/.env.local || (cd apps/api && node -e 'const k=require("web-push").generateVAPIDKeys(); console.log(`API_VAPID_PUBLIC_KEY=${k.publicKey}\nAPI_VAPID_PRIVATE_KEY=${k.privateKey}\nAPI_VAPID_SUBJECT=mailto:dev@kavor.vn`)' >> .env.local)
 # Cấu hình riêng của máy (vd. CONSOLE_BOOTSTRAP_EMAIL — email quản trị viên Console đầu tiên), file bị .gitignore
 [ -f apps/api/.env.local ] && { set -a; . apps/api/.env.local; set +a; }
 IP=$(ipconfig getifaddr en0 || ipconfig getifaddr en1 || echo localhost)

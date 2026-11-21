@@ -17,9 +17,10 @@ import type { PayrollService } from "../payroll/payroll.service.js";
 import type { AnnouncementsService } from "../announcements/announcements.service.js";
 import type { DocumentsService } from "../documents/documents.service.js";
 import type { ProfileService } from "../profile/profile.service.js";
+import type { PushService } from "../push/push.service.js";
 
 export const TIMESHEET_SERVICES = Symbol("TIMESHEET_SERVICES");
-export type TimesheetServices = { timesheets: TimesheetService; requests: RequestsService; notifications: NotificationsService; leave: LeaveService; overtime: OvertimeService; advance: AdvanceService; payroll: PayrollService; inputs: PayrollInputs; announcements: AnnouncementsService; documents: DocumentsService; profile: ProfileService };
+export type TimesheetServices = { timesheets: TimesheetService; requests: RequestsService; notifications: NotificationsService; leave: LeaveService; overtime: OvertimeService; advance: AdvanceService; payroll: PayrollService; inputs: PayrollInputs; announcements: AnnouncementsService; documents: DocumentsService; profile: ProfileService; push: PushService };
 
 function bearer(header?: string): string {
   const m = /^Bearer\s+(.+)$/i.exec(header ?? "");
@@ -132,6 +133,11 @@ export class TimesheetController {
   notifications(@Req() r: CorrelatedRequest, @Headers("authorization") a?: string) { return this.run(r, a, (s, emp) => s.notifications.feed(emp.tenant_id, emp.id)); }
   @Post("notifications/read") @HttpCode(200)
   notificationsRead(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Body() b: Json) { return this.run(r, a, (s, emp) => s.notifications.markRead(emp.tenant_id, emp.id, b)); }
+  /* Web Push của PWA: đăng ký trình duyệt này cho người đang đăng nhập / hủy khi đăng xuất */
+  @Post("push/subscribe") @HttpCode(200)
+  pushSubscribe(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Body() b: Json) { return this.run(r, a, (s, emp) => s.push.subscribe(emp, b)); }
+  @Post("push/unsubscribe") @HttpCode(200)
+  pushUnsubscribe(@Req() r: CorrelatedRequest, @Headers("authorization") a: string | undefined, @Body() b: Json) { return this.run(r, a, (s, emp) => s.push.unsubscribe(emp, b)); }
 
   @Get("approvals")
   approvals(@Req() r: CorrelatedRequest, @Headers("authorization") a?: string) { return this.run(r, a, (s, _e, v) => s.requests.approvals(v)); }

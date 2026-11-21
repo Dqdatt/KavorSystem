@@ -1399,6 +1399,9 @@ export type AppNotification = {
   actionable: boolean;
 };
 export type NotificationFeed = { items: AppNotification[]; unread: number };
+/* Web Push của PWA: PushSubscription.toJSON() của trình duyệt (POST /me/push/subscribe; /me/push/unsubscribe chỉ cần endpoint).
+   Khóa công khai VAPID để trình duyệt đăng ký: GET /meta → webPushKey (null = máy chủ chưa bật push). */
+export type PushSubscriptionInput = { endpoint: string; keys: { p256dh: string; auth: string } };
 /* ids rỗng/không có: đánh dấu tất cả đã đọc */
 export type NotificationRead = { ids?: string[] };
 /* Nút "Nhắc" của HR: employeeIds bỏ trống = mọi người cần nhắc trong phạm vi. total = số người cần nhắc trong lô,

@@ -33,7 +33,7 @@ const CSS = `
 html,body{overscroll-behavior:none;-webkit-text-size-adjust:100%}
 #root{max-width:440px;margin:0 auto;overflow:hidden;background:#fff;
   -webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
-#root input,#root textarea{-webkit-user-select:text;user-select:text}
+#root input,#root textarea{-webkit-user-select:text;user-select:text;min-width:0;outline:none}
 @media (min-width:600px){
   html,body{background:radial-gradient(circle at 20% 10%,#12976F 0%,#065F46 55%,#033D2D 100%) fixed}
   #root{position:relative;inset:auto;top:max(0px,calc((100% - 920px)/2));height:min(100%,920px);border-radius:44px;box-shadow:0 40px 80px -30px rgba(0,0,0,.6),0 0 0 10px #0B1F18}
