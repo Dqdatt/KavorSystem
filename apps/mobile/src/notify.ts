@@ -1,8 +1,12 @@
 /* Nhắc hạn giải trình bằng thông báo cục bộ trên máy — không cần APNs/FCM nên dùng được khi chưa có tài khoản Apple Developer.
    Lịch nhắc tính lại mỗi lần tải bảng công: 09:00 ngày trước hạn và 09:00 ngày hạn (giờ trên máy) cho các ngày còn giải trình được.
-   Thông báo từ máy chủ (đơn được duyệt, cần duyệt…) chỉ hiện trong app; push khi app tắt để sau (xem PROGRESS). */
+   Thông báo từ máy chủ (đơn được duyệt, bản tin…): PWA nhận Web Push (syncPush); app native chỉ hiện trong app, chưa có APNs/FCM. */
 import * as Notifications from "expo-notifications";
 import type { MyTimesheet } from "@kavor/contracts";
+import { notificationsApi } from "./api/http";
+
+/* Chỉ trình duyệt có Push API (PWA); app native chưa có APNs/FCM. */
+const WEB_PUSH = typeof (globalThis as { PushManager?: unknown }).PushManager !== "undefined";
 
 const TAG = "kavor.explain";
 let asked = false;
@@ -59,6 +63,29 @@ export function onReminderTap(open: (date: string) => void) {
   const handle = (r: Notifications.NotificationResponse | null) => {
     const d = r?.notification.request.content.data;
     if (d?.tag === TAG && typeof d.date === "string") open(d.date);
+  };
+  Notifications.addNotificationResponseReceivedListener(handle);
+  return () => handle(Notifications.getLastNotificationResponse());
+}
+
+export async function syncPush() {
+  if (!WEB_PUSH) return;
+  try {
+    if (!(await Notifications.getPermissionsAsync()).granted) return;
+    const t = await Notifications.getDevicePushTokenAsync();
+    if ((t as { type?: string }).type === "web") await notificationsApi.pushSubscribe(t.data);
+  } catch {
+    /* Lần mở app sau thử lại */
+  }
+}
+
+export async function stopPush() {
+  if (WEB_PUSH) await Notifications.unregisterForNotificationsAsync().catch(() => undefined);
+}
+
+export function onPushTap(open: () => void) {
+  const handle = (r: Notifications.NotificationResponse | null) => {
+    if (r?.notification.request.content.data?.push === true) open();
   };
   Notifications.addNotificationResponseReceivedListener(handle);
   return () => handle(Notifications.getLastNotificationResponse());

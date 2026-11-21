@@ -1,5 +1,5 @@
-/* expo-notifications trên web (chỉ phần app dùng: quyền + nhắc hạn giải trình cục bộ).
-   Không có push từ máy chủ. Nhắc hẹn giờ chỉ bắn khi PWA đang mở (trình duyệt không có lịch thông báo cục bộ);
+/* expo-notifications trên web (chỉ phần app dùng: quyền, nhắc hạn giải trình cục bộ, đăng ký Web Push).
+   Push từ máy chủ: getDevicePushTokenAsync trả PushSubscription, service worker hiện thông báo. Nhắc hẹn giờ chỉ bắn khi PWA đang mở (trình duyệt không có lịch thông báo cục bộ);
    hiển thị qua service worker để bấm vào mở đúng ngày giải trình. iPhone: cần iOS 16.4+ và PWA đã thêm vào Màn hình chính. */
 type Perm = { granted: boolean; canAskAgain: boolean; status: "granted" | "denied" | "undetermined" };
 type Content = { title?: string; body?: string; data?: Record<string, unknown> };
@@ -67,4 +67,39 @@ export async function getLastNotificationResponseAsync() { return last; }
 export async function setBadgeCountAsync(n: number) {
   const nav = navigator as Navigator & { setAppBadge?: (n: number) => Promise<void>; clearAppBadge?: () => Promise<void> };
   try { await (n ? nav.setAppBadge?.(n) : nav.clearAppBadge?.()); return true; } catch { return false; }
+}
+
+function b64url(s: string): Uint8Array<ArrayBuffer> {
+  const b = atob(s.replace(/-/g, "+").replace(/_/g, "/") + "=".repeat((4 - (s.length % 4)) % 4));
+  const out = new Uint8Array(b.length);
+  for (let i = 0; i < b.length; i++) out[i] = b.charCodeAt(i);
+  return out;
+}
+
+export async function getDevicePushTokenAsync(): Promise<{ type: "web"; data: PushSubscriptionJSON }> {
+  const res = await fetch("/api/v1/meta");
+  const json = (await res.json().catch(() => null)) as { data?: { webPushKey?: string | null } } | null;
+  const key = json?.data?.webPushKey;
+  if (!res.ok || !key) throw new Error("PUSH_OFF");
+  const want = b64url(key);
+  const reg = await navigator.serviceWorker.ready;
+  let sub = await reg.pushManager.getSubscription();
+  if (sub) {
+    const cur = sub.options.applicationServerKey ? new Uint8Array(sub.options.applicationServerKey) : null;
+    if (!cur || cur.length !== want.length || cur.some((v, i) => v !== want[i])) {
+      await sub.unsubscribe();
+      sub = null;
+    }
+  }
+  if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: want });
+  return { type: "web", data: sub.toJSON() };
+}
+
+export async function unregisterForNotificationsAsync(): Promise<void> {
+  if (typeof navigator === "undefined" || !navigator.serviceWorker) return;
+  try {
+    const reg = await navigator.serviceWorker.getRegistration();
+    const sub = await reg?.pushManager?.getSubscription();
+    if (sub) await sub.unsubscribe();
+  } catch {}
 }
