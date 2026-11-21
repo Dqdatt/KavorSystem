@@ -28,7 +28,8 @@ select set_config('test.r1', (public.create_advance_request('10000000-0000-4000-
   2000000, '2025-03-01')->>'id'), true);
 select matches((select request_no from public.requests where id = current_setting('test.r1')::uuid), '^TU-\d{4}$', 'Số đơn TU-xxxx');
 select is((select body from public.notifications where link_id = current_setting('test.r1')::uuid and kind = 'approval.pending'),
-  'Võ Thảo Linh · Tạm ứng lương 2.000.000 ₫ · trừ lương 03/2025', 'Báo quản lý kèm số tiền, tháng khấu trừ');
+  'Trừ vào lương 03/2025 · Chờ bạn duyệt · ' || (select request_no from public.requests where id = current_setting('test.r1')::uuid),
+  'Báo quản lý không kèm số tiền, có tháng khấu trừ và mã đơn');
 select throws_ok($$ select public.create_advance_request('10000000-0000-4000-8000-000000000001', '60000000-0000-4000-8000-000000000005', null, current_setting('test.wv')::uuid,
   '2025-02-26', '{"amount":1000000,"month":"2025-03"}', '{}',
   '[{"stepNo":1,"resolver":"direct_manager","assigneeEmployeeId":"60000000-0000-4000-8000-000000000001","status":"pending","slaHours":24}]', 1000000, '2025-03-01') $$,

@@ -58,7 +58,7 @@ check "Trùng ngày → 409" "$_s1" 409
 check "Quản lý nhận đơn cần duyệt" "$(call GET me/approvals "$MGR" | py "[i['no'] for i in d['items']]==['$NO1']")" True
 check "Quản lý duyệt → hoàn tất" "$(call POST me/approvals/$T1/approve "$MGR" '{}' | field data.status)" approved
 check "Đã trừ 1 ngày, hết giữ chỗ" "$(call GET me/leave "$EMP" | py "(d['balance']['used'], d['balance']['pending'], d['balance']['available']==$A0-1)")" "(1, 0, True)"
-check "Người gửi nhận thông báo đã duyệt" "$(call GET me/notifications "$EMP" | py "d['items'][0]['title']")" "Đơn $NO1 đã được duyệt"
+check "Người gửi nhận thông báo đã duyệt" "$(call GET me/notifications "$EMP" | py "d['items'][0]['title']")" "Đơn nghỉ phép đã được duyệt"
 
 echo "— Đơn 3 ngày: quản lý → HR"
 r=$(call POST me/requests/leave "$EMP" "{\"leaveType\":\"AL\",\"from\":\"$D2\",\"to\":\"$D4\",\"reason\":\"Về quê có việc\"}")
