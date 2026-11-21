@@ -25,7 +25,7 @@ cả qua `kavor-app.vercel.app/api/v1/meta`. CÒN: người dùng thử push th�
    **Simulator không đăng ký Web Push được**: `pushManager.subscribe` báo `NotAllowedError: User denied push permission` kể cả khi chạm trực tiếp
    (trang thử `permtest`). Bước nhận push thật phải thử trên iPhone.
 
-## 21/11 tối: push tới iPhone ✅; đã sửa chậm khi khóa máy + chữ khó đọc (commit local, CHƯA push, CHƯA lên cloud)
+## 21–22/11: push tới iPhone ✅; đã sửa chậm khi khóa máy + chữ khó đọc (ĐÃ deploy)
 - `push.service.ts`: `urgency: "high"`, rút hàng đợi 5 giây/lần (trước 20 giây).
 - Chữ thông báo viết lại (QUY TẮC người dùng: không dấu "·", viết thành câu; không câu đệm; không số tiền):
   `202612140001_notification_text.sql` (giao 003 dựng khung, worker bỏ qua quy tắc "·" nên Claude tự sửa chữ) — hàm `notify_request_brief`,
@@ -33,8 +33,8 @@ cả qua `kavor-app.vercel.app/api/v1/meta`. CÒN: người dùng thử push th�
   Ví dụ: "Trần Thu Hà xin tạm ứng lương" / "Trừ vào lương 11/2026. Chờ bạn duyệt đơn TU-0001."; bản tin "Quan trọng: <tên>" / "Phòng Nhân sự: <120 ký tự đầu>…".
 - Kiểm: pgTAP 718/718; verify-all đủ, 3 smoke ✘ lần đầu rồi chạy riêng đạt: announcements (check cũ "không chép nội dung" — đã đổi),
   checklist (lỗi giả khi máy tải nặng), operators (preview không đọc `.env.local` + giới hạn OTP khi chạy lặp; bản ép email đạt 48 bước).
-- CÒN: người dùng chạy lại `tools/cloud-supabase.sh` (2 migration mới) + bảo Claude push. Hai việc độc lập, thứ tự nào cũng được
-  (chữ mới chỉ có sau khi migration lên cloud; ưu tiên cao/5 giây có sau khi push).
+- ✅ 22/11: 2 migration đã lên cloud (người dùng chạy `tools/cloud-supabase.sh`), đã push `01bec45` (Render health 200, còn `webPushKey`).
+  CÒN: người dùng thử lại trên iPhone (push khi khóa máy có nhanh hơn không, chữ mới có dễ đọc không).
 
 ## Việc người dùng cần làm (thứ tự trong `docs/DEPLOY.md` mục 7b "Thông báo khi app tắt")
 1. ✅ `tools/cloud-supabase.sh` đã áp `202612130001_web_push.sql` (lỗi "Storage config databasePoolMode" của CLI 2.108 bỏ qua được — Auth up to date).
