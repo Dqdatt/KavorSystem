@@ -23,7 +23,7 @@ insert into public.approval_tasks (id, tenant_id, request_id, step_no, resolver,
 select is((select recipient_employee_id::text || ' · ' || title from public.notifications where task_id = 'f4000000-0000-4000-8000-000000000001' and kind = 'approval.pending'),
   '60000000-0000-4000-8000-000000000003 · Trần Thu Hà gửi giải trình công', 'Đơn mới → báo quản lý được giao');
 select is((select body from public.notifications where task_id = 'f4000000-0000-4000-8000-000000000001' and kind = 'approval.pending'),
-  'T5 03/04, quên chấm ra. Chờ bạn duyệt đơn TEST-NT-1.', 'Nội dung có ngày, loại giải trình, trạng thái chờ duyệt và mã đơn');
+  'T5 03/04 · quên chấm ra · Chờ bạn duyệt · TEST-NT-1', 'Nội dung có ngày, loại giải trình, trạng thái chờ duyệt và mã đơn');
 select is((select count(*)::int from public.notifications where link_id = 'f3000000-0000-4000-8000-000000000001' and kind = 'approval.pending'), 1, 'Bước HR chưa tới lượt thì chưa báo HR');
 
 select ok(public.notify_due_approvals() >= 1, 'Quét bước duyệt sắp hết hạn tạo thông báo mới');
@@ -46,7 +46,7 @@ insert into public.approval_tasks (id, tenant_id, request_id, step_no, resolver,
   ('f4000000-0000-4000-8000-000000000003', '10000000-0000-4000-8000-000000000001', 'f3000000-0000-4000-8000-000000000002', 1, 'direct_manager', '60000000-0000-4000-8000-000000000003', 'pending');
 select is(public.decide_approval('f4000000-0000-4000-8000-000000000003', null, false, 'Không có minh chứng'), 'rejected', 'Quản lý từ chối');
 select is((select body from public.notifications where link_id = 'f3000000-0000-4000-8000-000000000002' and kind = 'request.rejected'),
-  'Người duyệt: Không có minh chứng. T6 04/04. Mã đơn TEST-NT-2.', 'Báo từ chối kèm lý do');
+  'Người duyệt: Không có minh chứng · T6 04/04 · TEST-NT-2', 'Báo từ chối kèm lý do');
 
 -- ---------- Thiết bị ----------
 insert into public.employee_devices (id, tenant_id, employee_id, installation_id, platform, device_model, status)

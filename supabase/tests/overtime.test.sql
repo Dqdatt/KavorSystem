@@ -20,7 +20,7 @@ select set_config('test.r1', (public.create_overtime_request('10000000-0000-4000
 select matches((select request_no from public.requests where id = current_setting('test.r1')::uuid), '^OT-\d{4}$', 'Số đơn OT-xxxx');
 select is((select minutes || ' · ' || day_kind || ' · ' || rate_percent from public.overtime_entries where request_id = current_setting('test.r1')::uuid), '210 · weekend · 200', 'Lưu khoảng giờ, loại ngày, hệ số');
 select is((select body from public.notifications where link_id = current_setting('test.r1')::uuid and kind = 'approval.pending'),
-  'T7 08/03 từ 08:00 đến 11:30 (3,5 giờ). Chờ bạn duyệt đơn ' || (select request_no from public.requests where id = current_setting('test.r1')::uuid) || '.',
+  'T7 08/03 · 08:00–11:30 · 3,5 giờ · Chờ bạn duyệt · ' || (select request_no from public.requests where id = current_setting('test.r1')::uuid),
   'Báo quản lý kèm ngày, giờ, số giờ và mã đơn');
 select throws_ok($$ select public.create_overtime_request('10000000-0000-4000-8000-000000000001', '60000000-0000-4000-8000-000000000005', null, current_setting('test.wv')::uuid,
   '2025-02-26', '{"date":"2025-03-08","start":"11:00","end":"12:00","hours":1}', '{}',
