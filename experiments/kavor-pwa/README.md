@@ -20,6 +20,7 @@ Thư mục nằm ngoài `pnpm-workspace.yaml`/`turbo.json` (không có dependenc
 | `shims/imgcache.ts` | Tải ảnh đại diện / ảnh bìa có header `Authorization` và lưu trong `Cache Storage` + `Blob URL`. |
 | `shims/notifications.ts` | Quyền thông báo Web Notification + nhắc hạn giải trình qua Service Worker khi app đang mở. |
 | `shims/symbols.tsx` | Vẽ SVG cho SF Symbols (`faceid`, `touchid`, `lock`). |
+| `shims/geo-perm.ts` | Nhớ quyền vị trí trong `localStorage` giữa các lần mở app trên iOS (khắc phục lỗi permissions query luôn trả `prompt`). |
 | `public/` + `tools/postbuild.mjs` | `manifest.webmanifest`, icon, splash HTML `#boot-splash` và `sw.js`: cài sẵn HTML + bundle JS + icon; HTML lấy mạng trước (mất mạng dùng bản lưu), file khác cache trước; mỗi bản build một cache `kavor-shell-*`, không đụng `/api/*` và cache ảnh `kavor-img`. |
 | `api/proxy.mjs` | Proxy `/api/v1/*` → Kavor API (Vercel Function, `KAVOR_API_URL`). Refresh token chỉ nằm trong cookie HttpOnly `kv_rt` (Path `/api/v1/auth`); trang chỉ thấy chữ giữ chỗ `httponly`, proxy lắp lại khi gọi `/auth/refresh`, xóa cookie khi đăng xuất hoặc token chết. Test: `npm test`. |
 | `tools/serve.mjs` | Máy chủ tĩnh không phụ thuộc gói ngoài, dùng chung `api/proxy.mjs` (tránh sửa `API_CORS_ORIGINS` của backend). Hỗ trợ cả HTTP và HTTPS LAN. |
