@@ -102,6 +102,8 @@ declare
   note text;
   brief text;
   noun text;
+  tail text;
+  avail integer;
 begin
   if new.status not in ('approved', 'rejected') or old.status = new.status then return null; end if;
   select coalesce(e.full_name, 'Người duyệt'), t.comment into actor, note
@@ -119,10 +121,18 @@ begin
         else '' end, new.request_no),
       'request', new.id, new.request_no, null, 'done:' || new.id);
   else
+    note := nullif(btrim(coalesce(note, '')), '');
+    if note is not null then
+      tail := concat_ws(' · ', brief, new.request_no);
+      avail := 500 - length(coalesce(actor, 'Người duyệt') || ': ') - case when tail <> '' then 3 + length(tail) else 0 end;
+      if length(note) > avail then
+        note := case when avail > 1 then rtrim(left(note, avail - 1)) || '…' else left(note, greatest(avail, 0)) end;
+      end if;
+    end if;
     perform public.notify(new.tenant_id, new.requester_employee_id, 'request.rejected',
       'Đơn ' || coalesce(noun, new.request_no) || ' bị từ chối',
       concat_ws(' · ',
-        coalesce(actor, 'Người duyệt') || case when nullif(btrim(coalesce(note, '')), '') is null then ' từ chối, không ghi lý do' else ': ' || note end,
+        coalesce(actor, 'Người duyệt') || case when note is null then ' từ chối, không ghi lý do' else ': ' || note end,
         brief, new.request_no),
       'request', new.id, new.request_no, null, 'done:' || new.id);
   end if;
@@ -173,17 +183,19 @@ set search_path = public
 as $$
 declare
   a record;
+  teaser text;
   n integer := 0;
 begin
   for a in
-    select id, tenant_id, title, category, important, body, author_label from public.announcements
+    select id, tenant_id, title, important from public.announcements
     where notify and notified_at is null and archived_at is null and publish_at <= now()
       and (visible_until is null or visible_until > now()) and (p_announcement is null or id = p_announcement)
     order by publish_at for update skip locked
   loop
+    teaser := public.announcement_teaser(a.id);
     perform public.notify(a.tenant_id, r, 'announcement.published',
       case when a.important then 'Quan trọng · ' else '' end || a.title,
-      public.announcement_teaser(a.id),
+      teaser,
       'announcement', a.id, null, null, 'announcement:' || a.id)
     from public.announcement_recipients(a.id) r;
     update public.announcements set notified_at = now() where id = a.id;

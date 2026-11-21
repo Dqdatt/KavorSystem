@@ -61,7 +61,8 @@ echo "— Từ chối"
 B="{\"workDate\":\"$LATEDAY\",\"kind\":\"late\",\"clockIn\":\"08:00\",\"reason\":\"Kẹt xe do tai nạn trên cầu\"}"
 r=$(call POST me/requests/explanations "$EMP" "$B"); NO2=$(echo "$r" | field data.no); T3=$(echo "$r" | field data.steps.0.taskId)
 call POST "me/approvals/$T3/reject" "$MGR" '{"comment":"Không có minh chứng"}' >/dev/null
-check "Người gửi nhận \"bị từ chối\" kèm lý do" "$(call GET me/notifications "$EMP" | py "(d['items'][0]['title'], d['items'][0]['body'].startswith('Lê Quang Huy: Không có minh chứng · ') and '$NO2' in d['items'][0]['body'])")" "('Đơn giải trình công bị từ chối', True)"
+DAYLBL=$(python3 -c "import datetime; d=datetime.date.fromisoformat('$LATEDAY'); print(['T2','T3','T4','T5','T6','T7','CN'][d.weekday()]+' '+d.strftime('%d/%m'))")
+check "Người gửi nhận \"bị từ chối\" kèm lý do" "$(call GET me/notifications "$EMP" | py "(d['items'][0]['title'], d['items'][0]['body'])")" "('Đơn giải trình công bị từ chối', 'Lê Quang Huy: Không có minh chứng · $DAYLBL · đến muộn có lý do · $NO2')"
 
 echo "— Máy mới được duyệt"
 call POST me/devices "$EMP" '{"installationId":"smoke-notif-iphone","platform":"ios","deviceModel":"iPhone 11"}' >/dev/null
