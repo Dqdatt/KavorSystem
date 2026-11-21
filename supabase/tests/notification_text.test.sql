@@ -1,7 +1,7 @@
 -- Kiểm tra các hàm dựng chữ thông báo (teaser bản tin, tóm tắt đơn không lộ tiền, danh từ loại đơn).
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(5);
+select plan(6);
 
 insert into public.announcements (id, tenant_id, category, title, body, author_label, audience)
 values
@@ -39,9 +39,9 @@ values ('f7000000-0000-4000-8000-000000000004', '10000000-0000-4000-8000-0000000
   '60000000-0000-4000-8000-000000000142', current_setting('test.wv_exp')::uuid, date '2025-04-04');
 insert into public.approval_tasks (id, tenant_id, request_id, step_no, resolver, assignee_employee_id, status)
 values ('f7000000-0000-4000-8000-000000000005', '10000000-0000-4000-8000-000000000001', 'f7000000-0000-4000-8000-000000000004', 1, 'direct_manager', '60000000-0000-4000-8000-000000000003', 'pending');
-select is((select public.decide_approval('f7000000-0000-4000-8000-000000000005', null, false, repeat('x', 600)) = 'rejected'
-  and (select length(body) = 500 and body like 'Người duyệt: %… · T6 04/04 · TEST-NT-LONG'
-    from public.notifications where link_id = 'f7000000-0000-4000-8000-000000000004' and kind = 'request.rejected')),
+select is(public.decide_approval('f7000000-0000-4000-8000-000000000005', null, false, repeat('x', 600)), 'rejected', 'Từ chối đơn với lý do dài');
+select is((select length(body) = 500 and body like 'Người duyệt: %… · T6 04/04 · TEST-NT-LONG'
+    from public.notifications where link_id = 'f7000000-0000-4000-8000-000000000004' and kind = 'request.rejected'),
   true, 'Lý do từ chối dài được cắt riêng để giữ tóm tắt và mã đơn ở cuối');
 
 select * from finish();
