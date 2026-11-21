@@ -5,10 +5,12 @@ import { patchGeoPermission, KEY } from "../shims/geo-perm.ts";
 
 function createStore(initial = {}) {
   const map = new Map(Object.entries(initial));
+  let setItemCalls = 0;
   return {
     map,
+    get setItemCalls() { return setItemCalls; },
     getItem: (k) => map.get(k) ?? null,
-    setItem: (k, v) => map.set(k, String(v)),
+    setItem: (k, v) => { setItemCalls++; map.set(k, String(v)); },
     removeItem: (k) => map.delete(k),
   };
 }
@@ -173,4 +175,5 @@ test("patch hai lần -> callback gốc chỉ được gọi một lần", () =>
 
   assert.equal(rawCalls, 1);
   assert.equal(appCalls, 1);
+  assert.equal(store.setItemCalls, 1);
 });
