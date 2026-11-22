@@ -47,7 +47,7 @@ export async function scheduleExplainReminders(t: MyTimesheet, issueOf: (date: s
       await Notifications.scheduleNotificationAsync({
         content: {
           title: p.last ? `Hôm nay là hạn giải trình công` : `Hạn giải trình công: ${ddmm(p.deadline)}`,
-          body: `${p.dates.map((d) => `Ngày ${ddmm(d)} ${issueOf(d)}`).join(", ")} · còn ${q.left}/${q.limit} lượt`,
+          body: `${p.dates.map((d) => `Ngày ${ddmm(d)} ${issueOf(d)}`).join(", ")}. Còn ${q.left}/${q.limit} lượt giải trình.`,
           data: { tag: TAG, date: p.dates[0] },
         },
         trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: p.when },

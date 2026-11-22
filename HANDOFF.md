@@ -8,7 +8,15 @@
 - Bản tin quan trọng có tiêu đề "❗ <tên>": `202612150001_announcement_important_icon.sql`. Shim `ScrollView` PWA (`experiments/kavor-pwa/shims/react-native.ts`, `scroll-snap.ts`): dải ngày cuộn được, bánh xe giờ tự khớp số (`4524419`).
 - UI OTP, quyền vị trí iOS, `IS_IOS` trong `apps/mobile/src/os.ts` (`93647b4`). Commit `07b1be1` (HANDOFF) chưa push.
 
-## Đang dở — bố cục push màn hình khóa "Gọn + icon" (người dùng ĐÃ CHỐT 22/11, chưa sửa dòng code nào)
+## Tiến độ phiên 26 (22/11, chưa commit)
+- Bước 1 XONG: `202612160001_announcement_teaser_plain.sql` (hàm mới `announcement_plain_text` + `announcement_teaser` không tiền tố, cắt 90 ký tự ở ranh giới từ);
+  pgTAP `notification_text` 12 test đạt; smoke bản tin chờ body "Áp dụng từ tuần sau. Ý một. Ý hai". Migration đã áp local, CHƯA lên cloud.
+- Bước 2 XONG: `giao` 005 (icon push) đã duyệt, gộp `2ff1371`. Bước 3 XONG (sửa tay 1 dòng `notify.ts`).
+- verify-all đầy đủ trên API 4100: đạt hết trừ smoke `requests`/`settings` lỗi giả bước MFA (máy tải nặng); chạy riêng lại → đạt.
+- Migration `202612160001` ĐÃ LÊN CLOUD (22/11, qua `supabase db query --linked`, người dùng đồng ý); kiểm lại: có trong schema_migrations, hàm chạy đúng, anon/authenticated không gọi được.
+- Còn: commit (migration, pgTAP, smoke, notify.ts), push khi người dùng bảo.
+
+## Đang dở — bố cục push màn hình khóa "Gọn + icon" (người dùng ĐÃ CHỐT 22/11)
 Ảnh iPhone: bản tin hiện `**` thô, tiền tố "Phòng Nhân sự:", dài 4 dòng → cao gấp đôi thông báo app khác.
 1. Migration mới `create or replace public.announcement_teaser` (gốc ở `202612140001`): bỏ ký hiệu định dạng theo `parseAnnouncement`/`announcementPlainText`
    (`packages/contracts/src/index.ts`; lối thoát `\` xem `escText`/`escLineStart` ở `apps/admin-web/app/_ui/rich-text.tsx`): `**` `*` `++`, đầu dòng `- • * + 1. 1) # >`,
