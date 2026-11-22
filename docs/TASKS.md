@@ -96,7 +96,7 @@ Mỗi vòng: làm theo thứ tự module (AGENTS.md) → verify-all → deploy �
 - [ ] Feedback PWA của người dùng (iPhone/Android thật) — sửa ở `apps/mobile/src` hoặc shim PWA — [opus high] (đăng nhập/cookie/proxy: [opus xhigh])
   - [x] 21–22/11: Web Push tới iPhone, chữ thông báo viết lại (không "·", không số tiền), urgency high, ❗ bản tin quan trọng, dải ngày cuộn + bánh xe giờ tự khớp (`4524419` đã deploy)
   - [x] Bố cục push màn hình khóa "Gọn + icon" (22/11, `bf902b4` + `7c1a35f`, đã deploy, người dùng thử iPhone ổn): đoạn trích bản tin chữ thuần ≤ 90 ký tự, danh sách mỗi mục một dòng; icon theo loại trong push; nhắc giải trình viết thành câu
-  - [ ] Vercel `kavorsystem-mobile` deploy lỗi ở mọi commit gần đây: nếu là project cũ không dùng thì gỡ — [haiku]
+  - [x] Gỡ project Vercel `kavorsystem-mobile` (cũ, chưa từng có bản production; đã xóa 22/11)
   - [ ] Người dùng thử vuốt dải ngày/bánh xe giờ trên iPhone thật; đổi mật khẩu ứng dụng Gmail (lỡ dán vào chat 22/11) → Vercel `SMTP_URL` + chạy lại `cloud-supabase.sh` — [haiku]
 - [ ] (Tùy chọn) PWA: gom 3 cơ chế chuyển hướng `react-native` (Metro resolver, Babel plugin, shim) — [opus high]
 

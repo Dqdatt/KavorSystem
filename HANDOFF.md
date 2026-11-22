@@ -30,8 +30,7 @@
 ## Việc tiếp theo
 1. [haiku] Người dùng: thử vuốt dải ngày/bánh xe giờ trên iPhone thật; ĐỔI mật khẩu ứng dụng Gmail (lỡ dán vào chat 22/11)
    → Vercel `SMTP_URL` + chạy lại `cloud-supabase.sh`.
-2. [haiku] Vercel `kavorsystem-mobile` deploy lỗi ở mọi commit gần đây — nếu là project cũ không dùng thì người dùng gỡ.
-3. [opus high] Feedback PWA tiếp theo của người dùng (xem `docs/TASKS.md`).
+2. [opus high] Feedback PWA tiếp theo của người dùng (xem `docs/TASKS.md`).
 - Lưu ý verify-all: lỗi giả bước MFA / "Auth/REST chưa sẵn sàng" khi máy tải nặng → chạy riêng smoke đó;
   pgTAP `reminders` lỗi nếu chạy sau smoke mà chưa reset DB.
 
