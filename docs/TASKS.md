@@ -4,6 +4,7 @@
 **v1 (`d22f97f`, deploy 19/11) là bản phát hành.** Không sửa vô hạn: hạ tầng miễn phí + Apple ID miễn phí dùng tạm; dịch vụ trả phí và quảng bá
 làm khi có khách hàng (có tiền). Vòng 1/Vòng 2 bên dưới là backlog — làm dần, ưu tiên theo nhu cầu khách thật, không chặn phát hành.
 - [ ] Khi có khách đầu tiên, TRƯỚC khi họ dùng thật: mua Apple Developer → TestFlight/App Store cho iPhone nhân viên (Android: phát APK hoặc Play); ngày duyệt làm theo `docs/DEPLOY.md` 7c (không sửa code)
+  - [ ] Cùng lúc mua Apple: push từ server cho app native iOS (APNs, bật Push Notifications; tái dùng hàng đợi `apps/api/src/push`, `expo-notifications` đã có trong mobile). Đến lúc đó PWA vẫn lo push (chốt 22/11) — [opus high]
 - [ ] Khi có khách đầu tiên: sửa 4 mục họ sẽ gặp sớm (đều trong Vòng 1) — đơn trùng khi mạng chậm (POST tạo đơn không idempotent),
   tạm ứng chặn 1 người duyệt 2 bước, ngừng phòng ban từng có người nghỉ, ngưỡng lương ≥ 1 triệu (nếu khách có thực tập/CTV) — [opus xhigh]
 - [ ] Trước kỳ lương thật đầu tiên trả theo số Kavor: Kế toán xác nhận tham số luật (chốt 18/11)
@@ -94,7 +95,8 @@ Mỗi vòng: làm theo thứ tự module (AGENTS.md) → verify-all → deploy �
 - [ ] Người dùng: đặt `MOBILE_IOS_URL`/`MOBILE_ANDROID_URL` = `https://kavor-app.vercel.app` trên Render, mời NV công ty demo, thử PWA iPhone thật qua 4G — [haiku]
 - [ ] Feedback PWA của người dùng (iPhone/Android thật) — sửa ở `apps/mobile/src` hoặc shim PWA — [opus high] (đăng nhập/cookie/proxy: [opus xhigh])
   - [x] 21–22/11: Web Push tới iPhone, chữ thông báo viết lại (không "·", không số tiền), urgency high, ❗ bản tin quan trọng, dải ngày cuộn + bánh xe giờ tự khớp (`4524419` đã deploy)
-  - [ ] Bố cục push màn hình khóa "Gọn + icon" (đã chốt 22/11, chi tiết trong HANDOFF): bỏ ký hiệu định dạng + "Phòng Nhân sự:" + cắt ~90 ký tự ở `announcement_teaser`; icon theo loại trong `push.service.ts`; bỏ "·" ở nhắc giải trình `notify.ts` — [opus high]
+  - [x] Bố cục push màn hình khóa "Gọn + icon" (22/11, `bf902b4` + `7c1a35f`, đã deploy, người dùng thử iPhone ổn): đoạn trích bản tin chữ thuần ≤ 90 ký tự, danh sách mỗi mục một dòng; icon theo loại trong push; nhắc giải trình viết thành câu
+  - [ ] Vercel `kavorsystem-mobile` deploy lỗi ở mọi commit gần đây: nếu là project cũ không dùng thì gỡ — [haiku]
   - [ ] Người dùng thử vuốt dải ngày/bánh xe giờ trên iPhone thật; đổi mật khẩu ứng dụng Gmail (lỡ dán vào chat 22/11) → Vercel `SMTP_URL` + chạy lại `cloud-supabase.sh` — [haiku]
 - [ ] (Tùy chọn) PWA: gom 3 cơ chế chuyển hướng `react-native` (Metro resolver, Babel plugin, shim) — [opus high]
 
