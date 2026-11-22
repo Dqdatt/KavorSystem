@@ -93,6 +93,9 @@ Mỗi vòng: làm theo thứ tự module (AGENTS.md) → verify-all → deploy �
 - [x] Project Vercel `kavor-app` (20/11, 40f37b5): https://kavor-app.vercel.app chạy, đã kiểm trang/font/SW/proxy
 - [ ] Người dùng: đặt `MOBILE_IOS_URL`/`MOBILE_ANDROID_URL` = `https://kavor-app.vercel.app` trên Render, mời NV công ty demo, thử PWA iPhone thật qua 4G — [haiku]
 - [ ] Feedback PWA của người dùng (iPhone/Android thật) — sửa ở `apps/mobile/src` hoặc shim PWA — [opus high] (đăng nhập/cookie/proxy: [opus xhigh])
+  - [x] 21–22/11: Web Push tới iPhone, chữ thông báo viết lại (không "·", không số tiền), urgency high, ❗ bản tin quan trọng, dải ngày cuộn + bánh xe giờ tự khớp (`4524419` đã deploy)
+  - [ ] Bố cục push màn hình khóa "Gọn + icon" (đã chốt 22/11, chi tiết trong HANDOFF): bỏ ký hiệu định dạng + "Phòng Nhân sự:" + cắt ~90 ký tự ở `announcement_teaser`; icon theo loại trong `push.service.ts`; bỏ "·" ở nhắc giải trình `notify.ts` — [opus high]
+  - [ ] Người dùng thử vuốt dải ngày/bánh xe giờ trên iPhone thật; đổi mật khẩu ứng dụng Gmail (lỡ dán vào chat 22/11) → Vercel `SMTP_URL` + chạy lại `cloud-supabase.sh` — [haiku]
 - [ ] (Tùy chọn) PWA: gom 3 cơ chế chuyển hướng `react-native` (Metro resolver, Babel plugin, shim) — [opus high]
 
 ### Việc của người dùng (không phải code) — đã chốt 18/11 dùng tạm (`docs/plans/hoan-thien-v1.md`), không chặn bản hoàn thiện
