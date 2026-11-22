@@ -35,13 +35,13 @@ cả qua `kavor-app.vercel.app/api/v1/meta`. CÒN: người dùng thử push th�
   checklist (lỗi giả khi máy tải nặng), operators (preview không đọc `.env.local` + giới hạn OTP khi chạy lặp; bản ép email đạt 48 bước).
 - ✅ 22/11: 2 migration đã lên cloud (người dùng chạy `tools/cloud-supabase.sh`), đã push `01bec45` (Render health 200, còn `webPushKey`).
   CÒN: người dùng thử lại trên iPhone (push khi khóa máy có nhanh hơn không, chữ mới có dễ đọc không).
-- 22/11 phản hồi tiếp (commit local, CHƯA push, CHƯA lên cloud): (a) "from Kavor" do iOS tự thêm, không bỏ được.
+- 22/11 phản hồi tiếp (ĐÃ deploy `4524419` + migration icon lên cloud): (a) "from Kavor" do iOS tự thêm, không bỏ được.
   (b) Bản tin quan trọng → "❗ <tên bài>": migration `202612150001_announcement_important_icon.sql`.
   (c) giao 004 + Claude sửa 2 lỗi review: shim `ScrollView` PWA (`experiments/kavor-pwa/shims/react-native.ts`, `scroll-snap.ts`) — bỏ `overflow`
   để dải ngày cuộn được (trước kẹt 1–6/11), giả lập snapToInterval/snapToOffsets + onMomentumScrollEnd (bánh xe giờ tự khớp số; đọc props mới
   nhất, kẹp điểm khớp về mép cuộn). Đã thử preview pwa-4100 cỡ iPhone: dải ngày đơn nghỉ/OT cuộn được, bánh xe giờ OT + phút giải trình tự khớp.
   verify-all: 3 smoke lỗi môi trường (REST chưa sẵn sàng sau reset ×2, operators email) → chạy riêng đạt.
-  CÒN: người dùng chạy `tools/cloud-supabase.sh` (icon ❗) + bảo push (PWA mới lên Vercel); thử vuốt thật trên iPhone.
+  CÒN: người dùng thử vuốt thật trên iPhone; ĐỔI mật khẩu ứng dụng Gmail (lỡ dán vào chat 22/11) → cập nhật Vercel `SMTP_URL` + chạy lại cloud-supabase.sh.
 
 ## Việc người dùng cần làm (thứ tự trong `docs/DEPLOY.md` mục 7b "Thông báo khi app tắt")
 1. ✅ `tools/cloud-supabase.sh` đã áp `202612130001_web_push.sql` (lỗi "Storage config databasePoolMode" của CLI 2.108 bỏ qua được — Auth up to date).
