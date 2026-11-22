@@ -1,6 +1,6 @@
 const path = require("path");
 const SHIM_RN = path.resolve(__dirname, "shims/react-native.ts");
-const SHIMMED = new Set(["Platform", "Alert", "useWindowDimensions", "Dimensions", "Linking", "Keyboard", "Vibration", "LogBox"]);
+const SHIMMED = new Set(["Platform", "Alert", "useWindowDimensions", "Dimensions", "Linking", "Keyboard", "Vibration", "LogBox", "ScrollView"]);
 
 /* babel-preset-expo trên web có plugin babel-plugin-react-native-web chạy trước và viết lại
    `import { StyleSheet, View } from "react-native"` thành các import tới `"react-native-web/dist/exports/StyleSheet"`...
