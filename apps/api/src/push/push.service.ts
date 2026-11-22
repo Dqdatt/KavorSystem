@@ -2,7 +2,7 @@
    cho nhân viên đang đăng nhập. Thông báo trong app được trigger SQL đưa vào hàng đợi; API rút hàng đợi mỗi 5 giây rồi gửi
    (thư viện web-push: ký VAPID + mã hóa đầu-cuối theo RFC 8291, máy chủ push không đọc được nội dung). */
 import webpush from "web-push";
-import type { PushSubscriptionInput } from "@kavor/contracts";
+import type { NotificationKind, PushSubscriptionInput } from "@kavor/contracts";
 import type { SupabaseGateway } from "../auth/supabase.js";
 import type { EmployeeRow } from "../auth/auth.service.js";
 import { invalid } from "../admin/context.js";
@@ -101,10 +101,20 @@ export class PushService {
   }
 }
 
+/* Icon chỉ có trong push màn hình khóa; app mobile có icon riêng (NOTIF_ICON ở apps/mobile/src/screens/profile.tsx) */
+const PUSH_ICON: Partial<Record<NotificationKind, string>> = {
+  "approval.pending": "📝", "approval.due": "⏰", "request.approved": "✅", "request.rejected": "❌",
+  "device.approved": "📱", "device.rejected": "📱", "advance.paid": "💵", "payslip.published": "💰",
+  "announcement.published": "📢", "reminder.announcement": "📢", "attendance.adjusted": "🕘",
+  "reminder.attendance": "⏰", "reminder.documents": "📄",
+};
+
 /* Nội dung push: service worker của PWA hiện tiêu đề/nội dung, bấm vào mở đúng đơn/bản tin (data.link) */
 function payload(r: Claim): string {
+  const icon = !r.title.startsWith("❗") ? PUSH_ICON[r.kind as NotificationKind] : undefined;
+  const title = icon ? `${icon} ${r.title}` : r.title;
   return JSON.stringify({
-    title: r.title, body: r.body, tag: r.notification_id,
+    title, body: r.body, tag: r.notification_id,
     data: { id: r.notification_id, kind: r.kind, link: r.link_type && r.link_id ? { type: r.link_type, id: r.link_id, no: r.link_no } : null },
   });
 }

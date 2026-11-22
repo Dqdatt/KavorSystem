@@ -55,7 +55,7 @@ test("gửi từng thông báo; 410/404 thì xóa đăng ký, lỗi khác giữ 
   console.error = () => {};
   try { assert.equal(await svc.drain(), 1); } finally { console.error = err; }
   assert.equal(sent.length, 3);
-  assert.deepEqual(sent[0]!.payload, { title: "Bản tin 1", body: "Mở để xem", tag: "n1", data: { id: "n1", kind: "announcement.published", link: { type: "announcement", id: "a1", no: null } } });
+  assert.deepEqual(sent[0]!.payload, { title: "📢 Bản tin 1", body: "Mở để xem", tag: "n1", data: { id: "n1", kind: "announcement.published", link: { type: "announcement", id: "a1", no: null } } });
   assert.deepEqual(calls.filter((c) => c.startsWith("delete")), ["delete push_subscriptions endpoint=https://web.push.apple.com/e2"]);
 });
 
@@ -79,3 +79,17 @@ test("đăng ký lưu cho đúng nhân viên; hủy chỉ xóa endpoint của ch
     "delete push_subscriptions employee_id=e1",
   ]);
 });
+
+test("thêm icon đầu tiêu đề push theo loại thông báo", async () => {
+  const r1 = { ...row(1), kind: "request.approved", title: "Đơn đã duyệt" };
+  const r2 = { ...row(2), kind: "announcement.published", title: "❗ Nghỉ lễ" };
+  const r3 = { ...row(3), kind: "x.y", title: "Tiêu đề lạ" };
+  const { sb } = fakeSb([r1, r2, r3]);
+  const sent: Array<{ payload: { title: string } }> = [];
+  const svc = new PushService(sb, null, async (_s, p) => { sent.push({ payload: JSON.parse(p) }); });
+  await svc.drain();
+  assert.equal(sent[0]?.payload.title, "✅ Đơn đã duyệt");
+  assert.equal(sent[1]?.payload.title, "❗ Nghỉ lễ");
+  assert.equal(sent[2]?.payload.title, "Tiêu đề lạ");
+});
+
