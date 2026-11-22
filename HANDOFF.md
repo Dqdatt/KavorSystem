@@ -14,7 +14,9 @@
 - Bước 2 XONG: `giao` 005 (icon push) đã duyệt, gộp `2ff1371`. Bước 3 XONG (sửa tay 1 dòng `notify.ts`).
 - verify-all đầy đủ trên API 4100: đạt hết trừ smoke `requests`/`settings` lỗi giả bước MFA (máy tải nặng); chạy riêng lại → đạt.
 - Migration `202612160001` ĐÃ LÊN CLOUD (22/11, qua `supabase db query --linked`, người dùng đồng ý); kiểm lại: có trong schema_migrations, hàm chạy đúng, anon/authenticated không gọi được.
-- Còn: commit (migration, pgTAP, smoke, notify.ts), push khi người dùng bảo.
+- Đã commit + push `bf902b4` (deploy Render + Vercel đạt; Vercel `kavorsystem-mobile` lỗi sẵn từ trước).
+- Người dùng thử iPhone: bài có danh sách bị dính một dòng ("THÔNG BÁO 1. … 2. …") → chọn "mỗi mục một dòng, giữ số/chấm".
+  Migration `202612170001_announcement_teaser_lists.sql` (pgTAP 725, smoke announcements + notifications đạt) ĐÃ LÊN CLOUD, đã commit + push. Chờ người dùng thử lại trên iPhone (chưa rõ iOS có hiện xuống dòng trong push web).
 
 ## Đang dở — bố cục push màn hình khóa "Gọn + icon" (người dùng ĐÃ CHỐT 22/11)
 Ảnh iPhone: bản tin hiện `**` thô, tiền tố "Phòng Nhân sự:", dài 4 dòng → cao gấp đôi thông báo app khác.

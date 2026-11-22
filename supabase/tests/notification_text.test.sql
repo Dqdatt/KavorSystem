@@ -1,7 +1,7 @@
 -- Kiểm tra các hàm dựng chữ thông báo (teaser bản tin, tóm tắt đơn không lộ tiền, danh từ loại đơn).
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(12);
+select plan(14);
 
 insert into public.announcements (id, tenant_id, category, title, body, author_label, audience)
 values
@@ -12,19 +12,24 @@ values
   ('f7000000-0000-4000-8000-000000000006', '10000000-0000-4000-8000-000000000001', 'notice', 'Một từ dài',
    repeat('a', 120), 'Phòng Nhân sự', 'tenant'),
   ('f7000000-0000-4000-8000-000000000007', '10000000-0000-4000-8000-000000000001', 'notice', 'Vừa đủ',
-   repeat('a', 85) || ' bbbb', 'Phòng Nhân sự', 'tenant');
+   repeat('a', 85) || ' bbbb', 'Phòng Nhân sự', 'tenant'),
+  ('f7000000-0000-4000-8000-000000000008', '10000000-0000-4000-8000-000000000001', 'notice', 'Danh sách dài',
+   E'Danh sách\n- ' || repeat('a', 40) || E'\n- ' || repeat('b', 60), 'Phòng Nhân sự', 'tenant');
 
 select is(public.announcement_teaser('f7000000-0000-4000-8000-000000000001'), 'Công ty nghỉ Tết…',
   'Teaser không tiền tố người đăng, cắt ở ranh giới từ (≤ 90 ký tự), bỏ dấu câu trước …');
 select is(public.announcement_teaser('f7000000-0000-4000-8000-000000000006'), repeat('a', 90) || '…', 'Một từ dài hơn 90 ký tự thì cắt cứng');
 select is(public.announcement_teaser('f7000000-0000-4000-8000-000000000007'), repeat('a', 85) || ' bbbb', 'Đúng 90 ký tự thì giữ nguyên');
+select is(public.announcement_teaser('f7000000-0000-4000-8000-000000000008'), E'Danh sách\n• ' || repeat('a', 40) || '…', 'Cắt giữa danh sách: bỏ dấu mục trơ trọi');
 
 select is(public.announcement_teaser('f7000000-0000-4000-8000-000000000002'),
   'Ban Giám đốc đăng thông báo mới',
   'Teaser bài rỗng (chỉ khoảng trắng/ký hiệu) ra câu đăng thông báo mới');
 
 select is(public.announcement_plain_text(E'## Lịch nghỉ\n**Nghỉ** từ *28/1* đến ++5/2++\n\n---\n- Ý một\n  1. Ý hai\n> Ghi chú'),
-  'Lịch nghỉ. Nghỉ từ 28/1 đến 5/2. Ý một. Ý hai. Ghi chú', 'Bỏ ký hiệu tiêu đề/danh sách/thụt lề/định dạng, mỗi mục thành một câu');
+  E'Lịch nghỉ. Nghỉ từ 28/1 đến 5/2\n• Ý một\n1. Ý hai\nGhi chú', 'Bỏ ký hiệu tiêu đề/thụt lề/định dạng; mục danh sách giữ số/chấm, mỗi mục một dòng');
+select is(public.announcement_plain_text(E'THÔNG BÁO\n\\1. Thông báo 12344\n\\2. Thông báo 5464565'),
+  E'THÔNG BÁO\n1. Thông báo 12344\n2. Thông báo 5464565', 'Dòng gõ tay "1. …" (lưu dạng \1.) cũng mỗi mục một dòng');
 select is(public.announcement_plain_text(E'Công ty sẽ tổ chức\nteam building \\*vui\\* và 2 * 3 **đậm'),
   'Công ty sẽ tổ chức team building *vui* và 2 * 3 **đậm', 'Dòng cùng đoạn nối bằng dấu cách; ký hiệu có \ hoặc lẻ giữ nguyên');
 select is(public.announcement_plain_text(E'Xin chào,\r\n\r\nNội dung'), 'Xin chào, Nội dung', 'Đã có dấu câu thì không thêm dấu chấm');
