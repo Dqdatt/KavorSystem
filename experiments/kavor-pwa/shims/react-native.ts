@@ -87,6 +87,9 @@ type ScrollViewProps = ComponentProps<typeof RNW.ScrollView> & {
 export const ScrollView = forwardRef<RNW.ScrollView, ScrollViewProps>(function ScrollView(p, ref) {
   const innerRef = useRef<RNW.ScrollView | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /* Hẹn giờ đọc props mới nhất: bấm chọn số trong lúc chờ khớp thì không bị hàm của lần render cũ ghi đè */
+  const propsRef = useRef(p);
+  propsRef.current = p;
 
   const setRef = useCallback(
     (node: RNW.ScrollView | null) => {
@@ -117,18 +120,22 @@ export const ScrollView = forwardRef<RNW.ScrollView, ScrollViewProps>(function S
   const onScroll: ScrollViewProps["onScroll"] = hasSnap
     ? (e) => {
         p.onScroll?.(e);
-        const { x, y } = e.nativeEvent.contentOffset;
+        const { contentOffset: { x, y }, contentSize, layoutMeasurement } = e.nativeEvent;
         if (timerRef.current !== null) clearTimeout(timerRef.current);
         timerRef.current = setTimeout(() => {
           timerRef.current = null;
-          const pos = p.horizontal ? x : y;
-          const t = snapTarget(pos, p.snapToInterval, p.snapToOffsets);
-          if (t === null) return;
+          const q = propsRef.current;
+          const pos = q.horizontal ? x : y;
+          const raw = snapTarget(pos, q.snapToInterval, q.snapToOffsets);
+          if (raw === null) return;
+          /* Điểm khớp vượt mép cuộn thì trình duyệt đứng yên, không phát thêm sự kiện → kẹp về mép */
+          const max = q.horizontal ? contentSize.width - layoutMeasurement.width : contentSize.height - layoutMeasurement.height;
+          const t = Math.min(raw, Math.max(0, max));
           if (Math.abs(t - pos) > 1) {
-            innerRef.current?.scrollTo(p.horizontal ? { x: t, animated: true } : { y: t, animated: true });
+            innerRef.current?.scrollTo(q.horizontal ? { x: t, animated: true } : { y: t, animated: true });
             return;
           }
-          p.onMomentumScrollEnd?.({ nativeEvent: { contentOffset: { x, y } } });
+          q.onMomentumScrollEnd?.({ nativeEvent: { contentOffset: { x, y } } });
         }, 120);
       }
     : p.onScroll;

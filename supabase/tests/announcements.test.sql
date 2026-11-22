@@ -98,7 +98,7 @@ select ok(public.announcement_visible(current_setting('test.all')::uuid, 'e41000
 select is((select count(*)::int from public.notifications where link_type = 'announcement' and link_id = current_setting('test.all')::uuid), 4,
   'Thông báo cho mọi người nhận (admin + 3 nhân viên chưa nghỉ)');
 select is((select title from public.notifications where link_id = current_setting('test.all')::uuid and recipient_employee_id = 'e4100000-0000-4000-8000-000000000002'),
-  'Quan trọng: Toàn công ty', 'Tiêu đề thông báo theo bài quan trọng');
+  '❗ Toàn công ty', 'Tiêu đề thông báo theo bài quan trọng');
 select is(public.notify_due_announcements(current_setting('test.all')::uuid), 0, 'Không gửi thông báo lần hai');
 select throws_ok($$select public.publish_announcement(current_setting('test.at')::uuid, 'a4100000-0000-4000-8000-000000000001', current_setting('test.all')::uuid, null)$$,
   'P0001', 'ANNOUNCEMENT_NOT_PUBLISHABLE', 'Bài đã xuất bản không xuất bản lại');

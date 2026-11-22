@@ -738,6 +738,8 @@ ghi trong `docs/plans/documents.md` chờ review. Mọi agent làm theo `docs/AG
   `202612140002_notification_text_pay.sql` — Claude): câu tiếng Việt, KHÔNG dấu "·" (quy tắc người dùng), không câu đệm, không số tiền
   (tạm ứng/lương) vì màn hình khóa ai cũng đọc được; bản tin kèm đoạn trích 120 ký tự (bỏ quyết định cũ "không chép nội dung").
   Push gửi `urgency: high`, rút hàng đợi 5 giây/lần (trước 20 giây).
+  22/11: bản tin quan trọng → "❗" (migration 202612150001). PWA: shim ScrollView — react-native-web để style `overflow: visible` của app đè mất
+  cuộn ngang (dải ngày kẹt) và không hỗ trợ snapToInterval/onMomentumScrollEnd (bánh xe giờ không khớp số) → bỏ overflow + giả lập snap khi ngừng cuộn.
 - 2026-11-05 — Claude (Desktop): lương đầu vào HCNS (A) + bảng lương đầu vào theo kỳ (B) theo quy trình HR → Kế toán người dùng chia sẻ.
   Đổi quyền: HCNS xem/sửa lương (sửa pgTAP `salary_advance` + `advance-smoke` theo quyền mới). Giai đoạn C (Kavor tự tính lương) chờ mẫu bảng tính.
 - 2026-11-05 — Claude (Desktop): sửa 4 lỗi test iPhone. (1) Chấm công lưu vào hàng đợi trên máy TRƯỚC khi gửi, hiện biên nhận ngay
