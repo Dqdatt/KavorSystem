@@ -84,12 +84,14 @@ test("thêm icon đầu tiêu đề push theo loại thông báo", async () => {
   const r1 = { ...row(1), kind: "request.approved", title: "Đơn đã duyệt" };
   const r2 = { ...row(2), kind: "announcement.published", title: "❗ Nghỉ lễ" };
   const r3 = { ...row(3), kind: "x.y", title: "Tiêu đề lạ" };
-  const { sb } = fakeSb([r1, r2, r3]);
+  const r4 = { ...row(4), kind: "constructor", title: "Tiêu đề kế thừa" };
+  const { sb } = fakeSb([r1, r2, r3, r4]);
   const sent: Array<{ payload: { title: string } }> = [];
   const svc = new PushService(sb, null, async (_s, p) => { sent.push({ payload: JSON.parse(p) }); });
   await svc.drain();
   assert.equal(sent[0]?.payload.title, "✅ Đơn đã duyệt");
   assert.equal(sent[1]?.payload.title, "❗ Nghỉ lễ");
   assert.equal(sent[2]?.payload.title, "Tiêu đề lạ");
+  assert.equal(sent[3]?.payload.title, "Tiêu đề kế thừa");
 });
 

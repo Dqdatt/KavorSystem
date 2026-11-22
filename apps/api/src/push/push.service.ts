@@ -111,7 +111,7 @@ const PUSH_ICON: Partial<Record<NotificationKind, string>> = {
 
 /* Nội dung push: service worker của PWA hiện tiêu đề/nội dung, bấm vào mở đúng đơn/bản tin (data.link) */
 function payload(r: Claim): string {
-  const icon = !r.title.startsWith("❗") ? PUSH_ICON[r.kind as NotificationKind] : undefined;
+  const icon = !r.title.startsWith("❗") && Object.hasOwn(PUSH_ICON, r.kind) ? PUSH_ICON[r.kind as NotificationKind] : undefined;
   const title = icon ? `${icon} ${r.title}` : r.title;
   return JSON.stringify({
     title, body: r.body, tag: r.notification_id,
