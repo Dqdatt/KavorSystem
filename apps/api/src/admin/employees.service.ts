@@ -121,7 +121,10 @@ export class EmployeesAdmin {
   private async assertManagerValid(ctx: AdminContext, org: Org, employeeId: string | null, positionId: string, managerId: string | null, today: string) {
     if (!managerId) return;
     if (managerId === employeeId) throw invalid("Nhân viên không thể là quản lý trực tiếp của chính mình.");
-    const [tiers, mp] = await Promise.all([this.positionTiers(ctx), loadPlacements(ctx.db, ctx.tenantId, today, [managerId])]);
+    const [tiers, mp, { data: who }] = await Promise.all([this.positionTiers(ctx), loadPlacements(ctx.db, ctx.tenantId, today, [managerId]),
+      ctx.db.from("employees").select("status").eq("tenant_id", ctx.tenantId).eq("id", managerId).maybeSingle()]);
+    /* Người đã nghỉ không duyệt được đơn: đơn của nhân viên sẽ kẹt ở bước quản lý trực tiếp */
+    if ((who as { status: string } | null)?.status === "terminated") throw invalid(`${org.names.get(managerId) ?? "Người được chọn"} đã nghỉ việc, không làm quản lý trực tiếp được.`);
     const m = mp.get(managerId), mt = m ? tiers.get(m.position_id) ?? null : null, et = tiers.get(positionId) ?? null;
     if (!managerTierOk(mt, et)) {
       const name = org.names.get(managerId) ?? "Người được chọn";

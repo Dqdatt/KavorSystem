@@ -348,7 +348,7 @@ function OffboardModal({ e, onClose, onDone }: { e: EmployeeDetail; onClose: () 
       </div>
       <p className="muted" style={{ fontSize: 12.5, margin: "12px 0 0" }}>{lastDay && lastDay < today ? "Ngày cuối đã qua: hồ sơ chuyển Đã nghỉ việc và tài khoản bị khóa ngay." : `Đến hết ngày ${fmtDate(lastDay)} nhân viên vẫn dùng app, hồ sơ hiện Sắp nghỉ. Sang ngày hôm sau hệ thống tự chuyển Đã nghỉ việc và khóa tài khoản.`}</p>
       <div className="note" style={{ marginTop: 12 }}><Icon name="alert" /><span>{cancelText}</span></div>
-      {e.directReports > 0 || approvals > 0 ? <div className="note" style={{ marginTop: 12 }}><Icon name="alert" /><span>{[e.directReports > 0 ? `Đang quản lý trực tiếp ${e.directReports} người` : "", approvals > 0 ? `còn ${approvals} bước chờ người này duyệt` : ""].filter(Boolean).join(", ")}. Đổi quản lý trực tiếp của các nhân viên này (Sửa hồ sơ hoặc Cơ cấu tổ chức) trước ngày làm việc cuối để đơn mới không bị kẹt.</span></div> : null}
+      {e.directReports > 0 || approvals > 0 ? <div className="note" style={{ marginTop: 12 }}><Icon name="alert" /><span>{[e.directReports > 0 ? `Đang quản lý trực tiếp ${e.directReports} người` : "", approvals > 0 ? `còn ${approvals} bước chờ người này duyệt` : ""].filter(Boolean).join(", ")}. Khi hồ sơ chuyển Đã nghỉ việc, các nhân viên này để trống quản lý trực tiếp và đơn đang chờ người này duyệt chuyển sang bước kế tiếp, thường là Phòng Nhân sự. Muốn giao cho quản lý khác thì đổi quản lý trực tiếp (Sửa hồ sơ hoặc Cơ cấu tổ chức).</span></div> : null}
       <ErrorLine text={err} />
     </Modal>
   );
