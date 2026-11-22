@@ -50,7 +50,7 @@ config.resolver.resolveRequest = (ctx, name, platform) => {
   const pkgRoot = name.startsWith("@") ? name.split("/").slice(0, 2).join("/") : name.split("/")[0];
   /* babel-plugin-react-native-web đổi `import { StyleSheet } from "react-native"` thành `"react-native-web/dist/exports/StyleSheet"`,
      nên bắt riêng từng export mà shims/react-native.ts ghi đè khi gọi từ mã app. */
-  const SHIMMED_EXPORTS = new Set(["Platform", "Alert", "useWindowDimensions", "Dimensions", "Linking", "Keyboard", "Vibration", "LogBox"]);
+  const SHIMMED_EXPORTS = new Set(["Platform", "Alert", "useWindowDimensions", "Dimensions", "Linking", "Keyboard", "Vibration", "LogBox", "ScrollView"]);
   const rnwSub = name.startsWith("react-native-web/dist/exports/") ? name.slice("react-native-web/dist/exports/".length).split("/")[0] : null;
   if ((name === "react-native" || name === "react-native-web" || (rnwSub && SHIMMED_EXPORTS.has(rnwSub))) && fromApp(origin) && origin !== path.join(SHIMS, "react-native.ts")) {
     return { type: "sourceFile", filePath: path.join(SHIMS, "react-native.ts") };
